@@ -256,13 +256,16 @@ function mostrar(id, sim) { $(id).classList.toggle('oculto', !sim); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
 function guardar(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
 function ler(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+/* dentro do Power-Up (popup do Trello): avisa a casca do popup */
+var PU = false;
+function avisarPai(msg) { try { var w = window; for (var i = 0; i < 4 && w !== w.parent; i++) { w = w.parent; w.postMessage(msg, '*'); } } catch (e) {} }
 
 function chamar(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
   return new Promise(function (ok, falha) {
     var r = google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) {
       var msg = (e && e.message) || String(e);
-      if (/^(Error: )?LOGIN:/.test(msg)) { guardar('vd_token', null); TOKEN = ''; telaLogin(); }
+      if (/^(Error: )?LOGIN:/.test(msg)) { guardar('vd_token', null); TOKEN = ''; if (PU) avisarPai({ vd: 'login' }); telaLogin(); }
       falha(new Error(msg.replace(/^(Error: )?(LOGIN: )?/, '')));
     });
     r[fn].apply(r, args);
@@ -283,11 +286,13 @@ function iniciar() {
   google.script.url.getLocation(function (loc) {
     var m = (loc.hash || '').match(/token=([0-9a-zA-Z]+)/);
     if (m) guardar('vd_token', m[1]);
+    PU = !!(loc.parameter && loc.parameter.pu);
+    if (PU) { document.body.classList.add('pu'); $('linkCard').classList.add('oculto'); $('linkNovo').textContent = 'Fechar'; $('linkNovo').removeAttribute('target'); $('linkNovo').onclick = function () { avisarPai({ vd: 'fechar' }); return false; }; }
     var card = (loc.parameter && loc.parameter.card) || '';
     SO_TIPOS = !!(loc.parameter && loc.parameter.so === 'tipos');
     var modo = (loc.parameter && loc.parameter.modo) || '';
     if (card) { guardar('vd_card_pend', card); guardar('vd_modo_pend', modo || null); }
-    else if (!m) { guardar('vd_card_pend', null); guardar('vd_modo_pend', null); }
+    else if (!m || (loc.parameter && loc.parameter.novo)) { guardar('vd_card_pend', null); guardar('vd_modo_pend', null); }
     TOKEN = ler('vd_token');
     CARD_EDICAO = ler('vd_card_pend');
     MODO_COMPRAS = ler('vd_modo_pend') === 'compras' && !!CARD_EDICAO;
@@ -491,8 +496,9 @@ function enviarCompra() {
 }
 function sucesso(html, url, rotuloNovo) {
   $('msgSucesso').innerHTML = html; $('linkCard').href = url;
-  if (rotuloNovo) { $('linkNovo').textContent = rotuloNovo; $('linkNovo').href = CFG.urlApp + '?card=' + CARD_EDICAO + '&modo=compras'; $('linkNovo').onclick = null; }
+  if (rotuloNovo && !PU) { $('linkNovo').textContent = rotuloNovo; $('linkNovo').href = CFG.urlApp + '?card=' + CARD_EDICAO + '&modo=compras'; $('linkNovo').onclick = null; }
   mostrar('form', false); mostrar('comprador', false); mostrar('telaSucesso', true); window.scrollTo(0, 0);
+  if (PU) avisarPai({ vd: 'concluido', url: url });
 }
 
 /* modo enxuto: o robô já importou as peças, só falta o tipo */
@@ -810,6 +816,7 @@ function enviar(ev) {
     $('linkCard').href = r.url;
     mostrar('form', false); mostrar('telaSucesso', true);
     window.scrollTo(0, 0);
+    if (PU) avisarPai({ vd: 'concluido', url: r.url });
   }).catch(function (e) {
     $('btnEnviar').disabled = false; mostrar('enviando', false);
     mostrarErros([e.message]);
