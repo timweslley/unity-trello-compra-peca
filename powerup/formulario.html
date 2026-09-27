@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<style>
+  :root { --fundo:#f3f4f6; --card:#fff; --texto:#1f2937; --suave:#6b7280; --borda:#d1d5db;
+          --destaque:#e8590c; --destaque2:#fff4e6; --ok:#2f9e44; --erro:#c92a2a; --erro2:#fff5f5; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; background:var(--fundo); color:var(--texto); font-size:15px; }
+  header { background:#212529; color:#fff; padding:14px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  header h1 { font-size:17px; margin:0; font-weight:600; flex:1; }
+  .selo { background:var(--destaque); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:10px; letter-spacing:.5px; }
+  .usuario { font-size:13px; opacity:.85; }
+  .usuario a { color:#fff; margin-left:6px; }
+  main { max-width:760px; margin:0 auto; padding:16px; }
+  section { background:var(--card); border:1px solid var(--borda); border-radius:10px; padding:16px; margin-bottom:14px; }
+  section h2 { font-size:15px; margin:0 0 12px; text-transform:uppercase; letter-spacing:.4px; color:#343a40; }
+  label { display:block; font-size:13px; color:var(--suave); margin:0 0 4px; }
+  label .obr { color:var(--erro); }
+  input[type=text], input[type=number], select, textarea { width:100%; padding:9px 10px; border:1px solid var(--borda); border-radius:7px; font-size:15px; background:#fff; color:var(--texto); }
+  input.maiusc { text-transform:uppercase; }
+  textarea { min-height:60px; resize:vertical; }
+  .grade { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
+  .grade .inteiro { grid-column:1 / -1; }
+  @media (max-width:560px) { .grade { grid-template-columns:1fr; } }
+  .dica { font-size:12px; color:var(--suave); margin-top:4px; }
+  .dica.ruim { color:var(--erro); }
+  .dica.boa { color:var(--ok); }
+  button, .botao { border:0; border-radius:7px; padding:10px 16px; font-size:15px; cursor:pointer; font-weight:600; text-decoration:none; display:inline-block; }
+  .principal { background:var(--destaque); color:#fff; }
+  .principal:disabled { opacity:.6; cursor:wait; }
+  .secundario { background:#e9ecef; color:#212529; }
+  .perigo { background:transparent; color:var(--erro); padding:6px 10px; font-size:13px; }
+  .item { border:1px solid var(--borda); border-radius:8px; padding:12px; margin-bottom:10px; background:#fafafa; }
+  .item-topo { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .item-topo strong { flex:1; }
+  .item-topo select { width:auto; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--borda); border-radius:18px; padding:7px 12px; background:#fff; cursor:pointer; user-select:none; font-size:14px; }
+  .chip input { margin:0; width:16px; height:16px; accent-color:var(--destaque); }
+  .chip.marcado { border-color:var(--destaque); background:var(--destaque2); font-weight:600; }
+  .chip.desab { opacity:.4; cursor:not-allowed; }
+  .aviso { border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:14px; }
+  .aviso.erro { background:var(--erro2); border:1px solid #ffc9c9; color:var(--erro); }
+  .aviso.info { background:#e7f5ff; border:1px solid #a5d8ff; color:#1864ab; }
+  .aviso.ok { background:#ebfbee; border:1px solid #b2f2bb; color:#2b8a3e; }
+  .aviso ul { margin:6px 0 0 18px; padding:0; }
+  .escolha { display:flex; flex-direction:column; gap:8px; margin-top:10px; }
+  .escolha button { text-align:left; font-weight:500; }
+  .centro { text-align:center; padding:40px 16px; }
+  .oculto { display:none !important; }
+  .rodape { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .carregando { color:var(--suave); font-size:14px; }
+  .abas { display:flex; gap:8px; margin-bottom:14px; }
+  .aba { flex:1; background:#e9ecef; color:#212529; border:2px solid transparent; }
+  .aba.marcada { background:#fff; border-color:var(--destaque); color:var(--destaque); }
+  .cot { display:grid; grid-template-columns:2fr 1.2fr 1fr 1fr .8fr auto; gap:6px; align-items:end; margin-top:8px; }
+  .cot label { font-size:11px; }
+  @media (max-width:640px) { .cot { grid-template-columns:1fr 1fr; } }
+  .cot-lida { font-size:13px; color:#343a40; padding:4px 0; border-bottom:1px dashed var(--borda); }
+  .cot-lida b { color:var(--destaque); }
+  .comprado { color:var(--ok); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pedido de Peça — Unity</h1>
+  <span class="selo" id="seloTeste">QUADRO DE TESTE</span>
+  <span class="usuario" id="usuario"></span>
+</header>
+
+<main>
+  <div id="telaLogin" class="centro oculto">
+    <p>Entre com a sua conta do Trello para fazer o pedido.<br>O card fica no seu nome.</p>
+    <a id="btnLogin" class="botao principal" href="#">Entrar com o Trello</a>
+  </div>
+
+  <div id="telaCarregando" class="centro carregando">Carregando…</div>
+
+  <div id="telaSucesso" class="oculto">
+    <section>
+      <div class="aviso ok" id="msgSucesso"></div>
+      <div class="rodape">
+        <a class="botao principal" id="linkCard" href="#" target="_blank">Abrir o card no Trello</a>
+        <a class="botao secundario" id="linkNovo" href="#" target="_top" onclick="guardar('vd_card_pend', null)">Fazer outro pedido</a>
+      </div>
+    </section>
+  </div>
+
+  <form id="form" class="oculto" onsubmit="enviar(event)" autocomplete="off">
+    <div id="erroGeral" class="aviso erro oculto"></div>
+    <div id="modoEdicao" class="aviso info oculto"></div>
+
+    <section>
+      <h2>1. Tipo do pedido e placa</h2>
+      <div class="chips" style="margin-bottom:12px">
+        <label class="chip marcado"><input type="radio" name="tipoPedido" value="SEGURADORA" checked onchange="aoMudarTipo()"> Seguradora (orçamento autorizado)</label>
+        <label class="chip"><input type="radio" name="tipoPedido" value="PARTICULAR" onchange="aoMudarTipo()"> Particular (carro ainda não entrou / orçamento da oficina)</label>
+      </div>
+      <div class="grade">
+        <div>
+          <label for="placa">Placa <span class="obr">*</span></label>
+          <input type="text" id="placa" class="maiusc" maxlength="8" placeholder="ABC1D23" onchange="aoMudarPlaca()">
+          <div class="dica" id="dicaPlaca"></div>
+        </div>
+      </div>
+      <div id="cardsPlaca"></div>
+    </section>
+
+    <section>
+      <h2 id="tituloDoc">2. Orçamento autorizado <span class="obr">*</span></h2>
+      <label for="arquivo" id="rotuloDoc">Anexe o PDF do orçamento autorizado (Cilia, HDI ou Websoma). O sistema lê chassi, modelo, ano, cor e seguradora e já separa as peças da oficina das fornecidas pela seguradora.</label>
+      <input type="file" id="arquivo" accept="application/pdf,image/*" multiple onchange="lerDocumento()">
+      <div class="dica" id="dicaArquivo"></div>
+      <div id="listaAnexos" class="dica"></div>
+      <div style="margin-top:12px">
+        <label for="capa">Foto de capa do card (opcional)</label>
+        <input type="file" id="capa" accept="image/*" onchange="subirCapa()">
+        <div class="dica" id="dicaCapa">A foto vira a capa do card no Trello.</div>
+      </div>
+    </section>
+
+    <section>
+      <h2>3. Dados do carro</h2>
+      <div class="grade">
+        <div class="inteiro">
+          <label for="modelo">Modelo completo <span class="obr">*</span></label>
+          <input type="text" id="modelo" class="maiusc" placeholder="CHEVROLET COBALT LTZ">
+        </div>
+        <div>
+          <label for="ano">Ano fabricação/modelo <span class="obr">*</span></label>
+          <input type="text" id="ano" placeholder="2014/2015">
+        </div>
+        <div>
+          <label for="motor">Motor / versão</label>
+          <input type="text" id="motor" class="maiusc" placeholder="1.8 FLEX">
+        </div>
+        <div class="inteiro">
+          <label for="chassi">Chassi <span class="obr">*</span></label>
+          <input type="text" id="chassi" class="maiusc" maxlength="20" placeholder="17 caracteres" oninput="conferirChassi()">
+          <div class="dica" id="dicaChassi"></div>
+        </div>
+      </div>
+      <div class="dica" id="dicaTitulo" style="margin-top:12px">O título do card fica: PLACA CARRO COR SEGURADORA.</div>
+      <div id="blocoNovo" class="grade" style="margin-top:8px">
+        <div>
+          <label for="carro">Carro (nome curto p/ o título) <span class="obr">*</span></label>
+          <input type="text" id="carro" class="maiusc" placeholder="COBALT">
+        </div>
+        <div>
+          <label for="cor">Cor</label>
+          <input type="text" id="cor" class="maiusc" placeholder="PRATA">
+        </div>
+        <div>
+          <label for="seguradora" id="rotuloSeg">Seguradora</label>
+          <input type="text" id="seguradora" class="maiusc" placeholder="HDI">
+        </div>
+        <div>
+          <label for="sinistro">Sinistro</label>
+          <input type="text" id="sinistro" placeholder="Opcional">
+        </div>
+        <div id="blocoUnidade">
+          <label for="unidade">Unidade</label>
+          <select id="unidade"><option value="">—</option></select>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>4. Peças</h2>
+      <div id="avisoOrc" class="aviso info oculto"></div>
+      <div id="itens"></div>
+      <div class="rodape">
+        <button type="button" class="secundario" onclick="novoItem('peca')">+ Adicionar peça</button>
+        <button type="button" class="secundario" onclick="novoItem('pneu')">+ Adicionar pneu</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>5. Observações</h2>
+      <textarea id="obs" placeholder="Opcional"></textarea>
+    </section>
+
+    <div class="rodape" style="margin-bottom:30px">
+      <button type="submit" class="principal" id="btnEnviar">Enviar pedido</button>
+      <span class="carregando oculto" id="enviando">Enviando…</span>
+    </div>
+  </form>
+
+  <!-- ===== comprador: cotação / compra ===== -->
+  <div id="comprador" class="oculto">
+    <div id="erroComprador" class="aviso erro oculto"></div>
+    <div class="aviso info" id="infoComprador"></div>
+    <div class="abas">
+      <button type="button" class="aba marcada" id="abaCot" onclick="mostrarAba('cot')">💰 Cotação</button>
+      <button type="button" class="aba" id="abaCompra" onclick="mostrarAba('compra')">🛒 Compra</button>
+    </div>
+
+    <div id="painelCot">
+      <section>
+        <h2>Cotações por peça</h2>
+        <div class="dica" style="margin-bottom:10px">Para cada peça, lance quantas cotações achou: fornecedor, tipo, marca, valor e prazo em dias. Tudo vai para a descrição do card, abaixo da linha de cotação. Depois, na aba <b>Compra</b>, você escolhe o fornecedor de cada peça.</div>
+        <div id="cotItens"></div>
+      </section>
+      <section>
+        <h2>Fornecedores consultados que não têm a peça (NT)</h2>
+        <input type="text" id="cotNT" class="maiusc" placeholder="Ex.: ELETROPAR, TOLI (separe por vírgula)">
+        <div class="dica" id="ntExistentes"></div>
+      </section>
+      <div class="rodape" style="margin-bottom:30px">
+        <button type="button" class="principal" id="btnCotacao" onclick="enviarCotacao()">Enviar cotação</button>
+        <span class="carregando oculto" id="enviandoCot">Enviando…</span>
+      </div>
+    </div>
+
+    <div id="painelCompra" class="oculto">
+      <section>
+        <h2>Compra — escolha o fornecedor de cada peça</h2>
+        <div class="dica" style="margin-bottom:10px">Só aparecem as cotações lançadas no card. Cada escolha vira um item do checklist <b>PAGAS</b> (<b>CÓDIGO DESCRIÇÃO - FORNECEDOR - R$ valor</b>) com a previsão como data do item. Pode comprar uma parte agora e o resto depois.</div>
+        <div id="compraItens"></div>
+      </section>
+      <div class="rodape" style="margin-bottom:30px">
+        <button type="button" class="principal" id="btnCompra" onclick="enviarCompra()">Enviar compra</button>
+        <span class="carregando oculto" id="enviandoCompra">Enviando…</span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="./config.js"></script>
+<script>
+/* Versão estática do formulário (GitHub Pages). O servidor continua sendo o Apps Script,
+ * chamado por fetch (doPost {fn,args}). Gerada a partir de apps-script/Formulario.html. */
+var CFG = { chave: PU_CFG.CHAVE, urlApp: PU_CFG.URL_FORM, teste: true, tipos: ['GENUÍNO', 'ORIGINAL', 'PARALELO', 'USADO'], categPneu: ['IMPORTADO', '1ª LINHA'] };
+var TOKEN = '', CARD_EDICAO = '', FILE_IDS = [], CAPA_ID = '', seq = 0;
+var ORC = null, POS = false, LISTA = '', SO_TIPOS = false, MODO_COMPRAS = false, CARD = null, COMPRADOR = false;
+
+function tipoPedido() { var r = document.querySelector('input[name=tipoPedido]:checked'); return r ? r.value : 'SEGURADORA'; }
+function setTipoPedido(t) {
+  Array.prototype.forEach.call(document.querySelectorAll('input[name=tipoPedido]'), function (r) { r.checked = r.value === t; r.parentNode.classList.toggle('marcado', r.checked); });
+  aoMudarTipo();
+}
+function aoMudarTipo() {
+  var part = tipoPedido() === 'PARTICULAR';
+  Array.prototype.forEach.call(document.querySelectorAll('input[name=tipoPedido]'), function (r) { r.parentNode.classList.toggle('marcado', r.checked); });
+  $('tituloDoc').innerHTML = part ? '2. Documento (opcional)' : '2. Orçamento autorizado <span class="obr">*</span>';
+  $('rotuloDoc').textContent = part
+    ? 'Anexe o documento do carro ou o orçamento da oficina, se tiver. O sistema lê chassi, modelo e ano.'
+    : 'Anexe o PDF do orçamento autorizado (Cilia, HDI ou Websoma). O sistema lê chassi, modelo, ano, cor e seguradora e já separa as peças da oficina das fornecidas pela seguradora.';
+  $('seguradora').closest('div').classList.toggle('oculto', part);
+  $('sinistro').closest('div').classList.toggle('oculto', part);
+  $('dicaTitulo').textContent = part ? 'O título do card fica: PLACA CARRO COR PARTICULAR.' : 'O título do card fica: PLACA CARRO COR SEGURADORA.';
+  $('rotuloSeg').textContent = 'Seguradora';
+}
+
+function $(id) { return document.getElementById(id); }
+function mostrar(id, sim) { $(id).classList.toggle('oculto', !sim); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function guardar(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
+function ler(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+/* dentro do Power-Up (popup do Trello): avisa a casca do popup */
+var PU = false;
+function avisarPai(msg) { try { var w = window; for (var i = 0; i < 4 && w !== w.parent; i++) { w = w.parent; w.postMessage(msg, '*'); } } catch (e) {} }
+
+function chamar(fn) {
+  var args = Array.prototype.slice.call(arguments, 1);
+  return fetch(PU_CFG.URL_APP, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: fn, args: args }) })
+    .then(function (r) { return r.text(); })
+    .then(function (t) {
+      var j; try { j = JSON.parse(t); } catch (e) { throw new Error('Resposta inválida do servidor'); }
+      if (j.ok) return j.r;
+      throw new Error(j.erro || 'Erro no servidor');
+    })
+    .catch(function (e) {
+      var msg = (e && e.message) || String(e);
+      if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) msg = 'Sem conexão com o servidor. Tente de novo.';
+      if (/^(Error: )?LOGIN:/.test(msg)) { guardar('vd_token', null); TOKEN = ''; if (PU) avisarPai({ vd: 'login' }); telaLogin(); }
+      throw new Error(msg.replace(/^(Error: )?(LOGIN: )?/, ''));
+    });
+}
+function lerLocal() {
+  var p = {};
+  location.search.replace(/^\?/, '').split('&').forEach(function (kv) {
+    if (!kv) return; var i = kv.indexOf('=');
+    var k = decodeURIComponent(i < 0 ? kv : kv.slice(0, i)), v = i < 0 ? '' : decodeURIComponent(kv.slice(i + 1).replace(/\+/g, ' '));
+    p[k] = v;
+  });
+  return { parameter: p, hash: location.hash.replace(/^#/, '') };
+}
+
+function telaLogin() {
+  mostrar('telaCarregando', false); mostrar('form', false); mostrar('comprador', false); mostrar('telaSucesso', false); mostrar('telaLogin', true);
+  $('btnLogin').href = 'https://trello.com/1/authorize?expiration=never&scope=read,write&response_type=token&callback_method=fragment'
+    + '&name=' + encodeURIComponent('Pedido de Peça Unity')
+    + '&key=' + encodeURIComponent(CFG.chave)
+    + '&return_url=' + encodeURIComponent(CFG.urlApp);
+}
+
+function iniciar() {
+  mostrar('seloTeste', CFG.teste);
+  $('linkNovo').href = CFG.urlApp;
+  (function (loc) {
+    var m = (loc.hash || '').match(/token=([0-9a-zA-Z]+)/);
+    if (m) { guardar('vd_token', m[1]); try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
+    PU = !!(loc.parameter && loc.parameter.pu);
+    if (PU) { document.body.classList.add('pu'); $('linkCard').classList.add('oculto'); $('linkNovo').textContent = 'Fechar'; $('linkNovo').removeAttribute('target'); $('linkNovo').onclick = function () { avisarPai({ vd: 'fechar' }); return false; }; }
+    var card = (loc.parameter && loc.parameter.card) || '';
+    SO_TIPOS = !!(loc.parameter && loc.parameter.so === 'tipos');
+    var modo = (loc.parameter && loc.parameter.modo) || '';
+    if (card) { guardar('vd_card_pend', card); guardar('vd_modo_pend', modo || null); }
+    else if (!m || (loc.parameter && loc.parameter.novo)) { guardar('vd_card_pend', null); guardar('vd_modo_pend', null); }
+    TOKEN = ler('vd_token');
+    CARD_EDICAO = ler('vd_card_pend');
+    MODO_COMPRAS = ler('vd_modo_pend') === 'compras' && !!CARD_EDICAO;
+    if (MODO_COMPRAS) document.querySelector('header h1').textContent = 'Cotação / Compra de Peça — Unity';
+    if (!TOKEN) return telaLogin();
+    chamar('vdf_abrir', TOKEN, CARD_EDICAO || '').then(function (ab) {
+      var info = ab.info;
+      if (info.cfg) { CFG.teste = !!info.cfg.teste; CFG.tipos = info.cfg.tipos || CFG.tipos; CFG.categPneu = info.cfg.categPneu || CFG.categPneu; mostrar('seloTeste', CFG.teste); }
+      $('usuario').innerHTML = esc(info.nome) + ' <a href="#" onclick="sair();return false">sair</a>';
+      COMPRADOR = !!info.comprador;
+      var sel = $('unidade');
+      info.unidades.forEach(function (u) { var o = document.createElement('option'); o.value = u.id; o.textContent = u.name; sel.appendChild(o); });
+      mostrar('telaLogin', false);
+      if (CARD_EDICAO) return carregarCard(CARD_EDICAO, ab.card);
+      abrirFormulario();
+    }).catch(function (e) { if (TOKEN) erroFatal(e.message); });
+  })(lerLocal());
+}
+
+function sair() { guardar('vd_token', null); guardar('vd_card_pend', null); guardar('vd_modo_pend', null); location.reload(); }
+
+function erroFatal(msg) {
+  mostrar('telaCarregando', false); mostrar('form', true);
+  $('erroGeral').textContent = msg; mostrar('erroGeral', true);
+}
+
+function abrirFormulario() {
+  mostrar('telaCarregando', false); mostrar('form', true);
+  if (!$('itens').children.length) novoItem('peca');
+}
+
+/* ---------- edição de card existente ---------- */
+
+function carregarCard(sl, pronto) {
+  (pronto ? Promise.resolve(pronto) : chamar('vdf_carregarCard', TOKEN, sl)).then(function (c) {
+    CARD_EDICAO = c.shortLink; CARD = c;
+    if (MODO_COMPRAS) return telaComprador(c);
+    $('modoEdicao').innerHTML = 'Editando o card <b>' + esc(c.nome) + '</b>. As cotações que já estão no card são mantidas. '
+      + '<a href="#" onclick="modoNovo();return false">Fazer pedido novo em vez disso</a>';
+    mostrar('modoEdicao', true); mostrar('blocoUnidade', false);
+    POS = !!c.posCotacao; LISTA = c.lista || '';
+    if (c.doOrcamento) ORC = ORC || { origem: c.origemOrc || 'ORÇAMENTO', fo: [] };
+    setTipoPedido(c.tipo === 'PARTICULAR' ? 'PARTICULAR' : 'SEGURADORA');
+    var d = c.dados, t = c.titulo || {};
+    $('carro').value = t.carro || ''; $('cor').value = t.cor || d.cor || '';
+    $('seguradora').value = t.seguradora || d.seguradora || ''; $('sinistro').value = d.sinistro || '';
+    if (POS) {
+      $('modoEdicao').innerHTML += '<br><br>ℹ️ Este card está em <b>' + esc(LISTA) + '</b>. As peças que já estão aqui não são alteradas nem conferidas de novo. '
+        + 'Se você <b>incluir uma peça nova</b>, só ela é conferida e o card volta para EM COTAÇÃO.';
+    }
+    $('placa').value = d.placa || ''; $('modelo').value = d.modelo || ''; $('ano').value = d.ano || '';
+    $('motor').value = d.motor || ''; $('chassi').value = d.chassi || ''; $('obs').value = c.obs || '';
+    conferirChassi();
+    $('itens').innerHTML = '';
+    (c.pecas || []).forEach(function (p) { novoItem(p.pneu ? 'pneu' : 'peca', p); });
+    if (!c.padrao) {
+      $('modoEdicao').innerHTML += '<br><br>⚠️ A descrição deste card não estava no padrão. Preencha as peças abaixo — o texto antigo fica guardado no card, abaixo da linha de cotação.';
+    }
+    if (SO_TIPOS && c.padrao) modoSoTipos(c);
+    abrirFormulario();
+  }).catch(function (e) { guardar('vd_card_pend', null); CARD_EDICAO = ''; abrirFormulario(); $('erroGeral').textContent = e.message; mostrar('erroGeral', true); });
+}
+
+/* ---------- comprador: cotação / compra ---------- */
+
+function fmtValor(v) {
+  var n = typeof v === 'number' ? v : parseFloat(String(v || '').replace(/R\$|\s/g, '').replace(/\./g, '').replace(',', '.'));
+  if (isNaN(n)) return '';
+  var s = n.toFixed(2).split('.');
+  return 'R$ ' + s[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + s[1];
+}
+function rotuloCot(q) {
+  return q.fornecedor + ' — ' + ([q.tipo, q.marca].filter(String).join(' ') || '—') + ' — ' + fmtValor(q.valor) + (q.dias !== '' && q.dias !== undefined ? ' — ' + q.dias + ' dia' + (+q.dias === 1 ? '' : 's') : (q.data ? ' — ' + q.data : ''));
+}
+function pecasOficina(c) { return (c.pecas || []).filter(function (p) { return p.chave; }); }
+function semAc(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase(); }
+
+function telaComprador(c) {
+  mostrar('telaCarregando', false); mostrar('form', false); mostrar('comprador', true);
+  var pecas = pecasOficina(c);
+  $('infoComprador').innerHTML = '<b>' + esc(c.nome) + '</b> — está em <b>' + esc(c.lista) + '</b>. ' + pecas.length + ' peça(s) pela oficina'
+    + (c.tipo === 'PARTICULAR' ? ' · pedido <b>particular</b>' : ' · pedido de <b>seguradora</b>')
+    + '.<br><a href="' + esc(c.url) + '" target="_blank">Abrir o card</a> · <a href="#" onclick="guardar(\'vd_modo_pend\',null);location.href=CFG.urlApp+\'?card=\'+CARD_EDICAO;return false">Editar o pedido (consultor)</a>';
+  if (!pecas.length) { $('erroComprador').textContent = 'Este card não tem peça pela oficina na descrição (só fornecimento da seguradora ou descrição fora do padrão).'; mostrar('erroComprador', true); }
+  montarCotacao(c); montarCompra(c);
+  if (!COMPRADOR) {
+    $('btnCompra').disabled = true;
+    $('btnCompra').insertAdjacentHTML('afterend', '<span class="dica ruim">Só o setor de compras registra compra — sua conta pode lançar cotação.</span>');
+  }
+  mostrarAba(c.cotacoes && c.cotacoes.cotacoes.length && (c.lista || '').toUpperCase().indexOf('AUTORIZADO') === 0 ? 'compra' : 'cot');
+}
+function mostrarAba(a) {
+  mostrar('painelCot', a === 'cot'); mostrar('painelCompra', a !== 'cot');
+  $('abaCot').classList.toggle('marcada', a === 'cot'); $('abaCompra').classList.toggle('marcada', a !== 'cot');
+  mostrar('erroComprador', false);
+}
+
+function montarCotacao(c) {
+  var box = $('cotItens'); box.innerHTML = '';
+  var lidas = (c.cotacoes && c.cotacoes.cotacoes) || [];
+  var forns = []; lidas.forEach(function (q) { if (forns.indexOf(q.fornecedor) < 0) forns.push(q.fornecedor); });
+  var dl = document.getElementById('dlForn') || document.createElement('datalist'); dl.id = 'dlForn'; dl.innerHTML = forns.map(function (f) { return '<option value="' + esc(f) + '">'; }).join(''); document.body.appendChild(dl);
+  pecasOficina(c).forEach(function (p, i) {
+    var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave; div.dataset.pneu = p.pneu ? '1' : '';
+    var jaLidas = lidas.filter(function (q) { return q.chave === p.chave; });
+    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong>'
+      + '<button type="button" class="secundario" onclick="novaCot(this.closest(\'.item\'))">+ cotação</button></div>';
+    if (jaLidas.length) h += '<div style="margin-bottom:6px">' + jaLidas.map(function (q) { return '<div class="cot-lida">já no card: <b>' + esc(rotuloCot(q)) + '</b></div>'; }).join('') + '</div>';
+    var obsLidas = ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; });
+    if (obsLidas.length) h += '<div class="dica" style="margin-bottom:6px">Obs. já no card: ' + obsLidas.map(function (o) { return esc(o.texto); }).join(' · ') + '</div>';
+    h += '<div class="cot-novas"></div>';
+    h += '<div style="margin-top:8px"><label>Observação desta peça (opcional)</label><input type="text" class="q-obs" placeholder="Ex.: só em SP, frete 2 dias; pedir foto antes de comprar"></div>';
+    div.innerHTML = h;
+    box.appendChild(div);
+  });
+  $('ntExistentes').textContent = c.cotacoes && c.cotacoes.nt.length ? 'Já no card como NT: ' + c.cotacoes.nt.join(', ') : '';
+}
+function novaCot(item) {
+  var pneu = item.dataset.pneu === '1';
+  var peca = pecasOficina(CARD).filter(function (p) { return p.chave === item.dataset.chave; })[0] || {};
+  var tipos = pneu ? [] : (peca.tipos && peca.tipos.length ? peca.tipos : CFG.tipos);
+  var row = document.createElement('div'); row.className = 'cot';
+  row.innerHTML = '<div><label>Fornecedor</label><input type="text" class="q-forn maiusc" list="dlForn" placeholder="IMPERIAL"></div>'
+    + (pneu ? '<div><label>Marca do pneu</label><input type="text" class="q-marca maiusc" placeholder="PIRELLI"></div><input type="hidden" class="q-tipo" value="">'
+            : '<div><label>Tipo</label><select class="q-tipo">' + tipos.map(function (t, i) { return '<option value="' + esc(t) + '"' + (tipos.length === 1 ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div>'
+              + '<div><label>Marca (opcional)</label><input type="text" class="q-marca maiusc" placeholder="GM / DTS"></div>')
+    + '<div><label>Valor (R$)</label><input type="text" class="q-valor" inputmode="decimal" placeholder="1.647,00"></div>'
+    + '<div><label>Prazo (dias)</label><input type="number" class="q-dias" min="0" placeholder="3"></div>'
+    + '<div><button type="button" class="perigo" onclick="this.closest(\'.cot\').remove()">tirar</button></div>';
+  item.querySelector('.cot-novas').appendChild(row);
+  row.querySelector('.q-forn').focus();
+}
+function coletarCotacoes() {
+  var out = [], faltas = [];
+  Array.prototype.forEach.call($('cotItens').children, function (item, i) {
+    Array.prototype.forEach.call(item.querySelectorAll('.cot'), function (row, j) {
+      var q = { chave: item.dataset.chave, fornecedor: row.querySelector('.q-forn').value.trim(), tipo: row.querySelector('.q-tipo').value, marca: row.querySelector('.q-marca').value.trim(), valor: row.querySelector('.q-valor').value.trim(), dias: row.querySelector('.q-dias').value.trim() };
+      var rot = 'Peça ' + (i + 1) + ', cotação ' + (j + 1);
+      if (!q.fornecedor && !q.valor) return;   // linha vazia
+      if (!q.fornecedor) faltas.push(rot + ': falta o fornecedor');
+      if (!fmtValor(q.valor)) faltas.push(rot + ': valor inválido');
+      if (item.dataset.pneu === '1' && !q.marca) faltas.push(rot + ': falta a marca do pneu');
+      out.push(q);
+    });
+  });
+  var nt = $('cotNT').value.split(/[,;\n]/).map(function (s) { return s.trim().toUpperCase(); }).filter(String);
+  var obs = Array.prototype.map.call($('cotItens').children, function (item) { return { chave: item.dataset.chave, texto: (item.querySelector('.q-obs') || {}).value || '' }; }).filter(function (o) { return o.texto.trim(); });
+  if (!out.length && !nt.length && !obs.length) faltas.push('Lance pelo menos uma cotação, um fornecedor NT ou uma observação.');
+  return { cotacoes: out, nt: nt, obs: obs, faltas: faltas };
+}
+function errosComprador(lista) {
+  $('erroComprador').innerHTML = '<b>Falta acertar:</b><ul>' + lista.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>';
+  mostrar('erroComprador', true); window.scrollTo(0, 0);
+}
+function enviarCotacao() {
+  mostrar('erroComprador', false);
+  var c = coletarCotacoes();
+  if (c.faltas.length) return errosComprador(c.faltas);
+  $('btnCotacao').disabled = true; mostrar('enviandoCot', true);
+  chamar('vdf_salvarCotacao', TOKEN, { shortLink: CARD_EDICAO, cotacoes: c.cotacoes, nt: c.nt, obs: c.obs }).then(function (r) {
+    $('btnCotacao').disabled = false; mostrar('enviandoCot', false);
+    if (!r.ok) return errosComprador(r.faltas);
+    sucesso('✅ Cotação lançada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' cotação(ões)' + (r.obs ? ', ' + r.obs + ' observação(ões)' : '') + '.' + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Lançar mais / comprar');
+  }).catch(function (e) { $('btnCotacao').disabled = false; mostrar('enviandoCot', false); errosComprador([e.message]); });
+}
+
+function montarCompra(c) {
+  var box = $('compraItens'); box.innerHTML = '';
+  var lidas = (c.cotacoes && c.cotacoes.cotacoes) || [];
+  var pagas = c.pagas || [];
+  pecasOficina(c).forEach(function (p, i) {
+    var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave;
+    var ja = pagas.filter(function (it) { return semAc(it.nome).indexOf(p.chave) >= 0; })[0];
+    var minhas = lidas.filter(function (q) { return q.chave === p.chave; });
+    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + '</strong></div>';
+    ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
+    if (ja) h += '<div class="comprado">✔ já comprado: ' + esc(ja.nome) + (ja.due ? ' — previsão ' + esc(ja.due) : '') + (ja.ok ? ' (recebido)' : '') + '</div>';
+    else if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça — lance na aba Cotação.</div>';
+    else {
+      h += '<select class="k-sel"><option value="">— ainda não comprar —</option>' + minhas.map(function (q, j) { return '<option value="' + j + '">' + esc(rotuloCot(q)) + '</option>'; }).join('') + '</select>';
+      div.dataset.cots = JSON.stringify(minhas);
+    }
+    div.innerHTML = h;
+    box.appendChild(div);
+  });
+}
+function enviarCompra() {
+  mostrar('erroComprador', false);
+  var compras = [];
+  Array.prototype.forEach.call($('compraItens').children, function (item) {
+    var sel = item.querySelector('.k-sel');
+    if (!sel || !sel.value) return;
+    var q = JSON.parse(item.dataset.cots)[+sel.value];
+    compras.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, tipo: q.tipo, marca: q.marca, valor: q.valor, dias: q.dias });
+  });
+  if (!compras.length) return errosComprador(['Escolha o fornecedor de pelo menos uma peça.']);
+  $('btnCompra').disabled = true; mostrar('enviandoCompra', true);
+  chamar('vdf_salvarCompra', TOKEN, { shortLink: CARD_EDICAO, compras: compras }).then(function (r) {
+    $('btnCompra').disabled = false; mostrar('enviandoCompra', false);
+    if (!r.ok) return errosComprador(r.faltas);
+    sucesso('✅ Compra registrada no card <b>' + esc(r.nome) + '</b>: ' + r.pagas + ' item(ns) no checklist PAGAS.' + (r.pendentes ? '<br>' + r.pendentes + ' peça(s) ainda sem compra.' : '<br>Todas as peças da oficina compradas.') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+  }).catch(function (e) { $('btnCompra').disabled = false; mostrar('enviandoCompra', false); errosComprador([e.message]); });
+}
+function sucesso(html, url, rotuloNovo) {
+  $('msgSucesso').innerHTML = html; $('linkCard').href = url;
+  if (rotuloNovo && !PU) { $('linkNovo').textContent = rotuloNovo; $('linkNovo').href = CFG.urlApp + '?card=' + CARD_EDICAO + '&modo=compras'; $('linkNovo').onclick = null; }
+  mostrar('form', false); mostrar('comprador', false); mostrar('telaSucesso', true); window.scrollTo(0, 0);
+  if (PU) avisarPai({ vd: 'concluido', url: url });
+}
+
+/* modo enxuto: o robô já importou as peças, só falta o tipo */
+function modoSoTipos(c) {
+  var secs = document.querySelectorAll('#form > section');
+  // 0 = tipo/placa, 1 = documento, 2 = carro, 3 = peças, 4 = obs
+  [0, 1, 2, 4].forEach(function (i) { if (secs[i]) secs[i].classList.add('oculto'); });
+  $('modoEdicao').innerHTML = '<b>' + esc(c.nome) + '</b> — as peças já vieram do orçamento. <b>Só falta marcar o tipo de cada uma</b> e enviar. '
+    + '<a href="#" onclick="mostrarTudo();return false">Mostrar o formulário completo</a>';
+  mostrar('modoEdicao', true);
+}
+function mostrarTudo() {
+  Array.prototype.forEach.call(document.querySelectorAll('#form > section'), function (s) { s.classList.remove('oculto'); });
+  SO_TIPOS = false;
+}
+
+function modoNovo() {
+  CARD_EDICAO = ''; guardar('vd_card_pend', null);
+  mostrar('modoEdicao', false); mostrar('blocoUnidade', true);
+  POS = false; LISTA = ''; if (ORC && !ORC.fo.length && !$('avisoOrc').innerHTML) ORC = null;
+  $('cardsPlaca').innerHTML = '';
+}
+
+/* ---------- placa ---------- */
+
+function normPlaca(p) { return String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+function placaOk(p) { return /^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(normPlaca(p)); }
+
+function aoMudarPlaca() {
+  var p = normPlaca($('placa').value);
+  $('placa').value = p;
+  $('cardsPlaca').innerHTML = '';
+  if (!p) { $('dicaPlaca').textContent = ''; return; }
+  if (!placaOk(p)) { $('dicaPlaca').textContent = 'Placa fora do padrão (ABC1234 ou ABC1D23).'; $('dicaPlaca').className = 'dica ruim'; return; }
+  $('dicaPlaca').textContent = 'Procurando cards desta placa…'; $('dicaPlaca').className = 'dica';
+  chamar('vdf_buscarPlaca', TOKEN, p).then(function (lista) {
+    lista = lista.filter(function (c) { return c.shortLink !== CARD_EDICAO; });
+    if (!lista.length) { $('dicaPlaca').textContent = CARD_EDICAO ? '' : 'Nenhum card aberto com esta placa — será criado um card novo.'; $('dicaPlaca').className = 'dica boa'; return; }
+    $('dicaPlaca').textContent = '';
+    var h = '<div class="aviso info">Já existe card com esta placa. Quer atualizar um deles?<div class="escolha">';
+    lista.forEach(function (c) {
+      h += '<button type="button" class="secundario" onclick="carregarCard(\'' + esc(c.shortLink) + '\')">Atualizar: <b>' + esc(c.nome) + '</b> — ' + esc(c.lista) + '</button>';
+    });
+    h += '<button type="button" class="secundario" onclick="$(\'cardsPlaca\').innerHTML=\'\'">Não, criar um card novo</button></div></div>';
+    $('cardsPlaca').innerHTML = h;
+  }).catch(function () { $('dicaPlaca').textContent = ''; });
+}
+
+/* ---------- chassi ---------- */
+
+function conferirChassi() {
+  var c = $('chassi').value.toUpperCase().replace(/[\s.\-]/g, '');
+  var dica = $('dicaChassi');
+  if (!c) { dica.textContent = ''; return; }
+  if (/[IOQ]/.test(c)) { dica.textContent = 'Chassi não tem as letras I, O ou Q — confira (0 e 1?).'; dica.className = 'dica ruim'; return; }
+  if (c.length !== 17) { dica.textContent = c.length + ' de 17 caracteres.'; dica.className = 'dica ruim'; return; }
+  dica.textContent = '✓ 17 caracteres'; dica.className = 'dica boa';
+}
+
+/* ---------- documento ---------- */
+
+var ANEXOS = [];   // {nome, fileId, capa}
+function listarAnexos() {
+  $('listaAnexos').innerHTML = ANEXOS.length ? '📎 Vai para o card: ' + ANEXOS.map(function (a) { return esc(a.nome) + (a.capa ? ' <b>(capa)</b>' : ''); }).join(' · ') : '';
+}
+function lerArquivo(f) {
+  return new Promise(function (ok, falha) {
+    var fr = new FileReader();
+    fr.onload = function () { ok(String(fr.result).split(',')[1]); };
+    fr.onerror = function () { falha(new Error('Não consegui ler ' + f.name)); };
+    fr.readAsDataURL(f);
+  });
+}
+function subirCapa() {
+  var f = $('capa').files[0];
+  if (!f) return;
+  var dica = $('dicaCapa');
+  if (f.size > 15 * 1024 * 1024) { dica.textContent = 'Foto muito grande (máx. 15 MB).'; dica.className = 'dica ruim'; return; }
+  dica.textContent = 'Enviando "' + f.name + '"…'; dica.className = 'dica';
+  lerArquivo(f).then(function (b64) { return chamar('vdf_subirArquivo', TOKEN, b64, f.type || 'image/jpeg', f.name); }).then(function (r) {
+    ANEXOS = ANEXOS.filter(function (a) { return !a.capa; });
+    FILE_IDS = ANEXOS.map(function (a) { return a.fileId; });
+    CAPA_ID = r.fileId; FILE_IDS.push(r.fileId); ANEXOS.push({ nome: f.name, fileId: r.fileId, capa: true });
+    dica.textContent = '✓ "' + f.name + '" vira a capa do card.'; dica.className = 'dica boa'; listarAnexos();
+  }).catch(function (e) { dica.textContent = e.message; dica.className = 'dica ruim'; });
+}
+
+/* vários arquivos: PDFs são lidos (OCR); imagens só são lidas quando não há PDF na leva */
+function lerDocumento() {
+  var files = Array.prototype.slice.call($('arquivo').files);
+  if (!files.length) return;
+  var dica = $('dicaArquivo');
+  var grandes = files.filter(function (f) { return f.size > 15 * 1024 * 1024; });
+  if (grandes.length) { dica.textContent = 'Arquivo muito grande (máx. 15 MB): ' + grandes.map(function (f) { return f.name; }).join(', '); dica.className = 'dica ruim'; return; }
+  var temPdf = files.some(function (f) { return /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name); });
+  var fila = files.slice();
+  (function proximo() {
+    var f = fila.shift();
+    if (!f) { listarAnexos(); return; }
+    var ler = !temPdf || /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name);
+    if (!ler) {
+      dica.textContent = 'Enviando "' + f.name + '"…'; dica.className = 'dica';
+      lerArquivo(f).then(function (b64) { return chamar('vdf_subirArquivo', TOKEN, b64, f.type || 'application/octet-stream', f.name); })
+        .then(function (r) { FILE_IDS.push(r.fileId); ANEXOS.push({ nome: f.name, fileId: r.fileId }); dica.textContent = '✓ "' + f.name + '" será anexado ao card.'; dica.className = 'dica boa'; proximo(); })
+        .catch(function (e) { dica.textContent = e.message; dica.className = 'dica ruim'; proximo(); });
+      return;
+    }
+    lerDocumentoUm(f, dica).then(proximo, proximo);
+  })();
+}
+function lerDocumentoUm(f, dica) {
+  dica.textContent = 'Lendo "' + f.name + '"… (pode levar alguns segundos)'; dica.className = 'dica';
+  return lerArquivo(f).then(function (b64) {
+    return chamar('vdf_lerDocumento', TOKEN, b64, f.type || 'application/octet-stream', f.name, normPlaca($('placa').value)).then(function (r) {
+      FILE_IDS.push(r.fileId); ANEXOS.push({ nome: f.name, fileId: r.fileId }); listarAnexos();
+      if (r.erro) { dica.textContent = r.erro; dica.className = 'dica ruim'; return; }
+      var preenchidos = [];
+      function por(id, v, nome) { if (v && !$(id).value.trim()) { $(id).value = v; preenchidos.push(nome); } }
+      por('carro', r.carro, 'carro'); por('cor', r.cor, 'cor'); por('seguradora', r.seguradora, 'seguradora'); por('sinistro', r.sinistro, 'sinistro');
+      if (r.orcamento && !ORC) importarOrcamento(r.orcamento);
+      if (!r.confere) {
+        dica.innerHTML = '⚠️ O documento não mostra a placa ' + esc(normPlaca($('placa').value)) + (r.placasDoc.length ? ' (achei: ' + esc(r.placasDoc.join(', ')) + ')' : '') + '. Não preenchi o chassi. O arquivo será anexado ao card.';
+        dica.className = 'dica ruim';
+        por('modelo', r.modelo, 'modelo'); por('ano', r.ano, 'ano'); por('motor', r.motor, 'motor');
+        return;
+      }
+      var digitado = $('chassi').value.toUpperCase().replace(/[\s.\-]/g, '');
+      var divergeChassi = r.chassi && digitado && digitado !== r.chassi;
+      por('chassi', r.chassi, 'chassi'); por('modelo', r.modelo, 'modelo'); por('ano', r.ano, 'ano'); por('motor', r.motor, 'motor');
+      if (!normPlaca($('placa').value) && r.placasDoc.length === 1) { $('placa').value = r.placasDoc[0]; aoMudarPlaca(); preenchidos.push('placa'); }
+      conferirChassi();
+      var msg = preenchidos.length ? '✓ Preenchido pelo documento: ' + preenchidos.join(', ') + '. Confira os campos.' : 'Li o documento, mas não achei dados novos (ou os campos já estavam preenchidos).';
+      if (r.chassiDivergente) msg += ' ⚠️ Achei mais de um chassi: ' + r.chassiDivergente.join(' / ') + ' — preencha à mão.';
+      if (r.ano && $('ano').value.trim() && anoSo($('ano').value) !== anoSo(r.ano)) msg += ' ⚠️ O ano no documento é ' + r.ano + ' (o formulário está com ' + $('ano').value.trim() + ').';
+      dica.textContent = msg + ' O arquivo será anexado ao card.';
+      dica.className = preenchidos.length ? 'dica boa' : 'dica';
+      if (divergeChassi) {
+        dica.innerHTML += '<div class="aviso erro" style="margin-top:8px">⚠️ O chassi do documento (<b>' + esc(r.chassi) + '</b>) é diferente do digitado (<b>' + esc(digitado) + '</b>). '
+          + 'Com chassi diferente o card vai para FALTA DADOS. <br><button type="button" class="secundario" style="margin-top:6px" onclick="$(\'chassi\').value=\'' + esc(r.chassi) + '\';conferirChassi();this.parentNode.remove()">Usar o chassi do documento</button></div>';
+      }
+    });
+  }).catch(function (e) { dica.textContent = e.message; dica.className = 'dica ruim'; });
+}
+
+function anoSo(a) { return String(a || '').replace(/[^0-9\/]/g, ''); }
+
+/* ---------- orçamento importado ---------- */
+
+function itemVazio(el) {
+  return Array.prototype.every.call(el.querySelectorAll('input[type=text]'), function (i) { return !i.value.trim(); });
+}
+
+function importarOrcamento(o) {
+  ORC = { origem: o.origem, fo: o.fo || [] };
+  Array.prototype.slice.call($('itens').children).forEach(function (el) { if (itemVazio(el)) el.remove(); });
+  (o.oficina || []).forEach(function (p) { novoItem(p.pneu ? 'pneu' : 'peca', p); });
+  numerar();
+  var h = '📄 Orçamento ' + esc(o.origem) + ' importado: <b>' + (o.oficina || []).length + '</b> peça(s) pela oficina'
+    + ((o.oficina || []).length ? ' — confira e <b>marque o tipo de cada uma</b>.' : '.')
+    + '<br>Com orçamento, dos dados do carro só são obrigatórios placa e carro.';
+  if (ORC.fo.length) {
+    h += '<br><br><b>Fornecimento (seguradora) — vai para o checklist FORNECIMENTO do card:</b><ul>'
+      + ORC.fo.map(function (p) { return '<li>' + esc((p.codigo ? p.codigo + ' ' : '') + (p.pneu ? 'PNEU ' + p.medida + ' ' + p.marca : p.descricao) + (+p.qtd > 1 ? ' (x' + p.qtd + ')' : '')) + '</li>'; }).join('')
+      + '</ul>';
+  }
+  $('avisoOrc').innerHTML = h; mostrar('avisoOrc', true);
+}
+
+/* ---------- itens ---------- */
+
+function novoItem(tipo, dados) {
+  dados = dados || {};
+  var id = 'it' + (++seq);
+  var div = document.createElement('div');
+  div.className = 'item'; div.id = id; div.dataset.tipo = tipo;
+  var h = '<div class="item-topo"><strong class="num"></strong>'
+    + '<select onchange="trocarTipo(\'' + id + '\', this.value)"><option value="peca"' + (tipo === 'peca' ? ' selected' : '') + '>Peça</option><option value="pneu"' + (tipo === 'pneu' ? ' selected' : '') + '>Pneu</option></select>'
+    + '<button type="button" class="perigo" onclick="removerItem(\'' + id + '\')">remover</button></div>';
+  if (tipo === 'pneu') {
+    h += '<div class="grade">'
+      + '<div><label>Medida <span class="obr">*</span></label><input type="text" class="f-medida maiusc" placeholder="195/65R15" value="' + esc(dados.medida) + '"></div>'
+      + '<div><label>Quantidade</label><input type="number" min="1" class="f-qtd" value="' + esc(dados.qtd || 1) + '"></div>'
+      + '<div class="inteiro"><label>Categoria ou marca <span class="obr">*</span></label><div class="chips">';
+    CFG.categPneu.forEach(function (c) {
+      h += '<label class="chip"><input type="radio" name="cat' + id + '" value="' + esc(c) + '"' + (dados.categoria === c ? ' checked' : '') + ' onchange="pintarChips(\'' + id + '\')"> ' + esc(c) + '</label>';
+    });
+    h += '<label class="chip"><input type="radio" name="cat' + id + '" value="MARCA"' + (dados.marca ? ' checked' : '') + ' onchange="pintarChips(\'' + id + '\')"> MARCA:</label>'
+      + '</div><input type="text" class="f-marca maiusc" placeholder="Marca (ex.: PIRELLI)" style="margin-top:8px" value="' + esc(dados.marca) + '" oninput="if(this.value)this.closest(\'.item\').querySelector(\'input[value=MARCA]\').checked=true;pintarChips(\'' + id + '\')"></div></div>';
+  } else {
+    h += '<div class="grade">'
+      + '<div><label>Código da peça <span class="obr">*</span></label><input type="text" class="f-codigo maiusc" placeholder="Buscar no Cilia" value="' + esc(dados.codigo) + '"></div>'
+      + '<div><label>Quantidade</label><input type="number" min="1" class="f-qtd" value="' + esc(dados.qtd || 1) + '"></div>'
+      + '<div class="inteiro"><label>Descrição <span class="obr">*</span></label><input type="text" class="f-desc maiusc" placeholder="FAROL ESQUERDO" value="' + esc(dados.descricao) + '"></div>'
+      + '<div class="inteiro"><label>Tipo de peça <span class="obr">*</span> <span style="font-size:12px">(marque 1 ou 2)</span></label><div class="chips">';
+    CFG.tipos.forEach(function (t) {
+      var marc = (dados.tipos || []).indexOf(t) >= 0;
+      h += '<label class="chip"><input type="checkbox" class="f-tipo" value="' + esc(t) + '"' + (marc ? ' checked' : '') + ' onchange="limitarTipos(\'' + id + '\')"> ' + esc(t) + '</label>';
+    });
+    h += '</div>';
+    if (dados.dica) h += '<div class="dica">No orçamento: <b>' + esc(dados.dica) + '</b> — escolha o tipo acima.</div>';
+    if (dados.descricaoOrc !== undefined && !dados.codigo) h += '<div class="dica ruim">O orçamento não traz código de fábrica desta peça — busque no Cilia.</div>';
+    h += '</div></div>';
+  }
+  div.innerHTML = h;
+  $('itens').appendChild(div);
+  if (tipo === 'peca') limitarTipos(id); else pintarChips(id);
+  numerar();
+}
+
+function trocarTipo(id, tipo) {
+  var velho = $(id);
+  novoItem(tipo);
+  var criado = $('itens').lastChild;
+  $('itens').insertBefore(criado, velho);
+  velho.remove();
+  numerar();
+}
+
+function removerItem(id) { $(id).remove(); numerar(); }
+function numerar() { Array.prototype.forEach.call($('itens').children, function (el, i) { el.querySelector('.num').textContent = 'Item ' + (i + 1); }); }
+
+function limitarTipos(id) {
+  var caixas = $(id).querySelectorAll('.f-tipo');
+  var n = Array.prototype.filter.call(caixas, function (c) { return c.checked; }).length;
+  Array.prototype.forEach.call(caixas, function (c) {
+    c.disabled = !c.checked && n >= 2;
+    c.parentNode.classList.toggle('marcado', c.checked);
+    c.parentNode.classList.toggle('desab', c.disabled);
+  });
+}
+
+function pintarChips(id) {
+  Array.prototype.forEach.call($(id).querySelectorAll('input[type=radio]'), function (c) { c.parentNode.classList.toggle('marcado', c.checked); });
+}
+
+/* ---------- enviar ---------- */
+
+function coletar() {
+  var pecas = [], faltas = [];
+  Array.prototype.forEach.call($('itens').children, function (el, i) {
+    var n = 'Item ' + (i + 1);
+    var qtd = (el.querySelector('.f-qtd') || {}).value || '';
+    if (el.dataset.tipo === 'pneu') {
+      var medida = el.querySelector('.f-medida').value.trim();
+      var sel = el.querySelector('input[type=radio]:checked');
+      var marca = el.querySelector('.f-marca').value.trim();
+      var p = { pneu: true, medida: medida, qtd: qtd, categoria: '', marca: '' };
+      if (!medida) faltas.push(n + ' (pneu): falta a medida');
+      if (sel && sel.value !== 'MARCA') p.categoria = sel.value;
+      else if (marca) p.marca = marca;
+      else faltas.push(n + ' (pneu): marque a categoria ou escreva a marca');
+      pecas.push(p);
+    } else {
+      var cod = el.querySelector('.f-codigo').value.trim();
+      var desc = el.querySelector('.f-desc').value.trim();
+      var tipos = Array.prototype.filter.call(el.querySelectorAll('.f-tipo'), function (c) { return c.checked; }).map(function (c) { return c.value; });
+      var r = n + (desc ? ' (' + desc + ')' : '');
+      if (!cod && tipoPedido() !== 'PARTICULAR') faltas.push(r + ': falta o código (buscar no Cilia)');
+      if (!desc) faltas.push(r + ': falta a descrição');
+      if (!tipos.length) faltas.push(r + ': marque o tipo de peça');
+      pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd });
+    }
+  });
+  var d = {
+    placa: normPlaca($('placa').value), modelo: $('modelo').value.trim(), ano: $('ano').value.trim(),
+    motor: $('motor').value.trim(), chassi: $('chassi').value.toUpperCase().replace(/[\s.\-]/g, '')
+  };
+  var carro = [];
+  var part = tipoPedido() === 'PARTICULAR';
+  var soPlacaCarro = !part && (!!ORC || POS);
+  if (!placaOk(d.placa)) carro.push('placa');
+  if (!$('carro').value.trim()) carro.push('carro (nome curto para o título)');
+  if (part) {
+    if (!d.modelo) carro.push('modelo');
+    if (d.chassi.length !== 17) carro.push('chassi (17 caracteres)');
+  } else if (!soPlacaCarro) {
+    if (!d.modelo) carro.push('modelo');
+    if (!d.ano) carro.push('ano');
+    if (d.chassi.length !== 17) carro.push('chassi (17 caracteres)');
+  } else if (d.chassi && d.chassi.length !== 17) carro.push('chassi (17 caracteres) — ou deixe em branco');
+  if (carro.length) faltas.unshift('Dados do carro: falta ' + carro.join(', '));
+  if (!part && !POS && !ORC) faltas.unshift('Pedido de seguradora: anexe o orçamento autorizado (PDF do Cilia, HDI ou Websoma). Se for cliente particular, marque "Particular" no tipo do pedido.');
+  if (!pecas.length && !(ORC && ORC.fo.length)) faltas.push('Adicione pelo menos uma peça');
+  return {
+    faltas: faltas,
+    payload: {
+      shortLink: CARD_EDICAO || '', dados: d, pecas: pecas, obs: $('obs').value, fileIds: FILE_IDS, capaId: CAPA_ID,
+      novo: { tipo: tipoPedido(), carro: $('carro').value, cor: $('cor').value, seguradora: $('seguradora').value, sinistro: $('sinistro').value, unidade: $('unidade').value },
+      orcamento: ORC
+    }
+  };
+}
+
+function mostrarErros(lista) {
+  $('erroGeral').innerHTML = '<b>Falta preencher:</b><ul>' + lista.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>';
+  mostrar('erroGeral', true);
+  window.scrollTo(0, 0);
+}
+
+function enviar(ev) {
+  ev.preventDefault();
+  mostrar('erroGeral', false);
+  var c = coletar();
+  if (c.faltas.length) return mostrarErros(c.faltas);
+  $('btnEnviar').disabled = true; mostrar('enviando', true);
+  chamar('vdf_salvar', TOKEN, c.payload).then(function (r) {
+    $('btnEnviar').disabled = false; mostrar('enviando', false);
+    if (!r.ok) return mostrarErros(r.faltas);
+    guardar('vd_card_pend', null);
+    $('msgSucesso').innerHTML = (r.novo ? '✅ Card criado: ' : '✅ Card atualizado: ') + '<b>' + esc(r.nome) + '</b>'
+      + (/EM COTA/.test(r.acao || '') && /volta/.test(r.acao || '') ? '<br>O card voltou para EM COTAÇÃO.' : '')
+      + (/FALTA/.test(r.acao || '') ? '<br>⚠️ O card foi para FALTA DADOS — veja o comentário no card.' : '')
+      + (r.fo ? '<br>Checklist FORNECIMENTO: ' + r.fo + ' peça(s) incluída(s).' : '')
+      + (r.anexos ? '<br>' + r.anexos + ' arquivo(s) anexado(s)' + (r.capa ? ' — foto de capa definida.' : '.') : '');
+    $('linkCard').href = r.url;
+    mostrar('form', false); mostrar('telaSucesso', true);
+    window.scrollTo(0, 0);
+    if (PU) avisarPai({ vd: 'concluido', url: r.url });
+  }).catch(function (e) {
+    $('btnEnviar').disabled = false; mostrar('enviando', false);
+    mostrarErros([e.message]);
+  });
+}
+
+iniciar();
+</script>
+</body>
+</html>
