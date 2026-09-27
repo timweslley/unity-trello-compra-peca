@@ -20,6 +20,26 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+/* ---------- API JSON para o formulário hospedado no GitHub Pages (powerup/formulario.html) ----------
+ * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
+ * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
+var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo'];
+
+function doPost(e) {
+  var out;
+  try {
+    var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    var fn = String(req.fn || '');
+    if (VDF_API.indexOf(fn) < 0) throw new Error('Função não permitida: ' + fn);
+    var r = globalThis[fn].apply(null, req.args || []);
+    out = { ok: true, r: r === undefined ? null : r };
+  } catch (err) {
+    out = { ok: false, erro: String((err && err.message) || err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+}
+
 /* ---------- segurança: token do consultor precisa ser membro do quadro ---------- */
 
 function vdf_usuario_(token) {
@@ -56,7 +76,17 @@ function vdf_iniciar(token) {
   var labels = vd_api_('/boards/' + vd_board_() + '/labels', { query: { fields: 'name,color', limit: 100 } })
     .filter(function (l) { return /TOLEDO|RONDON|CASCAVEL|MOUR/i.test(l.name || ''); })
     .map(function (l) { return { id: l.id, name: l.name }; });
-  return { nome: me.fullName, usuario: me.username, quadro: board.name, urlQuadro: board.shortUrl, unidades: labels, comprador: vdf_ehComprador_(me) };
+  return {
+    nome: me.fullName, usuario: me.username, quadro: board.name, urlQuadro: board.shortUrl, unidades: labels, comprador: vdf_ehComprador_(me),
+    cfg: { teste: vd_board_() === VD.BOARD_PADRAO, tipos: VD.TIPOS, categPneu: VD.CATEG_PNEU }
+  };
+}
+
+/* abre o formulário numa chamada só: dados do usuário + card (quando é edição) */
+function vdf_abrir(token, shortLink) {
+  var info = vdf_iniciar(token);
+  var card = shortLink ? vdf_carregarCard(token, shortLink) : null;
+  return { info: info, card: card };
 }
 
 /* ---------- título padrão: PLACA CARRO COR SEGURADORA ---------- */
