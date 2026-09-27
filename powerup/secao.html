@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Pedido de Peça Unity — seção do card</title>
+<script src="https://p.trellocdn.com/power-up.min.js"></script>
+<script src="./config.js"></script>
+<style>
+  :root { --laranja: #f26f22; --laranja2: #d95f17; --texto: #172b4d; --cinza: #626f86; --borda: #dfe1e6; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: var(--texto); font-size: 14px; background: transparent; }
+  #raiz { padding: 4px 0 6px; }
+  .botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { border: 0; border-radius: 4px; padding: 9px 14px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+  .principal { background: var(--laranja); color: #fff; }
+  .principal:hover { background: var(--laranja2); }
+  .secundario { background: #fff; color: var(--texto); border: 1px solid var(--borda); }
+  .secundario:hover { background: #f4f5f7; }
+  .resumo { margin-top: 8px; color: var(--cinza); font-size: 12px; line-height: 1.4; }
+  .resumo b { color: var(--texto); font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="raiz">
+  <div class="botoes" id="botoes"></div>
+  <div class="resumo" id="resumo"></div>
+</div>
+<script>
+var cfg = window.PU_CFG;
+var t = TrelloPowerUp.iframe({ appKey: cfg.CHAVE, appName: cfg.NOME });
+var base = location.href.replace(/[^\/]*$/, '');
+
+function $(id) { return document.getElementById(id); }
+function ehCardFixo(nome) {
+  return /^\s*AVISO\b/i.test(nome || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '');
+}
+function abrir(shortLink, modo, titulo) {
+  return t.modal({ url: base + 'form.html', args: { card: shortLink, modo: modo }, fullscreen: true, title: titulo });
+}
+function botao(texto, classe, acao) {
+  var b = document.createElement('button');
+  b.className = classe; b.textContent = texto; b.onclick = acao;
+  return b;
+}
+function contarPecas(desc) {
+  // descrição no padrão do robô: bloco "PEÇAS:" seguido de linhas "1. código | nome | ..."
+  var m = /PE[ÇC]AS:\s*([\s\S]*)/i.exec(desc || '');
+  if (!m) return 0;
+  var n = 0, linhas = m[1].split('\n');
+  for (var i = 0; i < linhas.length; i++) {
+    if (/^\s*\d+\.\s/.test(linhas[i])) n++;
+    else if (n && /^\s*$/.test(linhas[i])) break;
+  }
+  return n;
+}
+function dataBr(ms) {
+  var d = new Date(ms);
+  function p(x) { return (x < 10 ? '0' : '') + x; }
+  return p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+}
+
+function desenhar() {
+  return Promise.all([
+    t.card('name', 'desc', 'shortLink'),
+    t.list('name').catch(function () { return null; }),
+    t.get('card', 'shared', 'vd_atualizado').catch(function () { return null; })
+  ]).then(function (r) {
+    var card = r[0], lista = r[1], atualizado = r[2];
+    var bts = $('botoes'); bts.innerHTML = '';
+    var res = $('resumo'); res.innerHTML = '';
+
+    if (ehCardFixo(card.name)) {
+      bts.appendChild(botao('➕ Novo pedido de peça', 'principal', function () {
+        return abrir('', 'novo', '➕ Novo pedido de peça');
+      }));
+      res.textContent = 'Abre o formulário para criar um card novo de pedido de peça.';
+    } else {
+      bts.appendChild(botao('✏️ Editar peças', 'principal', function () {
+        return abrir(card.shortLink, '', '✏️ Editar peças');
+      }));
+      bts.appendChild(botao('💰 Cotação / Compra', 'secundario', function () {
+        return abrir(card.shortLink, 'compras', '💰 Cotação / Compra');
+      }));
+      var partes = [];
+      var n = contarPecas(card.desc);
+      partes.push('<b>' + n + '</b> peça' + (n === 1 ? '' : 's') + ' na descrição');
+      if (lista && lista.name) partes.push('coluna <b>' + lista.name.replace(/</g, '&lt;') + '</b>');
+      if (atualizado) partes.push('última alteração pelo formulário <b>' + dataBr(atualizado) + '</b>');
+      res.innerHTML = partes.join(' · ');
+    }
+    return t.sizeTo('#raiz').catch(function () {});
+  });
+}
+
+t.render(desenhar);
+desenhar();
+</script>
+</body>
+</html>
