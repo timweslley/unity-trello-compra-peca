@@ -18,6 +18,15 @@
   .secundario:hover { background: #f4f5f7; }
   .resumo { margin-top: 8px; color: var(--cinza); font-size: 12px; line-height: 1.4; }
   .resumo b { color: var(--texto); font-weight: 600; }
+  /* tema escuro do Trello (o client marca data-color-mode no <html>) */
+  html[data-color-mode="dark"] { --texto: #b6c2cf; --cinza: #9fadbc; --borda: #454f59; }
+  html[data-color-mode="dark"] .secundario { background: #22272b; color: #b6c2cf; }
+  html[data-color-mode="dark"] .secundario:hover { background: #2c333a; }
+  @media (prefers-color-scheme: dark) {
+    html:not([data-color-mode="light"]) { --texto: #b6c2cf; --cinza: #9fadbc; --borda: #454f59; }
+    html:not([data-color-mode="light"]) .secundario { background: #22272b; color: #b6c2cf; }
+    html:not([data-color-mode="light"]) .secundario:hover { background: #2c333a; }
+  }
 </style>
 </head>
 <body>
