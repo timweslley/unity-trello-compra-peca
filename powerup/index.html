@@ -17,7 +17,8 @@
     editar: base + 'icone-editar.svg',
     compra: base + 'icone-compra.svg',
     novo:   base + 'icone-novo.svg',
-    app:    base + 'icone-app.svg'
+    app:    base + 'icone-app.svg',
+    secao:  base + 'icone-secao.svg'
   };
 
   function ehCardFixo(nome) {
@@ -76,7 +77,7 @@
     'card-back-section': function (t) {
       return {
         title: 'Pedido de Peça Unity',
-        icon: ICONE.app,
+        icon: ICONE.secao,
         content: {
           type: 'iframe',
           url: t.signUrl(base + 'secao.html'),
