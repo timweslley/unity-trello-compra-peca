@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Pedido de Peça Unity — conector do Power-Up</title>
+<script src="https://p.trellocdn.com/power-up.min.js"></script>
+<script src="./config.js"></script>
+</head>
+<body>
+<script>
+/* Conector do Power-Up. O Trello carrega esta página escondida e pergunta
+ * quais botões mostrar. Cada botão abre o formulário num popup (t.modal). */
+(function () {
+  var cfg = window.PU_CFG;
+  var base = location.href.replace(/[^\/]*$/, '');   // pasta powerup/
+  var ICONE = {
+    editar: base + 'icone-editar.svg',
+    compra: base + 'icone-compra.svg',
+    novo:   base + 'icone-novo.svg'
+  };
+
+  function abrir(t, modo, titulo) {
+    return t.card('shortLink').then(function (c) {
+      return t.modal({
+        url: base + 'form.html',
+        args: { card: c.shortLink, modo: modo },
+        fullscreen: true,
+        title: titulo
+      });
+    });
+  }
+
+  function abrirNovo(t) {
+    return t.modal({
+      url: base + 'form.html',
+      args: { card: '', modo: 'novo' },
+      fullscreen: true,
+      title: '➕ Novo pedido de peça'
+    });
+  }
+
+  TrelloPowerUp.initialize({
+    'card-buttons': function (t) {
+      return t.card('name').then(function (c) {
+        // card fixo de aviso/novo pedido não recebe botões de edição
+        if (/^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) {
+          return [{ icon: ICONE.novo, text: 'Novo pedido', callback: abrirNovo }];
+        }
+        return [
+          { icon: ICONE.editar, text: 'Editar peças', callback: function (t) { return abrir(t, '', '✏️ Editar peças'); } },
+          { icon: ICONE.compra, text: 'Cotação / Compra', callback: function (t) { return abrir(t, 'compras', '💰 Cotação / Compra'); } }
+        ];
+      });
+    },
+    'board-buttons': function (t) {
+      return [{ icon: { dark: ICONE.novo, light: ICONE.novo }, text: 'Novo pedido', callback: abrirNovo }];
+    }
+  }, { appKey: cfg.CHAVE, appName: cfg.NOME });
+})();
+</script>
+</body>
+</html>
