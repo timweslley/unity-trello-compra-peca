@@ -13,7 +13,12 @@ Popup dentro do Trello para o formulário de pedido/cotação/compra de peça.
 - `form.html` — casca do popup: faz o login no Trello uma única vez
   (`t.getRestApi().authorize`) e embute o formulário do Apps Script com o token
   (`?pu=1`; o formulário avisa por `postMessage` quando conclui / precisa de login / fechar).
-- `config.js` — URL do web app e chave de API do Trello (a mesma do Apps Script).
+- `formulario.html` — **o formulário em si**, estático (gerado a partir de `apps-script/Formulario.html`:
+  mesmo HTML, com `chamar()` trocado por `fetch` ao `doPost` do Apps Script e `google.script.url`
+  por `lerLocal()`). Abre em ~0,5 s; os dados vêm numa chamada só (`vdf_abrir`, ~2–3 s).
+  O link antigo do Apps Script (`…/exec`) continua funcionando.
+- `config.js` — URL do web app (`URL_APP`, servidor), URL do formulário estático (`URL_FORM`) e
+  chave de API do Trello (a mesma do Apps Script).
 - `icone-*.svg` — ícones dos botões; `icone-app.svg` é o ícone do Power-Up
   (o Trello o mostra em cinza na seção do card, por isso é um glifo simples).
 
@@ -28,4 +33,4 @@ em *Allowed origins*.
 Observação: o Trello só instancia os iframes dos Power-Ups quando a aba está
 visível (em aba em segundo plano o menu "Power-ups" fica em "carregando").
 
-Versão do Apps Script que suporta o popup: v15 (27/09/2026).
+Versões do Apps Script: v15 = popup (27/09/2026); v16 = API JSON `doPost`; v17 = `vdf_abrir` em paralelo (`fetchAll`).
