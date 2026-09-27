@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pedido de Peça Unity</title>
+<script src="https://p.trellocdn.com/power-up.min.js"></script>
+<script src="./config.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #f4f5f7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #172b4d; }
+  #app { display: flex; flex-direction: column; height: 100%; }
+  #barra { display: none; align-items: center; gap: 10px; padding: 6px 12px; background: #fff; border-bottom: 1px solid #dfe1e6; font-size: 13px; }
+  #barra .sp { flex: 1; }
+  #barra button, #tela button { border: 0; border-radius: 4px; padding: 7px 14px; font-size: 14px; cursor: pointer; }
+  #barra button { background: #eb5a46; color: #fff; }
+  #frame { flex: 1; width: 100%; border: 0; display: none; }
+  #tela { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+  #tela .cx { max-width: 420px; background: #fff; border-radius: 8px; padding: 28px 24px; box-shadow: 0 1px 4px rgba(9,30,66,.15); }
+  #tela h2 { margin: 0 0 8px; font-size: 18px; }
+  #tela p { margin: 0 0 18px; font-size: 14px; line-height: 1.45; color: #42526e; }
+  #tela button { background: #0079bf; color: #fff; }
+  #tela .erro { color: #b04632; font-size: 13px; margin-top: 12px; }
+  #tela .oculto { display: none; }
+  #concluido { display: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="barra">
+    <span id="titulo">Pedido de Peça — Unity</span>
+    <span class="sp"></span>
+    <span id="concluido">✅ Concluído — pode fechar.</span>
+    <button onclick="fechar()">Fechar</button>
+  </div>
+  <div id="tela">
+    <div class="cx">
+      <h2 id="tTitulo">Carregando…</h2>
+      <p id="tTexto">Um instante.</p>
+      <button id="btnEntrar" class="oculto" onclick="entrar()">Entrar com o Trello</button>
+      <div id="tErro" class="erro oculto"></div>
+    </div>
+  </div>
+  <iframe id="frame" allow="clipboard-write" title="Formulário"></iframe>
+</div>
+<script>
+var cfg = window.PU_CFG;
+var t = TrelloPowerUp.iframe({ appKey: cfg.CHAVE, appName: cfg.NOME });
+var api = t.getRestApi();
+var CARD = t.arg('card') || '', MODO = t.arg('modo') || '';
+
+function $(id) { return document.getElementById(id); }
+function tela(titulo, texto, mostrarBotao, erro) {
+  $('tTitulo').textContent = titulo; $('tTexto').textContent = texto;
+  $('btnEntrar').classList.toggle('oculto', !mostrarBotao);
+  $('tErro').textContent = erro || ''; $('tErro').classList.toggle('oculto', !erro);
+}
+function fechar() { t.closeModal(); }
+
+function carregar(token) {
+  var url = cfg.URL_APP + '?pu=1';
+  if (MODO === 'novo') url += '&novo=1';
+  else if (CARD) url += '&card=' + encodeURIComponent(CARD) + (MODO ? '&modo=' + encodeURIComponent(MODO) : '');
+  url += '#token=' + token;
+  $('titulo').textContent = MODO === 'compras' ? 'Cotação / Compra de Peça — Unity' : (MODO === 'novo' ? 'Novo pedido de peça — Unity' : 'Pedido de Peça — Unity');
+  $('tela').style.display = 'none';
+  $('barra').style.display = 'flex';
+  $('frame').style.display = 'block';
+  $('frame').src = url;
+}
+
+function entrar() {
+  tela('Entrando…', 'Autorize o acesso na janela do Trello que vai abrir.', false);
+  api.authorize({ scope: 'read,write', expiration: 'never' })
+    .then(function () { return api.getToken(); })
+    .then(carregar)
+    .catch(function (e) {
+      tela('Precisamos do seu login do Trello', 'O formulário cria e altera os cards no seu nome. Clique para autorizar (uma vez só).', true,
+        'Não deu certo: ' + ((e && e.message) || e) + '. Se o navegador bloqueou a janela, libere pop-ups para trello.com e tente de novo.');
+    });
+}
+
+function iniciar() {
+  api.isAuthorized().then(function (ok) {
+    if (!ok) return tela('Precisamos do seu login do Trello', 'O formulário cria e altera os cards no seu nome. Clique para autorizar (uma vez só).', true);
+    return api.getToken().then(carregar);
+  }).catch(function (e) {
+    tela('Não foi possível iniciar', String((e && e.message) || e), true);
+  });
+}
+
+/* O formulário (dentro do iframe do Apps Script) avisa quando terminou ou quando o login expirou. */
+window.addEventListener('message', function (ev) {
+  var d = ev.data || {};
+  if (d.vd === 'concluido') {
+    $('concluido').style.display = 'inline';
+    t.set('card', 'shared', 'vd_atualizado', Date.now()).catch(function () {});
+  } else if (d.vd === 'login') {
+    api.clearToken().catch(function () {}).then(function () {
+      $('frame').style.display = 'none'; $('barra').style.display = 'none'; $('tela').style.display = 'flex';
+      tela('Seu acesso ao Trello expirou', 'Entre de novo para continuar.', true);
+    });
+  } else if (d.vd === 'fechar') {
+    fechar();
+  }
+});
+
+iniciar();
+</script>
+</body>
+</html>
