@@ -9,15 +9,20 @@
 <body>
 <script>
 /* Conector do Power-Up. O Trello carrega esta página escondida e pergunta
- * quais botões mostrar. Cada botão abre o formulário num popup (t.modal). */
+ * quais botões/badges/seções mostrar. Cada ação abre o formulário num popup (t.modal). */
 (function () {
   var cfg = window.PU_CFG;
   var base = location.href.replace(/[^\/]*$/, '');   // pasta powerup/
   var ICONE = {
     editar: base + 'icone-editar.svg',
     compra: base + 'icone-compra.svg',
-    novo:   base + 'icone-novo.svg'
+    novo:   base + 'icone-novo.svg',
+    app:    base + 'icone-app.svg'
   };
+
+  function ehCardFixo(nome) {
+    return /^\s*AVISO\b/i.test(nome || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '');
+  }
 
   function abrir(t, modo, titulo) {
     return t.card('shortLink').then(function (c) {
@@ -39,19 +44,47 @@
     });
   }
 
+  function editar(t) { return abrir(t, '', '✏️ Editar peças'); }
+  function compras(t) { return abrir(t, 'compras', '💰 Cotação / Compra'); }
+
   TrelloPowerUp.initialize({
+    // menu "Power-ups" do rodapé do card
     'card-buttons': function (t) {
       return t.card('name').then(function (c) {
-        // card fixo de aviso/novo pedido não recebe botões de edição
-        if (/^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) {
+        if (ehCardFixo(c.name)) {
           return [{ icon: ICONE.novo, text: 'Novo pedido', callback: abrirNovo }];
         }
         return [
-          { icon: ICONE.editar, text: 'Editar peças', callback: function (t) { return abrir(t, '', '✏️ Editar peças'); } },
-          { icon: ICONE.compra, text: 'Cotação / Compra', callback: function (t) { return abrir(t, 'compras', '💰 Cotação / Compra'); } }
+          { icon: ICONE.editar, text: 'Editar peças', callback: editar },
+          { icon: ICONE.compra, text: 'Cotação / Compra', callback: compras }
         ];
       });
     },
+    // chips clicáveis logo abaixo do título do card
+    'card-detail-badges': function (t) {
+      return t.card('name').then(function (c) {
+        if (ehCardFixo(c.name)) {
+          return [{ title: 'Unity', text: '➕ Novo pedido', color: 'orange', callback: abrirNovo }];
+        }
+        return [
+          { title: 'Unity', text: '✏️ Editar peças', color: 'orange', callback: editar },
+          { title: 'Unity', text: '💰 Cotação / Compra', color: 'orange', callback: compras }
+        ];
+      });
+    },
+    // seção própria no corpo do card (botões grandes + resumo)
+    'card-back-section': function (t) {
+      return {
+        title: 'Pedido de Peça Unity',
+        icon: ICONE.app,
+        content: {
+          type: 'iframe',
+          url: t.signUrl(base + 'secao.html'),
+          height: 110
+        }
+      };
+    },
+    // botão no topo do quadro
     'board-buttons': function (t) {
       return [{ icon: { dark: ICONE.novo, light: ICONE.novo }, text: 'Novo pedido', callback: abrirNovo }];
     }
