@@ -82,10 +82,48 @@ function vdf_iniciar(token) {
   };
 }
 
-/* abre o formulário numa chamada só: dados do usuário + card (quando é edição) */
+/* abre o formulário numa chamada só: dados do usuário + card (quando é edição).
+ * Todas as leituras do Trello vão em paralelo (fetchAll) — ~5 chamadas viram 1 rodada. */
 function vdf_abrir(token, shortLink) {
-  var info = vdf_iniciar(token);
-  var card = shortLink ? vdf_carregarCard(token, shortLink) : null;
+  if (!token) throw new Error('LOGIN: entre com sua conta do Trello.');
+  var base = 'https://api.trello.com/1', b = vd_board_();
+  function req(url, tk) { return { url: base + url, method: 'get', muteHttpExceptions: true, headers: { Authorization: vd_auth_(tk) } }; }
+  var reqs = [
+    req('/members/me?fields=fullName,username', token),
+    req('/boards/' + b + '?fields=id,name,shortUrl'),
+    req('/boards/' + b + '/labels?fields=name,color&limit=100'),
+    req('/boards/' + b + '/lists?fields=name&filter=all')
+  ];
+  if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due'));
+  var rs = UrlFetchApp.fetchAll(reqs);
+  if (rs[0].getResponseCode() >= 300) throw new Error('LOGIN: seu acesso ao Trello expirou. Entre de novo.');
+  for (var i = 1; i < rs.length; i++) {
+    if (rs[i].getResponseCode() >= 300) throw new Error('Trello ' + rs[i].getResponseCode() + ': ' + rs[i].getContentText().slice(0, 120));
+  }
+  var me = JSON.parse(rs[0].getContentText());
+  var board = JSON.parse(rs[1].getContentText());
+  var labels = JSON.parse(rs[2].getContentText())
+    .filter(function (l) { return /TOLEDO|RONDON|CASCAVEL|MOUR/i.test(l.name || ''); })
+    .map(function (l) { return { id: l.id, name: l.name }; });
+  var listas = JSON.parse(rs[3].getContentText());
+  // membro do quadro? (mesma regra de vdf_usuario_, com o cache)
+  var cache = CacheService.getScriptCache(), chave = 'vdf_membros_' + b, membros = cache.get(chave);
+  if (!membros) {
+    membros = JSON.stringify(vd_api_('/boards/' + b + '/members', { query: { fields: 'username' } }).map(function (m) { return m.id; }));
+    cache.put(chave, membros, 600);
+  }
+  if (JSON.parse(membros).indexOf(me.id) < 0) throw new Error('Sua conta do Trello (' + me.username + ') não participa do quadro. Peça para ser adicionado.');
+  var info = {
+    nome: me.fullName, usuario: me.username, quadro: board.name, urlQuadro: board.shortUrl, unidades: labels, comprador: vdf_ehComprador_(me),
+    cfg: { teste: b === VD.BOARD_PADRAO, tipos: VD.TIPOS, categPneu: VD.CATEG_PNEU }
+  };
+  var card = null;
+  if (shortLink) {
+    var c = JSON.parse(rs[4].getContentText());
+    if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
+    var lst = listas.filter(function (l) { return l.id === c.idList; })[0];
+    card = vdf_montarCard_(c, lst ? lst.name : '');
+  }
   return { info: info, card: card };
 }
 
@@ -133,10 +171,15 @@ function vdf_cardProtegido_(nome) {
 function vdf_carregarCard(token, shortLink) {
   vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
-  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels' } });
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
   if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
-  if (vdf_cardProtegido_(c.name)) throw new Error('Este é o card fixo do quadro — não pode ser usado como pedido. Faça um pedido novo.');
   var lista = vd_api_('/lists/' + c.idList, { query: { fields: 'name' } }).name;
+  return vdf_montarCard_(c, lista);
+}
+
+/* monta a resposta do card a partir do card já lido (com checklists=all) */
+function vdf_montarCard_(c, lista) {
+  if (vdf_cardProtegido_(c.name)) throw new Error('Este é o card fixo do quadro — não pode ser usado como pedido. Faça um pedido novo.');
   var an = vd_analisar_(c.desc, c.name);
   var obs = vd_campo_(an.div.bloco, 'OBS|OBSERVA[ÇC][ÃA]O');
   return {
@@ -151,8 +194,7 @@ function vdf_carregarCard(token, shortLink) {
     titulo: vdf_partesTitulo_(c.name, an.dados),
     pagas: (function () {
       try {
-        var ls = vd_api_('/cards/' + shortLink, { query: { fields: 'id', checklists: 'all', checkItem_fields: 'name,state,due' } }).checklists || [];
-        var pg = ls.filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); })[0];
+        var pg = (c.checklists || []).filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); })[0];
         return pg ? pg.checkItems.map(function (i) { return { nome: i.name, ok: i.state === 'complete', due: i.due ? vd_dataCurta_(i.due) : '' }; }) : [];
       } catch (e) { return []; }
     })()
