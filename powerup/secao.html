@@ -22,10 +22,14 @@
   html[data-color-mode="dark"] { --texto: #b6c2cf; --cinza: #9fadbc; --borda: #454f59; }
   html[data-color-mode="dark"] .secundario { background: #22272b; color: #b6c2cf; }
   html[data-color-mode="dark"] .secundario:hover { background: #2c333a; }
+  html[data-color-mode="dark"] body, html[data-color-mode="dark"] .resumo b { color: #b6c2cf; }
+  html[data-color-mode="dark"] .resumo { color: #9fadbc; }
   @media (prefers-color-scheme: dark) {
     html:not([data-color-mode="light"]) { --texto: #b6c2cf; --cinza: #9fadbc; --borda: #454f59; }
     html:not([data-color-mode="light"]) .secundario { background: #22272b; color: #b6c2cf; }
     html:not([data-color-mode="light"]) .secundario:hover { background: #2c333a; }
+    html:not([data-color-mode="light"]) body, html:not([data-color-mode="light"]) .resumo b { color: #b6c2cf; }
+    html:not([data-color-mode="light"]) .resumo { color: #9fadbc; }
   }
 </style>
 </head>
