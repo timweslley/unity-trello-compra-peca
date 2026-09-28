@@ -435,6 +435,10 @@ function vd_extrair_(texto) {
   if (!r.chassis.length) { var reSolto = /\b([A-HJ-NPR-Z0-9]{17})\b/g; while ((m = reSolto.exec(U))) { if (vd_chassiValido_(m[1]) && /^[1-9A-HJ-NPR-Z]/.test(m[1]) && r.chassis.indexOf(m[1]) < 0) r.chassis.push(m[1]); } }
   var reP = /\b([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/g;
   while ((m = reP.exec(U))) { var p = m[1] + m[2]; if (r.placas.indexOf(p) < 0) r.placas.push(p); }
+  // placa "com rótulo": logo depois de PLACA (Cilia/HDI/CRLV) ou logo depois do chassi (Websoma "Licença")
+  r.placasRot = [];
+  var reRotP = /(?:PLACA\s*(?:N[O.]*)?\s*[:.\-]?|\b[A-HJ-NPR-Z0-9]{17}) ?([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/g;
+  while ((m = reRotP.exec(U))) { var pr = m[1] + m[2]; if (r.placasRot.indexOf(pr) < 0) r.placasRot.push(pr); }
   var ANO = '(19[89]\\d|20[0-4]\\d)';
   // Cilia: "CASCO - CHEVROLET - CRUZE SEDAN (2017 A 2019) LT 1.4 16V TURBO 2017 Autorizado"
   if ((m = U.match(new RegExp('(?:^|\\s)[A-Z]{3,12} - ([A-Z][A-Z .\\-]{1,20}?) - (.{3,100}?) ' + ANO + ' (?=AUTORIZ|CONSTAT|PLACA|NEGAD|EM |ORCAMENT|VISTORIA|CANCEL|PENDEN|[A-Z]{4,})')))) {
@@ -496,6 +500,8 @@ function vd_lerAnexoTrello_(a, opt) {
     else if (r && r.orc && r.orc.o.some(function (x) { return x[0] !== 'P' && x.length < 4; })) r = null;
     // formulário precisa das peças e o cache não as tem
     else if (r && opt.orcCompleto && r.orcamento && !r.orc) r = null;
+    // cache sem a placa "com rótulo" e com placas ambíguas: lê de novo uma vez
+    else if (r && !r.placasRot && (r.placas || []).length > 1) r = null;
     if (r) r.doCache = true;
   }
   if (!r) {
@@ -513,7 +519,7 @@ function vd_lerAnexoTrello_(a, opt) {
     }
     var js = JSON.stringify(r);
     if (js.length > 8500 && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
-    props.setProperty(chave, js.length > 8500 ? JSON.stringify({ chassis: r.chassis, placas: r.placas, modelo: r.modelo, ano: r.ano, motor: r.motor }) : js);
+    props.setProperty(chave, js.length > 8500 ? JSON.stringify({ chassis: r.chassis, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor }) : js);
     if (orcFull) r.orcFull = orcFull;
   }
   return r;
@@ -525,17 +531,19 @@ function vd_lerAnexoTrello_(a, opt) {
  */
 function vd_placaDosAnexos_(card, prazo) {
   var anexos = (card.attachments || []).filter(vd_anexoLegivel_).slice(0, VD.MAX_ANEXOS_CARD);
-  var achadas = [], origem = '', lidos = 0;
+  var achadas = [], rotuladas = [], origem = '', origemRot = '', lidos = 0;
+  function junta(lista, p) { if (!vd_placaValida_(p) || lista.some(function (x) { return vd_mesmaPlaca_(x, p); })) return false; lista.push(vd_normPlaca_(p)); return true; }
   for (var i = 0; i < anexos.length; i++) {
     if (Date.now() > prazo) break;
     var r = vd_lerAnexoTrello_(anexos[i]);
     if (!r) continue;
     lidos++;
-    (r.placas || []).forEach(function (p) {
-      if (!vd_placaValida_(p)) return;
-      if (!achadas.some(function (x) { return vd_mesmaPlaca_(x, p); })) { achadas.push(vd_normPlaca_(p)); if (!origem) origem = anexos[i].name; }
-    });
+    (r.placas || []).forEach(function (p) { if (junta(achadas, p) && !origem) origem = anexos[i].name; });
+    (r.placasRot || []).forEach(function (p) { if (junta(rotuladas, p) && !origemRot) origemRot = anexos[i].name; });
   }
+  // prefere a placa que o documento traz rotulada (PLACA: ...); texto solto tem falso positivo ("VIN 2017", "das 8h00")
+  if (rotuladas.length === 1) return { placa: rotuladas[0], anexo: origemRot, lidos: lidos };
+  if (rotuladas.length > 1) return { placa: '', varias: rotuladas, anexo: origemRot, lidos: lidos };
   return { placa: achadas.length === 1 ? achadas[0] : '', varias: achadas.length > 1 ? achadas : null, anexo: origem, lidos: lidos };
 }
 
@@ -1260,7 +1268,11 @@ function validarDadosPedido() {
 
 /** Roda uma vez agora e mostra o resultado no registro (para testes). */
 function vd_rodarAgora() {
-  var out = vd_executarNucleo_();
+  // mesma trava do acionador automático: nunca rodar duas conferências ao mesmo tempo (duplicava o FORNECIMENTO)
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(60000)) { Logger.log('O robô já está rodando — tente de novo em 1 minuto.'); return; }
+  var out;
+  try { out = vd_executarNucleo_(); } finally { lock.releaseLock(); }
   out.forEach(function (r) {
     Logger.log(r.card + ' → ' + r.acao +
       (r.preenchido.length ? ' | preenchido: ' + r.preenchido.join(', ') : '') +
