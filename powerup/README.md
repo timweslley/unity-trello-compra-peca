@@ -36,7 +36,7 @@ em *Allowed origins*.
 Observação: o Trello só instancia os iframes dos Power-Ups quando a aba está
 visível (em aba em segundo plano o menu "Power-ups" fica em "carregando").
 
-Versões do Apps Script: v15 = popup (27/09/2026); v16 = API JSON `doPost`; v17 = `vdf_abrir` em paralelo (`fetchAll`); v18 = anexos do card reaproveitados (28/09/2026); v19 = autorização da compra (28/09/2026).
+Versões do Apps Script: v15 = popup (27/09/2026); v16 = API JSON `doPost`; v17 = `vdf_abrir` em paralelo (`fetchAll`); v18 = anexos do card reaproveitados (28/09/2026); v19 = autorização da compra (28/09/2026); v20 = devolver cotação + observações por peça + selos menor preço/prazo.
 
 Anexos já no card (v18): ao abrir um card, o formulário lista os PDFs/fotos que já estão nele
 ("📎 Já no card") e, se o card ainda não tem peças nem orçamento importado, lê sozinho o primeiro PDF
@@ -54,3 +54,10 @@ selecionado o autorizado) registra a compra → checklist PAGAS e **FALTA CHEGAR
 Quem autoriza: propriedade `VD_AUTORIZADORES` (padrão `timweslley`); no particular, também o consultor que
 criou o card. Compra diferente do autorizado não é bloqueada: fica registrada no comentário como
 "⚠️ Compra fora da autorização".
+
+Devolução e observações (v20): na aba ✅ Autorizar cada peça tem um campo de observação e há uma
+observação geral. **↩️ Devolver para cotação** grava `DEVOLVIDA PARA COTAÇÃO` + linhas `OBS PEÇA: (devolução) …`
+/ `OBS GERAL: …`, anula autorizações anteriores, volta o card para **EM COTAÇÃO** e marca o comprador; o
+formulário do comprador mostra o aviso da devolução até entrar cotação nova. Ao autorizar, as observações
+vão como `OBS PEÇA: (autorização) …` e aparecem para o comprador na aba Compra. Em cada peça, as cotações
+ganham os selos **💲 menor preço** e **⏱ menor prazo** (sem olhar o tipo; empate marca todas).
