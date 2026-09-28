@@ -36,7 +36,7 @@ em *Allowed origins*.
 Observação: o Trello só instancia os iframes dos Power-Ups quando a aba está
 visível (em aba em segundo plano o menu "Power-ups" fica em "carregando").
 
-Versões do Apps Script: v15 = popup (27/09/2026); v16 = API JSON `doPost`; v17 = `vdf_abrir` em paralelo (`fetchAll`); v18 = anexos do card reaproveitados (28/09/2026).
+Versões do Apps Script: v15 = popup (27/09/2026); v16 = API JSON `doPost`; v17 = `vdf_abrir` em paralelo (`fetchAll`); v18 = anexos do card reaproveitados (28/09/2026); v19 = autorização da compra (28/09/2026).
 
 Anexos já no card (v18): ao abrir um card, o formulário lista os PDFs/fotos que já estão nele
 ("📎 Já no card") e, se o card ainda não tem peças nem orçamento importado, lê sozinho o primeiro PDF
@@ -44,3 +44,13 @@ Anexos já no card (v18): ao abrir um card, o formulário lista os PDFs/fotos qu
 com o mesmo nome e tamanho de um anexo do card não duplica: o formulário só lê o anexo, e o `vdf_salvar`
 também descarta repetidos. O robô, em card sem placa (PDF arrastado direto no quadro), puxa a placa do
 anexo quando todos os anexos mostram a mesma placa.
+
+Fluxo com autorização (v19): consultor lança dados e peças → **EM COTAÇÃO** → comprador lança cotações
+(aba 💰 Cotação) → **PENDENTE AUTORIZAR** (seguradora) ou **COTAÇÃO FINALIZADA** (particular) →
+quem autoriza abre "Cotação / Compra", aba **✅ Autorizar**, marca uma cotação por peça (vem marcada a
+menor) → linhas `AUTORIZADO: FORNECEDOR - PEÇA - R$` abaixo da linha de cotação, card vai para
+**AUTORIZADO COMPRA** e o setor de compras é marcado no comentário → comprador (aba 🛒 Compra, já vem
+selecionado o autorizado) registra a compra → checklist PAGAS e **FALTA CHEGAR** quando tudo foi comprado.
+Quem autoriza: propriedade `VD_AUTORIZADORES` (padrão `timweslley`); no particular, também o consultor que
+criou o card. Compra diferente do autorizado não é bloqueada: fica registrada no comentário como
+"⚠️ Compra fora da autorização".
