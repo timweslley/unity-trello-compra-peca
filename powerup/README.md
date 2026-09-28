@@ -36,4 +36,11 @@ em *Allowed origins*.
 Observação: o Trello só instancia os iframes dos Power-Ups quando a aba está
 visível (em aba em segundo plano o menu "Power-ups" fica em "carregando").
 
-Versões do Apps Script: v15 = popup (27/09/2026); v16 = API JSON `doPost`; v17 = `vdf_abrir` em paralelo (`fetchAll`).
+Versões do Apps Script: v15 = popup (27/09/2026); v16 = API JSON `doPost`; v17 = `vdf_abrir` em paralelo (`fetchAll`); v18 = anexos do card reaproveitados (28/09/2026).
+
+Anexos já no card (v18): ao abrir um card, o formulário lista os PDFs/fotos que já estão nele
+("📎 Já no card") e, se o card ainda não tem peças nem orçamento importado, lê sozinho o primeiro PDF
+(`vdf_lerAnexoCard`, usando o mesmo cache de OCR do robô — `VD_ANX3_<id>`). Subir de novo um arquivo
+com o mesmo nome e tamanho de um anexo do card não duplica: o formulário só lê o anexo, e o `vdf_salvar`
+também descarta repetidos. O robô, em card sem placa (PDF arrastado direto no quadro), puxa a placa do
+anexo quando todos os anexos mostram a mesma placa.
