@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao'];
 
 function doPost(e) {
   var out;
@@ -213,6 +213,7 @@ function vdf_montarCard_(c, lista, me) {
     titulo: vdf_partesTitulo_(c.name, an.dados),
     anexos: vdf_anexosDoCard_(c.attachments),
     autorizadas: autorizadas,
+    devolucao: (function () { try { return vd_ultimaDevolucao_(c.desc); } catch (e) { return null; } })(),
     podeAutorizar: vdf_podeAutorizar_(me, c, an),
     particular: vdf_ehParticular_(c, an),
     pagas: (function () {
@@ -450,7 +451,7 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
   resto.split('\n').slice(1).forEach(function (raw) {
     var l = vd_limpar_(raw).trim();
     if (!l) return;
-    if (/^COMPRAD[OA]\s*:/i.test(l) || /^AUTORIZAD[OA]\s*:/i.test(l) || /^COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^\(texto que estava/i.test(l)) { if (/^AUTORIZA/i.test(l)) forn = ''; return; }
+    if (/^COMPRAD[OA]\s*:/i.test(l) || /^AUTORIZAD[OA]\s*:/i.test(l) || /^COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^DEVOLVIDA PARA COTA/i.test(l) || /^OBS GERAL\s*:/i.test(l) || /^\(texto que estava/i.test(l)) { if (/^(AUTORIZA|DEVOLVIDA)/i.test(l)) forn = ''; return; }
     var mo = l.match(/^OBS\s+(.+?)\s*:\s*(.+)$/i);
     if (mo) {
       var alvoO = vd_semAcento_(mo[1]).replace(/\s+/g, ' ').trim(), pecaO = null;
@@ -586,6 +587,7 @@ function vd_autorizacoesDaDescricao_(desc, pecas) {
     var l = vd_limpar_(raw).trim();
     var h = l.match(/^AUTORIZA[ÇC][ÃA]O\s+(\d{1,2}\/\d{1,2}\/\d{2,4}(?:\s+\d{1,2}:\d{2})?)\s+-\s+(.+)$/i);
     if (h) { quando = h[1]; quem = h[2].trim(); return; }
+    if (/^DEVOLVIDA PARA COTA/i.test(l)) { porChave = {}; return; }   // devolução anula autorizações anteriores
     var m = l.match(/^AUTORIZAD[OA]\s*:\s*(.+?)\s+-\s+(.+)\s+-\s+R?\$?\s*([\d.]+(?:,\d{1,2})?)\s*$/i);
     if (!m) return;
     var alvo = vd_semAcento_(m[2]).replace(/\s+/g, ' ').trim(), peca = null;
@@ -630,21 +632,80 @@ function vdf_autorizar(token, p) {
   });
   if (!linhas.length && !faltas.length) faltas.push('Escolha a cotação de pelo menos uma peça.');
   if (faltas.length) return { ok: false, faltas: faltas };
+  var obsL = vdf_linhasObs_(p, porChave, 'autorização');
 
   var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
   var div = vd_dividir_(card.desc);
   var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
   vd_backup_(card, 'compra autorizada pelo formulário por ' + me.username);
-  vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n**AUTORIZAÇÃO ' + agora + ' - ' + me.fullName + '**\n' + linhas.join('\n'), token);
+  vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n**AUTORIZAÇÃO ' + agora + ' - ' + me.fullName + '**\n' + linhas.concat(obsL.linhas).join('\n'), token);
   var movido = '';
   try { movido = vdf_moverPara_(card, ctx, VDF_LISTA_AUTORIZADO, token); } catch (e) {}
   var semAut = an.pecas.filter(function (x) { return !(p.escolhas || []).some(function (e) { return e.chave === vd_chavePeca_(x); }); }).length;
   try {
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **Compra autorizada** por ' + me.fullName + ': ' + linhas.length + ' peça(s), total ' + vd_valorBR_(total) + '.' + (semAut ? '\n' + semAut + ' peça(s) sem autorização (não comprar).' : '') + (movido ? '\nCard movido para **' + movido + '**.' : '') } }, token);
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **Compra autorizada** por ' + me.fullName + ': ' + linhas.length + ' peça(s), total ' + vd_valorBR_(total) + '.' + (semAut ? '\n' + semAut + ' peça(s) sem autorização (não comprar).' : '') + obsL.texto + (movido ? '\nCard movido para **' + movido + '**.' : '') } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
+
+/** Observações por peça ({chave, texto}) e geral do autorizador -> linhas "OBS PEÇA: texto" + "OBS GERAL: texto" e texto para o comentário. */
+function vdf_linhasObs_(p, porChave, rotulo) {
+  var linhas = [], txt = [];
+  (p.obs || []).forEach(function (o) {
+    var peca = porChave[o.chave], t = String(o.texto || '').replace(/\s*\n\s*/g, ' ').trim();
+    if (!peca || !t) return;
+    var nome = peca.pneu ? 'PNEU ' + String(peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(peca);
+    linhas.push('OBS ' + nome + ': (' + rotulo + ') ' + t);
+    txt.push('- ' + nome + ': ' + t);
+  });
+  var geral = String(p.geral || '').replace(/\s*\n\s*/g, ' ').trim();
+  if (geral) { linhas.push('OBS GERAL: (' + rotulo + ') ' + geral); txt.unshift(geral); }
+  return { linhas: linhas, n: linhas.length, texto: txt.length ? '\n\n📝 **Observações:**\n' + txt.join('\n') : '' };
+}
+
+/**
+ * p = {shortLink, obs:[{chave, texto}], geral}
+ * Quem autoriza devolve a cotação ao comprador (incompleta / precisa de mais opções).
+ * Grava o bloco DEVOLVIDA PARA COTAÇÃO (anula autorizações anteriores) e volta o card para EM COTAÇÃO.
+ */
+function vdf_devolverCotacao(token, p) {
+  var me = vdf_usuario_(token);
+  var ctx = vd_contexto_();
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  var an = vd_analisar_(card.desc, card.name);
+  if (!vdf_podeAutorizar_(me, card, an)) return { ok: false, faltas: ['Só quem autoriza a compra pode devolver a cotação (sua conta: ' + me.username + ').'] };
+  var porChave = {};
+  an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
+  var obsL = vdf_linhasObs_(p, porChave, 'devolução');
+  if (!obsL.n) return { ok: false, faltas: ['Escreva o motivo da devolução (geral ou em alguma peça) — é o que o comprador vai ler.'] };
+  var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
+  var div = vd_dividir_(card.desc);
+  var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
+  vd_backup_(card, 'cotação devolvida pelo formulário por ' + me.username);
+  vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n**DEVOLVIDA PARA COTAÇÃO ' + agora + ' - ' + me.fullName + '**\n' + obsL.linhas.join('\n'), token);
+  var movido = '';
+  try { movido = vdf_moverPara_(card, ctx, VD.LISTA_COTACAO, token); } catch (e) {}
+  try {
+    var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '↩️ **Cotação devolvida** por ' + me.fullName + ' — completar e lançar de novo.' + obsL.texto + (movido ? '\nCard movido para **' + movido + '**.' : '') } }, token);
+  } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, n: obsL.n, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
+
+/** Última devolução ainda valendo (sem cotação nova depois): {quem, quando, geral} ou null. */
+function vd_ultimaDevolucao_(desc) {
+  var resto = vd_dividir_(desc).resto || '', dev = null;
+  resto.split('\n').forEach(function (raw) {
+    var l = vd_limpar_(raw).trim(), m;
+    if ((m = l.match(/^DEVOLVIDA PARA COTA[ÇC][ÃA]O\s+(\S+(?:\s+\d{1,2}:\d{2})?)\s+-\s+(.+)$/i))) dev = { quando: m[1], quem: m[2].trim(), geral: '' };
+    else if (dev && (m = l.match(/^OBS GERAL\s*:\s*(?:\(devolu[çc][ãa]o\)\s*)?(.+)$/i))) dev.geral = m[1].trim();
+    else if (/^COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d/i.test(l)) dev = null;
+  });
+  return dev;
 }
 
 /**
