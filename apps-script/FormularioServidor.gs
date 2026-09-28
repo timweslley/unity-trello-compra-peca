@@ -71,7 +71,7 @@ function vdf_ehComprador_(me) {
 }
 
 /** Quem autoriza compra: propriedade VD_AUTORIZADORES = usernames separados por vírgula. Pedido PARTICULAR: também o consultor que criou o card. */
-var VDF_AUTORIZADORES_PADRAO = 'timweslley,comercialunity';   // Weslley e Vilson (usuário Comercial Unity)
+var VDF_AUTORIZADORES_PADRAO = 'timweslley,comercialunity,christianfarias23';   // Weslley, Vilson (Comercial Unity) e Cris
 function vdf_ehAutorizador_(me) {
   var lista = String(vd_prop_('VD_AUTORIZADORES', VDF_AUTORIZADORES_PADRAO)).toLowerCase().split(/[,;\s]+/).filter(String);
   return lista.indexOf(String(me.username || '').toLowerCase()) >= 0;
