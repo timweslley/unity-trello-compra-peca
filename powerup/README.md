@@ -17,6 +17,9 @@ Popup dentro do Trello para o formulário de pedido/cotação/compra de peça.
   mesmo HTML, com `chamar()` trocado por `fetch` ao `doPost` do Apps Script e `google.script.url`
   por `lerLocal()`). Abre em ~0,5 s; os dados vêm numa chamada só (`vdf_abrir`, ~2–3 s).
   O link antigo do Apps Script (`…/exec`) continua funcionando.
+  Os links anexados nos cards (**Editar peças** / **Cotação / Compra**) apontam para este
+  formulário — é o caminho no celular, onde o Trello não mostra Power-Ups. A troca nos cards
+  existentes foi feita por `vd_trocarLinksFormulario()` (Validacao.gs); o robô já anexa o link novo.
 - `config.js` — URL do web app (`URL_APP`, servidor), URL do formulário estático (`URL_FORM`) e
   chave de API do Trello (a mesma do Apps Script).
 - `icone-*.svg` — ícones dos botões; `icone-app.svg` é o ícone do Power-Up
