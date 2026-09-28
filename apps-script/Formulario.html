@@ -114,6 +114,7 @@
       <input type="file" id="arquivo" accept="application/pdf,image/*" multiple onchange="lerDocumento()">
       <div class="dica" id="dicaArquivo"></div>
       <div id="listaAnexos" class="dica"></div>
+      <div id="anexosCard" class="dica oculto"></div>
       <div style="margin-top:12px">
         <label for="capa">Foto de capa do card (opcional)</label>
         <input type="file" id="capa" accept="image/*" onchange="subirCapa()">
@@ -351,6 +352,7 @@ function carregarCard(sl) {
     }
     if (SO_TIPOS && c.padrao) modoSoTipos(c);
     abrirFormulario();
+    mostrarAnexosCard(c);
   }).catch(function (e) { guardar('vd_card_pend', null); CARD_EDICAO = ''; abrirFormulario(); $('erroGeral').textContent = e.message; mostrar('erroGeral', true); });
 }
 
@@ -520,6 +522,7 @@ function modoNovo() {
   mostrar('modoEdicao', false); mostrar('blocoUnidade', true);
   POS = false; LISTA = ''; if (ORC && !ORC.fo.length && !$('avisoOrc').innerHTML) ORC = null;
   $('cardsPlaca').innerHTML = '';
+  CARD = null; $('anexosCard').innerHTML = ''; mostrar('anexosCard', false);
 }
 
 /* ---------- placa ---------- */
@@ -586,6 +589,34 @@ function subirCapa() {
   }).catch(function (e) { dica.textContent = e.message; dica.className = 'dica ruim'; });
 }
 
+/* ---------- anexos que já estão no card ---------- */
+
+var ANEXOS_LIDOS = {};   // id do anexo do card -> true (já lido nesta tela)
+function anexoDoCard(f) {
+  return CARD && CARD_EDICAO && (CARD.anexos || []).filter(function (a) { return a.nome === f.name && +a.bytes === f.size; })[0];
+}
+function mostrarAnexosCard(c) {
+  var ans = (c && c.anexos) || [];
+  if (!ans.length || MODO_COMPRAS) { mostrar('anexosCard', false); return; }
+  $('anexosCard').innerHTML = '📎 <b>Já no card</b> (não precisa anexar de novo): ' + ans.map(function (a) {
+    return esc(a.nome) + ' <a href="#" onclick="lerAnexoCard(\'' + a.id + '\');return false">' + (ANEXOS_LIDOS[a.id] ? 'ler de novo' : 'ler') + '</a>';
+  }).join(' · ');
+  mostrar('anexosCard', true);
+  // card sem peças e sem orçamento importado: lê sozinho o primeiro PDF que já está no card
+  var pdf = ans.filter(function (a) { return a.pdf; })[0];
+  if (pdf && !c.doOrcamento && !ORC && !(c.pecas || []).length && !ANEXOS_LIDOS[pdf.id]) lerAnexoCard(pdf.id);
+}
+function lerAnexoCard(id) {
+  var a = ((CARD && CARD.anexos) || []).filter(function (x) { return x.id === id; })[0];
+  if (!a || !CARD_EDICAO) return Promise.resolve();
+  var dica = $('dicaArquivo');
+  dica.textContent = 'Lendo "' + a.nome + '", que já está no card…' + (a.lido ? '' : ' (pode levar alguns segundos)'); dica.className = 'dica';
+  return chamar('vdf_lerAnexoCard', TOKEN, CARD_EDICAO, id, normPlaca($('placa').value)).then(function (r) {
+    ANEXOS_LIDOS[id] = true; mostrarAnexosCard(CARD);
+    aplicarLeitura(r, dica, ' O arquivo já está no card — não será anexado de novo.');
+  }).catch(function (e) { dica.textContent = e.message; dica.className = 'dica ruim'; });
+}
+
 /* vários arquivos: PDFs são lidos (OCR); imagens só são lidas quando não há PDF na leva */
 function lerDocumento() {
   var files = Array.prototype.slice.call($('arquivo').files);
@@ -599,6 +630,13 @@ function lerDocumento() {
     var f = fila.shift();
     if (!f) { listarAnexos(); return; }
     var ler = !temPdf || /pdf$/i.test(f.type) || /\.pdf$/i.test(f.name);
+    // mesmo arquivo (nome e tamanho) que já está no card: não sobe de novo, só lê o anexo
+    var jaTem = anexoDoCard(f);
+    if (jaTem) {
+      if (ler && !ANEXOS_LIDOS[jaTem.id]) { lerAnexoCard(jaTem.id).then(proximo, proximo); return; }
+      dica.textContent = '"' + f.name + '" já está anexado neste card — não vou anexar de novo.'; dica.className = 'dica';
+      proximo(); return;
+    }
     if (!ler) {
       dica.textContent = 'Enviando "' + f.name + '"…'; dica.className = 'dica';
       lerArquivo(f).then(function (b64) { return chamar('vdf_subirArquivo', TOKEN, b64, f.type || 'application/octet-stream', f.name); })
@@ -614,13 +652,20 @@ function lerDocumentoUm(f, dica) {
   return lerArquivo(f).then(function (b64) {
     return chamar('vdf_lerDocumento', TOKEN, b64, f.type || 'application/octet-stream', f.name, normPlaca($('placa').value)).then(function (r) {
       FILE_IDS.push(r.fileId); ANEXOS.push({ nome: f.name, fileId: r.fileId }); listarAnexos();
+      aplicarLeitura(r, dica, ' O arquivo será anexado ao card.');
+    });
+  }).catch(function (e) { dica.textContent = e.message; dica.className = 'dica ruim'; });
+}
+
+/* aplica no formulário o que foi lido (documento enviado ou anexo do card) */
+function aplicarLeitura(r, dica, sufixo) {
       if (r.erro) { dica.textContent = r.erro; dica.className = 'dica ruim'; return; }
       var preenchidos = [];
       function por(id, v, nome) { if (v && !$(id).value.trim()) { $(id).value = v; preenchidos.push(nome); } }
       por('carro', r.carro, 'carro'); por('cor', r.cor, 'cor'); por('seguradora', r.seguradora, 'seguradora'); por('sinistro', r.sinistro, 'sinistro');
       if (r.orcamento && !ORC) importarOrcamento(r.orcamento);
       if (!r.confere) {
-        dica.innerHTML = '⚠️ O documento não mostra a placa ' + esc(normPlaca($('placa').value)) + (r.placasDoc.length ? ' (achei: ' + esc(r.placasDoc.join(', ')) + ')' : '') + '. Não preenchi o chassi. O arquivo será anexado ao card.';
+        dica.innerHTML = '⚠️ O documento não mostra a placa ' + esc(normPlaca($('placa').value)) + (r.placasDoc.length ? ' (achei: ' + esc(r.placasDoc.join(', ')) + ')' : '') + '. Não preenchi o chassi.' + esc(sufixo);
         dica.className = 'dica ruim';
         por('modelo', r.modelo, 'modelo'); por('ano', r.ano, 'ano'); por('motor', r.motor, 'motor');
         return;
@@ -633,14 +678,12 @@ function lerDocumentoUm(f, dica) {
       var msg = preenchidos.length ? '✓ Preenchido pelo documento: ' + preenchidos.join(', ') + '. Confira os campos.' : 'Li o documento, mas não achei dados novos (ou os campos já estavam preenchidos).';
       if (r.chassiDivergente) msg += ' ⚠️ Achei mais de um chassi: ' + r.chassiDivergente.join(' / ') + ' — preencha à mão.';
       if (r.ano && $('ano').value.trim() && anoSo($('ano').value) !== anoSo(r.ano)) msg += ' ⚠️ O ano no documento é ' + r.ano + ' (o formulário está com ' + $('ano').value.trim() + ').';
-      dica.textContent = msg + ' O arquivo será anexado ao card.';
+      dica.textContent = msg + sufixo;
       dica.className = preenchidos.length ? 'dica boa' : 'dica';
       if (divergeChassi) {
         dica.innerHTML += '<div class="aviso erro" style="margin-top:8px">⚠️ O chassi do documento (<b>' + esc(r.chassi) + '</b>) é diferente do digitado (<b>' + esc(digitado) + '</b>). '
           + 'Com chassi diferente o card vai para FALTA DADOS. <br><button type="button" class="secundario" style="margin-top:6px" onclick="$(\'chassi\').value=\'' + esc(r.chassi) + '\';conferirChassi();this.parentNode.remove()">Usar o chassi do documento</button></div>';
       }
-    });
-  }).catch(function (e) { dica.textContent = e.message; dica.className = 'dica ruim'; });
 }
 
 function anoSo(a) { return String(a || '').replace(/[^0-9\/]/g, ''); }
@@ -812,7 +855,8 @@ function enviar(ev) {
       + (/EM COTA/.test(r.acao || '') && /volta/.test(r.acao || '') ? '<br>O card voltou para EM COTAÇÃO.' : '')
       + (/FALTA/.test(r.acao || '') ? '<br>⚠️ O card foi para FALTA DADOS — veja o comentário no card.' : '')
       + (r.fo ? '<br>Checklist FORNECIMENTO: ' + r.fo + ' peça(s) incluída(s).' : '')
-      + (r.anexos ? '<br>' + r.anexos + ' arquivo(s) anexado(s)' + (r.capa ? ' — foto de capa definida.' : '.') : '');
+      + (r.anexos ? '<br>' + r.anexos + ' arquivo(s) anexado(s)' + (r.capa ? ' — foto de capa definida.' : '.') : '')
+      + (r.repetidos && r.repetidos.length ? '<br>Não anexei de novo (já estava no card): ' + esc(r.repetidos.join(', ')) + '.' : '');
     $('linkCard').href = r.url;
     mostrar('form', false); mostrar('telaSucesso', true);
     window.scrollTo(0, 0);
