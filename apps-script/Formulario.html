@@ -61,6 +61,8 @@
   .cot-lida { font-size:13px; color:#343a40; padding:4px 0; border-bottom:1px dashed var(--borda); }
   .cot-lida b { color:var(--destaque); }
   .comprado { color:var(--ok); font-size:13px; }
+  .opcao-aut { display: block; padding: 6px 4px; font-weight: normal; cursor: pointer; }
+  .opcao-aut input { width: auto; margin-right: 6px; }
 </style>
 </head>
 <body>
@@ -195,6 +197,7 @@
     <div class="aviso info" id="infoComprador"></div>
     <div class="abas">
       <button type="button" class="aba marcada" id="abaCot" onclick="mostrarAba('cot')">💰 Cotação</button>
+      <button type="button" class="aba oculto" id="abaAut" onclick="mostrarAba('aut')">✅ Autorizar</button>
       <button type="button" class="aba" id="abaCompra" onclick="mostrarAba('compra')">🛒 Compra</button>
     </div>
 
@@ -215,10 +218,24 @@
       </div>
     </div>
 
+    <div id="painelAut" class="oculto">
+      <section>
+        <h2>Autorizar compra — escolha uma cotação por peça</h2>
+        <div class="dica" style="margin-bottom:10px">Marque a cotação autorizada de cada peça (já vem marcada a de menor valor). Peça em <b>não autorizar</b> fica sem compra. O card vai para <b>AUTORIZADO COMPRA</b> e o setor de compras é avisado.</div>
+        <div id="autItens"></div>
+        <div class="aviso info" id="autTotal" style="margin-top:10px"></div>
+      </section>
+      <div class="rodape" style="margin-bottom:30px">
+        <button type="button" class="principal" id="btnAut" onclick="enviarAutorizacao()">✅ Autorizar compra</button>
+        <span class="carregando oculto" id="enviandoAut">Enviando…</span>
+      </div>
+    </div>
+
     <div id="painelCompra" class="oculto">
       <section>
         <h2>Compra — escolha o fornecedor de cada peça</h2>
         <div class="dica" style="margin-bottom:10px">Só aparecem as cotações lançadas no card. Cada escolha vira um item do checklist <b>PAGAS</b> (<b>CÓDIGO DESCRIÇÃO - FORNECEDOR - R$ valor</b>) com a previsão como data do item. Pode comprar uma parte agora e o resto depois.</div>
+        <div id="compraAviso" class="aviso erro oculto"></div>
         <div id="compraItens"></div>
       </section>
       <div class="rodape" style="margin-bottom:30px">
@@ -377,17 +394,70 @@ function telaComprador(c) {
     + (c.tipo === 'PARTICULAR' ? ' · pedido <b>particular</b>' : ' · pedido de <b>seguradora</b>')
     + '.<br><a href="' + esc(c.url) + '" target="_blank">Abrir o card</a> · <a href="#" onclick="guardar(\'vd_modo_pend\',null);location.href=CFG.urlApp+\'?card=\'+CARD_EDICAO;return false">Editar o pedido (consultor)</a>';
   if (!pecas.length) { $('erroComprador').textContent = 'Este card não tem peça pela oficina na descrição (só fornecimento da seguradora ou descrição fora do padrão).'; mostrar('erroComprador', true); }
-  montarCotacao(c); montarCompra(c);
+  montarCotacao(c); montarAutorizacao(c); montarCompra(c);
+  mostrar('abaAut', !!c.podeAutorizar);
   if (!COMPRADOR) {
     $('btnCompra').disabled = true;
     $('btnCompra').insertAdjacentHTML('afterend', '<span class="dica ruim">Só o setor de compras registra compra — sua conta pode lançar cotação.</span>');
   }
-  mostrarAba(c.cotacoes && c.cotacoes.cotacoes.length && (c.lista || '').toUpperCase().indexOf('AUTORIZADO') === 0 ? 'compra' : 'cot');
+  var temCot = c.cotacoes && c.cotacoes.cotacoes.length, L = (c.lista || '').toUpperCase();
+  mostrarAba(temCot && c.podeAutorizar && /PENDENTE AUTORIZAR|COTA[ÇC][ÃA]O FINALIZADA/.test(L) ? 'aut' : (temCot && L.indexOf('AUTORIZADO') === 0 ? 'compra' : 'cot'));
 }
 function mostrarAba(a) {
-  mostrar('painelCot', a === 'cot'); mostrar('painelCompra', a !== 'cot');
-  $('abaCot').classList.toggle('marcada', a === 'cot'); $('abaCompra').classList.toggle('marcada', a !== 'cot');
+  mostrar('painelCot', a === 'cot'); mostrar('painelAut', a === 'aut'); mostrar('painelCompra', a === 'compra');
+  $('abaCot').classList.toggle('marcada', a === 'cot'); $('abaAut').classList.toggle('marcada', a === 'aut'); $('abaCompra').classList.toggle('marcada', a === 'compra');
   mostrar('erroComprador', false);
+}
+
+/* ---------- autorização (diretoria; no particular, o consultor do pedido) ---------- */
+function autDe(c, chave) { return ((c && c.autorizadas) || []).filter(function (x) { return x.chave === chave; })[0]; }
+function mesmaCot(q, a) { return a && q.fornecedor === a.fornecedor && Math.abs(q.valor - a.valor) < 0.005; }
+function montarAutorizacao(c) {
+  var box = $('autItens'); box.innerHTML = '';
+  var lidas = (c.cotacoes && c.cotacoes.cotacoes) || [];
+  pecasOficina(c).forEach(function (p, i) {
+    var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave;
+    var minhas = lidas.filter(function (q) { return q.chave === p.chave; }).sort(function (a, b) { return a.valor - b.valor; });
+    var ja = autDe(c, p.chave);
+    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong></div>';
+    ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
+    if (ja) h += '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + (ja.quando ? ' ' + esc(ja.quando) : '') + ')' : '') + '</div>';
+    if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça.</div>';
+    else {
+      var marcada = ja ? minhas.findIndex(function (q) { return mesmaCot(q, ja); }) : 0;
+      h += minhas.map(function (q, j) {
+        return '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value="' + j + '"' + (j === marcada ? ' checked' : '') + ' onchange="totalAut()"> ' + esc(rotuloCot(q)) + (j === 0 && minhas.length > 1 ? ' <b>(menor)</b>' : '') + '</label>';
+      }).join('') + '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value=""' + (marcada < 0 ? ' checked' : '') + ' onchange="totalAut()"> não autorizar</label>';
+      div.dataset.cots = JSON.stringify(minhas);
+    }
+    div.innerHTML = h; box.appendChild(div);
+  });
+  totalAut();
+}
+function escolhasAut() {
+  var out = [];
+  Array.prototype.forEach.call($('autItens').children, function (item) {
+    var r = item.querySelector('input[type=radio]:checked');
+    if (!r || r.value === '' || !item.dataset.cots) return;
+    var q = JSON.parse(item.dataset.cots)[+r.value];
+    out.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, valor: q.valor });
+  });
+  return out;
+}
+function totalAut() {
+  var e = escolhasAut(), t = e.reduce(function (s, x) { return s + (+x.valor || 0); }, 0), n = $('autItens').children.length;
+  $('autTotal').innerHTML = '<b>' + e.length + '</b> de ' + n + ' peça(s) autorizada(s) — total <b>' + fmtValor(t) + '</b>' + (e.length < n ? ' · ' + (n - e.length) + ' sem autorização' : '');
+}
+function enviarAutorizacao() {
+  mostrar('erroComprador', false);
+  var e = escolhasAut();
+  if (!e.length) return errosComprador(['Escolha a cotação de pelo menos uma peça.']);
+  $('btnAut').disabled = true; mostrar('enviandoAut', true);
+  chamar('vdf_autorizar', TOKEN, { shortLink: CARD_EDICAO, escolhas: e }).then(function (r) {
+    $('btnAut').disabled = false; mostrar('enviandoAut', false);
+    if (!r.ok) return errosComprador(r.faltas);
+    sucesso('✅ Compra autorizada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s), total ' + esc(fmtValor(r.total)) + '.' + (r.semAut ? '<br>' + r.semAut + ' peça(s) sem autorização.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+  }).catch(function (x) { $('btnAut').disabled = false; mostrar('enviandoAut', false); errosComprador([x.message]); });
 }
 
 function montarCotacao(c) {
@@ -472,12 +542,23 @@ function montarCompra(c) {
     if (ja) h += '<div class="comprado">✔ já comprado: ' + esc(ja.nome) + (ja.due ? ' — previsão ' + esc(ja.due) : '') + (ja.ok ? ' (recebido)' : '') + '</div>';
     else if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça — lance na aba Cotação.</div>';
     else {
-      h += '<select class="k-sel"><option value="">— ainda não comprar —</option>' + minhas.map(function (q, j) { return '<option value="' + j + '">' + esc(rotuloCot(q)) + '</option>'; }).join('') + '</select>';
+      var aut = autDe(c, p.chave);
+      if (aut) h += '<div class="comprado">✅ autorizado: ' + esc(aut.fornecedor) + ' — ' + esc(fmtValor(aut.valor)) + '</div>';
+      else if ((c.autorizadas || []).length) h += '<div class="dica ruim">⚠️ Peça sem autorização — não comprar.</div>';
+      h += '<select class="k-sel" onchange="avisoForaAut(this)"><option value="">— ainda não comprar —</option>' + minhas.map(function (q, j) { return '<option value="' + j + '"' + (mesmaCot(q, aut) ? ' selected' : '') + '>' + esc(rotuloCot(q)) + (mesmaCot(q, aut) ? ' ✅' : '') + '</option>'; }).join('') + '</select><div class="dica ruim k-aviso"></div>';
       div.dataset.cots = JSON.stringify(minhas);
     }
     div.innerHTML = h;
     box.appendChild(div);
   });
+  var semNenhuma = !(c.autorizadas || []).length;
+  $('compraAviso').innerHTML = semNenhuma ? '⚠️ Este card ainda <b>não tem autorização da diretoria</b>. Se registrar a compra agora, ela fica marcada no card como <b>fora da autorização</b>.' : '';
+  mostrar('compraAviso', semNenhuma);
+}
+function avisoForaAut(sel) {
+  var item = sel.closest('.item'), aut = autDe(CARD, item.dataset.chave), av = item.querySelector('.k-aviso');
+  var q = sel.value ? JSON.parse(item.dataset.cots)[+sel.value] : null;
+  av.textContent = q && (CARD.autorizadas || []).length && !mesmaCot(q, aut) ? '⚠️ Diferente do autorizado — vai ficar registrado como compra fora da autorização.' : '';
 }
 function enviarCompra() {
   mostrar('erroComprador', false);
@@ -493,7 +574,7 @@ function enviarCompra() {
   chamar('vdf_salvarCompra', TOKEN, { shortLink: CARD_EDICAO, compras: compras }).then(function (r) {
     $('btnCompra').disabled = false; mostrar('enviandoCompra', false);
     if (!r.ok) return errosComprador(r.faltas);
-    sucesso('✅ Compra registrada no card <b>' + esc(r.nome) + '</b>: ' + r.pagas + ' item(ns) no checklist PAGAS.' + (r.pendentes ? '<br>' + r.pendentes + ' peça(s) ainda sem compra.' : '<br>Todas as peças da oficina compradas.') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+    sucesso('✅ Compra registrada no card <b>' + esc(r.nome) + '</b>: ' + r.pagas + ' item(ns) no checklist PAGAS.' + (r.pendentes ? '<br>' + r.pendentes + ' peça(s) ainda sem compra.' : '<br>Todas as peças da oficina compradas.') + (r.foraAut && r.foraAut.length ? '<br>⚠️ Fora da autorização (avisado no card): ' + esc(r.foraAut.join('; ')) + '.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
   }).catch(function (e) { $('btnCompra').disabled = false; mostrar('enviandoCompra', false); errosComprador([e.message]); });
 }
 function sucesso(html, url, rotuloNovo) {
