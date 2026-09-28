@@ -470,45 +470,85 @@ function vd_extrair_(texto) {
   return r;
 }
 
+/** Anexo do card que dá para ler (PDF ou foto enviada, até o limite de tamanho). */
+function vd_anexoLegivel_(a) {
+  return !!a && a.isUpload && (a.bytes || 0) <= VD.MAX_BYTES_ANEXO &&
+    (/pdf|image\/(jpe?g|png|webp|gif)/i.test(a.mimeType || '') || /\.(pdf|jpe?g|png)$/i.test(a.name || ''));
+}
+
+/**
+ * Lê UM anexo do Trello com cache (VD_ANX3_<id>) — usado pelo robô e pelo formulário.
+ * opt.orcCompleto: quer as peças do orçamento mesmo quando o cache não as guardou (orçamento grande).
+ * Numa leitura nova, r.orcFull traz o orçamento completo (não vai para o cache).
+ * Devolve null se o Trello não entregou o arquivo.
+ */
+function vd_lerAnexoTrello_(a, opt) {
+  opt = opt || {};
+  var props = PropertiesService.getScriptProperties();
+  var chave = 'VD_ANX3_' + a.id;
+  var cache = props.getProperty(chave);
+  var r = null;
+  if (cache) {
+    r = JSON.parse(cache);
+    // leitura antiga (sem as peças do orçamento): lê de novo só se o anexo era orçamento
+    if (r.orcamento && !r.orc && !r.orcGrande) r = null;
+    // cache antigo sem a dica de tipo do orçamento: lê de novo uma vez
+    else if (r && r.orc && r.orc.o.some(function (x) { return x[0] !== 'P' && x.length < 4; })) r = null;
+    // formulário precisa das peças e o cache não as tem
+    else if (r && opt.orcCompleto && r.orcamento && !r.orc) r = null;
+    if (r) r.doCache = true;
+  }
+  if (!r) {
+    var orcFull = null;
+    try {
+      var resp = UrlFetchApp.fetch(a.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
+      if (resp.getResponseCode() >= 300) return null;
+      var texto = vd_ocr_(resp.getBlob(), a.name);
+      r = vd_extrair_(texto);
+      var orc = vd_lerOrcamento_(texto);
+      r.cor = orc.cor; r.seguradora = orc.seguradora; r.sinistro = orc.sinistro; r.orcamento = orc.origem;
+      if (orc.origem) { r.orc = { o: vd_orcCompacto_(orc.oficina), f: vd_orcCompacto_(orc.fo) }; orcFull = orc; }
+    } catch (e) {
+      r = { erro: String(e).slice(0, 100), chassis: [], placas: [] };
+    }
+    var js = JSON.stringify(r);
+    if (js.length > 8500 && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
+    props.setProperty(chave, js.length > 8500 ? JSON.stringify({ chassis: r.chassis, placas: r.placas, modelo: r.modelo, ano: r.ano, motor: r.motor }) : js);
+    if (orcFull) r.orcFull = orcFull;
+  }
+  return r;
+}
+
+/**
+ * Card sem placa (ex.: PDF arrastado direto para o quadro): lê os anexos e, se todos os
+ * que citam placa citam a MESMA, devolve {placa, anexo}. Mais de uma placa = não chuta.
+ */
+function vd_placaDosAnexos_(card, prazo) {
+  var anexos = (card.attachments || []).filter(vd_anexoLegivel_).slice(0, VD.MAX_ANEXOS_CARD);
+  var achadas = [], origem = '', lidos = 0;
+  for (var i = 0; i < anexos.length; i++) {
+    if (Date.now() > prazo) break;
+    var r = vd_lerAnexoTrello_(anexos[i]);
+    if (!r) continue;
+    lidos++;
+    (r.placas || []).forEach(function (p) {
+      if (!vd_placaValida_(p)) return;
+      if (!achadas.some(function (x) { return vd_mesmaPlaca_(x, p); })) { achadas.push(vd_normPlaca_(p)); if (!origem) origem = anexos[i].name; }
+    });
+  }
+  return { placa: achadas.length === 1 ? achadas[0] : '', varias: achadas.length > 1 ? achadas : null, anexo: origem, lidos: lidos };
+}
+
 /** Lê os anexos do card (com cache) e devolve os dados achados que batem com a placa. */
 function vd_lerAnexosCard_(card, placa, prazo) {
-  var props = PropertiesService.getScriptProperties();
-  var anexos = (card.attachments || []).filter(function (a) {
-    return a.isUpload && (a.bytes || 0) <= VD.MAX_BYTES_ANEXO &&
-      (/pdf|image\/(jpe?g|png|webp|gif)/i.test(a.mimeType || '') || /\.(pdf|jpe?g|png)$/i.test(a.name || ''));
-  }).slice(0, VD.MAX_ANEXOS_CARD);
+  var anexos = (card.attachments || []).filter(vd_anexoLegivel_).slice(0, VD.MAX_ANEXOS_CARD);
 
   var achados = [];
   for (var i = 0; i < anexos.length; i++) {
     if (Date.now() > prazo) break;
-    var a = anexos[i];
-    var chave = 'VD_ANX3_' + a.id;
-    var cache = props.getProperty(chave);
-    var r = null;
-    if (cache) {
-      r = JSON.parse(cache);
-      // leitura antiga (sem as peças do orçamento): lê de novo só se o anexo era orçamento
-      if (r.orcamento && !r.orc && !r.orcGrande) r = null;
-      // cache antigo sem a dica de tipo do orçamento: lê de novo uma vez
-      else if (r && r.orc && r.orc.o.some(function (x) { return x[0] !== 'P' && x.length < 4; })) r = null;
-    }
-    if (!r) {
-      try {
-        var resp = UrlFetchApp.fetch(a.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
-        if (resp.getResponseCode() >= 300) continue;
-        var texto = vd_ocr_(resp.getBlob(), a.name);
-        r = vd_extrair_(texto);
-        var orc = vd_lerOrcamento_(texto);
-        r.cor = orc.cor; r.seguradora = orc.seguradora; r.sinistro = orc.sinistro; r.orcamento = orc.origem;
-        if (orc.origem) r.orc = { o: vd_orcCompacto_(orc.oficina), f: vd_orcCompacto_(orc.fo) };
-      } catch (e) {
-        r = { erro: String(e).slice(0, 100), chassis: [], placas: [] };
-      }
-      var js = JSON.stringify(r);
-      if (js.length > 8500 && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
-      props.setProperty(chave, js.length > 8500 ? JSON.stringify({ chassis: r.chassis, placas: r.placas, modelo: r.modelo, ano: r.ano, motor: r.motor }) : js);
-    }
-    r.anexo = a.name;
+    var r = vd_lerAnexoTrello_(anexos[i]);
+    if (!r) continue;
+    r.anexo = anexos[i].name;
     achados.push(r);
   }
 
@@ -818,6 +858,29 @@ function vd_conferirCard_(card, ctx) {
   var avisoAnexo = '', faltasExtra = [];
   var lido = null;
 
+  // card sem placa (ex.: PDF arrastado direto para o quadro): tenta achar a placa nos anexos
+  if (!base && !d.placa && (card.attachments || []).length && Date.now() < ctx.prazo) {
+    var pa = vd_placaDosAnexos_(card, ctx.prazo);
+    if (pa.placa) {
+      var descP = vd_definirCampo_(card.desc || '', VD_ROT.placa, 'PLACA', pa.placa);
+      // título sem placa: se era só nome de arquivo vira a placa; senão a placa entra na frente
+      var nomeP = vd_placaDoTexto_(nome) ? nome
+        : (/\.(pdf|jpe?g|png|webp)\s*$/i.test(nome) || /^\s*(image|img|pdf_report|whatsapp)/i.test(nome) || !nome.trim() ? pa.placa : pa.placa + ' ' + nome.trim());
+      res.preenchido.push('placa');
+      res.placaDoAnexo = pa.anexo;
+      if (ctx.modoAtivo) {
+        vd_backup_(card, 'placa lida do anexo ' + pa.anexo);
+        vd_gravarDesc_(card.id, descP, null, nomeP !== nome ? { name: nomeP } : null);
+        card.desc = descP;
+        if (nomeP !== nome) { card.name = nomeP; nome = nomeP; }
+      }
+      an = vd_analisar_(ctx.modoAtivo ? card.desc : descP, ctx.modoAtivo ? nome : nomeP, { base: base, tipo: tipoEtiq });
+      d = an.dados;
+    } else if (pa.varias) {
+      res.avisos.push('os anexos mostram mais de uma placa (' + pa.varias.join(', ') + ') — coloque a placa certa no título');
+    }
+  }
+
   // dados do carro pelos anexos (não mexe em card que voltou só por peça nova)
   if (!base && d.placa && (card.attachments || []).length && Date.now() < ctx.prazo) {
     lido = vd_lerAnexosCard_(card, d.placa, ctx.prazo);
@@ -848,7 +911,7 @@ function vd_conferirCard_(card, ctx) {
     }
     res.lidos = lido.lidos;
 
-    if (res.preenchido.length) {
+    if (origem.length) {
       var nomesOrig = origem.filter(function (x, i) { return x && origem.indexOf(x) === i; }).join(', ');
       novaDesc = novaDesc.replace(/\n?_?↳ .*lid[oa]s? do anexo.*_?\n?/g, '\n');
       var linhasN = novaDesc.split('\n'), pos = 0;
