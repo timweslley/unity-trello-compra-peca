@@ -63,6 +63,10 @@
   .comprado { color:var(--ok); font-size:13px; }
   .opcao-aut { display: block; padding: 6px 4px; font-weight: normal; cursor: pointer; }
   .opcao-aut input { width: auto; margin-right: 6px; }
+  .selo { display: inline-block; font-size: 12px; font-weight: bold; padding: 1px 6px; border-radius: 10px; margin-left: 4px; white-space: nowrap; }
+  .selo.preco { background: #dcfff1; color: #216e4e; }
+  .selo.prazo { background: #e9f2ff; color: #0055cc; }
+  .devolvida { border-left: 4px solid #e2b203; }
 </style>
 </head>
 <body>
@@ -221,13 +225,17 @@
     <div id="painelAut" class="oculto">
       <section>
         <h2>Autorizar compra — escolha uma cotação por peça</h2>
-        <div class="dica" style="margin-bottom:10px">Marque a cotação autorizada de cada peça (já vem marcada a de menor valor). Peça em <b>não autorizar</b> fica sem compra. O card vai para <b>AUTORIZADO COMPRA</b> e o setor de compras é avisado.</div>
+        <div class="dica" style="margin-bottom:10px">Marque a cotação autorizada de cada peça (já vem marcada a de menor preço). As etiquetas <span class="selo preco">💲 menor preço</span> e <span class="selo prazo">⏱ menor prazo</span> valem por peça, sem olhar o tipo. Peça em <b>não autorizar</b> fica sem compra. Cada peça tem um campo de observação para o comprador.</div>
         <div id="autItens"></div>
         <div class="aviso info" id="autTotal" style="margin-top:10px"></div>
+        <label for="autGeral" style="margin-top:12px">Observação geral (vai para o comprador)</label>
+        <textarea id="autGeral" rows="2" placeholder="Ex.: comprar hoje; pedir nota no CNPJ de Toledo — ou o motivo da devolução"></textarea>
       </section>
       <div class="rodape" style="margin-bottom:30px">
         <button type="button" class="principal" id="btnAut" onclick="enviarAutorizacao()">✅ Autorizar compra</button>
+        <button type="button" class="secundario" id="btnDev" onclick="enviarDevolucao()">↩️ Devolver para cotação</button>
         <span class="carregando oculto" id="enviandoAut">Enviando…</span>
+        <div class="dica" style="margin-top:6px">Devolver: o card volta para <b>EM COTAÇÃO</b> com as suas observações (geral e por peça) e qualquer autorização anterior deixa de valer.</div>
       </div>
     </div>
 
@@ -393,6 +401,7 @@ function telaComprador(c) {
   $('infoComprador').innerHTML = '<b>' + esc(c.nome) + '</b> — está em <b>' + esc(c.lista) + '</b>. ' + pecas.length + ' peça(s) pela oficina'
     + (c.tipo === 'PARTICULAR' ? ' · pedido <b>particular</b>' : ' · pedido de <b>seguradora</b>')
     + '.<br><a href="' + esc(c.url) + '" target="_blank">Abrir o card</a> · <a href="#" onclick="guardar(\'vd_modo_pend\',null);location.href=CFG.urlApp+\'?card=\'+CARD_EDICAO;return false">Editar o pedido (consultor)</a>';
+  if (c.devolucao) $('infoComprador').innerHTML += '<div class="aviso devolvida" style="margin-top:8px">↩️ <b>Cotação devolvida</b> por ' + esc(c.devolucao.quem) + ' em ' + esc(c.devolucao.quando) + (c.devolucao.geral ? ': <b>' + esc(c.devolucao.geral) + '</b>' : '') + '<br>Veja as observações em cada peça, complete e envie a cotação de novo.</div>';
   if (!pecas.length) { $('erroComprador').textContent = 'Este card não tem peça pela oficina na descrição (só fornecimento da seguradora ou descrição fora do padrão).'; mostrar('erroComprador', true); }
   montarCotacao(c); montarAutorizacao(c); montarCompra(c);
   mostrar('abaAut', !!c.podeAutorizar);
@@ -407,6 +416,28 @@ function mostrarAba(a) {
   mostrar('painelCot', a === 'cot'); mostrar('painelAut', a === 'aut'); mostrar('painelCompra', a === 'compra');
   $('abaCot').classList.toggle('marcada', a === 'cot'); $('abaAut').classList.toggle('marcada', a === 'aut'); $('abaCompra').classList.toggle('marcada', a === 'compra');
   mostrar('erroComprador', false);
+}
+
+/* ---------- menor preço / menor prazo por peça (sem olhar o tipo) ---------- */
+function prazoDias(q) {
+  if (q.dias !== '' && q.dias !== undefined && q.dias !== null && !isNaN(+q.dias)) return +q.dias;
+  var m = String(q.data || '').match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/);
+  if (!m) return Infinity;
+  var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  var ano = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : hoje.getFullYear();
+  return Math.round((new Date(ano, +m[2] - 1, +m[1]) - hoje) / 86400000);
+}
+function selosPeca(lista) {
+  // devolve função q -> html dos selos; só marca quando há mais de uma cotação
+  if (!lista || lista.length < 2) return function () { return ''; };
+  var menorV = Math.min.apply(null, lista.map(function (q) { return +q.valor || Infinity; }));
+  var prazos = lista.map(prazoDias).filter(function (d) { return isFinite(d); });
+  var menorP = prazos.length ? Math.min.apply(null, prazos) : null;
+  return function (q, texto) {
+    var pr = Math.abs((+q.valor || Infinity) - menorV) < 0.005, pz = menorP !== null && prazoDias(q) === menorP;
+    if (texto) return (pr ? ' 💲menor preço' : '') + (pz ? ' ⏱menor prazo' : '');
+    return (pr ? '<span class="selo preco">💲 menor preço</span>' : '') + (pz ? '<span class="selo prazo">⏱ menor prazo</span>' : '');
+  };
 }
 
 /* ---------- autorização (diretoria; no particular, o consultor do pedido) ---------- */
@@ -425,14 +456,30 @@ function montarAutorizacao(c) {
     if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça.</div>';
     else {
       var marcada = ja ? minhas.findIndex(function (q) { return mesmaCot(q, ja); }) : 0;
+      var selo = selosPeca(minhas);
       h += minhas.map(function (q, j) {
-        return '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value="' + j + '"' + (j === marcada ? ' checked' : '') + ' onchange="totalAut()"> ' + esc(rotuloCot(q)) + (j === 0 && minhas.length > 1 ? ' <b>(menor)</b>' : '') + '</label>';
+        return '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value="' + j + '"' + (j === marcada ? ' checked' : '') + ' onchange="totalAut()"> ' + esc(rotuloCot(q)) + selo(q) + '</label>';
       }).join('') + '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value=""' + (marcada < 0 ? ' checked' : '') + ' onchange="totalAut()"> não autorizar</label>';
       div.dataset.cots = JSON.stringify(minhas);
     }
+    h += '<input type="text" class="a-obs" style="margin-top:6px" placeholder="Observação desta peça para o comprador (opcional)">';
     div.innerHTML = h; box.appendChild(div);
   });
   totalAut();
+}
+function obsAut() {
+  return Array.prototype.map.call($('autItens').children, function (item) { return { chave: item.dataset.chave, texto: ((item.querySelector('.a-obs') || {}).value || '').trim() }; }).filter(function (o) { return o.texto; });
+}
+function enviarDevolucao() {
+  mostrar('erroComprador', false);
+  var obs = obsAut(), geral = $('autGeral').value.trim();
+  if (!obs.length && !geral) return errosComprador(['Para devolver, escreva o motivo — na observação geral ou em alguma peça. É o que o comprador vai ler.']);
+  $('btnDev').disabled = true; $('btnAut').disabled = true; mostrar('enviandoAut', true);
+  chamar('vdf_devolverCotacao', TOKEN, { shortLink: CARD_EDICAO, obs: obs, geral: geral }).then(function (r) {
+    $('btnDev').disabled = false; $('btnAut').disabled = false; mostrar('enviandoAut', false);
+    if (!r.ok) return errosComprador(r.faltas);
+    sucesso('↩️ Cotação devolvida no card <b>' + esc(r.nome) + '</b> com ' + r.n + ' observação(ões).' + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b> e o setor de compras foi avisado.' : ''), r.url, 'Voltar ao card');
+  }).catch(function (x) { $('btnDev').disabled = false; $('btnAut').disabled = false; mostrar('enviandoAut', false); errosComprador([x.message]); });
 }
 function escolhasAut() {
   var out = [];
@@ -453,7 +500,7 @@ function enviarAutorizacao() {
   var e = escolhasAut();
   if (!e.length) return errosComprador(['Escolha a cotação de pelo menos uma peça.']);
   $('btnAut').disabled = true; mostrar('enviandoAut', true);
-  chamar('vdf_autorizar', TOKEN, { shortLink: CARD_EDICAO, escolhas: e }).then(function (r) {
+  chamar('vdf_autorizar', TOKEN, { shortLink: CARD_EDICAO, escolhas: e, obs: obsAut(), geral: $('autGeral').value.trim() }).then(function (r) {
     $('btnAut').disabled = false; mostrar('enviandoAut', false);
     if (!r.ok) return errosComprador(r.faltas);
     sucesso('✅ Compra autorizada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s), total ' + esc(fmtValor(r.total)) + '.' + (r.semAut ? '<br>' + r.semAut + ' peça(s) sem autorização.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
@@ -470,7 +517,8 @@ function montarCotacao(c) {
     var jaLidas = lidas.filter(function (q) { return q.chave === p.chave; });
     var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong>'
       + '<button type="button" class="secundario" onclick="novaCot(this.closest(\'.item\'))">+ cotação</button></div>';
-    if (jaLidas.length) h += '<div style="margin-bottom:6px">' + jaLidas.map(function (q) { return '<div class="cot-lida">já no card: <b>' + esc(rotuloCot(q)) + '</b></div>'; }).join('') + '</div>';
+    var seloL = selosPeca(jaLidas);
+    if (jaLidas.length) h += '<div style="margin-bottom:6px">' + jaLidas.map(function (q) { return '<div class="cot-lida">já no card: <b>' + esc(rotuloCot(q)) + '</b>' + seloL(q) + '</div>'; }).join('') + '</div>';
     var obsLidas = ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; });
     if (obsLidas.length) h += '<div class="dica" style="margin-bottom:6px">Obs. já no card: ' + obsLidas.map(function (o) { return esc(o.texto); }).join(' · ') + '</div>';
     h += '<div class="cot-novas"></div>';
@@ -545,7 +593,7 @@ function montarCompra(c) {
       var aut = autDe(c, p.chave);
       if (aut) h += '<div class="comprado">✅ autorizado: ' + esc(aut.fornecedor) + ' — ' + esc(fmtValor(aut.valor)) + '</div>';
       else if ((c.autorizadas || []).length) h += '<div class="dica ruim">⚠️ Peça sem autorização — não comprar.</div>';
-      h += '<select class="k-sel" onchange="avisoForaAut(this)"><option value="">— ainda não comprar —</option>' + minhas.map(function (q, j) { return '<option value="' + j + '"' + (mesmaCot(q, aut) ? ' selected' : '') + '>' + esc(rotuloCot(q)) + (mesmaCot(q, aut) ? ' ✅' : '') + '</option>'; }).join('') + '</select><div class="dica ruim k-aviso"></div>';
+      h += '<select class="k-sel" onchange="avisoForaAut(this)"><option value="">— ainda não comprar —</option>' + minhas.map(function (q, j) { return '<option value="' + j + '"' + (mesmaCot(q, aut) ? ' selected' : '') + '>' + esc(rotuloCot(q)) + selosPeca(minhas)(q, true) + (mesmaCot(q, aut) ? ' ✅ autorizado' : '') + '</option>'; }).join('') + '</select><div class="dica ruim k-aviso"></div>';
       div.dataset.cots = JSON.stringify(minhas);
     }
     div.innerHTML = h;
