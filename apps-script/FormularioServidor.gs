@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard'];
 
 function doPost(e) {
   var out;
@@ -94,7 +94,7 @@ function vdf_abrir(token, shortLink) {
     req('/boards/' + b + '/labels?fields=name,color&limit=100'),
     req('/boards/' + b + '/lists?fields=name&filter=all')
   ];
-  if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due'));
+  if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due&attachments=true&attachment_fields=name,mimeType,isUpload,bytes,url'));
   var rs = UrlFetchApp.fetchAll(reqs);
   if (rs[0].getResponseCode() >= 300) throw new Error('LOGIN: seu acesso ao Trello expirou. Entre de novo.');
   for (var i = 1; i < rs.length; i++) {
@@ -171,7 +171,7 @@ function vdf_cardProtegido_(nome) {
 function vdf_carregarCard(token, shortLink) {
   vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
-  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } });
   if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
   var lista = vd_api_('/lists/' + c.idList, { query: { fields: 'name' } }).name;
   return vdf_montarCard_(c, lista);
@@ -192,6 +192,7 @@ function vdf_montarCard_(c, lista) {
     tipo: an.dados.tipo || (/PARTICULAR/i.test((c.labels || []).map(function (l) { return l.name; }).join(' ')) ? 'PARTICULAR' : 'SEGURADORA'),
     origemOrc: (vd_limpar_(an.div.bloco).match(/OR[ÇC]AMENTO IMPORTADO \(([^)]*)\)/i) || [])[1] || '',
     titulo: vdf_partesTitulo_(c.name, an.dados),
+    anexos: vdf_anexosDoCard_(c.attachments),
     pagas: (function () {
       try {
         var pg = (c.checklists || []).filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); })[0];
@@ -222,6 +223,35 @@ function vdf_partesTitulo_(nome, dados) {
   return r;
 }
 
+/* ---------- anexos que já estão no card (evita subir o mesmo orçamento de novo) ---------- */
+
+/** PDFs/fotos já anexados no card: {id, nome, bytes, pdf, lido} (lido = o robô já leu, abre na hora). */
+function vdf_anexosDoCard_(attachments) {
+  var props = PropertiesService.getScriptProperties();
+  return (attachments || []).filter(vd_anexoLegivel_).map(function (a) {
+    return { id: a.id, nome: a.name, bytes: a.bytes || 0, pdf: /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || ''), lido: !!props.getProperty('VD_ANX3_' + a.id) };
+  });
+}
+
+/** Lê um anexo que JÁ está no card (sem novo upload). Mesmo retorno de vdf_lerDocumento, com anexoId no lugar de fileId. */
+function vdf_lerAnexoCard(token, shortLink, idAnexo, placa) {
+  vdf_usuario_(token);
+  var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } });
+  if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
+  var a = (c.attachments || []).filter(function (x) { return x.id === idAnexo; })[0];
+  if (!a) throw new Error('Esse anexo não está mais no card.');
+  if (!vd_anexoLegivel_(a)) throw new Error('Esse anexo não dá para ler (só PDF ou foto até 15 MB).');
+  var r = vd_lerAnexoTrello_(a, { orcCompleto: true });
+  if (!r) throw new Error('O Trello não entregou o arquivo "' + a.name + '". Tente de novo.');
+  if (r.erro) return { anexoId: a.id, jaNoCard: true, erro: 'Não consegui ler "' + a.name + '" (' + r.erro + ').' };
+  var orc = r.orcFull || (r.orc ? { origem: r.orcamento, oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : { origem: '' });
+  orc.cor = r.cor; orc.seguradora = r.seguradora; orc.sinistro = r.sinistro;
+  var out = vdf_respostaLeitura_(r, orc, placa);
+  out.anexoId = a.id; out.jaNoCard = true; out.doCache = !!r.doCache;
+  return out;
+}
+
 /* ---------- leitura de documento enviado no formulário ---------- */
 
 function vdf_lerDocumento(token, base64, mime, nome, placa) {
@@ -234,12 +264,17 @@ function vdf_lerDocumento(token, base64, mime, nome, placa) {
   } catch (e) {
     return { fileId: arq.getId(), erro: 'Não consegui ler o documento (' + String(e.message || e).slice(0, 80) + '). Ele será anexado mesmo assim.' };
   }
-  var r = vd_extrair_(texto);
-  var orc = vd_lerOrcamento_(texto);
-  var placasDoc = r.placas.slice(0, 5);
+  var out = vdf_respostaLeitura_(vd_extrair_(texto), vd_lerOrcamento_(texto), placa);
+  out.fileId = arq.getId();
+  return out;
+}
+
+/** Monta a resposta de leitura (documento enviado ou anexo do card) para o formulário. */
+function vdf_respostaLeitura_(r, orc, placa) {
+  var placasDoc = (r.placas || []).slice(0, 5);
   var confere = !placa || placasDoc.some(function (p) { return vd_mesmaPlaca_(p, placa); });
+  r.chassis = r.chassis || [];
   return {
-    fileId: arq.getId(),
     confere: confere,
     placasDoc: placasDoc,
     chassi: confere && r.chassis.length === 1 ? r.chassis[0] : '',
@@ -690,12 +725,20 @@ function vdf_salvar(token, p) {
     } catch (e) {}
   }
 
-  var anexados = 0, capaOk = false;
+  var anexados = 0, capaOk = false, repetidos = [];
+  // anexos que já estão no card (mesmo nome e tamanho) não sobem de novo
+  var jaNoCard = [];
+  if (p.shortLink && (p.fileIds || []).length) {
+    try { jaNoCard = vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,bytes' } }, token); } catch (e) {}
+  }
   (p.fileIds || []).forEach(function (fid) {
     try {
       var f = DriveApp.getFileById(fid);
-      var mp = { file: f.getBlob(), name: f.getName() };
       var ehCapa = p.capaId && fid === p.capaId;
+      if (!ehCapa && jaNoCard.some(function (a) { return a.name === f.getName() && +a.bytes === f.getSize(); })) {
+        repetidos.push(f.getName()); f.setTrashed(true); return;
+      }
+      var mp = { file: f.getBlob(), name: f.getName() };
       if (ehCapa) mp.setCover = 'true';
       var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: mp }, token);
       if (ehCapa && at && at.id) { try { vd_api_('/cards/' + card.id, { method: 'put', payload: { idAttachmentCover: at.id } }, token); capaOk = true; } catch (e2) {} }
@@ -724,7 +767,7 @@ function vdf_salvar(token, p) {
     vd_marcar_(c2);
   } catch (e) {}
 
-  return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, pagas: nPagas, anexos: anexados, capa: capaOk };
+  return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos };
 }
 
 /** Sobe um arquivo do formulário para a pasta temporária (sem ler) — fotos, capa etc. */
