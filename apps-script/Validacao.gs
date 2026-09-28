@@ -25,7 +25,10 @@ var VD = {
   LIMITE_MS: 4.5 * 60 * 1000,
   MAX_ANEXOS_CARD: 6,
   MAX_BYTES_ANEXO: 15 * 1024 * 1024,
-  URL_FORM: 'https://script.google.com/macros/s/AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew/exec',
+  // formulário estático no GitHub Pages (abre em <1 s; chama o web app por fetch). O link
+  // antigo do web app (…/exec) continua funcionando; a propriedade VD_URL_FORM sobrepõe.
+  URL_FORM: 'https://timweslley.github.io/unity-trello-compra-peca/powerup/formulario.html',
+  URL_FORM_ANTIGA: 'https://script.google.com/macros/s/AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew/exec',
   // colunas onde vale a regra de peça nova (todas depois de EM COTAÇÃO)
   LISTAS_FORA: ['ESPERA/NÃO AUTORIZADO', 'EM COTAÇÃO', 'FALTA DADOS PARA COTAR']
 };
@@ -1114,6 +1117,34 @@ function vd_garantirLinks_(forcar) {
 
 /** Roda na mão: põe os links em todos os cards agora. */
 function vd_garantirLinksAgora() { return vd_garantirLinks_(true); }
+
+/** Roda na mão (uma vez): grava VD_URL_FORM = VD.URL_FORM e troca, em todos os cards do quadro,
+ *  os links "Editar peças" / "Cotação / Compra" que ainda apontam para outra URL. */
+function vd_trocarLinksFormulario() {
+  var props = PropertiesService.getScriptProperties();
+  props.setProperty('VD_URL_FORM', VD.URL_FORM);
+  var urlForm = VD.URL_FORM;
+  var cards = vd_api_('/boards/' + vd_board_() + '/cards', { query: { fields: 'name,shortLink', attachments: 'true', attachment_fields: 'name,url' } });
+  var trocados = 0;
+  cards.forEach(function (c) {
+    if (/^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) return;
+    (c.attachments || []).forEach(function (a) {
+      var nome = a.name || '', url = String(a.url || '');
+      var editar = /Editar pe[çc]as \(formul[áa]rio\)/i.test(nome), compra = /Cota[çc][ãa]o \/ Compra \(formul[áa]rio\)/i.test(nome);
+      if (!editar && !compra) return;
+      if (url.indexOf(urlForm) === 0) return;
+      try {
+        vd_api_('/cards/' + c.id + '/attachments/' + a.id, { method: 'delete' });
+        vd_api_('/cards/' + c.id + '/attachments', { method: 'post', payload: {
+          url: urlForm + '?card=' + c.shortLink + (compra ? '&modo=compras' : ''),
+          name: compra ? '💰 Cotação / Compra (formulário)' : '✏️ Editar peças (formulário)', setCover: false } });
+        trocados++;
+      } catch (e) { console.log('falhou em ' + c.name + ': ' + e.message); }
+    });
+  });
+  console.log('VD_URL_FORM = ' + urlForm + ' | links trocados: ' + trocados);
+  return trocados;
+}
 
 /** Execução principal (acionador de 1 em 1 min). */
 function vd_executarNucleo_() {
