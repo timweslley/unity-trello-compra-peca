@@ -286,15 +286,36 @@ function ler(k) { try { return localStorage.getItem(k) || ''; } catch (e) { retu
 var PU = false;
 function avisarPai(msg) { try { var w = window; for (var i = 0; i < 4 && w !== w.parent; i++) { w = w.parent; w.postMessage(msg, '*'); } } catch (e) {} }
 
+/* Leituras: se o Google prender a chamada (~2 min, DEADLINE_EXCEEDED), dispara outra em paralelo
+ * depois de 6 s (até 3) e fica com a primeira resposta. Gravações seguem uma chamada só. */
+var CHAMADA_LEITURA = { vdf_iniciar: 1, vdf_buscarPlaca: 1, vdf_carregarCard: 1, vdf_lerDocumento: 1, vdf_lerAnexoCard: 1 };
 function chamar(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
+  var leitura = !!CHAMADA_LEITURA[fn], espera = (fn === 'vdf_lerDocumento' || fn === 'vdf_lerAnexoCard') ? 25000 : 6000;
   return new Promise(function (ok, falha) {
-    var r = google.script.run.withSuccessHandler(ok).withFailureHandler(function (e) {
+    var fim = false, n = 0, falhas = 0, relogio = null;
+    function erro(e) {
       var msg = (e && e.message) || String(e);
       if (/^(Error: )?LOGIN:/.test(msg)) { guardar('vd_token', null); TOKEN = ''; if (PU) avisarPai({ vd: 'login' }); telaLogin(); }
       falha(new Error(msg.replace(/^(Error: )?(LOGIN: )?/, '')));
-    });
-    r[fn].apply(r, args);
+    }
+    function disparar() {
+      if (fim) return;
+      n++;
+      var r = google.script.run.withSuccessHandler(function (v) { if (fim) return; fim = true; clearTimeout(relogio); ok(v); })
+        .withFailureHandler(function (e) {
+          if (fim) return;
+          falhas++;
+          var msg = (e && e.message) || String(e);
+          var rede = /DEADLINE|server error|NetworkError|Failed to fetch|timed? ?out/i.test(msg);
+          if (leitura && rede && n < 3) { clearTimeout(relogio); disparar(); return; }
+          if (leitura && rede && falhas < n) return;
+          fim = true; clearTimeout(relogio); erro(e);
+        });
+      r[fn].apply(r, args);
+      if (leitura && n < 3) relogio = setTimeout(disparar, espera);
+    }
+    disparar();
   });
 }
 

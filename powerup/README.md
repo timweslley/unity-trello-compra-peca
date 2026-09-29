@@ -65,8 +65,10 @@ ganham os selos **💲 menor preço** e **⏱ menor prazo** (sem olhar o tipo; e
 ## Travamentos do Google (29/09/2026)
 Cerca de 1 em cada 10 chamadas ao web app fica presa ~120 s e volta com erro 500
 "DEADLINE_EXCEEDED" — o Google falha ao carregar o projeto, antes do nosso código rodar.
-O `chamar()` do formulário desiste depois de 20 s (leituras), 45 s (gravações) ou 75 s
-(leitura de PDF/foto e envio de arquivo) e tenta de novo até 3 vezes, com o aviso
+Nova medição no mesmo dia: 5 de 30 (17%). O `chamar()` do formulário dispara uma 2ª chamada em
+PARALELO se a 1ª não responder em 6 s (leituras; 25 s para ler PDF/foto) e fica com a primeira resposta
+(até 3 chamadas). Gravações: com `PU_CFG.SERVIDOR_RID = true` (só depois do Apps Script v23) usam o
+mesmo paralelo depois de 15 s; enquanto for `false`, esperam 45 s e repetem. Aviso na tela:
 "O servidor do Google demorou a responder. Tentando de novo…". As gravações levam um `rid`:
 o `doPost` (Apps Script v23) guarda o resultado no CacheService por 10 min e, se a mesma
 gravação chegar de novo, devolve o resultado em vez de gravar duas vezes.

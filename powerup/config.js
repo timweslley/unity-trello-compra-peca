@@ -8,5 +8,8 @@ window.PU_CFG = {
   URL_APP: 'https://script.google.com/macros/s/AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew/exec',
   URL_FORM: 'https://timweslley.github.io/unity-trello-compra-peca/powerup/formulario.html',
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
-  NOME: 'Pedido de Peça Unity'
+  NOME: 'Pedido de Peça Unity',
+  /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
+   * libera chamadas em paralelo também nas gravações. */
+  SERVIDOR_RID: false
 };
