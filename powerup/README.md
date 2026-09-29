@@ -72,3 +72,12 @@ mesmo paralelo depois de 15 s; enquanto for `false`, esperam 45 s e repetem. Avi
 "O servidor do Google demorou a responder. Tentando de novo…". As gravações levam um `rid`:
 o `doPost` (Apps Script v23) guarda o resultado no CacheService por 10 min e, se a mesma
 gravação chegar de novo, devolve o resultado em vez de gravar duas vezes.
+
+## Cotação parcial (v24, 29/09/2026)
+Cada peça da oficina precisa de cotação OU de justificativa (linha `SEM COTAÇÃO <peça>: motivo`,
+campo "Não vai cotar esta peça? Motivo" no formulário). As cotações somam entre envios.
+- Falta peça sem cotação nem justificativa → card vai/fica em **EM COTAÇÃO** com etiqueta laranja
+  **COTAÇÃO PARCIAL** e comentário listando o que falta.
+- Tudo coberto → tira a etiqueta e anda (seguradora: PENDENTE AUTORIZAR; particular: COTAÇÃO
+  FINALIZADA); se houver peça justificada, o comentário lista "Peças não cotadas" com o motivo, e a
+  tela de autorização mostra o motivo na peça.

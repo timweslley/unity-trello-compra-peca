@@ -459,7 +459,7 @@ var VDF_LISTA_CHEGAR = 'FALTA CHEGAR';
  * Devolve {cotacoes:[{chave, fornecedor, obs, tipo, marca, valor, dias, data}], nt:[fornecedor], obs:[{chave, texto}]}
  */
 function vd_cotacoesDaDescricao_(desc, pecas) {
-  var out = { cotacoes: [], nt: [], obs: [] };
+  var out = { cotacoes: [], nt: [], obs: [], semCot: [] };
   var resto = vd_dividir_(desc).resto;
   if (!resto) return out;
   var chaves = (pecas || []).map(function (p) { return { chave: vd_chavePeca_(p), desc: vd_semAcento_(p.pneu ? 'PNEU ' + p.medida : p.descricao).replace(/\s+/g, ' ').trim(), cod: vd_semAcento_(String(p.codigo || '').replace(/\s+/g, '')) }; });
@@ -468,6 +468,16 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     var l = vd_limpar_(raw).trim();
     if (!l) return;
     if (/^COMPRAD[OA]\s*:/i.test(l) || /^AUTORIZAD[OA]\s*:/i.test(l) || /^COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^DEVOLVIDA PARA COTA/i.test(l) || /^OBS GERAL\s*:/i.test(l) || /^\(texto que estava/i.test(l)) { if (/^(AUTORIZA|DEVOLVIDA)/i.test(l)) forn = ''; return; }
+    /* SEM COTAÇÃO <peça>: motivo — comprador justificou por que não cotou a peça */
+    var ms = l.match(/^SEM COTA[ÇC][ÃA]O\s+(.+?)\s*:\s*(.+)$/i);
+    if (ms) {
+      var alvoS = vd_semAcento_(ms[1]).replace(/\s+/g, ' ').trim();
+      for (var is = 0; is < chaves.length; is++) {
+        var ks = chaves[is];
+        if ((ks.cod && ks.cod.length >= 4 && alvoS.indexOf(ks.cod) >= 0) || (!ks.cod && ks.desc && alvoS.indexOf(ks.desc) >= 0)) { out.semCot.push({ chave: ks.chave, texto: ms[2].trim() }); break; }
+      }
+      return;
+    }
     var mo = l.match(/^OBS\s+(.+?)\s*:\s*(.+)$/i);
     if (mo) {
       var alvoO = vd_semAcento_(mo[1]).replace(/\s+/g, ' ').trim(), pecaO = null;
@@ -557,7 +567,9 @@ function vdf_salvarCotacao(token, p) {
   });
   var nt = (p.nt || []).map(function (s) { return String(s || '').trim().toUpperCase(); }).filter(String);
   var obs = (p.obs || []).map(function (o) { return { peca: porChave[o.chave], texto: String(o.texto || '').replace(/\s*\n\s*/g, ' ').trim() }; }).filter(function (o) { return o.peca && o.texto; });
-  if (!cots.length && !nt.length && !obs.length) faltas.push('Lance pelo menos uma cotação, um fornecedor NT ou uma observação.');
+  var semCot = (p.semCot || []).map(function (o) { return { peca: porChave[o.chave], chave: o.chave, texto: String(o.texto || '').replace(/\s*\n\s*/g, ' ').trim() }; }).filter(function (o) { return o.peca && o.texto; });
+  semCot.forEach(function (s) { if (cots.some(function (c) { return c.peca === s.peca; })) faltas.push(vd_nomePeca_(s.peca) + ': tem cotação e justificativa de não cotar ao mesmo tempo — deixe só uma'); });
+  if (!cots.length && !nt.length && !obs.length && !semCot.length) faltas.push('Lance pelo menos uma cotação, um fornecedor NT, uma observação ou a justificativa de uma peça não cotada.');
   if (faltas.length) return { ok: false, faltas: faltas };
 
   var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
@@ -571,21 +583,55 @@ function vdf_salvarCotacao(token, p) {
   ordem.forEach(function (f) { L.push('**' + f + '**'); L = L.concat(grupos[f]); });
   nt.forEach(function (f) { if (!grupos[f]) L.push('**' + f + ' - NT**'); });
   obs.forEach(function (o) { L.push('OBS ' + vd_nomePeca_(o.peca) + ': ' + o.texto); });
+  semCot.forEach(function (s) { L.push('SEM COTAÇÃO ' + (s.peca.pneu ? 'PNEU ' + String(s.peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(s.peca)) + ': ' + s.texto); });
 
   var div = vd_dividir_(card.desc);
   var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
+  var novaDesc = div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n' + L.join('\n');
   vd_backup_(card, 'cotação lançada pelo formulário por ' + me.username);
-  vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n' + L.join('\n'), token);
+  vd_gravarDesc_(card.id, novaDesc, token);
 
+  /* Cobertura (somando as cotações que já estavam no card): cada peça da oficina precisa de
+   * cotação OU de justificativa (SEM COTAÇÃO). Parcial -> card fica em EM COTAÇÃO com a etiqueta
+   * COTAÇÃO PARCIAL. Completa -> anda (seguradora: PENDENTE AUTORIZAR; particular: COTAÇÃO FINALIZADA),
+   * avisando as peças não cotadas e o motivo. */
+  var cob = vdf_coberturaCotacao_(novaDesc, an.pecas);
   var particular = (an.dados.tipo === 'PARTICULAR') || /PARTICULAR/i.test((card.labels || []).map(function (l) { return l.name; }).join(' ')) || /\bPARTICULAR\b/i.test(card.name || '');
   var movido = '';
-  try { movido = vdf_moverPara_(card, ctx, particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE, token); } catch (e) {}
+  try { movido = vdf_moverPara_(card, ctx, cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token); } catch (e) {}
+  try { vdf_etiquetaParcial_(card, cob.faltam.length > 0, token); } catch (e) {}
   try {
     var quem = vd_criador_(card.id);
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (quem && quem !== me.username ? '@' + quem + ' ' : '') + '💰 **Cotação lançada** por ' + me.fullName + ': ' + cots.length + ' cotação(ões) em ' + Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length + ' peça(s)' + (nt.length ? ', ' + nt.length + ' fornecedor(es) sem a peça' : '') + (obs.length ? ', ' + obs.length + ' observação(ões)' : '') + '.' + (movido ? '\nCard movido para **' + movido + '**.' : '') } }, token);
+    var txt = (quem && quem !== me.username ? '@' + quem + ' ' : '') + '💰 **Cotação lançada** por ' + me.fullName + ': ' + cots.length + ' cotação(ões) em ' + Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length + ' peça(s)' + (nt.length ? ', ' + nt.length + ' fornecedor(es) sem a peça' : '') + (obs.length ? ', ' + obs.length + ' observação(ões)' : '') + '.';
+    if (cob.faltam.length) txt += '\n\n⏳ **Cotação parcial** — falta cotar (ou justificar): ' + cob.faltam.join(', ') + '.\nO card fica em **' + VD.LISTA_COTACAO + '** até todas as peças estarem cotadas ou justificadas.';
+    else if (cob.semCot.length) txt += '\n\n⚠️ **Peças não cotadas:**\n' + cob.semCot.map(function (s) { return '- ' + s.nome + ': ' + s.texto; }).join('\n');
+    if (movido) txt += '\nCard movido para **' + movido + '**.';
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length };
+  return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length };
+}
+
+/** Quais peças da oficina ainda não têm cotação nem justificativa de não cotar. */
+function vdf_coberturaCotacao_(desc, pecas) {
+  var lidas = vd_cotacoesDaDescricao_(desc, pecas);
+  var faltam = [], sem = [];
+  (pecas || []).forEach(function (p) {
+    var k = vd_chavePeca_(p), nome = p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') : vd_nomePeca_(p);
+    if (lidas.cotacoes.some(function (q) { return q.chave === k; })) return;
+    var j = lidas.semCot.filter(function (s) { return s.chave === k; }).pop();
+    if (j) sem.push({ nome: nome, texto: j.texto }); else faltam.push(nome);
+  });
+  return { faltam: faltam, semCot: sem };
+}
+
+var VDF_ETIQUETA_PARCIAL = 'COTAÇÃO PARCIAL';
+/** Põe ou tira a etiqueta COTAÇÃO PARCIAL (laranja) do card. */
+function vdf_etiquetaParcial_(card, por, token) {
+  var id = pz_labelId_(card.idBoard, VDF_ETIQUETA_PARCIAL, 'orange');
+  var tem = (card.labels || []).some(function (l) { return l.id === id; });
+  if (por && !tem) vd_api_('/cards/' + card.id + '/idLabels', { method: 'post', payload: { value: id } }, token);
+  if (!por && tem) vd_api_('/cards/' + card.id + '/idLabels/' + id, { method: 'delete' }, token);
 }
 
 /**

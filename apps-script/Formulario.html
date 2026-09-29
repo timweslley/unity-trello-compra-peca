@@ -474,7 +474,8 @@ function montarAutorizacao(c) {
     var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong></div>';
     ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
     if (ja) h += '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + (ja.quando ? ' ' + esc(ja.quando) : '') + ')' : '') + '</div>';
-    if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça.</div>';
+    var semA = ((c.cotacoes && c.cotacoes.semCot) || []).filter(function (o) { return o.chave === p.chave; });
+    if (!minhas.length) h += '<div class="dica ruim">' + (semA.length ? 'Não cotada — motivo do comprador: ' + esc(semA[semA.length - 1].texto) : 'Sem cotação lançada para esta peça.') + '</div>';
     else {
       var marcada = ja ? minhas.findIndex(function (q) { return mesmaCot(q, ja); }) : 0;
       var selo = selosPeca(minhas);
@@ -542,8 +543,12 @@ function montarCotacao(c) {
     if (jaLidas.length) h += '<div style="margin-bottom:6px">' + jaLidas.map(function (q) { return '<div class="cot-lida">já no card: <b>' + esc(rotuloCot(q)) + '</b>' + seloL(q) + '</div>'; }).join('') + '</div>';
     var obsLidas = ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; });
     if (obsLidas.length) h += '<div class="dica" style="margin-bottom:6px">Obs. já no card: ' + obsLidas.map(function (o) { return esc(o.texto); }).join(' · ') + '</div>';
+    var semLidas = ((c.cotacoes && c.cotacoes.semCot) || []).filter(function (o) { return o.chave === p.chave; });
+    if (semLidas.length && !jaLidas.length) h += '<div class="dica ruim" style="margin-bottom:6px">Não cotada — motivo já no card: ' + esc(semLidas[semLidas.length - 1].texto) + '</div>';
+    else if (!jaLidas.length) h += '<div class="dica ruim" style="margin-bottom:6px">Ainda sem cotação: lance uma cotação ou justifique abaixo por que não vai cotar.</div>';
     h += '<div class="cot-novas"></div>';
     h += '<div style="margin-top:8px"><label>Observação desta peça (opcional)</label><input type="text" class="q-obs" placeholder="Ex.: só em SP, frete 2 dias; pedir foto antes de comprar"></div>';
+    if (!jaLidas.length) h += '<div style="margin-top:8px"><label>Não vai cotar esta peça? Motivo</label><input type="text" class="q-semcot" placeholder="Ex.: fora de linha, nenhum fornecedor tem; cliente vai trazer"></div>';
     div.innerHTML = h;
     box.appendChild(div);
   });
@@ -579,8 +584,13 @@ function coletarCotacoes() {
   });
   var nt = $('cotNT').value.split(/[,;\n]/).map(function (s) { return s.trim().toUpperCase(); }).filter(String);
   var obs = Array.prototype.map.call($('cotItens').children, function (item) { return { chave: item.dataset.chave, texto: (item.querySelector('.q-obs') || {}).value || '' }; }).filter(function (o) { return o.texto.trim(); });
-  if (!out.length && !nt.length && !obs.length) faltas.push('Lance pelo menos uma cotação, um fornecedor NT ou uma observação.');
-  return { cotacoes: out, nt: nt, obs: obs, faltas: faltas };
+  var semCot = Array.prototype.map.call($('cotItens').children, function (item, i) {
+    var t = ((item.querySelector('.q-semcot') || {}).value || '').trim();
+    if (t && out.some(function (q) { return q.chave === item.dataset.chave; })) faltas.push('Peça ' + (i + 1) + ': tem cotação e motivo de não cotar ao mesmo tempo — deixe só um');
+    return { chave: item.dataset.chave, texto: t };
+  }).filter(function (o) { return o.texto; });
+  if (!out.length && !nt.length && !obs.length && !semCot.length) faltas.push('Lance pelo menos uma cotação, um fornecedor NT, uma observação ou o motivo de não cotar uma peça.');
+  return { cotacoes: out, nt: nt, obs: obs, semCot: semCot, faltas: faltas };
 }
 function errosComprador(lista) {
   $('erroComprador').innerHTML = '<b>Falta acertar:</b><ul>' + lista.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>';
@@ -591,10 +601,10 @@ function enviarCotacao() {
   var c = coletarCotacoes();
   if (c.faltas.length) return errosComprador(c.faltas);
   $('btnCotacao').disabled = true; mostrar('enviandoCot', true);
-  chamar('vdf_salvarCotacao', TOKEN, { shortLink: CARD_EDICAO, cotacoes: c.cotacoes, nt: c.nt, obs: c.obs }).then(function (r) {
+  chamar('vdf_salvarCotacao', TOKEN, { shortLink: CARD_EDICAO, cotacoes: c.cotacoes, nt: c.nt, obs: c.obs, semCot: c.semCot }).then(function (r) {
     $('btnCotacao').disabled = false; mostrar('enviandoCot', false);
     if (!r.ok) return errosComprador(r.faltas);
-    sucesso('✅ Cotação lançada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' cotação(ões)' + (r.obs ? ', ' + r.obs + ' observação(ões)' : '') + '.' + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Lançar mais / comprar');
+    sucesso('✅ Cotação lançada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' cotação(ões)' + (r.obs ? ', ' + r.obs + ' observação(ões)' : '') + '.' + (r.faltam && r.faltam.length ? '<br>⏳ <b>Cotação parcial</b> — falta cotar ou justificar: ' + esc(r.faltam.join(', ')) + '. O card fica em EM COTAÇÃO.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Lançar mais / comprar');
   }).catch(function (e) { $('btnCotacao').disabled = false; mostrar('enviandoCot', false); errosComprador([e.message]); });
 }
 
