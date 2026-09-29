@@ -1,0 +1,58 @@
+# Publica o Apps Script "Log de Descricao Trello" a cada mudança em apps-script/ na main.
+# Sobe o código (clasp push), cria versão nova e atualiza a MESMA implantação do web app
+# (o link do formulário não muda). Antes de sobrescrever, baixa o código atual do projeto
+# como ponto de restauração (artefato "apps-script-antes-...") e aborta se o projeto tiver
+# arquivos que não estão no repositório.
+# Requer o segredo CLASPRC_JSON (conteúdo do .clasprc.json gerado por `clasp login`).
+name: Publicar Apps Script
+on:
+  push:
+    branches: [main]
+    paths: ['apps-script/**']
+  workflow_dispatch:
+concurrency: apps-script
+env:
+  DEPLOY_ID: AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Instalar clasp
+        run: npm i -g @google/clasp@2.4.2
+      - name: Credencial
+        env:
+          CLASPRC: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC" ]; then echo "::error::Falta o segredo CLASPRC_JSON no repositório"; exit 1; fi
+          printf '%s' "$CLASPRC" > ~/.clasprc.json
+      - name: Baixar o código atual (ponto de restauração)
+        run: |
+          mkdir -p /tmp/atual
+          sed 's#"rootDir": *"[^"]*"#"rootDir": "/tmp/atual"#' .clasp.json > /tmp/clasp-pull.json
+          cp /tmp/clasp-pull.json .clasp.json.pull
+          mv .clasp.json .clasp.json.orig && mv .clasp.json.pull .clasp.json
+          clasp pull
+          mv .clasp.json.orig .clasp.json
+          echo "No Apps Script hoje:"; ls -1 /tmp/atual
+          falta=0
+          for f in /tmp/atual/*; do
+            n=$(basename "$f")
+            if [ ! -f "apps-script/$n" ]; then echo "::error::O projeto tem o arquivo '$n' que não está no repositório — publicar apagaria. Abortado."; falta=1; fi
+          done
+          exit $falta
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apps-script-antes-${{ github.sha }}
+          path: /tmp/atual
+          retention-days: 90
+      - name: Subir código
+        run: clasp push -f
+      - name: Nova versão na implantação do formulário
+        run: |
+          d="git $(git rev-parse --short HEAD): $(git log -1 --format=%s | cut -c1-80)"
+          clasp deploy -i "$DEPLOY_ID" -d "$d"
+          clasp deployments
