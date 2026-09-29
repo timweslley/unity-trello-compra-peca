@@ -11,5 +11,5 @@ window.PU_CFG = {
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
    * libera chamadas em paralelo também nas gravações. */
-  SERVIDOR_RID: false
+  SERVIDOR_RID: true
 };
