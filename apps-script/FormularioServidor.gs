@@ -213,6 +213,7 @@ function vdf_carregarCard(token, shortLink) {
 /* monta a resposta do card a partir do card já lido (com checklists=all) */
 function vdf_montarCard_(c, lista, me) {
   if (vdf_cardProtegido_(c.name)) throw new Error('Este é o card fixo do quadro — não pode ser usado como pedido. Faça um pedido novo.');
+  try { var cmp = vd_completa_(c.id); if (cmp) c.desc = cmp; } catch (e) {}   // vitrine -> descrição completa
   var an = vd_analisar_(c.desc, c.name);
   var autorizadas = [];
   try { autorizadas = vd_autorizacoesDaDescricao_(c.desc, an.pecas); } catch (e) {}
@@ -809,6 +810,7 @@ function vdf_salvarCompra(token, p) {
   });
 
   var n = vd_checklistPagas_(card.id, compras, token);
+  try { vd_redesenhar_(card.id, token); } catch (e) { console.log('vitrine/compra: ' + e); }   // mostra 🛒 na descrição
 
   // tudo comprado? -> FALTA CHEGAR
   var movido = '', pendentes = 0;
@@ -926,7 +928,7 @@ function vdf_salvar(token, p) {
     var corpo = { idList: ctx.listas[VD.LISTA_COTACAO], name: titulo, desc: bloco + '\n\n' + VD.MARCADOR, pos: 'top' };
     if (n.unidade) corpo.idLabels = n.unidade;
     card = vd_api_('/cards', { method: 'post', payload: corpo }, token);
-    try { tr_guardar_(card.id, corpo.desc); } catch (e) {}
+    try { vd_gravarDesc_(card.id, corpo.desc, token); } catch (e) { try { tr_guardar_(card.id, corpo.desc); } catch (e2) {} }
     try {
       vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink, name: '✏️ Editar peças (formulário)', setCover: false } }, token);
     } catch (e) {}

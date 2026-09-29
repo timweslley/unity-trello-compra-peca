@@ -88,7 +88,11 @@ function vd_api_(caminho, opts, tokenUsuario) {
     throw e;
   }
   var t = r.getContentText();
-  return t ? JSON.parse(t) : null;
+  var out = t ? JSON.parse(t) : null;
+  if (params.method === 'get' && !opts.cru && t && t.indexOf('"desc"') >= 0) {
+    try { out = vd_trocarPelaCompleta_(out); } catch (e) { console.log('vitrine/troca: ' + e); }
+  }
+  return out;
 }
 
 function vd_listas_(board) {
@@ -685,11 +689,17 @@ function tr_guardarLote_(itens) {
     var h = tr_hash_(it.desc);
     props[TR.PREFIXO + it.id] = h;
     var linha = [it.id, h, agora, String(it.desc || '')];
+    var comCompleta = typeof it.completa === 'string';
+    if (comCompleta) linha.push(it.completa);
     var k = ids.indexOf(it.id);
-    if (k >= 0) sh.getRange(k + 2, 1, 1, 4).setValues([linha]);
-    else { novos.push(linha); ids.push(it.id); }
+    if (k >= 0) sh.getRange(k + 2, 1, 1, linha.length).setValues([linha]);
+    else { novos.push(linha.length === 5 ? linha : linha.concat([''])); ids.push(it.id); }
+    if (comCompleta) {
+      try { if (it.completa.length < 90000) CacheService.getScriptCache().put('vd_cmp_' + it.id, '#' + it.completa, 21600); else CacheService.getScriptCache().remove('vd_cmp_' + it.id); } catch (e) {}
+      if (VD_CMP_MEM) VD_CMP_MEM[it.id] = it.completa;
+    }
   });
-  if (novos.length) sh.getRange(n + 1, 1, novos.length, 4).setValues(novos);
+  if (novos.length) sh.getRange(n + 1, 1, novos.length, 5).setValues(novos);
   PropertiesService.getScriptProperties().setProperties(props);
 }
 
@@ -708,9 +718,34 @@ function tr_ler_(cardId) {
 /** Grava a descrição de um card (PUT) e registra como versão oficial. extra = outros campos do PUT. */
 function vd_gravarDesc_(cardId, desc, token, extra) {
   var payload = extra || {};
-  payload.desc = desc;
+  var vit = null, jaTinha = '';
+  try {
+    jaTinha = vd_completa_(cardId);
+    var c = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name', checklists: 'all', checkItem_fields: 'name,state,due' } });
+    var pg = (c.checklists || []).filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); })[0];
+    vit = vd_vitrine_(desc, payload.name || c.name, pg ? pg.checkItems : []);
+  } catch (e) { console.log('vitrine: ' + e); vit = null; }
+  payload.desc = vit === null ? desc : vit;
   vd_api_('/cards/' + cardId, { method: 'put', payload: payload }, token);
-  try { tr_guardar_(cardId, desc); } catch (e) { console.log('trava: ' + e); }
+  try { tr_guardarLote_([{ id: cardId, desc: payload.desc, completa: vit === null ? '' : desc }]); } catch (e) { console.log('trava: ' + e); }
+  // 1ª vez com vitrine: o texto antigo fora do padrão vai para um comentário (não se perde de vista)
+  if (vit !== null && !jaTinha) {
+    try {
+      var leg = vd_textoLegado_(desc);
+      if (leg) {
+        leg = leg.replace(/^\s*([-=_*~+.]\s*){3,}$/gm, '───');
+        if (leg.length > 15000) leg = leg.slice(0, 15000) + '\n(…)';
+        vd_api_('/cards/' + cardId + '/actions/comments', { method: 'post', payload: { text: '📄 **Texto antigo do card** (guardado aqui ao organizar a descrição):\n\n' + leg } });
+      }
+    } catch (e) { console.log('vitrine/legado: ' + e); }
+  }
+}
+
+/** Redesenha a vitrine de um card a partir da completa guardada (ex.: depois de uma compra). */
+function vd_redesenhar_(cardId, token) {
+  var desc = vd_completa_(cardId);
+  if (!desc) desc = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'desc' } }).desc || '';
+  vd_gravarDesc_(cardId, desc, token);
 }
 
 /** Ciclo de 1 minuto: desfaz edição manual da descrição. */
@@ -719,7 +754,7 @@ function tr_executar_() {
   var board = vd_board_();
   var props = PropertiesService.getScriptProperties();
   var todas = props.getProperties();
-  var cards = vd_api_('/boards/' + board + '/cards', { query: { fields: 'name,desc,shortLink,shortUrl,dateLastActivity' } });
+  var cards = vd_api_('/boards/' + board + '/cards', { cru: true, query: { fields: 'name,desc,shortLink,shortUrl,dateLastActivity' } });
   var baseline = [], restaurados = 0, agora = Date.now();
   cards.forEach(function (c) {
     var chave = TR.PREFIXO + c.id;
@@ -1555,3 +1590,191 @@ function rel_instalarSeFaltar_() {
 
 /** Envia o relatório agora (teste no editor). */
 function rel_enviarAgora() { Logger.log('exceções: ' + rel_enviar_()); }
+
+/* ============================ VITRINE (descrição enxuta) ============================
+ * A descrição COMPLETA (formato de sempre, que todo o código lê) fica guardada na planilha TRAVA,
+ * coluna E. No Trello aparece só a VITRINE: carro em 2 linhas e, por peça, a situação atual
+ * (✅ autorizada, 🛒 comprada, cotações da mais barata para a mais cara, ⛔ não cotada, ⏳ aguardando).
+ * Histórico (quem cotou/autorizou/devolveu e quando) fica nos comentários.
+ *  - vd_api_ troca a desc dos cards lidos pela completa (opts.cru = true lê o que está no Trello).
+ *  - vd_gravarDesc_ recebe a completa, grava a vitrine no Trello e guarda as duas.
+ *  - Card fora do padrão (sem "PEÇAS:"), AVISO e card fixo: gravados como vieram, sem vitrine.
+ *  - Liga/desliga: propriedade VD_VITRINE (padrão SIM; NAO volta a gravar a descrição completa).
+ */
+var VD_CMP_MEM = null;   // id -> descrição completa (lida uma vez por execução)
+
+function vd_vitrineLigada_() { return vd_prop_('VD_VITRINE', 'SIM') !== 'NAO'; }
+
+/** Descrição completa guardada de um card ('' se o card ainda não foi convertido). */
+function vd_completa_(cardId) {
+  if (!cardId) return '';
+  if (VD_CMP_MEM && Object.prototype.hasOwnProperty.call(VD_CMP_MEM, cardId)) return VD_CMP_MEM[cardId];
+  var cache = CacheService.getScriptCache(), k = 'vd_cmp_' + cardId, v = cache.get(k);
+  if (v !== null) return v.slice(1);
+  var txt = '';
+  try {
+    var sh = tr_aba_();
+    var cel = sh.getRange('A:A').createTextFinder(cardId).matchEntireCell(true).findNext();
+    if (cel) txt = String(sh.getRange(cel.getRow(), 5).getValue() || '');
+  } catch (e) { console.log('vitrine/ler: ' + e); }
+  try { if (txt.length < 90000) cache.put(k, '#' + txt, 21600); } catch (e) {}
+  return txt;
+}
+
+/** Carrega de uma vez as completas de todos os cards (para leituras em lote do robô). */
+function vd_completasTodas_() {
+  if (VD_CMP_MEM) return VD_CMP_MEM;
+  VD_CMP_MEM = {};
+  try {
+    var sh = tr_aba_(), n = sh.getLastRow();
+    if (n > 1) {
+      var ids = sh.getRange(2, 1, n - 1, 1).getValues(), cs = sh.getRange(2, 5, n - 1, 1).getValues();
+      for (var i = 0; i < ids.length; i++) VD_CMP_MEM[String(ids[i][0])] = String(cs[i][0] || '');
+    }
+  } catch (e) { console.log('vitrine/lote: ' + e); }
+  return VD_CMP_MEM;
+}
+
+/** Troca, no que o Trello devolveu, a desc (vitrine) pela descrição completa guardada. */
+function vd_trocarPelaCompleta_(r) {
+  if (!r) return r;
+  if (Array.isArray(r)) {
+    if (!r.some(function (c) { return c && typeof c.desc === 'string' && c.id; })) return r;
+    var mapa = vd_completasTodas_();
+    r.forEach(function (c) { if (c && c.id && typeof c.desc === 'string' && mapa[c.id]) c.desc = mapa[c.id]; });
+    return r;
+  }
+  if (r.id && typeof r.desc === 'string') { var t = vd_completa_(r.id); if (t) r.desc = t; }
+  return r;
+}
+
+function vd_tit_(s) { s = String(s || '').toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
+function vd_md_(s) { return String(s || '').replace(/([\\`*_\[\]#>|~])/g, '\\$1'); }
+
+/**
+ * Vitrine de uma descrição completa, ou null se o card não está no padrão.
+ * pagas = itens do checklist PAGAS [{name, state, due}] (opcional).
+ */
+function vd_vitrine_(desc, nome, pagas) {
+  if (!vd_vitrineLigada_()) return null;
+  if (/^\s*AVISO\b/i.test(nome || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '')) return null;
+  var an = vd_analisar_(desc, nome || '');
+  var lp = vd_linhasPecas_(an.div.bloco);
+  if (!lp.linhas.length && !lp.semOficina) return null;
+  var d = an.dados, bloco = vd_limpar_(an.div.bloco);
+  var U = function (s) { return String(s || '').toUpperCase(); };
+
+  // carro em 2 linhas
+  var l1 = [];
+  if (d.modelo) l1.push(U(d.modelo));
+  if (d.ano && U(d.modelo).indexOf(U(d.ano).split('/')[0]) < 0) l1.push(d.ano);
+  if (d.motor && !U(d.motor).split(/\s+/).every(function (w) { return U(d.modelo).indexOf(w) >= 0; })) l1.push(U(d.motor));
+  if (d.cor) l1.push(U(d.cor));
+  l1.push(d.tipo === 'PARTICULAR' ? 'PARTICULAR' : U(d.seguradora));
+  var l2 = [d.placa, d.chassi, d.sinistro ? 'SINISTRO ' + d.sinistro : ''];
+  var L = ['**' + vd_md_(l1.filter(String).join(' · ')) + '**', vd_md_(l2.filter(String).join(' · '))];
+
+  var obsGeral = vd_campo_(an.div.bloco, 'OBS|OBSERVA[ÇC][ÃA]O');
+  if (obsGeral) L.push('📝 ' + vd_md_(obsGeral));
+
+  var cot = { cotacoes: [], nt: [], obs: [], semCot: [] }, auts = [], compras = [], dev = null;
+  try { cot = vd_cotacoesDaDescricao_(desc, an.pecas); } catch (e) {}
+  try { auts = vd_autorizacoesDaDescricao_(desc, an.pecas); } catch (e) {}
+  try { compras = vd_comprasDaDescricao_(desc); } catch (e) {}
+  try { dev = vd_ultimaDevolucao_(desc); } catch (e) {}
+  if (dev) L.push('', '↩️ **Devolvida para cotação**' + (dev.quem ? ' por ' + vd_md_(dev.quem) : '') + (dev.geral ? ': ' + vd_md_(dev.geral) : ''));
+
+  var prazoTxt = function (q) { return q.dias !== '' && q.dias != null ? q.dias + (+q.dias === 1 ? ' dia' : ' dias') : (q.data ? 'até ' + q.data : ''); };
+  var fornTxt = function (f) { return String(f || '').replace(/[\s\-–:]+$/, ''); };
+  var tipoTxt = function (q) { return [q.tipo ? vd_tit_(q.tipo) : '', q.marca || ''].filter(String).join(' '); };
+
+  L.push('');
+  if (!an.pecas.length) L.push('_Sem peças pela oficina._');
+  an.pecas.forEach(function (p, i) {
+    var k = vd_chavePeca_(p);
+    var titulo = p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + ((p.marca || p.categoria) ? ' ' + (p.marca || p.categoria) : '') : String(p.descricao || '').toUpperCase();
+    var cab = (i + 1) + '. **' + vd_md_(titulo) + '**' + (!p.pneu && p.codigo ? ' · ' + vd_md_(p.codigo) : '') + (p.qtd && +p.qtd > 1 ? ' · QTD ' + p.qtd : '');
+    var sub = [];
+    // compra: checklist PAGAS ou linha COMPRADO
+    var pg = (pagas || []).filter(function (it) { return k && vd_semAcento_(it.name).indexOf(k) >= 0; }).pop();
+    var cp = pg ? null : compras.filter(function (c) {
+      var ck = vd_semAcento_((c.codigo || '').replace(/\s+/g, '') || c.descricao);
+      return ck && (ck === k || (p.codigo && vd_semAcento_(c.codigo) === vd_semAcento_(p.codigo)) || (!p.codigo && vd_semAcento_(c.descricao).indexOf(vd_semAcento_(p.descricao)) >= 0));
+    }).pop();
+    var aut = auts.filter(function (a) { return a.chave === k; })[0];
+    var minhas = cot.cotacoes.filter(function (q) { return q.chave === k; }).sort(function (a, b) { return a.valor - b.valor; });
+    if (pg) {
+      var partes = String(pg.name).split(/\s+-\s+/);
+      var forn = partes.length >= 3 ? partes[partes.length - 2] : (partes[1] || '');
+      var val = (partes[partes.length - 1] || '').match(/R\$\s*[\d.,]+/);
+      sub.push('🛒 ' + vd_md_([forn, val ? val[0] : '', pg.due ? 'previsão ' + vd_dataCurta_(pg.due) : ''].filter(String).join(' · ')) + (pg.state === 'complete' ? ' ✔' : ''));
+    } else if (cp) {
+      sub.push('🛒 ' + vd_md_([cp.fornecedor, cp.valor ? 'R$ ' + cp.valor : '', cp.previsao ? 'previsão ' + cp.previsao : ''].filter(String).join(' · ')));
+    } else if (aut) {
+      var qa = minhas.filter(function (q) { return q.fornecedor === aut.fornecedor && Math.abs(q.valor - aut.valor) < 0.005; })[0] || {};
+      sub.push('✅ ' + vd_md_([fornTxt(aut.fornecedor), tipoTxt(qa), vd_valorBR_(aut.valor), prazoTxt(qa)].filter(String).join(' · ')));
+    } else {
+      if (!p.pneu && (p.tipos || []).length) cab += ' _(' + p.tipos.map(vd_tit_).join('/') + ')_';
+      if (minhas.length) minhas.forEach(function (q) { sub.push(vd_md_([fornTxt(q.fornecedor), tipoTxt(q), vd_valorBR_(q.valor), prazoTxt(q)].filter(String).join(' · '))); });
+      else {
+        var sc = (cot.semCot || []).filter(function (s) { return s.chave === k; }).pop();
+        sub.push(sc ? '⛔ não cotada: ' + vd_md_(sc.texto) : '⏳ aguardando cotação');
+      }
+    }
+    if (!pg && !cp) {
+      var vistos = {};
+      (cot.obs || []).forEach(function (o) {
+        if (o.chave !== k) return;
+        var ehDev = /^\(devolu[çc][ãa]o\)/i.test(o.texto);
+        if (ehDev && !dev) return;
+        var t = o.texto.replace(/^\((autoriza[çc][ãa]o|devolu[çc][ãa]o|cota[çc][ãa]o)\)\s*/i, '');
+        if (vistos[t]) return; vistos[t] = 1;
+        sub.push('📝 ' + vd_md_(t));
+      });
+    }
+    L.push(cab);
+    sub.forEach(function (s) { L.push('    - ' + s); });
+  });
+
+  var mFo = bloco.match(/FORNECIMENTO \(SEGURADORA\)\s*:?\s*(\d+)/i);
+  if (mFo) L.push('', '📦 Fornecimento da seguradora: ' + mFo[1] + ' peça(s) — checklist FORNECIMENTO');
+
+  // legenda: só dos ícones que aparecem neste card
+  var txt = L.join('\n');
+  var leg = [['✅', 'autorizada'], ['🛒', 'comprada (✔ marcada no PAGAS)'], ['⏳', 'aguardando cotação'], ['⛔', 'não cotada'], ['📝', 'observação'], ['↩️', 'devolvida para cotação'], ['📦', 'peças da seguradora']]
+    .filter(function (x) { return txt.indexOf(x[0]) >= 0; }).map(function (x) { return x[0] + ' ' + x[1]; });
+  if (an.pecas.length) leg.push('linhas sem ícone = cotações, da mais barata para a mais cara');
+  if (leg.length) txt += '\n\n_' + leg.join(' · ') + ' · histórico nos comentários_';
+  return txt;
+}
+
+/** Texto antigo (fora do padrão) que estava no card, para guardar num comentário ao converter. */
+function vd_textoLegado_(desc) {
+  var resto = vd_dividir_(desc).resto;
+  if (!resto) return '';
+  var out = [];
+  var linhas = resto.split('\n').slice(1);
+  for (var i = 0; i < linhas.length; i++) {
+    var l = vd_limpar_(linhas[i]).trim();
+    if (/^COTA[ÇC][ÃA]O\s+\d{1,2}\/|^AUTORIZA[ÇC][ÃA]O\s+\d|^DEVOLVIDA PARA COTA|^COMPRAD[OA]\s*:|^AUTORIZAD[OA]\s*:/i.test(l)) break;
+    if (!l || /^\(texto que estava/i.test(l) || /^↳/.test(l)) continue;
+    if (/^(MODELO|ANO|MOTOR\/VERS[ÃA]O|CHASSI|PLACA|COR|SEGURADORA|SINISTRO|TIPO)\s*[:\-]/i.test(l)) continue;
+    out.push(linhas[i]);
+  }
+  return out.join('\n').trim();
+}
+
+/** Roda na mão (uma vez): converte para vitrine todos os cards do quadro que ainda não foram convertidos. */
+function vd_organizarDescricoes() {
+  var cards = vd_api_('/boards/' + vd_board_() + '/cards', { cru: true, query: { fields: 'name,desc,shortUrl' } });
+  var feitos = 0, pulados = 0;
+  cards.forEach(function (c) {
+    if (vd_completa_(c.id)) { pulados++; return; }
+    if (vd_vitrine_(c.desc, c.name, []) === null) { pulados++; return; }
+    vd_backup_(c, 'descrição organizada (vitrine)');
+    vd_gravarDesc_(c.id, c.desc);
+    feitos++;
+  });
+  Logger.log('vitrine: ' + feitos + ' card(s) organizados, ' + pulados + ' já organizados ou fora do padrão');
+  return feitos;
+}

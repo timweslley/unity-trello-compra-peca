@@ -81,3 +81,16 @@ campo "Não vai cotar esta peça? Motivo" no formulário). As cotações somam e
 - Tudo coberto → tira a etiqueta e anda (seguradora: PENDENTE AUTORIZAR; particular: COTAÇÃO
   FINALIZADA); se houver peça justificada, o comentário lista "Peças não cotadas" com o motivo, e a
   tela de autorização mostra o motivo na peça.
+
+## Descrição enxuta — vitrine (29/09/2026)
+A descrição COMPLETA (formato de sempre) fica na planilha TRAVA, coluna E ("Descrição completa").
+No Trello vai só a vitrine: carro em 2 linhas; por peça ✅ autorizada / 🛒 comprada (checklist PAGAS)
+/ cotações da mais barata para a mais cara / ⛔ não cotada / ⏳ aguardando; 📝 observações; legenda no pé.
+- `vd_api_` troca a desc lida pela completa (`opts.cru` lê a vitrine); `vd_gravarDesc_` recebe a
+  completa e grava a vitrine; a trava guarda e restaura a vitrine (coluna D).
+- Card fora do padrão (sem "PEÇAS:"), AVISO e card fixo ficam como estão.
+- 1ª conversão: texto antigo fora do padrão vai para um comentário "📄 Texto antigo do card".
+- Converter tudo de uma vez: rodar `vd_organizarDescricoes()`. Desligar: propriedade `VD_VITRINE = NAO`.
+- Voltar atrás: tag `antes-vitrine` + `VD_VITRINE = NAO` + `vd_restaurarDescricao(shortLink)` (backup).
+- Ao levar para o quadro principal: o log de descrição (Código.gs) vai ver a troca pela vitrine
+  como edição — ajustar para ignorar gravações do robô/formulário antes.
