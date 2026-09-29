@@ -91,6 +91,6 @@ No Trello vai só a vitrine: carro em 2 linhas; por peça ✅ autorizada / 🛒 
 - Card fora do padrão (sem "PEÇAS:"), AVISO e card fixo ficam como estão.
 - 1ª conversão: texto antigo fora do padrão vai para um comentário "📄 Texto antigo do card".
 - Converter tudo de uma vez: rodar `vd_organizarDescricoes()`. Desligar: propriedade `VD_VITRINE = NAO`.
-- Voltar atrás: tag `antes-vitrine` + `VD_VITRINE = NAO` + `vd_restaurarDescricao(shortLink)` (backup).
+- Voltar atrás: commit `70de2d2` (último antes da vitrine) + `VD_VITRINE = NAO` + `vd_restaurarDescricao(shortLink)` (backup).
 - Ao levar para o quadro principal: o log de descrição (Código.gs) vai ver a troca pela vitrine
   como edição — ajustar para ignorar gravações do robô/formulário antes.
