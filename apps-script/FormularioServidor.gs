@@ -27,17 +27,33 @@ var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard'
   'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao'];
 
 function doPost(e) {
-  var out;
+  var out, rid = '', cache = null;
   try {
     var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     var fn = String(req.fn || '');
     if (VDF_API.indexOf(fn) < 0) throw new Error('Função não permitida: ' + fn);
+    /* rid = número do pedido que grava. Às vezes o Google trava uma chamada ~2 min
+     * (DEADLINE_EXCEEDED ao carregar o projeto) e o formulário tenta de novo com o mesmo rid:
+     * se a primeira chegou a rodar, devolve o mesmo resultado em vez de gravar duas vezes. */
+    rid = /^[\w-]{8,64}$/.test(String(req.rid || '')) ? 'vdf_rid_' + req.rid : '';
+    if (rid) {
+      cache = CacheService.getScriptCache();
+      var prev = cache.get(rid);
+      for (var k = 0; prev === 'RODANDO' && k < 20; k++) { Utilities.sleep(1500); prev = cache.get(rid); }
+      if (prev === 'RODANDO') throw new Error('O pedido anterior ainda está sendo gravado. Aguarde um minuto e confira o card antes de repetir.');
+      if (prev) return ContentService.createTextOutput(prev).setMimeType(ContentService.MimeType.JSON);
+      cache.put(rid, 'RODANDO', 300);
+    }
     var r = globalThis[fn].apply(null, req.args || []);
     out = { ok: true, r: r === undefined ? null : r };
   } catch (err) {
     out = { ok: false, erro: String((err && err.message) || err) };
   }
-  return ContentService.createTextOutput(JSON.stringify(out)).setMimeType(ContentService.MimeType.JSON);
+  var txt = JSON.stringify(out);
+  if (rid && cache) {
+    try { if (out.ok && txt.length < 90000) cache.put(rid, txt, 600); else cache.remove(rid); } catch (e2) {}
+  }
+  return ContentService.createTextOutput(txt).setMimeType(ContentService.MimeType.JSON);
 }
 
 /* ---------- segurança: token do consultor precisa ser membro do quadro ---------- */

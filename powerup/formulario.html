@@ -291,18 +291,62 @@ function ler(k) { try { return localStorage.getItem(k) || ''; } catch (e) { retu
 var PU = false;
 function avisarPai(msg) { try { var w = window; for (var i = 0; i < 4 && w !== w.parent; i++) { w = w.parent; w.postMessage(msg, '*'); } } catch (e) {} }
 
+/* O Google às vezes prende uma chamada ~2 min e devolve erro 500 (DEADLINE_EXCEEDED ao carregar o
+ * projeto) — cerca de 1 em cada 10. Em vez de esperar, desiste depois de um tempo e tenta de novo.
+ * Chamadas que gravam levam um rid: o servidor não repete a gravação se a primeira tiver rodado. */
+var CHAMADA_LEITURA = { vdf_abrir: 1, vdf_iniciar: 1, vdf_buscarPlaca: 1, vdf_carregarCard: 1, vdf_lerDocumento: 1, vdf_lerAnexoCard: 1 };
+var CHAMADA_LONGA = { vdf_lerDocumento: 1, vdf_lerAnexoCard: 1, vdf_subirArquivo: 1 };
+function novoRid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10); }
+function avisoLento(txt) {
+  var d = $('avisoLento');
+  if (!d) {
+    if (!txt) return;
+    d = document.createElement('div'); d.id = 'avisoLento';
+    d.style.cssText = 'position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;max-width:92vw;padding:10px 16px;border-radius:8px;background:#333;color:#fff;font-size:14px;box-shadow:0 2px 8px rgba(0,0,0,.3)';
+    document.body.appendChild(d);
+  }
+  d.textContent = txt || ''; d.style.display = txt ? 'block' : 'none';
+}
 function chamar(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
-  return fetch(PU_CFG.URL_APP, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: fn, args: args }) })
-    .then(function (r) { return r.text(); })
-    .then(function (t) {
-      var j; try { j = JSON.parse(t); } catch (e) { throw new Error('Resposta inválida do servidor'); }
-      if (j.ok) return j.r;
-      throw new Error(j.erro || 'Erro no servidor');
-    })
+  var leitura = !!CHAMADA_LEITURA[fn], longa = !!CHAMADA_LONGA[fn];
+  var limite = longa ? 75000 : (leitura ? 20000 : 45000), tentativas = 3;
+  var corpo = { fn: fn, args: args };
+  if (!leitura) corpo.rid = novoRid();
+  corpo = JSON.stringify(corpo);
+  function umaVez(n) {
+    var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null, estourou = false;
+    var tempo = setTimeout(function () { estourou = true; if (ctl) ctl.abort(); }, limite);
+    return fetch(PU_CFG.URL_APP, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo, signal: ctl ? ctl.signal : undefined })
+      .then(function (r) {
+        if (r.status >= 500) { var e5 = new Error('Servidor do Google instável (' + r.status + ')'); e5.repetir = true; throw e5; }
+        return r.text();
+      })
+      .then(function (t) {
+        var j; try { j = JSON.parse(t); } catch (e) { var e2 = new Error('Resposta inválida do servidor'); e2.repetir = true; throw e2; }
+        if (j.ok) return j.r;
+        throw new Error(j.erro || 'Erro no servidor');
+      })
+      .catch(function (e) {
+        var msg = (e && e.message) || String(e);
+        var rede = estourou || e.repetir || /abort|Failed to fetch|NetworkError|Load failed/i.test(msg);
+        if (rede && n < tentativas) {
+          avisoLento('O servidor do Google demorou a responder. Tentando de novo (' + (n + 1) + '/' + tentativas + ')…');
+          return new Promise(function (ok) { setTimeout(ok, 800 * n); }).then(function () { return umaVez(n + 1); });
+        }
+        if (rede) {
+          msg = leitura ? 'Sem conexão com o servidor. Tente de novo.'
+            : 'O servidor não confirmou a gravação. Confira o card antes de repetir.';
+        }
+        throw new Error(msg);
+      })
+      .finally(function () { clearTimeout(tempo); });
+  }
+  return umaVez(1)
+    .then(function (r) { avisoLento(''); return r; })
     .catch(function (e) {
+      avisoLento('');
       var msg = (e && e.message) || String(e);
-      if (/Failed to fetch|NetworkError|Load failed/i.test(msg)) msg = 'Sem conexão com o servidor. Tente de novo.';
       if (/^(Error: )?LOGIN:/.test(msg)) { guardar('vd_token', null); TOKEN = ''; if (PU) avisarPai({ vd: 'login' }); telaLogin(); }
       throw new Error(msg.replace(/^(Error: )?(LOGIN: )?/, ''));
     });

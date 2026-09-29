@@ -61,3 +61,12 @@ observação geral. **↩️ Devolver para cotação** grava `DEVOLVIDA PARA COT
 formulário do comprador mostra o aviso da devolução até entrar cotação nova. Ao autorizar, as observações
 vão como `OBS PEÇA: (autorização) …` e aparecem para o comprador na aba Compra. Em cada peça, as cotações
 ganham os selos **💲 menor preço** e **⏱ menor prazo** (sem olhar o tipo; empate marca todas).
+
+## Travamentos do Google (29/09/2026)
+Cerca de 1 em cada 10 chamadas ao web app fica presa ~120 s e volta com erro 500
+"DEADLINE_EXCEEDED" — o Google falha ao carregar o projeto, antes do nosso código rodar.
+O `chamar()` do formulário desiste depois de 20 s (leituras), 45 s (gravações) ou 75 s
+(leitura de PDF/foto e envio de arquivo) e tenta de novo até 3 vezes, com o aviso
+"O servidor do Google demorou a responder. Tentando de novo…". As gravações levam um `rid`:
+o `doPost` (Apps Script v23) guarda o resultado no CacheService por 10 min e, se a mesma
+gravação chegar de novo, devolve o resultado em vez de gravar duas vezes.
