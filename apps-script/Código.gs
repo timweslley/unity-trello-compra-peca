@@ -15,6 +15,8 @@ var MAX_LINHAS = 12;              // Máx. de linhas mostradas por bloco (de/par
 var MAX_CHARS_LINHA = 160;        // Corta linhas muito longas
 var AGRUPAR_MINUTOS = 10;         // Edições da mesma pessoa no mesmo card dentro
                                   // deste intervalo viram um comentário só
+var ATRASO_SEGUNDOS = 180;        // Só olha edições com mais de 3 min: dá tempo ao
+                                  // formulário/robô registrar a gravação e à trava desfazer edição manual
 
 // ———————————————————————————————————————————————————————————————————————
 
@@ -67,7 +69,10 @@ function verificarAlteracoesDescricaoNucleo_() {
     if (!desde) {
       desde = new Date(Date.now() - JANELA_MINUTOS * 60000).toISOString();
     }
-    var agora = new Date().toISOString();
+    // edições dos últimos 3 min ficam para a próxima rodada (ver ATRASO_SEGUNDOS)
+    var limite = Date.now() - ATRASO_SEGUNDOS * 1000;
+    if (new Date(desde).getTime() >= limite) return;
+    var agora = new Date(limite).toISOString();
 
     var acoes = api_('/boards/' + BOARD_ID + '/actions', {
       filter: 'updateCard:desc',
@@ -81,17 +86,31 @@ function verificarAlteracoesDescricaoNucleo_() {
       return;
     }
 
+    acoes = acoes.filter(function (a) { return new Date(a.date).getTime() < limite; });
     acoes.reverse();
 
-    var grupos = [];
+    var grupos = [], ignoradas = 0;
     acoes.forEach(function (a) {
       if (!a.data || !a.data.card) return;
       var cardId = a.data.card.id;
+      // gravação do formulário/robô (vitrine, trava) não é edição de pessoa: não entra no log
+      // e fecha os grupos abertos desse card, para não misturar antes/depois da gravação
+      if (ehGravacaoDoRobo_(cardId, a.data.card.desc)) {
+        ignoradas++;
+        var sigRobo = sigTexto_(a.data.card.desc);
+        grupos.forEach(function (x) {
+          if (x.cardId !== cardId || x.fechado) return;
+          x.fechado = true;
+          // o robô voltou o texto ao que era antes da edição = a trava desfez (ela já avisou no card)
+          if (sigTexto_(x.antigo) === sigRobo) x.desfeita = true;
+        });
+        return;
+      }
       var autor = (a.memberCreator && a.memberCreator.fullName) || 'Alguem';
       var t = new Date(a.date).getTime();
 
       var g = grupos.filter(function (x) {
-        return x.cardId === cardId && x.autor === autor &&
+        return x.cardId === cardId && x.autor === autor && !x.fechado &&
                (t - x.fim) <= AGRUPAR_MINUTOS * 60000;
       })[0];
 
@@ -113,7 +132,7 @@ function verificarAlteracoesDescricaoNucleo_() {
     });
 
     grupos.forEach(function (g) {
-      if (sigTexto_(g.antigo) === sigTexto_(g.novo)) return;
+      if (g.desfeita || sigTexto_(g.antigo) === sigTexto_(g.novo)) return;
       var texto = montarComentario_(g);
       if (!texto) return;
       try {
@@ -123,10 +142,17 @@ function verificarAlteracoesDescricaoNucleo_() {
       }
     });
 
+    if (ignoradas) console.log('log: ' + ignoradas + ' gravação(ões) do formulário/robô ignorada(s)');
     p.setProperty('ULTIMA_VERIFICACAO', agora);
   } finally {
     lock.releaseLock();
   }
+}
+
+/** A trava (Validacao.gs) guarda as assinaturas que o robô/formulário gravou. */
+function ehGravacaoDoRobo_(cardId, desc) {
+  if (typeof desc !== 'string') return false;
+  try { return typeof tr_ehOficial_ === 'function' && tr_ehOficial_(cardId, desc); } catch (e) { return false; }
 }
 
 function normalizar_(s) {

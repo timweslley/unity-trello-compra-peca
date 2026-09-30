@@ -701,6 +701,25 @@ function tr_guardarLote_(itens) {
   });
   if (novos.length) sh.getRange(n + 1, 1, novos.length, 5).setValues(novos);
   PropertiesService.getScriptProperties().setProperties(props);
+  // últimas assinaturas GRAVADAS pelo robô/formulário (a linha de base não entra: ela só
+  // fotografa o que já estava no card, que pode ser edição de pessoa)
+  itens.forEach(function (it) { if (!it.base) tr_marcarRecente_(it.id, props[TR.PREFIXO + it.id]); });
+}
+
+/** Guarda (6 h) as últimas assinaturas que o robô/formulário gravou num card. O log de
+ *  descrição (Código.gs) usa isto para não tratar essas gravações como edição de pessoa. */
+function tr_marcarRecente_(cardId, h) {
+  try {
+    var cache = CacheService.getScriptCache(), k = 'tr_rec_' + cardId, lista = [];
+    try { lista = JSON.parse(cache.get(k) || '[]'); } catch (e) {}
+    lista = lista.filter(function (x) { return x !== h; }).concat([h]).slice(-12);
+    cache.put(k, JSON.stringify(lista), 21600);
+  } catch (e) { console.log('trava/recentes: ' + e); }
+}
+
+/** true se esta descrição foi gravada pelo robô/formulário nas últimas 6 h. */
+function tr_ehOficial_(cardId, desc) {
+  try { return JSON.parse(CacheService.getScriptCache().get('tr_rec_' + cardId) || '[]').indexOf(tr_hash_(desc)) >= 0; } catch (e) { return false; }
 }
 
 function tr_guardar_(cardId, desc) { tr_guardarLote_([{ id: cardId, desc: desc }]); }
@@ -759,7 +778,7 @@ function tr_executar_() {
   cards.forEach(function (c) {
     var chave = TR.PREFIXO + c.id;
     var h = tr_hash_(c.desc);
-    if (!todas[chave]) { baseline.push({ id: c.id, desc: c.desc }); return; }
+    if (!todas[chave]) { baseline.push({ id: c.id, desc: c.desc, base: true }); return; }
     if (todas[chave] === h) return;
     // mudou: dá um tempo para gravação em andamento (formulário) registrar a assinatura
     var atual = props.getProperty(chave);
@@ -769,10 +788,11 @@ function tr_executar_() {
     var ultima = acts[0];
     if (ultima && agora - new Date(ultima.date).getTime() < TR.ESPERA_MS) return;
     var oficial = tr_ler_(c.id);
-    if (oficial === null) { baseline.push({ id: c.id, desc: c.desc }); return; }
+    if (oficial === null) { baseline.push({ id: c.id, desc: c.desc, base: true }); return; }
     if (tr_hash_(oficial) === h) { props.setProperty(chave, h); return; }
     var quem = ultima && ultima.memberCreator ? ultima.memberCreator.username : '';
     vd_backup_(c, 'edição manual desfeita pela trava' + (quem ? ' (' + quem + ')' : ''));
+    tr_marcarRecente_(c.id, tr_hash_(oficial));   // o log de descrição não conta a restauração como edição
     vd_api_('/cards/' + c.id, { method: 'put', payload: { desc: oficial } });
     restaurados++;
     var chaveAv = 'VD_DESC_AV_' + c.id;
