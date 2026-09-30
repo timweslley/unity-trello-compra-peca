@@ -809,6 +809,94 @@ function tr_executar_() {
   return restaurados;
 }
 
+/* ============================ DIAS ÚTEIS ============================
+ * Prazo de peça (cotação e compra) conta só dias úteis: pula sábado, domingo e os feriados
+ * nacionais + municipais de TODAS as cidades do grupo (Toledo, Marechal C. Rondon, Cascavel,
+ * Campo Mourão). O Paraná não tem feriado estadual (19/12 não é feriado civil).
+ * Pontos facultativos (Carnaval, 24/12, 31/12…) contam como dia útil.
+ * Feriado a mais num ano (decreto, transferência): propriedade DU_EXTRAS = "2026-10-19, 2027-02-15".
+ * Dia que NÃO é feriado naquele ano: propriedade DU_REMOVER, mesmo formato.
+ * Voltar a contar dias corridos: propriedade VD_DIAS_UTEIS = NAO.
+ * Conferir a lista de um ano: rodar du_listarFeriados (mostra o ano atual e o seguinte).
+ */
+var DU = {
+  FIXOS: {
+    '01-01': 'Confraternização Universal', '04-21': 'Tiradentes', '05-01': 'Dia do Trabalho',
+    '09-07': 'Independência', '10-12': 'N. Sra. Aparecida', '11-02': 'Finados',
+    '11-15': 'Proclamação da República', '11-20': 'Consciência Negra', '12-25': 'Natal',
+    '03-19': 'São José — Campo Mourão', '07-25': 'Aniversário de Marechal C. Rondon',
+    '10-10': 'Aniversário de Campo Mourão', '10-31': 'Reforma Luterana — Marechal C. Rondon',
+    '11-14': 'Aniversário de Cascavel', '12-14': 'Aniversário de Toledo'
+  },
+  MOVEIS: [[-2, 'Sexta-feira Santa'], [60, 'Corpus Christi']],   // dias a partir da Páscoa
+  EXTRAS: { '2026-10-19': 'Aniversário de Campo Mourão (decreto 2026)' }
+};
+var DU_CACHE = {};
+
+function du_pad_(n) { return (n < 10 ? '0' : '') + n; }
+function du_chave_(d) { return d.getFullYear() + '-' + du_pad_(d.getMonth() + 1) + '-' + du_pad_(d.getDate()); }
+
+/** Domingo de Páscoa (algoritmo de Meeus/Butcher). */
+function du_pascoa_(a) {
+  var b = Math.floor(a / 100), c = a % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  var g = Math.floor((b - f + 1) / 3), h = (19 * (a % 19) + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
+  var l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor(((a % 19) + 11 * h + 22 * l) / 451);
+  var mes = Math.floor((h + l - 7 * m + 114) / 31), dia = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(a, mes - 1, dia, 12);
+}
+
+function du_lerProp_(nome) {
+  var out = [];
+  String(vd_prop_(nome, '') || '').split(/[,;\s]+/).forEach(function (t) {
+    var m = t.match(/^(\d{4})-(\d{2})-(\d{2})$/) || t.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return;
+    out.push(m[1].length === 4 ? m[1] + '-' + m[2] + '-' + m[3] : m[3] + '-' + du_pad_(+m[2]) + '-' + du_pad_(+m[1]));
+  });
+  return out;
+}
+
+/** Feriados de um ano: { 'aaaa-mm-dd': nome }. */
+function du_feriados_(ano) {
+  if (DU_CACHE[ano]) return DU_CACHE[ano];
+  var f = {};
+  Object.keys(DU.FIXOS).forEach(function (md) { f[ano + '-' + md] = DU.FIXOS[md]; });
+  var p = du_pascoa_(ano);
+  DU.MOVEIS.forEach(function (mv) { var d = new Date(p.getTime()); d.setDate(d.getDate() + mv[0]); f[du_chave_(d)] = mv[1]; });
+  Object.keys(DU.EXTRAS).forEach(function (k) { if (k.indexOf(ano + '-') === 0) f[k] = DU.EXTRAS[k]; });
+  du_lerProp_('DU_EXTRAS').forEach(function (k) { if (k.indexOf(ano + '-') === 0) f[k] = f[k] || 'feriado extra (DU_EXTRAS)'; });
+  du_lerProp_('DU_REMOVER').forEach(function (k) { delete f[k]; });
+  DU_CACHE[ano] = f;
+  return f;
+}
+
+function du_ehUtil_(d) {
+  var w = d.getDay();
+  if (w === 0 || w === 6) return false;
+  return !du_feriados_(d.getFullYear())[du_chave_(d)];
+}
+
+/** Data (ISO, meio-dia) = hoje + N dias úteis. 0 = hoje. */
+function du_somarUteis_(dias) {
+  var n = parseInt(dias, 10) || 0, h = new Date();
+  var d = new Date(h.getFullYear(), h.getMonth(), h.getDate(), 12, 0, 0);
+  if (vd_prop_('VD_DIAS_UTEIS', 'SIM') === 'NAO') { d.setDate(d.getDate() + n); return d.toISOString(); }
+  var guarda = 0;
+  while (n > 0 && guarda++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) n--; }
+  return d.toISOString();
+}
+
+/** Roda na mão: mostra no log os feriados considerados no ano atual e no próximo. */
+function du_listarFeriados() {
+  var a = new Date().getFullYear();
+  [a, a + 1].forEach(function (ano) {
+    var f = du_feriados_(ano);
+    Logger.log(ano + ':\n' + Object.keys(f).sort().map(function (k) {
+      var d = new Date(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10), 12);
+      return k.slice(8, 10) + '/' + k.slice(5, 7) + ' ' + ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][d.getDay()] + ' — ' + f[k];
+    }).join('\n'));
+  });
+}
+
 /* ============================ BACKUP ============================ */
 
 function vd_planilhaBackup_() {
@@ -1704,7 +1792,7 @@ function vd_vitrine_(desc, nome, pagas) {
   try { dev = vd_ultimaDevolucao_(desc); } catch (e) {}
   if (dev) L.push('', '↩️ **Devolvida para cotação**' + (dev.quem ? ' por ' + vd_md_(dev.quem) : '') + (dev.geral ? ': ' + vd_md_(dev.geral) : ''));
 
-  var prazoTxt = function (q) { return q.dias !== '' && q.dias != null ? q.dias + (+q.dias === 1 ? ' dia' : ' dias') : (q.data ? 'até ' + q.data : ''); };
+  var prazoTxt = function (q) { return q.dias !== '' && q.dias != null ? q.dias + (+q.dias === 1 ? ' dia útil' : ' dias úteis') : (q.data ? 'até ' + q.data : ''); };
   var fornTxt = function (f) { return String(f || '').replace(/[\s\-–:]+$/, ''); };
   var tipoTxt = function (q) { return [q.tipo ? vd_tit_(q.tipo) : '', q.marca || ''].filter(String).join(' '); };
 

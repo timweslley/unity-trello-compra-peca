@@ -395,10 +395,9 @@ function vd_valorBR_(v) {
 }
 
 /** Data ISO de hoje + N dias (meio-dia local). */
+/** Hoje + N dias ÚTEIS (sem sáb/dom/feriados das cidades do grupo — ver DIAS ÚTEIS em Validacao.gs). */
 function vd_dataMaisDias_(dias) {
-  var d = new Date();
-  d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + (parseInt(dias, 10) || 0), 12, 0, 0);
-  return d.toISOString();
+  return du_somarUteis_(dias);
 }
 
 /** Chave para casar peça do pedido x cotação x item de checklist. */
@@ -499,7 +498,7 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
       return;
     }
     if (!forn || !temValor) return;
-    var m = l.match(/^(.+?)\s+-\s+(?:(.+?)\s+-\s+)?R?\$?\s*([\d.]+(?:,\d{1,2})?)(?:\s+-\s+(?:(\d+)\s*DIAS?|(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)|(.*?)))?\s*$/i);
+    var m = l.match(/^(.+?)\s+-\s+(?:(.+?)\s+-\s+)?R?\$?\s*([\d.]+(?:,\d{1,2})?)(?:\s+-\s+(?:(\d+)\s*DIAS?(?:\s+[ÚU]T(?:EIS|IL))?|(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)|(.*?)))?\s*$/i);
     if (!m) return;
     var alvo = vd_semAcento_(m[1]).replace(/\s+/g, ' ').trim();
     var peca = null;
@@ -562,7 +561,7 @@ function vdf_salvarCotacao(token, p) {
     if (!peca) faltas.push(rot + ': peça não encontrada no pedido');
     if (!r.fornecedor) faltas.push(rot + ': falta o fornecedor');
     if (isNaN(r.valor) || r.valor <= 0) faltas.push(rot + ': valor inválido');
-    if (r.dias !== '' && !/^\d+$/.test(r.dias)) faltas.push(rot + ': prazo em dias (número)');
+    if (r.dias !== '' && !/^\d+$/.test(r.dias)) faltas.push(rot + ': prazo em dias úteis (número)');
     if (r.tipo && r.tipo.charAt(0) === '?') faltas.push(rot + ': tipo inválido');
     return r;
   });
@@ -578,7 +577,7 @@ function vdf_salvarCotacao(token, p) {
   cots.forEach(function (c) {
     if (!grupos[c.fornecedor]) { grupos[c.fornecedor] = []; ordem.push(c.fornecedor); }
     var nomeP = c.peca.pneu ? 'PNEU ' + String(c.peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(c.peca);
-    grupos[c.fornecedor].push(nomeP + (c.tipo || c.marca ? ' - ' + [c.tipo, c.marca].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(c.valor) + (c.dias !== '' ? ' - ' + c.dias + ' dia' + (c.dias === '1' ? '' : 's') : ''));
+    grupos[c.fornecedor].push(nomeP + (c.tipo || c.marca ? ' - ' + [c.tipo, c.marca].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(c.valor) + (c.dias !== '' ? ' - ' + c.dias + (c.dias === '1' ? ' dia útil' : ' dias úteis') : ''));
   });
   var L = ['**COTAÇÃO ' + agora + ' - ' + me.fullName + '**'];
   ordem.forEach(function (f) { L.push('**' + f + '**'); L = L.concat(grupos[f]); });

@@ -208,7 +208,7 @@
     <div id="painelCot">
       <section>
         <h2>Cotações por peça</h2>
-        <div class="dica" style="margin-bottom:10px">Para cada peça, lance quantas cotações achou: fornecedor, tipo, marca, valor e prazo em dias. Tudo vai para a descrição do card, abaixo da linha de cotação. Depois, na aba <b>Compra</b>, você escolhe o fornecedor de cada peça.</div>
+        <div class="dica" style="margin-bottom:10px">Para cada peça, lance quantas cotações achou: fornecedor, tipo, marca, valor e prazo em <b>dias úteis</b> (sem sábado, domingo e feriados). Tudo vai para a descrição do card, abaixo da linha de cotação. Depois, na aba <b>Compra</b>, você escolhe o fornecedor de cada peça.</div>
         <div id="cotItens"></div>
       </section>
       <section>
@@ -411,7 +411,7 @@ function fmtValor(v) {
   return 'R$ ' + s[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + s[1];
 }
 function rotuloCot(q) {
-  return q.fornecedor + ' — ' + ([q.tipo, q.marca].filter(String).join(' ') || '—') + ' — ' + fmtValor(q.valor) + (q.dias !== '' && q.dias !== undefined ? ' — ' + q.dias + ' dia' + (+q.dias === 1 ? '' : 's') : (q.data ? ' — ' + q.data : ''));
+  return q.fornecedor + ' — ' + ([q.tipo, q.marca].filter(String).join(' ') || '—') + ' — ' + fmtValor(q.valor) + (q.dias !== '' && q.dias !== undefined ? ' — ' + q.dias + (+q.dias === 1 ? ' dia útil' : ' dias úteis') : (q.data ? ' — ' + q.data : ''));
 }
 function pecasOficina(c) { return (c.pecas || []).filter(function (p) { return p.chave; }); }
 function semAc(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase(); }
@@ -564,7 +564,7 @@ function novaCot(item) {
             : '<div><label>Tipo</label><select class="q-tipo">' + tipos.map(function (t, i) { return '<option value="' + esc(t) + '"' + (tipos.length === 1 ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div>'
               + '<div><label>Marca (opcional)</label><input type="text" class="q-marca maiusc" placeholder="GM / DTS"></div>')
     + '<div><label>Valor (R$)</label><input type="text" class="q-valor" inputmode="decimal" placeholder="1.647,00"></div>'
-    + '<div><label>Prazo (dias)</label><input type="number" class="q-dias" min="0" placeholder="3"></div>'
+    + '<div><label>Prazo (dias úteis)</label><input type="number" class="q-dias" min="0" placeholder="3"></div>'
     + '<div><button type="button" class="perigo" onclick="this.closest(\'.cot\').remove()">tirar</button></div>';
   item.querySelector('.cot-novas').appendChild(row);
   row.querySelector('.q-forn').focus();
