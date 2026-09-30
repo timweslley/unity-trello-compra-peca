@@ -39,6 +39,7 @@
   .chips { display:flex; flex-wrap:wrap; gap:8px; }
   .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--borda); border-radius:18px; padding:7px 12px; background:#fff; cursor:pointer; user-select:none; font-size:14px; }
   .chip input { margin:0; width:16px; height:16px; accent-color:var(--destaque); }
+  .selo-part { display:inline-block; font-size:11px; font-weight:700; color:#7a4b00; background:#fff1d6; border:1px solid #f0c060; border-radius:10px; padding:1px 7px; margin-left:4px; vertical-align:middle; }
   .chip.marcado { border-color:var(--destaque); background:var(--destaque2); font-weight:600; }
   .chip.desab { opacity:.4; cursor:not-allowed; }
   .aviso { border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:14px; }
@@ -275,6 +276,7 @@ function aoMudarTipo() {
   $('sinistro').closest('div').classList.toggle('oculto', part);
   $('dicaTitulo').textContent = part ? 'O título do card fica: PLACA CARRO COR PARTICULAR.' : 'O título do card fica: PLACA CARRO COR SEGURADORA.';
   $('rotuloSeg').textContent = 'Seguradora';
+  Array.prototype.forEach.call(document.querySelectorAll('.part-linha'), function (el) { el.classList.toggle('oculto', part); });
 }
 
 function $(id) { return document.getElementById(id); }
@@ -425,6 +427,7 @@ function telaComprador(c) {
   if (c.devolucao) $('infoComprador').innerHTML += '<div class="aviso devolvida" style="margin-top:8px">↩️ <b>Cotação devolvida</b> por ' + esc(c.devolucao.quem) + ' em ' + esc(c.devolucao.quando) + (c.devolucao.geral ? ': <b>' + esc(c.devolucao.geral) + '</b>' : '') + '<br>Veja as observações em cada peça, complete e envie a cotação de novo.</div>';
   if (!pecas.length) { $('erroComprador').textContent = 'Este card não tem peça pela oficina na descrição (só fornecimento da seguradora ou descrição fora do padrão).'; mostrar('erroComprador', true); }
   montarCotacao(c); montarAutorizacao(c); montarCompra(c);
+  mostrar('btnDev', c.podeDevolver !== false);
   mostrar('abaAut', !!c.podeAutorizar);
   if (!COMPRADOR) {
     $('btnCompra').disabled = true;
@@ -471,8 +474,13 @@ function montarAutorizacao(c) {
     var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave;
     var minhas = lidas.filter(function (q) { return q.chave === p.chave; }).sort(function (a, b) { return a.valor - b.valor; });
     var ja = autDe(c, p.chave);
-    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong></div>';
+    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong></div>';
     ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
+    if (p.podeAut === false) {
+      h += (ja ? '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + ')' : '') + '</div>' : '')
+        + '<div class="dica">' + (p.particular ? '👤 Peça particular — quem autoriza é o consultor que a lançou' + (p.partPor ? ' (@' + esc(p.partPor) + ')' : '') : 'Peça da seguradora — quem autoriza é a diretoria') + '.</div>';
+      div.innerHTML = h; div.dataset.fora = '1'; box.appendChild(div); return;
+    }
     if (ja) h += '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + (ja.quando ? ' ' + esc(ja.quando) : '') + ')' : '') + '</div>';
     var semA = ((c.cotacoes && c.cotacoes.semCot) || []).filter(function (o) { return o.chave === p.chave; });
     if (!minhas.length) h += '<div class="dica ruim">' + (semA.length ? 'Não cotada — motivo do comprador: ' + esc(semA[semA.length - 1].texto) : 'Sem cotação lançada para esta peça.') + '</div>';
@@ -514,7 +522,7 @@ function escolhasAut() {
   return out;
 }
 function totalAut() {
-  var e = escolhasAut(), t = e.reduce(function (s, x) { return s + (+x.valor || 0); }, 0), n = $('autItens').children.length;
+  var e = escolhasAut(), t = e.reduce(function (s, x) { return s + (+x.valor || 0); }, 0), n = Array.prototype.filter.call($('autItens').children, function (it) { return !it.dataset.fora; }).length;
   $('autTotal').innerHTML = '<b>' + e.length + '</b> de ' + n + ' peça(s) autorizada(s) — total <b>' + fmtValor(t) + '</b>' + (e.length < n ? ' · ' + (n - e.length) + ' sem autorização' : '');
 }
 function enviarAutorizacao() {
@@ -525,7 +533,7 @@ function enviarAutorizacao() {
   chamar('vdf_autorizar', TOKEN, { shortLink: CARD_EDICAO, escolhas: e, obs: obsAut(), geral: $('autGeral').value.trim() }).then(function (r) {
     $('btnAut').disabled = false; mostrar('enviandoAut', false);
     if (!r.ok) return errosComprador(r.faltas);
-    sucesso('✅ Compra autorizada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s), total ' + esc(fmtValor(r.total)) + '.' + (r.semAut ? '<br>' + r.semAut + ' peça(s) sem autorização.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+    sucesso('✅ Compra autorizada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s), total ' + esc(fmtValor(r.total)) + '.' + (r.semAut ? '<br>' + r.semAut + ' peça(s) sem autorização.' : '') + (r.aguarda && r.aguarda.length ? '<br>⏳ Ainda falta autorizar: ' + esc(r.aguarda.join('; ')) + '.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
   }).catch(function (x) { $('btnAut').disabled = false; mostrar('enviandoAut', false); errosComprador([x.message]); });
 }
 
@@ -537,7 +545,7 @@ function montarCotacao(c) {
   pecasOficina(c).forEach(function (p, i) {
     var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave; div.dataset.pneu = p.pneu ? '1' : '';
     var jaLidas = lidas.filter(function (q) { return q.chave === p.chave; });
-    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong>'
+    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong>'
       + '<button type="button" class="secundario" onclick="novaCot(this.closest(\'.item\'))">+ cotação</button></div>';
     var seloL = selosPeca(jaLidas);
     if (jaLidas.length) h += '<div style="margin-bottom:6px">' + jaLidas.map(function (q) { return '<div class="cot-lida">já no card: <b>' + esc(rotuloCot(q)) + '</b>' + seloL(q) + '</div>'; }).join('') + '</div>';
@@ -616,7 +624,7 @@ function montarCompra(c) {
     var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave;
     var ja = pagas.filter(function (it) { return semAc(it.nome).indexOf(p.chave) >= 0; })[0];
     var minhas = lidas.filter(function (q) { return q.chave === p.chave; });
-    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + '</strong></div>';
+    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + tagPart(p) + '</strong></div>';
     ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
     if (ja) h += '<div class="comprado">✔ já comprado: ' + esc(ja.nome) + (ja.due ? ' — previsão ' + esc(ja.due) : '') + (ja.ok ? ' (recebido)' : '') + '</div>';
     else if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça — lance na aba Cotação.</div>';
@@ -872,11 +880,16 @@ function importarOrcamento(o) {
 
 /* ---------- itens ---------- */
 
+function linhaParticular(id, dados) {
+  return '<div class="inteiro part-linha' + (tipoPedido() === 'PARTICULAR' ? ' oculto' : '') + '" style="margin-top:8px"><label class="chip' + (dados.particular ? ' marcado' : '') + '"><input type="checkbox" class="f-part"' + (dados.particular ? ' checked' : '') + ' onchange="this.parentNode.classList.toggle(\'marcado\', this.checked)"> 👤 Particular — cliente paga (quem autoriza é você)</label></div>';
+}
+function tagPart(p) { return p && p.particular && CARD && CARD.tipo !== 'PARTICULAR' ? ' <span class="selo-part">👤 PARTICULAR</span>' : ''; }
+
 function novoItem(tipo, dados) {
   dados = dados || {};
   var id = 'it' + (++seq);
   var div = document.createElement('div');
-  div.className = 'item'; div.id = id; div.dataset.tipo = tipo;
+  div.className = 'item'; div.id = id; div.dataset.tipo = tipo; div.dataset.partPor = dados.partPor || '';
   var h = '<div class="item-topo"><strong class="num"></strong>'
     + '<select onchange="trocarTipo(\'' + id + '\', this.value)"><option value="peca"' + (tipo === 'peca' ? ' selected' : '') + '>Peça</option><option value="pneu"' + (tipo === 'pneu' ? ' selected' : '') + '>Pneu</option></select>'
     + '<button type="button" class="perigo" onclick="removerItem(\'' + id + '\')">remover</button></div>';
@@ -889,7 +902,7 @@ function novoItem(tipo, dados) {
       h += '<label class="chip"><input type="radio" name="cat' + id + '" value="' + esc(c) + '"' + (dados.categoria === c ? ' checked' : '') + ' onchange="pintarChips(\'' + id + '\')"> ' + esc(c) + '</label>';
     });
     h += '<label class="chip"><input type="radio" name="cat' + id + '" value="MARCA"' + (dados.marca ? ' checked' : '') + ' onchange="pintarChips(\'' + id + '\')"> MARCA:</label>'
-      + '</div><input type="text" class="f-marca maiusc" placeholder="Marca (ex.: PIRELLI)" style="margin-top:8px" value="' + esc(dados.marca) + '" oninput="if(this.value)this.closest(\'.item\').querySelector(\'input[value=MARCA]\').checked=true;pintarChips(\'' + id + '\')"></div></div>';
+      + '</div><input type="text" class="f-marca maiusc" placeholder="Marca (ex.: PIRELLI)" style="margin-top:8px" value="' + esc(dados.marca) + '" oninput="if(this.value)this.closest(\'.item\').querySelector(\'input[value=MARCA]\').checked=true;pintarChips(\'' + id + '\')"></div>' + linhaParticular(id, dados) + '</div>';
   } else {
     h += '<div class="grade">'
       + '<div><label>Código da peça <span class="obr">*</span></label><input type="text" class="f-codigo maiusc" placeholder="Buscar no Cilia" value="' + esc(dados.codigo) + '"></div>'
@@ -903,7 +916,7 @@ function novoItem(tipo, dados) {
     h += '</div>';
     if (dados.dica) h += '<div class="dica">No orçamento: <b>' + esc(dados.dica) + '</b> — escolha o tipo acima.</div>';
     if (dados.descricaoOrc !== undefined && !dados.codigo) h += '<div class="dica ruim">O orçamento não traz código de fábrica desta peça — busque no Cilia.</div>';
-    h += '</div></div>';
+    h += '</div>' + linhaParticular(id, dados) + '</div>';
   }
   div.innerHTML = h;
   $('itens').appendChild(div);
@@ -944,11 +957,12 @@ function coletar() {
   Array.prototype.forEach.call($('itens').children, function (el, i) {
     var n = 'Item ' + (i + 1);
     var qtd = (el.querySelector('.f-qtd') || {}).value || '';
+    var partEl = el.querySelector('.f-part'), ehPart = !!(partEl && partEl.checked) && tipoPedido() !== 'PARTICULAR';
     if (el.dataset.tipo === 'pneu') {
       var medida = el.querySelector('.f-medida').value.trim();
       var sel = el.querySelector('input[type=radio]:checked');
       var marca = el.querySelector('.f-marca').value.trim();
-      var p = { pneu: true, medida: medida, qtd: qtd, categoria: '', marca: '' };
+      var p = { pneu: true, medida: medida, qtd: qtd, categoria: '', marca: '', particular: ehPart, partPor: ehPart ? el.dataset.partPor : '' };
       if (!medida) faltas.push(n + ' (pneu): falta a medida');
       if (sel && sel.value !== 'MARCA') p.categoria = sel.value;
       else if (marca) p.marca = marca;
@@ -959,10 +973,10 @@ function coletar() {
       var desc = el.querySelector('.f-desc').value.trim();
       var tipos = Array.prototype.filter.call(el.querySelectorAll('.f-tipo'), function (c) { return c.checked; }).map(function (c) { return c.value; });
       var r = n + (desc ? ' (' + desc + ')' : '');
-      if (!cod && tipoPedido() !== 'PARTICULAR') faltas.push(r + ': falta o código (buscar no Cilia)');
+      if (!cod && tipoPedido() !== 'PARTICULAR' && !ehPart) faltas.push(r + ': falta o código (buscar no Cilia)');
       if (!desc) faltas.push(r + ': falta a descrição');
       if (!tipos.length) faltas.push(r + ': marque o tipo de peça');
-      pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd });
+      pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd, particular: ehPart, partPor: ehPart ? el.dataset.partPor : '' });
     }
   });
   var d = {

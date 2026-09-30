@@ -306,6 +306,7 @@ function vd_analisar_(desc, nomeCard, opts) {
   var pecas = [], novas = [];
   lp.linhas.forEach(function (l) {
     var p = vd_analisarPeca_(l, pecas.length + 1, { codigoOpcional: particular });
+    if (particular) p.particular = true;
     p.sig = vd_sigItem_(l);
     pecas.push(p);
     if (base.indexOf(p.sig) < 0) novas.push(p);
@@ -321,12 +322,16 @@ function vd_analisar_(desc, nomeCard, opts) {
 function vd_analisarPeca_(linha, n, opts) {
   opts = opts || {};
   var partes = linha.split('|').map(function (s) { return s.trim(); });
-  var qtd = '';
+  var qtd = '', part = false, partPor = '';
   partes = partes.filter(function (s) {
     var m = s.match(/^QTD\.?\s*:?\s*(\d+)$/i);
     if (m) { qtd = m[1]; return false; }
+    // peça particular dentro de pedido de seguradora (cliente paga): "PARTICULAR @consultor"
+    var mp = s.match(/^PARTICULAR(?:\s*@\s*([\w.\-]+))?$/i);
+    if (mp) { part = true; partPor = (mp[1] || '').toLowerCase(); return false; }
     return true;
   });
+  if (part) opts = { codigoOpcional: true };
   var faltas = [];
   var rot;
   if (/^PNEUS?$/i.test(partes[0] || '')) {
@@ -335,13 +340,13 @@ function vd_analisarPeca_(linha, n, opts) {
     if (!medida) faltas.push(rot + ': falta a medida');
     else if (!vd_medidaPneu_(medida)) faltas.push(rot + ': medida fora do padrão (ex.: 195/65R15)');
     if (!catMarca) faltas.push(rot + ': falta categoria (IMPORTADO / 1ª LINHA) ou marca');
-    return { pneu: true, medida: medida, categoria: vd_categPneu_(catMarca), marca: vd_categPneu_(catMarca) ? '' : catMarca, qtd: qtd, faltas: faltas, texto: linha };
+    return { pneu: true, medida: medida, categoria: vd_categPneu_(catMarca), marca: vd_categPneu_(catMarca) ? '' : catMarca, qtd: qtd, particular: part, partPor: partPor, faltas: faltas, texto: linha };
   }
   var codigo = partes[0] || '', descr = partes[1] || '', tiposTxt = partes.slice(2).join('/');
   rot = 'item ' + n + ' (' + (descr || codigo || linha).slice(0, 40) + ')';
   if (partes.length < 2) {
     faltas.push(rot + ': fora do padrão CÓDIGO | DESCRIÇÃO | TIPO');
-    return { pneu: false, codigo: '', descricao: linha, tipos: [], qtd: qtd, faltas: faltas, texto: linha };
+    return { pneu: false, codigo: '', descricao: linha, tipos: [], qtd: qtd, particular: part, partPor: partPor, faltas: faltas, texto: linha };
   }
   var semCodigo = !codigo || !/\d/.test(codigo) || codigo.replace(/[^A-Z0-9]/gi, '').length < 4 || /^S\s*\/?\s*C$/i.test(codigo);
   if (semCodigo && !opts.codigoOpcional) faltas.push(rot + ': falta o código da peça (buscar no Cilia)');
@@ -354,13 +359,13 @@ function vd_analisarPeca_(linha, n, opts) {
   if (invalidos.length) faltas.push(rot + ': tipo não reconhecido "' + invalidos.map(function (t) { return t.slice(1); }).join(', ') + '" (use GENUÍNO, ORIGINAL, PARALELO ou USADO)');
   else if (!tipos.length) faltas.push(rot + ': falta o tipo de peça (GENUÍNO, ORIGINAL, PARALELO ou USADO)');
   if (tipos.length > 2) faltas.push(rot + ': no máximo 2 tipos por peça');
-  return { pneu: false, codigo: codigo, descricao: descr, tipos: tipos, qtd: qtd, faltas: faltas, texto: linha };
+  return { pneu: false, codigo: codigo, descricao: descr, tipos: tipos, qtd: qtd, particular: part, partPor: partPor, faltas: faltas, texto: linha };
 }
 
 /* ============================ MONTAR DESCRIÇÃO ============================ */
 
 function vd_linhaPeca_(p, i) {
-  var q = p.qtd && +p.qtd > 1 ? ' | QTD ' + p.qtd : '';
+  var q = (p.qtd && +p.qtd > 1 ? ' | QTD ' + p.qtd : '') + (p.particular ? ' | PARTICULAR' + (p.partPor ? ' @' + p.partPor : '') : '');
   if (p.pneu) return (i + 1) + '. PNEU | ' + p.medida + ' | ' + (p.categoria || p.marca) + q;
   return (i + 1) + '. ' + p.codigo + ' | ' + p.descricao + ' | ' + (p.tipos || []).join('/') + q;
 }
@@ -1802,7 +1807,7 @@ function vd_vitrine_(desc, nome, pagas) {
   an.pecas.forEach(function (p, i) {
     var k = vd_chavePeca_(p);
     var titulo = p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + ((p.marca || p.categoria) ? ' ' + (p.marca || p.categoria) : '') : String(p.descricao || '').toUpperCase();
-    var cab = (i + 1) + '. **' + vd_md_(titulo) + '**' + (!p.pneu && p.codigo ? ' · ' + vd_md_(p.codigo) : '') + (p.qtd && +p.qtd > 1 ? ' · QTD ' + p.qtd : '');
+    var cab = (i + 1) + '. **' + vd_md_(titulo) + '**' + (!p.pneu && p.codigo ? ' · ' + vd_md_(p.codigo) : '') + (p.qtd && +p.qtd > 1 ? ' · QTD ' + p.qtd : '') + (p.particular && d.tipo !== 'PARTICULAR' ? ' · 👤 PARTICULAR' : '');
     var sub = [];
     // compra: checklist PAGAS ou linha COMPRADO
     var pg = (pagas || []).filter(function (it) { return k && vd_semAcento_(it.name).indexOf(k) >= 0; }).pop();
@@ -1815,6 +1820,8 @@ function vd_vitrine_(desc, nome, pagas) {
     if (pg) {
       var partes = String(pg.name).split(/\s+-\s+/);
       var forn = partes.length >= 3 ? partes[partes.length - 2] : (partes[1] || '');
+      var fS = vd_semAcento_(forn);
+      if (/R\$/.test(forn) || (k && fS.indexOf(k) >= 0) || (p.descricao && fS.indexOf(vd_semAcento_(p.descricao)) >= 0)) forn = '';
       var val = (partes[partes.length - 1] || '').match(/R\$\s*[\d.,]+/);
       sub.push('🛒 ' + vd_md_([forn, val ? val[0] : '', pg.due ? 'previsão ' + vd_dataCurta_(pg.due) : ''].filter(String).join(' · ')) + (pg.state === 'complete' ? ' ✔' : ''));
     } else if (cp) {
@@ -1850,7 +1857,7 @@ function vd_vitrine_(desc, nome, pagas) {
 
   // legenda: só dos ícones que aparecem neste card
   var txt = L.join('\n');
-  var leg = [['✅', 'autorizada'], ['🛒', 'comprada (✔ marcada no PAGAS)'], ['⏳', 'aguardando cotação'], ['⛔', 'não cotada'], ['📝', 'observação'], ['↩️', 'devolvida para cotação'], ['📦', 'peças da seguradora']]
+  var leg = [['👤', 'peça particular (cliente paga — autoriza o consultor)'], ['✅', 'autorizada'], ['🛒', 'comprada (✔ marcada no PAGAS)'], ['⏳', 'aguardando cotação'], ['⛔', 'não cotada'], ['📝', 'observação'], ['↩️', 'devolvida para cotação'], ['📦', 'peças da seguradora']]
     .filter(function (x) { return txt.indexOf(x[0]) >= 0; }).map(function (x) { return x[0] + ' ' + x[1]; });
   if (an.pecas.length) leg.push('linhas sem ícone = cotações, da mais barata para a mais cara');
   if (leg.length) txt += '\n\n_' + leg.join(' · ') + ' · histórico nos comentários_';

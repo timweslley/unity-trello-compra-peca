@@ -95,12 +95,36 @@ function vdf_ehAutorizador_(me) {
 function vdf_ehParticular_(card, an) {
   return (an.dados.tipo === 'PARTICULAR') || /PARTICULAR/i.test((card.labels || []).map(function (l) { return l.name; }).join(' ')) || /\bPARTICULAR\b/i.test(card.name || '');
 }
-/** Pode autorizar este card? autorizador sempre; no particular, também quem criou o pedido. */
+/** Peça particular? (pedido todo particular, ou peça marcada PARTICULAR dentro do pedido de seguradora) */
+function vdf_pecaParticular_(peca, card, an) { return !!(peca && peca.particular) || vdf_ehParticular_(card, an); }
+
+/** Pode autorizar ESTA peça? Diretoria sempre. Peça particular: também o consultor que a lançou
+ *  (ou quem criou o card). Peça da seguradora: só a diretoria. criador = username (opcional, evita nova leitura). */
+function vdf_podeAutorizarPeca_(me, card, an, peca, criador) {
+  if (!me) return false;
+  if (vdf_ehAutorizador_(me)) return true;
+  if (!vdf_pecaParticular_(peca, card, an)) return false;
+  var u = String(me.username || '').toLowerCase();
+  if (peca && peca.partPor && peca.partPor === u) return true;
+  if (criador === undefined) { try { criador = vd_criador_(card.id); } catch (e) { criador = ''; } }
+  return String(criador || '').toLowerCase() === u;
+}
+
+/** Pode abrir a aba Autorizar? (pode autorizar pelo menos uma peça) */
 function vdf_podeAutorizar_(me, card, an) {
   if (!me) return false;
   if (vdf_ehAutorizador_(me)) return true;
-  if (!vdf_ehParticular_(card, an)) return false;
-  try { return String(vd_criador_(card.id) || '').toLowerCase() === String(me.username || '').toLowerCase(); } catch (e) { return false; }
+  var criador; try { criador = vd_criador_(card.id); } catch (e) { criador = ''; }
+  if (!an.pecas.length) return vdf_ehParticular_(card, an) && String(criador || '').toLowerCase() === String(me.username || '').toLowerCase();
+  return an.pecas.some(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador); });
+}
+
+/** Pode devolver a cotação? Diretoria; ou o consultor, só se TODAS as peças forem particulares e dele. */
+function vdf_podeDevolver_(me, card, an) {
+  if (!me) return false;
+  if (vdf_ehAutorizador_(me)) return true;
+  var criador; try { criador = vd_criador_(card.id); } catch (e) { criador = ''; }
+  return an.pecas.length > 0 && an.pecas.every(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador); });
 }
 
 function vdf_iniciar(token) {
@@ -221,7 +245,10 @@ function vdf_montarCard_(c, lista, me) {
   return {
     shortLink: c.shortLink, url: c.shortUrl, nome: c.name, lista: lista, posCotacao: vdf_ehPosCotacao_(lista),
     dados: an.dados, obs: obs,
-    pecas: an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; }),
+    pecas: (function () {
+      var criador; try { criador = vd_criador_(c.id); } catch (e) { criador = ''; }
+      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; });
+    })(),
     padrao: an.pecas.length > 0,
     cotacoes: (function () { try { return vd_cotacoesDaDescricao_(c.desc, an.pecas); } catch (e) { return { cotacoes: [], nt: [] }; } })(),
     doOrcamento: an.doOrcamento,
@@ -232,6 +259,7 @@ function vdf_montarCard_(c, lista, me) {
     autorizadas: autorizadas,
     devolucao: (function () { try { return vd_ultimaDevolucao_(c.desc); } catch (e) { return null; } })(),
     podeAutorizar: vdf_podeAutorizar_(me, c, an),
+    podeDevolver: vdf_podeDevolver_(me, c, an),
     particular: vdf_ehParticular_(c, an),
     pagas: (function () {
       try {
@@ -596,16 +624,20 @@ function vdf_salvarCotacao(token, p) {
    * COTAÇÃO PARCIAL. Completa -> anda (seguradora: PENDENTE AUTORIZAR; particular: COTAÇÃO FINALIZADA),
    * avisando as peças não cotadas e o motivo. */
   var cob = vdf_coberturaCotacao_(novaDesc, an.pecas);
-  var particular = (an.dados.tipo === 'PARTICULAR') || /PARTICULAR/i.test((card.labels || []).map(function (l) { return l.name; }).join(' ')) || /\bPARTICULAR\b/i.test(card.name || '');
+  // só peças particulares -> COTAÇÃO FINALIZADA (o consultor autoriza); havendo peça da seguradora -> PENDENTE AUTORIZAR
+  var particular = an.pecas.length ? an.pecas.every(function (x) { return vdf_pecaParticular_(x, card, an); }) : vdf_ehParticular_(card, an);
+  var misto = !particular && an.pecas.some(function (x) { return x.particular; });
   var movido = '';
   try { movido = vdf_moverPara_(card, ctx, cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token); } catch (e) {}
   try { vdf_etiquetaParcial_(card, cob.faltam.length > 0, token); } catch (e) {}
   try {
     var quem = vd_criador_(card.id);
-    var txt = (quem && quem !== me.username ? '@' + quem + ' ' : '') + '💰 **Cotação lançada** por ' + me.fullName + ': ' + cots.length + ' cotação(ões) em ' + Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length + ' peça(s)' + (nt.length ? ', ' + nt.length + ' fornecedor(es) sem a peça' : '') + (obs.length ? ', ' + obs.length + ' observação(ões)' : '') + '.';
+    var mencoes = [quem].concat(an.pecas.map(function (x) { return x.partPor; })).filter(function (u, i, a) { return u && u !== me.username && a.indexOf(u) === i; });
+    var txt = mencoes.map(function (u) { return '@' + u + ' '; }).join('') + '💰 **Cotação lançada** por ' + me.fullName + ': ' + cots.length + ' cotação(ões) em ' + Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length + ' peça(s)' + (nt.length ? ', ' + nt.length + ' fornecedor(es) sem a peça' : '') + (obs.length ? ', ' + obs.length + ' observação(ões)' : '') + '.';
     if (cob.faltam.length) txt += '\n\n⏳ **Cotação parcial** — falta cotar (ou justificar): ' + cob.faltam.join(', ') + '.\nO card fica em **' + VD.LISTA_COTACAO + '** até todas as peças estarem cotadas ou justificadas.';
     else if (cob.semCot.length) txt += '\n\n⚠️ **Peças não cotadas:**\n' + cob.semCot.map(function (s) { return '- ' + s.nome + ': ' + s.texto; }).join('\n');
     if (movido) txt += '\nCard movido para **' + movido + '**.';
+    if (misto && !cob.faltam.length) txt += '\n👤 Peças particulares (' + an.pecas.filter(function (x) { return x.particular; }).map(vd_nomePeca_).join(', ') + '): quem autoriza é o consultor que as lançou, pela aba **Autorizar** do formulário.';
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
@@ -677,8 +709,9 @@ function vdf_autorizar(token, p) {
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro — não recebe autorização.'] };
   var an = vd_analisar_(card.desc, card.name);
   if (!vdf_podeAutorizar_(me, card, an)) {
-    return { ok: false, faltas: [vdf_ehParticular_(card, an) ? 'Pedido particular: quem autoriza é o consultor que fez o pedido (ou a diretoria).' : 'Só a diretoria autoriza compra de pedido de seguradora (sua conta: ' + me.username + ').'] };
+    return { ok: false, faltas: [vdf_ehParticular_(card, an) ? 'Pedido particular: quem autoriza é o consultor que fez o pedido (ou a diretoria).' : 'Só a diretoria autoriza as peças da seguradora; as peças particulares, o consultor que as lançou (sua conta: ' + me.username + ').'] };
   }
+  var criador; try { criador = vd_criador_(card.id); } catch (e) { criador = ''; }
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
   var lidas = vd_cotacoesDaDescricao_(card.desc, an.pecas).cotacoes;
@@ -686,6 +719,7 @@ function vdf_autorizar(token, p) {
   (p.escolhas || []).forEach(function (e, i) {
     var peca = porChave[e.chave];
     if (!peca) { faltas.push('escolha ' + (i + 1) + ': peça não encontrada no pedido'); return; }
+    if (!vdf_podeAutorizarPeca_(me, card, an, peca, criador)) { faltas.push(vd_nomePeca_(peca) + ': ' + (vdf_pecaParticular_(peca, card, an) ? 'peça particular — quem autoriza é o consultor que a lançou' : 'peça da seguradora — quem autoriza é a diretoria')); return; }
     var forn = String(e.fornecedor || '').trim().toUpperCase(), valor = vd_valorNum_(e.valor);
     var q = lidas.filter(function (x) { return x.chave === e.chave && x.fornecedor === forn && Math.abs(x.valor - valor) < 0.005; })[0];
     if (!q) { faltas.push(vd_nomePeca_(peca) + ': essa cotação (' + forn + ' ' + vd_valorBR_(valor) + ') não está no card'); return; }
@@ -700,16 +734,31 @@ function vdf_autorizar(token, p) {
   var div = vd_dividir_(card.desc);
   var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
   vd_backup_(card, 'compra autorizada pelo formulário por ' + me.username);
-  vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n**AUTORIZAÇÃO ' + agora + ' - ' + me.fullName + '**\n' + linhas.concat(obsL.linhas).join('\n'), token);
+  var novaDesc = div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n**AUTORIZAÇÃO ' + agora + ' - ' + me.fullName + '**\n' + linhas.concat(obsL.linhas).join('\n');
+  vd_gravarDesc_(card.id, novaDesc, token);
+  // card com peças da seguradora E particulares: só vai para AUTORIZADO COMPRA quando as duas partes
+  // tiverem autorização (diretoria + consultor). Enquanto isso fica onde está, avisando quem falta.
+  var autsAgora = vd_autorizacoesDaDescricao_(novaDesc, an.pecas);
+  var temAut = function (x) { return autsAgora.some(function (a) { return a.chave === vd_chavePeca_(x); }); };
+  var grupoSeg = an.pecas.filter(function (x) { return !vdf_pecaParticular_(x, card, an); }), grupoPart = an.pecas.filter(function (x) { return vdf_pecaParticular_(x, card, an); });
+  var aguarda = [];
+  if (grupoSeg.length && grupoPart.length) {
+    if (!grupoSeg.some(temAut)) aguarda.push('peças da seguradora — diretoria');
+    if (!grupoPart.some(temAut)) {
+      var donos = grupoPart.map(function (x) { return x.partPor || criador; }).filter(function (u, i, a) { return u && a.indexOf(u) === i; });
+      aguarda.push('peças particulares — ' + (donos.length ? donos.map(function (u) { return '@' + u; }).join(' ') : 'consultor'));
+    }
+  }
   var movido = '';
-  try { movido = vdf_moverPara_(card, ctx, VDF_LISTA_AUTORIZADO, token); } catch (e) {}
-  var semAut = an.pecas.filter(function (x) { return !(p.escolhas || []).some(function (e) { return e.chave === vd_chavePeca_(x); }); }).length;
+  if (!aguarda.length) { try { movido = vdf_moverPara_(card, ctx, VDF_LISTA_AUTORIZADO, token); } catch (e) {} }
+  // "sem autorização" só conta as peças que ESTA pessoa podia autorizar
+  var semAut = an.pecas.filter(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador) && !(p.escolhas || []).some(function (e) { return e.chave === vd_chavePeca_(x); }); }).length;
   try {
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **Compra autorizada** por ' + me.fullName + ': ' + linhas.length + ' peça(s), total ' + vd_valorBR_(total) + '.' + (semAut ? '\n' + semAut + ' peça(s) sem autorização (não comprar).' : '') + obsL.texto + (movido ? '\nCard movido para **' + movido + '**.' : '') } }, token);
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **Compra autorizada** por ' + me.fullName + ': ' + linhas.length + ' peça(s), total ' + vd_valorBR_(total) + '.' + (semAut ? '\n' + semAut + ' peça(s) sem autorização (não comprar).' : '') + obsL.texto + (movido ? '\nCard movido para **' + movido + '**.' : '') + (aguarda.length ? '\n⏳ Aguardando autorização: ' + aguarda.join('; ') + '. O card segue para AUTORIZADO COMPRA quando as duas partes estiverem autorizadas.' : '') } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+  return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, aguarda: aguarda, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
 /** Observações por peça ({chave, texto}) e geral do autorizador -> linhas "OBS PEÇA: texto" + "OBS GERAL: texto" e texto para o comentário. */
@@ -738,7 +787,7 @@ function vdf_devolverCotacao(token, p) {
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
   var an = vd_analisar_(card.desc, card.name);
-  if (!vdf_podeAutorizar_(me, card, an)) return { ok: false, faltas: ['Só quem autoriza a compra pode devolver a cotação (sua conta: ' + me.username + ').'] };
+  if (!vdf_podeDevolver_(me, card, an)) return { ok: false, faltas: ['Só a diretoria pode devolver a cotação' + (an.pecas.some(function (x) { return x.particular; }) ? ' deste card (tem peças da seguradora junto com as particulares)' : '') + ' — sua conta: ' + me.username + '. Escreva a observação na peça e autorize só o que estiver certo.'] };
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
   var obsL = vdf_linhasObs_(p, porChave, 'devolução');
@@ -867,6 +916,14 @@ function vdf_salvar(token, p) {
       : { pneu: false, codigo: String(x.codigo || '').trim().toUpperCase(), descricao: String(x.descricao || '').trim().toUpperCase(), tipos: (x.tipos || []).slice(0, 3), qtd: x.qtd || '' };
   });
   var n = p.novo || {};
+  // peça particular dentro do pedido de seguradora: guarda quem lançou (é quem autoriza)
+  if (vd_tipoNormPedido_(n.tipo) !== 'PARTICULAR') {
+    (p.pecas || []).forEach(function (x, i) {
+      if (!x.particular) return;
+      pecas[i].particular = true;
+      pecas[i].partPor = String(x.partPor || me.username || '').toLowerCase().replace(/[^\w.\-]/g, '');
+    });
+  }
   var orc = p.orcamento || null;
   var fo = orc && orc.fo ? orc.fo : [];
   var tipo = vd_tipoNormPedido_(n.tipo) || 'SEGURADORA';
