@@ -39,6 +39,8 @@
   .chips { display:flex; flex-wrap:wrap; gap:8px; }
   .chip { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--borda); border-radius:18px; padding:7px 12px; background:#fff; cursor:pointer; user-select:none; font-size:14px; }
   .chip input { margin:0; width:16px; height:16px; accent-color:var(--destaque); }
+  .grupo { margin:14px 0 6px; padding:6px 10px; border-radius:6px; font-weight:700; font-size:13px; background:#eef2f6; }
+  .grupo.part { background:#fff1d6; color:#7a4b00; }
   .selo-part { display:inline-block; font-size:11px; font-weight:700; color:#7a4b00; background:#fff1d6; border:1px solid #f0c060; border-radius:10px; padding:1px 7px; margin-left:4px; vertical-align:middle; }
   .chip.marcado { border-color:var(--destaque); background:var(--destaque2); font-weight:600; }
   .chip.desab { opacity:.4; cursor:not-allowed; }
@@ -178,7 +180,13 @@
     <section>
       <h2>4. Peças</h2>
       <div id="avisoOrc" class="aviso info oculto"></div>
+      <div class="abas" id="abasPecas">
+        <button type="button" class="aba marcada" id="abaPecSeg" onclick="abaPecas('seg')">🛡️ Peças da seguradora <span id="nPecSeg"></span></button>
+        <button type="button" class="aba" id="abaPecPart" onclick="abaPecas('part')">👤 Peças particulares <span id="nPecPart"></span></button>
+      </div>
+      <div class="dica oculto" id="dicaPart" style="margin:8px 0">Peças que o <b>cliente paga</b> (fora do orçamento da seguradora). Andam no mesmo card, mas <b>quem autoriza é você</b>, pela aba Autorizar do formulário. Código da peça opcional.</div>
       <div id="itens"></div>
+      <div id="itensPart" class="oculto"></div>
       <div class="rodape">
         <button type="button" class="secundario" onclick="novoItem('peca')">+ Adicionar peça</button>
         <button type="button" class="secundario" onclick="novoItem('pneu')">+ Adicionar pneu</button>
@@ -276,7 +284,10 @@ function aoMudarTipo() {
   $('sinistro').closest('div').classList.toggle('oculto', part);
   $('dicaTitulo').textContent = part ? 'O título do card fica: PLACA CARRO COR PARTICULAR.' : 'O título do card fica: PLACA CARRO COR SEGURADORA.';
   $('rotuloSeg').textContent = 'Seguradora';
-  Array.prototype.forEach.call(document.querySelectorAll('.part-linha'), function (el) { el.classList.toggle('oculto', part); });
+  mostrar('abasPecas', !part);
+  if (part) { while ($('itensPart').firstChild) $('itens').appendChild($('itensPart').firstChild); }
+  abaPecas(part ? 'seg' : ABA_PECAS);
+  if ($('itens').children.length || $('itensPart').children.length) numerar();
 }
 
 function $(id) { return document.getElementById(id); }
@@ -393,7 +404,7 @@ function carregarCard(sl) {
     $('placa').value = d.placa || ''; $('modelo').value = d.modelo || ''; $('ano').value = d.ano || '';
     $('motor').value = d.motor || ''; $('chassi').value = d.chassi || ''; $('obs').value = c.obs || '';
     conferirChassi();
-    $('itens').innerHTML = '';
+    $('itens').innerHTML = ''; $('itensPart').innerHTML = '';
     (c.pecas || []).forEach(function (p) { novoItem(p.pneu ? 'pneu' : 'peca', p); });
     if (!c.padrao) {
       $('modoEdicao').innerHTML += '<br><br>⚠️ A descrição deste card não estava no padrão. Preencha as peças abaixo — o texto antigo fica guardado no card, abaixo da linha de cotação.';
@@ -415,7 +426,21 @@ function fmtValor(v) {
 function rotuloCot(q) {
   return q.fornecedor + ' — ' + ([q.tipo, q.marca].filter(String).join(' ') || '—') + ' — ' + fmtValor(q.valor) + (q.dias !== '' && q.dias !== undefined ? ' — ' + q.dias + (+q.dias === 1 ? ' dia útil' : ' dias úteis') : (q.data ? ' — ' + q.data : ''));
 }
-function pecasOficina(c) { return (c.pecas || []).filter(function (p) { return p.chave; }); }
+function pecasOficina(c) {
+  var l = (c.pecas || []).map(function (p, i) { p._n = i + 1; return p; }).filter(function (p) { return p.chave; });
+  var misto = c.tipo !== 'PARTICULAR' && l.some(function (p) { return p.particular; }) && l.some(function (p) { return !p.particular; });
+  if (!misto) return l;
+  return l.filter(function (p) { return !p.particular; }).concat(l.filter(function (p) { return p.particular; }));
+}
+/** Título do grupo (seguradora / particular) antes da 1ª peça de cada grupo, em card misto. */
+function grupoAntes(box, c, lista, i) {
+  var p = lista[i], ant = lista[i - 1];
+  var misto = c.tipo !== 'PARTICULAR' && lista.some(function (x) { return x.particular; }) && lista.some(function (x) { return !x.particular; });
+  if (!misto || (ant && !!ant.particular === !!p.particular)) return;
+  var g = document.createElement('div'); g.className = 'grupo' + (p.particular ? ' part' : ''); g.dataset.fora = '1';
+  g.textContent = p.particular ? '👤 Peças particulares — cliente paga · autoriza o consultor' : '🛡️ Peças da seguradora · autoriza a diretoria';
+  box.appendChild(g);
+}
 function semAc(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase(); }
 
 function telaComprador(c) {
@@ -470,11 +495,13 @@ function mesmaCot(q, a) { return a && q.fornecedor === a.fornecedor && Math.abs(
 function montarAutorizacao(c) {
   var box = $('autItens'); box.innerHTML = '';
   var lidas = (c.cotacoes && c.cotacoes.cotacoes) || [];
-  pecasOficina(c).forEach(function (p, i) {
+  var lista = pecasOficina(c);
+  lista.forEach(function (p, i) {
+    grupoAntes(box, c, lista, i);
     var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave;
     var minhas = lidas.filter(function (q) { return q.chave === p.chave; }).sort(function (a, b) { return a.valor - b.valor; });
     var ja = autDe(c, p.chave);
-    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong></div>';
+    var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong></div>';
     ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
     if (p.podeAut === false) {
       h += (ja ? '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + ')' : '') + '</div>' : '')
@@ -542,10 +569,12 @@ function montarCotacao(c) {
   var lidas = (c.cotacoes && c.cotacoes.cotacoes) || [];
   var forns = []; lidas.forEach(function (q) { if (forns.indexOf(q.fornecedor) < 0) forns.push(q.fornecedor); });
   var dl = document.getElementById('dlForn') || document.createElement('datalist'); dl.id = 'dlForn'; dl.innerHTML = forns.map(function (f) { return '<option value="' + esc(f) + '">'; }).join(''); document.body.appendChild(dl);
-  pecasOficina(c).forEach(function (p, i) {
+  var lista = pecasOficina(c);
+  lista.forEach(function (p, i) {
+    grupoAntes(box, c, lista, i);
     var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave; div.dataset.pneu = p.pneu ? '1' : '';
     var jaLidas = lidas.filter(function (q) { return q.chave === p.chave; });
-    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong>'
+    var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong>'
       + '<button type="button" class="secundario" onclick="novaCot(this.closest(\'.item\'))">+ cotação</button></div>';
     var seloL = selosPeca(jaLidas);
     if (jaLidas.length) h += '<div style="margin-bottom:6px">' + jaLidas.map(function (q) { return '<div class="cot-lida">já no card: <b>' + esc(rotuloCot(q)) + '</b>' + seloL(q) + '</div>'; }).join('') + '</div>';
@@ -620,11 +649,13 @@ function montarCompra(c) {
   var box = $('compraItens'); box.innerHTML = '';
   var lidas = (c.cotacoes && c.cotacoes.cotacoes) || [];
   var pagas = c.pagas || [];
-  pecasOficina(c).forEach(function (p, i) {
+  var lista = pecasOficina(c);
+  lista.forEach(function (p, i) {
+    grupoAntes(box, c, lista, i);
     var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave;
     var ja = pagas.filter(function (it) { return semAc(it.nome).indexOf(p.chave) >= 0; })[0];
     var minhas = lidas.filter(function (q) { return q.chave === p.chave; });
-    var h = '<div class="item-topo"><strong>' + (i + 1) + '. ' + esc(p.nome) + tagPart(p) + '</strong></div>';
+    var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + '</strong></div>';
     ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
     if (ja) h += '<div class="comprado">✔ já comprado: ' + esc(ja.nome) + (ja.due ? ' — previsão ' + esc(ja.due) : '') + (ja.ok ? ' (recebido)' : '') + '</div>';
     else if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça — lance na aba Cotação.</div>';
@@ -880,8 +911,18 @@ function importarOrcamento(o) {
 
 /* ---------- itens ---------- */
 
-function linhaParticular(id, dados) {
-  return '<div class="inteiro part-linha' + (tipoPedido() === 'PARTICULAR' ? ' oculto' : '') + '" style="margin-top:8px"><label class="chip' + (dados.particular ? ' marcado' : '') + '"><input type="checkbox" class="f-part"' + (dados.particular ? ' checked' : '') + ' onchange="this.parentNode.classList.toggle(\'marcado\', this.checked)"> 👤 Particular — cliente paga (quem autoriza é você)</label></div>';
+var ABA_PECAS = 'seg';
+function comAbaPart() { return tipoPedido() !== 'PARTICULAR'; }
+function caixaDe(part) { return part && comAbaPart() ? $('itensPart') : $('itens'); }
+function abaPecas(a) {
+  ABA_PECAS = comAbaPart() ? a : 'seg';
+  var part = ABA_PECAS === 'part';
+  mostrar('itens', !part); mostrar('itensPart', part); mostrar('dicaPart', part);
+  $('abaPecSeg').classList.toggle('marcada', !part); $('abaPecPart').classList.toggle('marcada', part);
+}
+function contarPecas() {
+  var a = $('itens').children.length, b = $('itensPart').children.length;
+  $('nPecSeg').textContent = a ? '(' + a + ')' : ''; $('nPecPart').textContent = b ? '(' + b + ')' : '';
 }
 function tagPart(p) { return p && p.particular && CARD && CARD.tipo !== 'PARTICULAR' ? ' <span class="selo-part">👤 PARTICULAR</span>' : ''; }
 
@@ -890,6 +931,7 @@ function novoItem(tipo, dados) {
   var id = 'it' + (++seq);
   var div = document.createElement('div');
   div.className = 'item'; div.id = id; div.dataset.tipo = tipo; div.dataset.partPor = dados.partPor || '';
+  var caixa = dados.particular !== undefined ? caixaDe(!!dados.particular) : caixaDe(ABA_PECAS === 'part');
   var h = '<div class="item-topo"><strong class="num"></strong>'
     + '<select onchange="trocarTipo(\'' + id + '\', this.value)"><option value="peca"' + (tipo === 'peca' ? ' selected' : '') + '>Peça</option><option value="pneu"' + (tipo === 'pneu' ? ' selected' : '') + '>Pneu</option></select>'
     + '<button type="button" class="perigo" onclick="removerItem(\'' + id + '\')">remover</button></div>';
@@ -902,10 +944,10 @@ function novoItem(tipo, dados) {
       h += '<label class="chip"><input type="radio" name="cat' + id + '" value="' + esc(c) + '"' + (dados.categoria === c ? ' checked' : '') + ' onchange="pintarChips(\'' + id + '\')"> ' + esc(c) + '</label>';
     });
     h += '<label class="chip"><input type="radio" name="cat' + id + '" value="MARCA"' + (dados.marca ? ' checked' : '') + ' onchange="pintarChips(\'' + id + '\')"> MARCA:</label>'
-      + '</div><input type="text" class="f-marca maiusc" placeholder="Marca (ex.: PIRELLI)" style="margin-top:8px" value="' + esc(dados.marca) + '" oninput="if(this.value)this.closest(\'.item\').querySelector(\'input[value=MARCA]\').checked=true;pintarChips(\'' + id + '\')"></div>' + linhaParticular(id, dados) + '</div>';
+      + '</div><input type="text" class="f-marca maiusc" placeholder="Marca (ex.: PIRELLI)" style="margin-top:8px" value="' + esc(dados.marca) + '" oninput="if(this.value)this.closest(\'.item\').querySelector(\'input[value=MARCA]\').checked=true;pintarChips(\'' + id + '\')"></div></div>';
   } else {
     h += '<div class="grade">'
-      + '<div><label>Código da peça <span class="obr">*</span></label><input type="text" class="f-codigo maiusc" placeholder="Buscar no Cilia" value="' + esc(dados.codigo) + '"></div>'
+      + '<div><label>Código da peça ' + (caixa.id === 'itensPart' || tipoPedido() === 'PARTICULAR' ? '<span style="font-size:12px">(opcional)</span>' : '<span class="obr">*</span>') + '</label><input type="text" class="f-codigo maiusc" placeholder="Buscar no Cilia" value="' + esc(dados.codigo) + '"></div>'
       + '<div><label>Quantidade</label><input type="number" min="1" class="f-qtd" value="' + esc(dados.qtd || 1) + '"></div>'
       + '<div class="inteiro"><label>Descrição <span class="obr">*</span></label><input type="text" class="f-desc maiusc" placeholder="FAROL ESQUERDO" value="' + esc(dados.descricao) + '"></div>'
       + '<div class="inteiro"><label>Tipo de peça <span class="obr">*</span> <span style="font-size:12px">(marque 1 ou 2)</span></label><div class="chips">';
@@ -916,25 +958,29 @@ function novoItem(tipo, dados) {
     h += '</div>';
     if (dados.dica) h += '<div class="dica">No orçamento: <b>' + esc(dados.dica) + '</b> — escolha o tipo acima.</div>';
     if (dados.descricaoOrc !== undefined && !dados.codigo) h += '<div class="dica ruim">O orçamento não traz código de fábrica desta peça — busque no Cilia.</div>';
-    h += '</div>' + linhaParticular(id, dados) + '</div>';
+    h += '</div></div>';
   }
   div.innerHTML = h;
-  $('itens').appendChild(div);
+  caixa.appendChild(div);
   if (tipo === 'peca') limitarTipos(id); else pintarChips(id);
   numerar();
 }
 
 function trocarTipo(id, tipo) {
-  var velho = $(id);
-  novoItem(tipo);
-  var criado = $('itens').lastChild;
-  $('itens').insertBefore(criado, velho);
+  var velho = $(id), caixa = velho.parentNode;
+  novoItem(tipo, { particular: caixa.id === 'itensPart', partPor: velho.dataset.partPor });
+  var criado = caixa.lastChild;
+  caixa.insertBefore(criado, velho);
   velho.remove();
   numerar();
 }
 
 function removerItem(id) { $(id).remove(); numerar(); }
-function numerar() { Array.prototype.forEach.call($('itens').children, function (el, i) { el.querySelector('.num').textContent = 'Item ' + (i + 1); }); }
+function numerar() {
+  Array.prototype.forEach.call($('itens').children, function (el, i) { el.querySelector('.num').textContent = 'Item ' + (i + 1); });
+  Array.prototype.forEach.call($('itensPart').children, function (el, i) { el.querySelector('.num').textContent = '👤 Particular ' + (i + 1); });
+  contarPecas();
+}
 
 function limitarTipos(id) {
   var caixas = $(id).querySelectorAll('.f-tipo');
@@ -954,10 +1000,11 @@ function pintarChips(id) {
 
 function coletar() {
   var pecas = [], faltas = [];
-  Array.prototype.forEach.call($('itens').children, function (el, i) {
-    var n = 'Item ' + (i + 1);
+  var todos = Array.prototype.slice.call($('itens').children).concat(comAbaPart() ? Array.prototype.slice.call($('itensPart').children) : []);
+  todos.forEach(function (el) {
+    var ehPart = el.parentNode.id === 'itensPart';
+    var n = el.querySelector('.num').textContent;
     var qtd = (el.querySelector('.f-qtd') || {}).value || '';
-    var partEl = el.querySelector('.f-part'), ehPart = !!(partEl && partEl.checked) && tipoPedido() !== 'PARTICULAR';
     if (el.dataset.tipo === 'pneu') {
       var medida = el.querySelector('.f-medida').value.trim();
       var sel = el.querySelector('input[type=radio]:checked');
