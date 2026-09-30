@@ -8,7 +8,7 @@ name: Publicar Apps Script
 on:
   push:
     branches: [main]
-    paths: ['apps-script/**']
+    paths: ['apps-script/**', 'tools/**']
   workflow_dispatch:
 concurrency: apps-script
 env:
@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Formulário estático em dia
+        run: python3 tools/gerar_formulario_estatico.py --conferir
       - uses: actions/setup-node@v4
         with:
           node-version: 20
