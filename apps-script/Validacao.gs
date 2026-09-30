@@ -975,8 +975,14 @@ function vd_comentar_(card, txt) {
 }
 
 function vd_mover_(card, idLista, pos) {
+  var de = card.idList;
+  try { st_permitir_(card.id, idLista); } catch (e) {}   // antes do PUT: a trava de colunas não desfaz
   vd_api_('/cards/' + card.id, { method: 'put', payload: { idList: idLista, pos: pos || 'top' } });
   card.idList = idLista;
+  try {
+    var nomes = {}; var ls = vd_listas_(vd_board_()); Object.keys(ls).forEach(function (k) { nomes[ls[k]] = k; });
+    ev_registrar_('COLUNA', card, 'robô', null, { detalhe: (nomes[de] || '?') + ' → ' + (nomes[idLista] || '?') });
+  } catch (e) {}
 }
 
 /** Confere um card de EM COTAÇÃO / FALTA DADOS. ctx = {board, listas, modoAtivo, prazo, urlForm}. */
@@ -1404,6 +1410,7 @@ function validarDadosPedido() {
     }
     var rodar = function () {
       try { tr_executar_(); } catch (e) { console.log('trava: ' + e); }   // antes de tudo: desfaz edição manual
+      try { st_executar_(); } catch (e) { console.log('trava de colunas: ' + e); }   // e movimento manual fora do fluxo
       var out = vd_executarNucleo_();
       try { pz_executar_(); } catch (e) { console.log('prazos: ' + e); }
       try { rel_instalarSeFaltar_(); } catch (e) { console.log('relatório: ' + e); }

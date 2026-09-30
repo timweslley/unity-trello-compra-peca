@@ -417,9 +417,11 @@ function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
       (ck.checkItems || []).forEach(function (it) { if (it.state !== 'complete') pendentes++; });
     });
     if (pendentes > 0) {
+      try { if (typeof st_permitir_ === 'function') st_permitir_(c.id, idFaltaChegar); } catch (e) {}
       api_('/cards/' + c.id, { idList: idFaltaChegar, pos: 'top' }, 'put');
       api_('/cards/' + c.id + '/actions/comments', { text: 'Movido automaticamente para FALTA CHEGAR: mais de ' + DIAS_ENCERRADO + ' dias em ENCERRADO com ' + pendentes + ' item(ns) de checklist pendente(s).' }, 'post');
     } else {
+      try { if (typeof st_permitir_ === 'function') st_permitir_(c.id, idEntregues); } catch (e) {}
       api_('/cards/' + c.id, { idList: idEntregues, pos: 'top' }, 'put');
     }
     n++;

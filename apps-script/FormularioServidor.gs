@@ -551,11 +551,14 @@ function vdf_nomeLista_(ctx, id) {
   return n;
 }
 
-function vdf_moverPara_(card, ctx, nomeLista, token) {
+function vdf_moverPara_(card, ctx, nomeLista, token, usuario) {
   var id = ctx.listas[nomeLista];
   if (!id || id === card.idList) return '';
+  var de = vdf_nomeLista_(ctx, card.idList);
+  try { st_permitir_(card.id, id); } catch (e) {}   // antes do PUT: a trava de colunas não desfaz
   vd_api_('/cards/' + card.id, { method: 'put', payload: { idList: id, pos: 'top' } }, token);
   card.idList = id;
+  try { ev_registrar_('COLUNA', card, usuario || 'formulário', null, { detalhe: (de || '?') + ' → ' + nomeLista }); } catch (e) {}
   return nomeLista;
 }
 
@@ -618,6 +621,12 @@ function vdf_salvarCotacao(token, p) {
   var novaDesc = div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n' + L.join('\n');
   vd_backup_(card, 'cotação lançada pelo formulário por ' + me.username);
   vd_gravarDesc_(card.id, novaDesc, token);
+  try {
+    ev_registrar_('COTAÇÃO', card, me.username,
+      cots.map(function (c) { var e = ev_peca_(c.peca); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias; e.detalhe = [c.tipo, c.marca].filter(String).join(' '); return e; })
+        .concat(semCot.map(function (x) { var e = ev_peca_(x.peca); e.detalhe = 'SEM COTAÇÃO: ' + x.texto; return e; }))
+        .concat(nt.map(function (f) { return { fornecedor: f, detalhe: 'NT (não tem)' }; })));
+  } catch (e) {}
 
   /* Cobertura (somando as cotações que já estavam no card): cada peça da oficina precisa de
    * cotação OU de justificativa (SEM COTAÇÃO). Parcial -> card fica em EM COTAÇÃO com a etiqueta
@@ -628,7 +637,7 @@ function vdf_salvarCotacao(token, p) {
   var particular = an.pecas.length ? an.pecas.every(function (x) { return vdf_pecaParticular_(x, card, an); }) : vdf_ehParticular_(card, an);
   var misto = !particular && an.pecas.some(function (x) { return x.particular; });
   var movido = '';
-  try { movido = vdf_moverPara_(card, ctx, cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token); } catch (e) {}
+  try { movido = vdf_moverPara_(card, ctx, cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token, me.username); } catch (e) {}
   try { vdf_etiquetaParcial_(card, cob.faltam.length > 0, token); } catch (e) {}
   try {
     var quem = vd_criador_(card.id);
@@ -715,7 +724,7 @@ function vdf_autorizar(token, p) {
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
   var lidas = vd_cotacoesDaDescricao_(card.desc, an.pecas).cotacoes;
-  var faltas = [], linhas = [], total = 0;
+  var faltas = [], linhas = [], total = 0, evAut = [];
   (p.escolhas || []).forEach(function (e, i) {
     var peca = porChave[e.chave];
     if (!peca) { faltas.push('escolha ' + (i + 1) + ': peça não encontrada no pedido'); return; }
@@ -725,6 +734,10 @@ function vdf_autorizar(token, p) {
     if (!q) { faltas.push(vd_nomePeca_(peca) + ': essa cotação (' + forn + ' ' + vd_valorBR_(valor) + ') não está no card'); return; }
     linhas.push('AUTORIZADO: ' + forn + ' - ' + (peca.pneu ? 'PNEU ' + String(peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(peca)) + ' - ' + vd_valorBR_(valor));
     total += valor;
+    var doPeca = lidas.filter(function (x) { return x.chave === e.chave; }).map(function (x) { return x.valor; });
+    var ea = ev_peca_(peca); ea.fornecedor = forn; ea.valor = valor; ea.dias = q.dias;
+    ea.detalhe = doPeca.length > 1 ? 'menor ' + vd_valorBR_(Math.min.apply(null, doPeca)) + ' · maior ' + vd_valorBR_(Math.max.apply(null, doPeca)) + ' · ' + doPeca.length + ' cotações' : '1 cotação';
+    evAut.push(ea);
   });
   if (!linhas.length && !faltas.length) faltas.push('Escolha a cotação de pelo menos uma peça.');
   if (faltas.length) return { ok: false, faltas: faltas };
@@ -750,7 +763,8 @@ function vdf_autorizar(token, p) {
     }
   }
   var movido = '';
-  if (!aguarda.length) { try { movido = vdf_moverPara_(card, ctx, VDF_LISTA_AUTORIZADO, token); } catch (e) {} }
+  try { ev_registrar_('AUTORIZAÇÃO', card, me.username, evAut, { detalhe: aguarda.length ? 'aguardando: ' + aguarda.join('; ') : '' }); } catch (e) {}
+  if (!aguarda.length) { try { movido = vdf_moverPara_(card, ctx, VDF_LISTA_AUTORIZADO, token, me.username); } catch (e) {} }
   // "sem autorização" só conta as peças que ESTA pessoa podia autorizar
   var semAut = an.pecas.filter(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador) && !(p.escolhas || []).some(function (e) { return e.chave === vd_chavePeca_(x); }); }).length;
   try {
@@ -797,8 +811,9 @@ function vdf_devolverCotacao(token, p) {
   var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
   vd_backup_(card, 'cotação devolvida pelo formulário por ' + me.username);
   vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n**DEVOLVIDA PARA COTAÇÃO ' + agora + ' - ' + me.fullName + '**\n' + obsL.linhas.join('\n'), token);
+  try { ev_registrar_('DEVOLUÇÃO', card, me.username, null, { detalhe: [String(p.geral || '').trim()].concat((p.obs || []).map(function (o) { return o.texto; })).filter(String).join(' | ').slice(0, 500) }); } catch (e) {}
   var movido = '';
-  try { movido = vdf_moverPara_(card, ctx, VD.LISTA_COTACAO, token); } catch (e) {}
+  try { movido = vdf_moverPara_(card, ctx, VD.LISTA_COTACAO, token, me.username); } catch (e) {}
   try {
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '↩️ **Cotação devolvida** por ' + me.fullName + ' — completar e lançar de novo.' + obsL.texto + (movido ? '\nCard movido para **' + movido + '**.' : '') } }, token);
@@ -827,7 +842,7 @@ function vdf_salvarCompra(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehComprador_(me)) return { ok: false, faltas: ['Só o setor de compras pode registrar compra (sua conta: ' + me.username + '). A cotação continua liberada.'] };
   var ctx = vd_contexto_();
-  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard' } });
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro — não recebe cotação nem compra.'] };
   var an = vd_analisar_(card.desc, card.name);
   var porChave = {};
@@ -858,6 +873,15 @@ function vdf_salvarCompra(token, p) {
   });
 
   var n = vd_checklistPagas_(card.id, compras, token);
+  try {
+    ev_registrar_('COMPRA', card, me.username, compras.map(function (c) {
+      var e = ev_peca_(porChave[c.chave]); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias;
+      e.previsao = c.dias !== '' ? vd_dataMaisDias_(c.dias) : '';
+      var fa = foraAut.filter(function (f) { return f.indexOf(vd_nomePeca_(porChave[c.chave])) === 0; })[0];
+      e.detalhe = fa ? 'FORA DA AUTORIZAÇÃO: ' + fa : '';
+      return e;
+    }));
+  } catch (e) {}
   try { vd_redesenhar_(card.id, token); } catch (e) { console.log('vitrine/compra: ' + e); }   // mostra 🛒 na descrição
 
   // tudo comprado? -> FALTA CHEGAR
@@ -870,7 +894,7 @@ function vdf_salvarCompra(token, p) {
       var k = vd_chavePeca_(x);
       if (!nomes.some(function (nm) { return k && nm.indexOf(k) >= 0; })) pendentes++;
     });
-    if (!pendentes) movido = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token);
+    if (!pendentes) movido = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username);
   } catch (e) {}
   try {
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🛒 **Compra registrada** por ' + me.fullName + ': ' + n + ' item(ns) no checklist PAGAS' + (pendentes ? ' — ' + pendentes + ' peça(s) da oficina ainda sem compra' : ' — todas as peças da oficina compradas') + '.' + (movido ? '\nCard movido para **' + movido + '**.' : '') + (foraAut.length ? '\n\n⚠️ **Compra fora da autorização:** ' + foraAut.join('; ') + '.' : '') } }, token);
@@ -1038,7 +1062,7 @@ function vdf_salvar(token, p) {
   // confere na hora
   var acao = '';
   try {
-    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } });
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } });
     var props = PropertiesService.getScriptProperties();
     if (posCot) {
       if (novasPecas.length) {
@@ -1053,6 +1077,11 @@ function vdf_salvar(token, p) {
       acao = vd_conferirCard_(c2, ctx).acao;
     }
     vd_marcar_(c2);
+  } catch (e) {}
+  try {
+    var evPecas = (posCot ? novasPecas : an.pecas).map(ev_peca_);
+    ev_registrar_(!p.shortLink ? 'PEDIDO' : (posCot && novasPecas.length ? 'PEÇA NOVA' : 'PEDIDO EDITADO'), { name: card.name, shortLink: card.shortLink, shortUrl: card.shortUrl, labels: (typeof c2 !== 'undefined' && c2 && c2.labels) || [] },
+      me.username, evPecas, { tipo: tipo, detalhe: (nFo ? nFo + ' peça(s) FO' : '') });
   } catch (e) {}
 
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos };
