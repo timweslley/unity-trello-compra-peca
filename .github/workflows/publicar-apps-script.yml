@@ -31,17 +31,15 @@ jobs:
           printf '%s' "$CLASPRC" > ~/.clasprc.json
       - name: Baixar o código atual (ponto de restauração)
         run: |
-          mkdir -p /tmp/atual
-          sed 's#"rootDir": *"[^"]*"#"rootDir": "/tmp/atual"#' .clasp.json > /tmp/clasp-pull.json
-          cp /tmp/clasp-pull.json .clasp.json.pull
-          mv .clasp.json .clasp.json.orig && mv .clasp.json.pull .clasp.json
+          SID=$(python3 -c "import json;print(json.load(open('.clasp.json'))['scriptId'])")
+          mkdir -p /tmp/atual && cd /tmp/atual
+          printf '{"scriptId":"%s","fileExtension":"gs"}' "$SID" > .clasp.json
           clasp pull
-          mv .clasp.json.orig .clasp.json
           echo "No Apps Script hoje:"; ls -1 /tmp/atual
           falta=0
           for f in /tmp/atual/*; do
             n=$(basename "$f")
-            if [ ! -f "apps-script/$n" ]; then echo "::error::O projeto tem o arquivo '$n' que não está no repositório — publicar apagaria. Abortado."; falta=1; fi
+            if [ ! -f "$GITHUB_WORKSPACE/apps-script/$n" ]; then echo "::error::O projeto tem o arquivo '$n' que não está no repositório — publicar apagaria. Abortado."; falta=1; fi
           done
           exit $falta
       - uses: actions/upload-artifact@v4
