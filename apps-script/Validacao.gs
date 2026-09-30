@@ -813,7 +813,8 @@ function tr_executar_() {
  * Prazo de peça (cotação e compra) conta só dias úteis: pula sábado, domingo e os feriados
  * nacionais + municipais de TODAS as cidades do grupo (Toledo, Marechal C. Rondon, Cascavel,
  * Campo Mourão). O Paraná não tem feriado estadual (19/12 não é feriado civil).
- * Pontos facultativos (Carnaval, 24/12, 31/12…) contam como dia útil.
+ * Carnaval (segunda e terça) conta como feriado. Outros pontos facultativos (Cinzas, 24/12,
+ * 31/12…) contam como dia útil.
  * Feriado a mais num ano (decreto, transferência): propriedade DU_EXTRAS = "2026-10-19, 2027-02-15".
  * Dia que NÃO é feriado naquele ano: propriedade DU_REMOVER, mesmo formato.
  * Voltar a contar dias corridos: propriedade VD_DIAS_UTEIS = NAO.
@@ -828,7 +829,7 @@ var DU = {
     '10-10': 'Aniversário de Campo Mourão', '10-31': 'Reforma Luterana — Marechal C. Rondon',
     '11-14': 'Aniversário de Cascavel', '12-14': 'Aniversário de Toledo'
   },
-  MOVEIS: [[-2, 'Sexta-feira Santa'], [60, 'Corpus Christi']],   // dias a partir da Páscoa
+  MOVEIS: [[-48, 'Carnaval (segunda)'], [-47, 'Carnaval (terça)'], [-2, 'Sexta-feira Santa'], [60, 'Corpus Christi']],   // dias a partir da Páscoa
   EXTRAS: { '2026-10-19': 'Aniversário de Campo Mourão (decreto 2026)' }
 };
 var DU_CACHE = {};
