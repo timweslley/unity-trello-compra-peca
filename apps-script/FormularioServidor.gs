@@ -260,6 +260,7 @@ function vdf_montarCard_(c, lista, me) {
     devolucao: (function () { try { return vd_ultimaDevolucao_(c.desc); } catch (e) { return null; } })(),
     podeAutorizar: vdf_podeAutorizar_(me, c, an),
     podeDevolver: vdf_podeDevolver_(me, c, an),
+    fornecedores: fo_paraFormulario_(),
     particular: vdf_ehParticular_(c, an),
     pagas: (function () {
       try {
@@ -585,9 +586,11 @@ function vdf_salvarCotacao(token, p) {
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
   var faltas = [];
+  var foLista = []; try { foLista = fo_lista_(); } catch (e) {}
+  var foNome = function (x) { try { return fo_resolver_(x, foLista).nome || String(x || '').trim().toUpperCase(); } catch (e) { return String(x || '').trim().toUpperCase(); } };
   var cots = (p.cotacoes || []).map(function (c, i) {
     var peca = porChave[c.chave];
-    var r = { peca: peca, fornecedor: String(c.fornecedor || '').trim().toUpperCase(), tipo: vd_tipoNorm_(c.tipo || '') || '', marca: String(c.marca || '').trim().toUpperCase(), valor: vd_valorNum_(c.valor), dias: String(c.dias == null ? '' : c.dias).trim() };
+    var r = { peca: peca, fornecedor: foNome(c.fornecedor), tipo: vd_tipoNorm_(c.tipo || '') || '', marca: String(c.marca || '').trim().toUpperCase(), valor: vd_valorNum_(c.valor), dias: String(c.dias == null ? '' : c.dias).trim() };
     var rot = 'cotação ' + (i + 1) + (peca ? ' (' + vd_nomePeca_(peca) + ')' : '');
     if (!peca) faltas.push(rot + ': peça não encontrada no pedido');
     if (!r.fornecedor) faltas.push(rot + ': falta o fornecedor');
@@ -596,7 +599,7 @@ function vdf_salvarCotacao(token, p) {
     if (r.tipo && r.tipo.charAt(0) === '?') faltas.push(rot + ': tipo inválido');
     return r;
   });
-  var nt = (p.nt || []).map(function (s) { return String(s || '').trim().toUpperCase(); }).filter(String);
+  var nt = (p.nt || []).map(foNome).filter(String);
   var obs = (p.obs || []).map(function (o) { return { peca: porChave[o.chave], texto: String(o.texto || '').replace(/\s*\n\s*/g, ' ').trim() }; }).filter(function (o) { return o.peca && o.texto; });
   var semCot = (p.semCot || []).map(function (o) { return { peca: porChave[o.chave], chave: o.chave, texto: String(o.texto || '').replace(/\s*\n\s*/g, ' ').trim() }; }).filter(function (o) { return o.peca && o.texto; });
   semCot.forEach(function (s) { if (cots.some(function (c) { return c.peca === s.peca; })) faltas.push(vd_nomePeca_(s.peca) + ': tem cotação e justificativa de não cotar ao mesmo tempo — deixe só uma'); });
@@ -621,6 +624,7 @@ function vdf_salvarCotacao(token, p) {
   var novaDesc = div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n' + L.join('\n');
   vd_backup_(card, 'cotação lançada pelo formulário por ' + me.username);
   vd_gravarDesc_(card.id, novaDesc, token);
+  try { fo_registrarUso_(cots.map(function (c) { return c.fornecedor; }).concat(nt), me.username); } catch (e) {}
   try {
     ev_registrar_('COTAÇÃO', card, me.username,
       cots.map(function (c) { var e = ev_peca_(c.peca); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias; e.detalhe = [c.tipo, c.marca].filter(String).join(' '); return e; })

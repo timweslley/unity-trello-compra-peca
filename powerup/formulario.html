@@ -496,6 +496,18 @@ function fmtValor(v) {
 function rotuloCot(q) {
   return q.fornecedor + ' — ' + ([q.tipo, q.marca].filter(String).join(' ') || '—') + ' — ' + fmtValor(q.valor) + (q.dias !== '' && q.dias !== undefined ? ' — ' + q.dias + (+q.dias === 1 ? ' dia útil' : ' dias úteis') : (q.data ? ' — ' + q.data : ''));
 }
+function normForn(s) { return semAc(s).replace(/[^A-Z0-9]+/g, ' ').trim(); }
+/** Nome digitado -> nome oficial do cadastro (nome ou apelido igual, sem acento/pontuação); senão o digitado. */
+function nomeForn(v) {
+  var alvo = normForn(v); if (!alvo) return v;
+  var l = (CARD && CARD.fornecedores) || [];
+  for (var i = 0; i < l.length; i++) {
+    if (normForn(l[i][0]) === alvo) return l[i][0];
+    var ap = String(l[i][1] || '').split(' · ')[0].split(/,\s*/);
+    for (var j = 0; j < ap.length; j++) if (ap[j] && normForn(ap[j]) === alvo) return l[i][0];
+  }
+  return String(v).trim().toUpperCase();
+}
 function pecasOficina(c) {
   var l = (c.pecas || []).map(function (p, i) { p._n = i + 1; return p; }).filter(function (p) { return p.chave; });
   var misto = c.tipo !== 'PARTICULAR' && l.some(function (p) { return p.particular; }) && l.some(function (p) { return !p.particular; });
@@ -638,7 +650,10 @@ function montarCotacao(c) {
   var box = $('cotItens'); box.innerHTML = '';
   var lidas = (c.cotacoes && c.cotacoes.cotacoes) || [];
   var forns = []; lidas.forEach(function (q) { if (forns.indexOf(q.fornecedor) < 0) forns.push(q.fornecedor); });
-  var dl = document.getElementById('dlForn') || document.createElement('datalist'); dl.id = 'dlForn'; dl.innerHTML = forns.map(function (f) { return '<option value="' + esc(f) + '">'; }).join(''); document.body.appendChild(dl);
+  // cadastro de fornecedores (aprende): sugere enquanto digita; apelido vira o nome oficial
+  (c.fornecedores || []).forEach(function (f) { if (forns.indexOf(f[0]) < 0) forns.push(f[0]); });
+  var dicas = {}; (c.fornecedores || []).forEach(function (f) { dicas[f[0]] = f[1]; });
+  var dl = document.getElementById('dlForn') || document.createElement('datalist'); dl.id = 'dlForn'; dl.innerHTML = forns.map(function (f) { return '<option value="' + esc(f) + '"' + (dicas[f] ? ' label="' + esc(dicas[f]) + '"' : '') + '>'; }).join(''); document.body.appendChild(dl);
   var lista = pecasOficina(c);
   lista.forEach(function (p, i) {
     grupoAntes(box, c, lista, i);
@@ -666,7 +681,7 @@ function novaCot(item) {
   var peca = pecasOficina(CARD).filter(function (p) { return p.chave === item.dataset.chave; })[0] || {};
   var tipos = pneu ? [] : (peca.tipos && peca.tipos.length ? peca.tipos : CFG.tipos);
   var row = document.createElement('div'); row.className = 'cot';
-  row.innerHTML = '<div><label>Fornecedor</label><input type="text" class="q-forn maiusc" list="dlForn" placeholder="IMPERIAL"></div>'
+  row.innerHTML = '<div><label>Fornecedor</label><input type="text" class="q-forn maiusc" list="dlForn" placeholder="comece a digitar…" autocomplete="off" onchange="this.value=nomeForn(this.value)"></div>'
     + (pneu ? '<div><label>Marca do pneu</label><input type="text" class="q-marca maiusc" placeholder="PIRELLI"></div><input type="hidden" class="q-tipo" value="">'
             : '<div><label>Tipo</label><select class="q-tipo">' + tipos.map(function (t, i) { return '<option value="' + esc(t) + '"' + (tipos.length === 1 ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div>'
               + '<div><label>Marca (opcional)</label><input type="text" class="q-marca maiusc" placeholder="GM / DTS"></div>')
