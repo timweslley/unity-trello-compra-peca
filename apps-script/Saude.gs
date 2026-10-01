@@ -1,3 +1,4 @@
+// publicado após renovar o login do clasp (01/10)
 /* ============================ SAÚDE DO SISTEMA ============================
  * Para nada parar em silêncio:
  *  - sd_parte_(nome, fn): cada parte do ciclo de 1 min (travas, complemento, prazos...) roda isolada;
