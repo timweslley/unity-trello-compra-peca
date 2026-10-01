@@ -92,7 +92,8 @@ var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, LIMITE_MS: 40 * 1000 };
 
 function sla_dia_(d) { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); }
 function sla_mais_(d, n) { d = sla_dia_(d); var g = 0; while (n > 0 && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) n--; } return d; }
-function sla_users_(prop, padrao) { return String(vd_prop_(prop, padrao)).split(/[,;\s]+/).filter(String); }
+/** No quadro TESTE os avisos mencionam só o Weslley (não chamar compras/diretoria por card de teste). */
+function sla_users_(prop, padrao) { if (vd_board_() === VD.BOARD_PADRAO) padrao = 'timweslley'; return String(vd_prop_(prop, padrao)).split(/[,;\s]+/).filter(String); }
 function sla_mencao_(us) { return us.filter(function (u, i) { return u && us.indexOf(u) === i; }).map(function (u) { return '@' + u; }).join(' '); }
 
 /** Já avisou desta pendência há menos de 2 dias úteis? (chave por card+etapa+entrada ou por item+previsão) */
