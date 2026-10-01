@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -265,8 +265,11 @@ function vdf_montarCard_(c, lista, me) {
     particular: vdf_ehParticular_(c, an),
     pagas: (function () {
       try {
-        var pg = (c.checklists || []).filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); })[0];
-        return pg ? pg.checkItems.map(function (i) { return { nome: i.name, ok: i.state === 'complete', due: i.due ? vd_dataCurta_(i.due) : '' }; }) : [];
+        var out = [];
+        (c.checklists || []).filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); }).forEach(function (pg) {
+          (pg.checkItems || []).forEach(function (i) { out.push({ nome: i.name, ok: i.state === 'complete', due: i.due ? vd_dataCurta_(i.due) : '' }); });
+        });
+        return out;
       } catch (e) { return []; }
     })()
   };
@@ -452,11 +455,22 @@ function vd_checklistPagas_(cardId, compras, token) {
   compras = (compras || []).filter(function (c) { return String(c.fornecedor || '').trim(); });
   if (!compras.length) return 0;
   var lists = vd_api_('/cards/' + cardId + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name,due' } }, token);
-  var cl = lists.filter(function (c) { return /^PAGAS/i.test((c.name || '').trim()); })[0];
-  if (!cl) cl = vd_api_('/checklists', { method: 'post', payload: { idCard: cardId, name: 'PAGAS' } }, token);
-  var existentes = (cl.checkItems || []).map(function (i) { return vd_semAcento_(i.name); });
+  // PAGAS = peças da seguradora; PAGAS PARTICULAR = peças que o cliente paga (checklists separados)
+  var pagasTodas = lists.filter(function (c) { return /^PAGAS/i.test((c.name || '').trim()); });
+  var existentes = [];
+  pagasTodas.forEach(function (c) { (c.checkItems || []).forEach(function (i) { existentes.push(vd_semAcento_(i.name)); }); });
+  var porNome = {};
+  var lista = function (part) {
+    var nome = part ? 'PAGAS PARTICULAR' : 'PAGAS';
+    if (porNome[nome]) return porNome[nome];
+    var cl = pagasTodas.filter(function (c) { return String(c.name || '').trim().toUpperCase() === nome; })[0];
+    if (!cl) cl = vd_api_('/checklists', { method: 'post', payload: { idCard: cardId, name: nome, pos: part ? 'bottom' : 'top' } }, token);
+    porNome[nome] = cl;
+    return cl;
+  };
   var n = 0;
   compras.forEach(function (c) {
+    var cl = lista(!!c.particular);
     var cod = String(c.codigo || '').replace(/\s+/g, '').toUpperCase();
     var desc = String(c.descricao || '').trim().toUpperCase();
     var forn = String(c.fornecedor || '').trim().toUpperCase();
@@ -488,6 +502,28 @@ var VDF_LISTA_CHEGAR = 'FALTA CHEGAR';
  * Linha "OBS NOME DA PEÇA: texto" = observação do comprador para a peça.
  * Devolve {cotacoes:[{chave, fornecedor, obs, tipo, marca, valor, dias, data}], nt:[fornecedor], obs:[{chave, texto}]}
  */
+/** Peça do pedido citada num texto (código, ou descrição/medida). chaves = [{chave, desc, cod}] */
+function vdf_pecaDoTexto_(texto, chaves) {
+  var alvo = vd_semAcento_(texto).replace(/\s+/g, ' ').trim();
+  for (var i = 0; i < chaves.length; i++) {
+    var k = chaves[i];
+    if (k.cod && k.cod.length >= 4 && alvo.indexOf(k.cod) >= 0) return k;
+    if (!k.cod && k.desc && (alvo === k.desc || alvo.indexOf(k.desc) >= 0)) return k;
+  }
+  return null;
+}
+function vdf_chavesPecas_(pecas) {
+  return (pecas || []).map(function (p) { return { chave: vd_chavePeca_(p), desc: vd_semAcento_(p.pneu ? 'PNEU ' + p.medida : p.descricao).replace(/\s+/g, ' ').trim(), cod: vd_semAcento_(String(p.codigo || '').replace(/\s+/g, '')) }; });
+}
+/** Linha "REMOVIDA: FORN - PEÇA - R$ 140,00" / "INDISPONÍVEL: FORN - PEÇA - R$ 140,00 - motivo" -> {tipo, forn, chave, valor, motivo} */
+var VDF_RX_REMOVE = /^(REMOVIDA|INDISPON[IÍ]VEL)\s*:\s*(.+?)\s+-\s+(.+)\s+-\s+R?\$?\s*([\d.]+(?:,\d{1,2})?)(?:\s+-\s+(.*))?\s*$/i;
+function vdf_lerRemocao_(l, chaves) {
+  var m = l.match(VDF_RX_REMOVE);
+  if (!m) return null;
+  var k = vdf_pecaDoTexto_(m[3], chaves);
+  return { tipo: /^REM/i.test(m[1]) ? 'REMOVIDA' : 'INDISPONIVEL', forn: m[2].trim().toUpperCase(), chave: k ? k.chave : '', valor: vd_valorNum_(m[4]), motivo: (m[5] || '').trim() };
+}
+
 function vd_cotacoesDaDescricao_(desc, pecas) {
   var out = { cotacoes: [], nt: [], obs: [], semCot: [] };
   var resto = vd_dividir_(desc).resto;
@@ -497,7 +533,20 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
   resto.split('\n').slice(1).forEach(function (raw) {
     var l = vd_limpar_(raw).trim();
     if (!l) return;
-    if (/^COMPRAD[OA]\s*:/i.test(l) || /^AUTORIZAD[OA]\s*:/i.test(l) || /^COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^DEVOLVIDA PARA COTA/i.test(l) || /^OBS GERAL\s*:/i.test(l) || /^\(texto que estava/i.test(l)) { if (/^(AUTORIZA|DEVOLVIDA)/i.test(l)) forn = ''; return; }
+    // cotação removida pelo cotador / indisponível na hora da compra: sai da lista (a mais recente igual)
+    var rm = vdf_lerRemocao_(l, chaves);
+    if (rm) {
+      if (rm.chave) {
+        for (var ir = out.cotacoes.length - 1; ir >= 0; ir--) {
+          var q0 = out.cotacoes[ir];
+          if (q0.chave === rm.chave && q0.fornecedor === rm.forn && Math.abs(q0.valor - rm.valor) < 0.005) { out.cotacoes.splice(ir, 1); break; }
+        }
+        if (rm.tipo === 'INDISPONIVEL') out.obs.push({ chave: rm.chave, texto: '(indisponível) ' + rm.forn + ' ' + vd_valorBR_(rm.valor) + (rm.motivo ? ': ' + rm.motivo : '') });
+      }
+      forn = '';
+      return;
+    }
+    if (/^COMPRAD[OA]\s*:/i.test(l) || /^AUTORIZAD[OA]\s*:/i.test(l) || /^(RE)?COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^DEVOLVIDA PARA COTA/i.test(l) || /^OBS GERAL\s*:/i.test(l) || /^\(texto que estava/i.test(l)) { if (/^(AUTORIZA|DEVOLVIDA)/i.test(l)) forn = ''; return; }
     /* SEM COTAÇÃO <peça>: motivo — comprador justificou por que não cotou a peça */
     var ms = l.match(/^SEM COTA[ÇC][ÃA]O\s+(.+?)\s*:\s*(.+)$/i);
     if (ms) {
@@ -604,7 +653,18 @@ function vdf_salvarCotacao(token, p) {
   var obs = (p.obs || []).map(function (o) { return { peca: porChave[o.chave], texto: String(o.texto || '').replace(/\s*\n\s*/g, ' ').trim() }; }).filter(function (o) { return o.peca && o.texto; });
   var semCot = (p.semCot || []).map(function (o) { return { peca: porChave[o.chave], chave: o.chave, texto: String(o.texto || '').replace(/\s*\n\s*/g, ' ').trim() }; }).filter(function (o) { return o.peca && o.texto; });
   semCot.forEach(function (s) { if (cots.some(function (c) { return c.peca === s.peca; })) faltas.push(vd_nomePeca_(s.peca) + ': tem cotação e justificativa de não cotar ao mesmo tempo — deixe só uma'); });
-  if (!cots.length && !nt.length && !obs.length && !semCot.length) faltas.push('Lance pelo menos uma cotação, um fornecedor NT, uma observação ou a justificativa de uma peça não cotada.');
+  // remover / editar cotação já lançada: só antes da autorização (e da compra) daquela peça
+  var lidasAntes = vd_cotacoesDaDescricao_(card.desc, an.pecas).cotacoes;
+  var autsAntes = []; try { autsAntes = vd_autorizacoesDaDescricao_(card.desc, an.pecas); } catch (e) {}
+  var rem = [];
+  (p.remover || []).forEach(function (r) {
+    var peca = porChave[r.chave], forn = String(r.fornecedor || '').trim().toUpperCase(), valor = vd_valorNum_(r.valor);
+    if (!peca) return;
+    if (!lidasAntes.some(function (q) { return q.chave === r.chave && q.fornecedor === forn && Math.abs(q.valor - valor) < 0.005; })) return;
+    if (autsAntes.some(function (a) { return a.chave === r.chave; })) { faltas.push(vd_nomePeca_(peca) + ': já autorizada — a cotação não pode mais ser alterada (na compra, use "cotação indisponível")'); return; }
+    rem.push({ peca: peca, fornecedor: forn, valor: valor });
+  });
+  if (!cots.length && !nt.length && !obs.length && !semCot.length && !rem.length) faltas.push('Lance pelo menos uma cotação, um fornecedor NT, uma observação ou a justificativa de uma peça não cotada.');
   if (faltas.length) return { ok: false, faltas: faltas };
 
   var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
@@ -615,6 +675,7 @@ function vdf_salvarCotacao(token, p) {
     grupos[c.fornecedor].push(nomeP + (c.tipo || c.marca ? ' - ' + [c.tipo, c.marca].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(c.valor) + (c.dias !== '' ? ' - ' + c.dias + (c.dias === '1' ? ' dia útil' : ' dias úteis') : ''));
   });
   var L = ['**COTAÇÃO ' + agora + ' - ' + me.fullName + '**'];
+  rem.forEach(function (r) { L.push('REMOVIDA: ' + r.fornecedor + ' - ' + (r.peca.pneu ? 'PNEU ' + String(r.peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(r.peca)) + ' - ' + vd_valorBR_(r.valor)); });
   ordem.forEach(function (f) { L.push('**' + f + '**'); L = L.concat(grupos[f]); });
   nt.forEach(function (f) { if (!grupos[f]) L.push('**' + f + ' - NT**'); });
   obs.forEach(function (o) { L.push('OBS ' + vd_nomePeca_(o.peca) + ': ' + o.texto); });
@@ -623,6 +684,9 @@ function vdf_salvarCotacao(token, p) {
   var div = vd_dividir_(card.desc);
   var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
   var novaDesc = div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n' + L.join('\n');
+  // toda peça precisa de cotação OU de justificativa para não cotar (exigido para enviar)
+  var cobPrev = vdf_coberturaCotacao_(novaDesc, an.pecas);
+  if (cobPrev.faltam.length) return { ok: false, faltas: cobPrev.faltam.map(function (n) { return n + ': sem cotação — lance a cotação ou escreva o motivo de não cotar'; }) };
   vd_backup_(card, 'cotação lançada pelo formulário por ' + me.username);
   vd_gravarDesc_(card.id, novaDesc, token);
   try { fo_registrarUso_(cots.map(function (c) { return c.fornecedor; }).concat(nt), me.username); } catch (e) {}
@@ -630,7 +694,8 @@ function vdf_salvarCotacao(token, p) {
     ev_registrar_('COTAÇÃO', card, me.username,
       cots.map(function (c) { var e = ev_peca_(c.peca); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias; e.detalhe = [c.tipo, c.marca].filter(String).join(' '); return e; })
         .concat(semCot.map(function (x) { var e = ev_peca_(x.peca); e.detalhe = 'SEM COTAÇÃO: ' + x.texto; return e; }))
-        .concat(nt.map(function (f) { return { fornecedor: f, detalhe: 'NT (não tem)' }; })));
+        .concat(nt.map(function (f) { return { fornecedor: f, detalhe: 'NT (não tem)' }; }))
+        .concat(rem.map(function (r) { var e = ev_peca_(r.peca); e.fornecedor = r.fornecedor; e.valor = r.valor; e.detalhe = 'COTAÇÃO REMOVIDA'; return e; })));
   } catch (e) {}
 
   /* Cobertura (somando as cotações que já estavam no card): cada peça da oficina precisa de
@@ -696,6 +761,8 @@ function vd_autorizacoesDaDescricao_(desc, pecas) {
     var h = l.match(/^AUTORIZA[ÇC][ÃA]O\s+(\d{1,2}\/\d{1,2}\/\d{2,4}(?:\s+\d{1,2}:\d{2})?)\s+-\s+(.+)$/i);
     if (h) { quando = h[1]; quem = h[2].trim(); return; }
     if (/^DEVOLVIDA PARA COTA/i.test(l)) { porChave = {}; return; }   // devolução anula autorizações anteriores
+    var rmA = vdf_lerRemocao_(l, chaves);
+    if (rmA) { if (rmA.tipo === 'INDISPONIVEL' && rmA.chave && porChave[rmA.chave] && porChave[rmA.chave].fornecedor === rmA.forn) delete porChave[rmA.chave]; return; }
     var m = l.match(/^AUTORIZAD[OA]\s*:\s*(.+?)\s+-\s+(.+)\s+-\s+R?\$?\s*([\d.]+(?:,\d{1,2})?)\s*$/i);
     if (!m) return;
     var alvo = vd_semAcento_(m[2]).replace(/\s+/g, ' ').trim(), peca = null;
@@ -863,7 +930,7 @@ function vdf_salvarCompra(token, p) {
     // só cotação que está no card
     var ok = lidas.some(function (q) { return q.chave === c.chave && q.fornecedor === forn && Math.abs(q.valor - valor) < 0.005; });
     if (!ok) { faltas.push(rot + ': escolha uma cotação lançada no card (' + forn + ' ' + vd_valorBR_(valor) + ' não está na descrição)'); return; }
-    compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim() });
+    compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim(), particular: vdf_pecaParticular_(peca, card, an) && !vdf_ehParticular_(card, an) });
   });
   if (!compras.length && !faltas.length) faltas.push('Escolha o fornecedor de pelo menos uma peça.');
   if (faltas.length) return { ok: false, faltas: faltas };
@@ -893,8 +960,8 @@ function vdf_salvarCompra(token, p) {
   var movido = '', pendentes = 0;
   try {
     var ls = vd_api_('/cards/' + card.id, { query: { fields: 'id', checklists: 'all', checkItem_fields: 'name' } }).checklists || [];
-    var pg = ls.filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); })[0];
-    var nomes = pg ? pg.checkItems.map(function (i) { return vd_semAcento_(i.name); }) : [];
+    var nomes = [];
+    ls.filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); }).forEach(function (k) { (k.checkItems || []).forEach(function (i) { nomes.push(vd_semAcento_(i.name)); }); });
     an.pecas.forEach(function (x) {
       var k = vd_chavePeca_(x);
       if (!nomes.some(function (nm) { return k && nm.indexOf(k) >= 0; })) pendentes++;
@@ -952,6 +1019,8 @@ function vdf_salvar(token, p) {
       pecas[i].particular = true;
       pecas[i].partPor = String(x.partPor || me.username || '').toLowerCase().replace(/[^\w.\-]/g, '');
     });
+    // na descrição: primeiro as peças da seguradora, depois as particulares
+    pecas = pecas.filter(function (x) { return !x.particular; }).concat(pecas.filter(function (x) { return x.particular; }));
   }
   var orc = p.orcamento || null;
   var fo = orc && orc.fo ? orc.fo : [];
@@ -988,7 +1057,8 @@ function vdf_salvar(token, p) {
 
   if (!pecas.length && !fo.length) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora).'] };
   var temOrcNoCard = !!(card && vd_analisar_(card.desc, card.name).doOrcamento);
-  if (!particular && !posCot && !(orc && orc.origem) && !temOrcNoCard) {
+  var soAcrescentaParticular = !!card && (p.pecas || []).some(function (x) { return x.particular; });
+  if (!particular && !posCot && !(orc && orc.origem) && !temOrcNoCard && !soAcrescentaParticular) {
     return { ok: false, faltas: ['Pedido de seguradora: anexe o orçamento autorizado (PDF do Cilia, HDI ou Websoma) na seção Documento — o formulário importa as peças dele. Se for cliente particular, marque "Particular" no tipo do pedido.'] };
   }
   var bloco = vd_montarBloco_(d, pecas, obs, 'Pedido enviado por ' + me.fullName + ' pelo formulário em ' + agora, extra);
@@ -1097,4 +1167,74 @@ function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
+}
+
+/**
+ * Cotação autorizada que não está mais disponível na hora da compra.
+ * p = {shortLink, itens:[{chave, fornecedor, valor, motivo, nova:{fornecedor, tipo, marca, valor, dias} | null}]}
+ * Grava "INDISPONÍVEL: FORN - PEÇA - R$ - motivo" (anula a autorização e tira a cotação) e a cotação nova,
+ * e devolve o card para autorização (com cotação nova) ou para EM COTAÇÃO (sem cotação nova).
+ */
+function vdf_cotacaoIndisponivel(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehComprador_(me)) return { ok: false, faltas: ['Só o setor de compras registra cotação indisponível (sua conta: ' + me.username + ').'] };
+  var ctx = vd_contexto_();
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  var an = vd_analisar_(card.desc, card.name);
+  var porChave = {}; an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
+  var lidas = vd_cotacoesDaDescricao_(card.desc, an.pecas).cotacoes;
+  var pagos = []; (card.checklists || []).forEach(function (k) { if (/^PAGAS/i.test(String(k.name || '').trim())) (k.checkItems || []).forEach(function (i) { pagos.push(vd_semAcento_(i.name)); }); });
+  var foNome = function (x) { try { return fo_resolver_(x).nome || String(x || '').trim().toUpperCase(); } catch (e) { return String(x || '').trim().toUpperCase(); } };
+  var faltas = [], linhas = [], novas = {}, ordem = [], afetadas = [], evs = [];
+  (p.itens || []).forEach(function (it, i) {
+    var peca = porChave[it.chave];
+    if (!peca) { faltas.push('item ' + (i + 1) + ': peça não encontrada'); return; }
+    var nomeP = peca.pneu ? 'PNEU ' + String(peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(peca);
+    var forn = String(it.fornecedor || '').trim().toUpperCase(), valor = vd_valorNum_(it.valor), motivo = String(it.motivo || '').replace(/\s*\n\s*/g, ' ').trim();
+    if (!motivo) { faltas.push(nomeP + ': escreva o motivo (por que a cotação não está disponível)'); return; }
+    if (pagos.some(function (n) { return n.indexOf(vd_chavePeca_(peca)) >= 0; })) { faltas.push(nomeP + ': já está comprada'); return; }
+    if (!lidas.some(function (q) { return q.chave === it.chave && q.fornecedor === forn && Math.abs(q.valor - valor) < 0.005; })) { faltas.push(nomeP + ': cotação ' + forn + ' ' + vd_valorBR_(valor) + ' não está no card'); return; }
+    linhas.push('INDISPONÍVEL: ' + forn + ' - ' + nomeP + ' - ' + vd_valorBR_(valor) + ' - ' + motivo);
+    var e = ev_peca_(peca); e.fornecedor = forn; e.valor = valor; e.detalhe = 'indisponível: ' + motivo; evs.push(e);
+    afetadas.push(peca);
+    var n = it.nova;
+    if (n && String(n.fornecedor || '').trim()) {
+      var nf = foNome(n.fornecedor), nv = vd_valorNum_(n.valor), nd = String(n.dias == null ? '' : n.dias).trim(), nt = vd_tipoNorm_(n.tipo || '') || '', nm = String(n.marca || '').trim().toUpperCase();
+      if (isNaN(nv) || nv <= 0) { faltas.push(nomeP + ': valor da cotação nova inválido'); return; }
+      if (nd !== '' && !/^\d+$/.test(nd)) { faltas.push(nomeP + ': prazo da cotação nova em dias úteis (número)'); return; }
+      if (!novas[nf]) { novas[nf] = []; ordem.push(nf); }
+      novas[nf].push(nomeP + (nt || nm ? ' - ' + [nt, nm].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(nv) + (nd !== '' ? ' - ' + nd + (nd === '1' ? ' dia útil' : ' dias úteis') : ''));
+      var e2 = ev_peca_(peca); e2.fornecedor = nf; e2.valor = nv; e2.dias = nd; e2.detalhe = 'cotação nova (no lugar da indisponível)'; evs.push(e2);
+    }
+  });
+  if (!linhas.length && !faltas.length) faltas.push('Marque a peça com cotação indisponível e escreva o motivo.');
+  if (faltas.length) return { ok: false, faltas: faltas };
+
+  var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+  var L = ['**RECOTAÇÃO ' + agora + ' - ' + me.fullName + '**'].concat(linhas);
+  ordem.forEach(function (f) { L.push('**' + f + '**'); L = L.concat(novas[f]); });
+  var div = vd_dividir_(card.desc);
+  var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
+  vd_backup_(card, 'cotação indisponível registrada por ' + me.username);
+  vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n' + L.join('\n'), token);
+  try { fo_registrarUso_(ordem, me.username); } catch (e) {}
+  try { ev_registrar_('COTAÇÃO INDISPONÍVEL', card, me.username, evs); } catch (e) {}
+
+  // para onde vai: com cotação nova -> autorização de novo; sem -> volta para EM COTAÇÃO
+  var criador = ''; try { criador = vd_criador_(card.id); } catch (e) {}
+  var temNova = ordem.length > 0, soPart = afetadas.every(function (x) { return vdf_pecaParticular_(x, card, an); });
+  var destino = !temNova ? VD.LISTA_COTACAO : (soPart ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE);
+  var movido = '';
+  try { movido = vdf_moverPara_(card, ctx, destino, token, me.username); } catch (e) {}
+  try {
+    var us = [];
+    if (temNova) afetadas.forEach(function (x) { if (vdf_pecaParticular_(x, card, an)) us.push(x.partPor || criador); else us = us.concat(sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity')); });
+    us = us.filter(function (u, i) { return u && u !== me.username && us.indexOf(u) === i; });
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: us.map(function (u) { return '@' + u + ' '; }).join('') + '⚠️ **Cotação indisponível na compra** (' + me.fullName + '):\n' +
+      linhas.map(function (l) { return '- ' + l.replace(/^INDISPON[IÍ]VEL:\s*/i, ''); }).join('\n') +
+      (temNova ? '\n\nCotação nova lançada — **autorizar de novo** pela aba ✅ Autorizar.' : '\n\nSem cotação nova — o card voltou para cotação.') + (movido ? '\nCard movido para **' + movido + '**.' : '') } }, token);
+  } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }

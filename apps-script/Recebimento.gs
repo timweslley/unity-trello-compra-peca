@@ -14,7 +14,7 @@ function vdf_itensRecebimento_(c) {
   var out = [];
   (c.checklists || []).forEach(function (k) {
     var nm = String(k.name || '').trim();
-    var tipo = /^PAGAS/i.test(nm) ? 'PAGAS' : (/FORNECIMENTO/i.test(nm) ? 'FORNECIMENTO' : '');
+    var tipo = /^PAGAS/i.test(nm) ? (/PARTICULAR/i.test(nm) ? 'PAGAS PARTICULAR' : 'PAGAS') : (/FORNECIMENTO/i.test(nm) ? 'FORNECIMENTO' : '');
     if (!tipo) return;
     (k.checkItems || []).forEach(function (i) { out.push({ id: i.id, nome: i.name, ok: i.state === 'complete', due: i.due || '', lista: tipo }); });
   });
@@ -65,8 +65,9 @@ function vdf_salvarRecebimento(token, p) {
     var txtPrev = it.due ? ' (previsão ' + vd_dataCurta_(it.due) + (atr > 0 ? ', **' + atr + ' dia(s) útil(eis) de atraso**' : (atr < 0 ? ', ' + (-atr) + ' dia(s) útil(eis) antes' : ', no prazo')) + ')' : '';
     linhas.push('✔ ' + it.nome + ' — chegou ' + Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM') + txtPrev + (obs ? '\n    📝 ' + obs : ''));
     var partes = String(it.nome).split(/\s+-\s+/);
-    evs.push({ peca: partes[0], fornecedor: it.lista === 'PAGAS' && partes.length >= 2 ? partes[1] : (it.lista === 'FORNECIMENTO' ? 'SEGURADORA (FO)' : ''),
-      valor: it.lista === 'PAGAS' ? vd_valorNum_(((partes[2] || '').match(/[\d.]+(?:,\d{1,2})?/) || [''])[0]) : '',
+    var ehPg = /^PAGAS/.test(it.lista);
+    evs.push({ peca: partes[0], particular: it.lista === 'PAGAS PARTICULAR', fornecedor: ehPg && partes.length >= 2 ? partes[1] : (it.lista === 'FORNECIMENTO' ? 'SEGURADORA (FO)' : ''),
+      valor: ehPg ? vd_valorNum_(((partes[2] || '').match(/[\d.]+(?:,\d{1,2})?/) || [''])[0]) : '',
       previsao: it.due || '', dias: atr === null ? '' : atr,
       detalhe: 'chegou ' + Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM/yyyy') + (atr === null ? '' : ' · atraso ' + atr + ' d.u.') + (obs ? ' · ' + obs : '') + ' · ' + it.lista });
   });

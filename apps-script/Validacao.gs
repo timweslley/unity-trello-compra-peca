@@ -746,8 +746,9 @@ function vd_gravarDesc_(cardId, desc, token, extra) {
   try {
     jaTinha = vd_completa_(cardId);
     var c = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name', checklists: 'all', checkItem_fields: 'name,state,due' } });
-    var pg = (c.checklists || []).filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); })[0];
-    vit = vd_vitrine_(desc, payload.name || c.name, pg ? pg.checkItems : []);
+    var itensPg = [];
+    (c.checklists || []).filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); }).forEach(function (k) { itensPg = itensPg.concat(k.checkItems || []); });
+    vit = vd_vitrine_(desc, payload.name || c.name, itensPg);
   } catch (e) { console.log('vitrine: ' + e); vit = null; }
   payload.desc = vit === null ? desc : vit;
   vd_api_('/cards/' + cardId, { method: 'put', payload: payload }, token);
@@ -1814,10 +1815,20 @@ function vd_vitrine_(desc, nome, pagas) {
 
   L.push('');
   if (!an.pecas.length) L.push('_Sem peças pela oficina._');
-  an.pecas.forEach(function (p, i) {
+  // peças da seguradora primeiro, depois as particulares (cada grupo com título quando há os dois)
+  var misto = d.tipo !== 'PARTICULAR' && an.pecas.some(function (x) { return x.particular; }) && an.pecas.some(function (x) { return !x.particular; });
+  var ordem = an.pecas.map(function (x, i) { return { p: x, n: i }; });
+  ordem = ordem.filter(function (o) { return !o.p.particular; }).concat(ordem.filter(function (o) { return o.p.particular; }));
+  var grupoAtual = null;
+  ordem.forEach(function (o) {
+    var p = o.p, i = o.n;
+    if (misto && grupoAtual !== !!p.particular) {
+      grupoAtual = !!p.particular;
+      L.push((L[L.length - 1] === '' ? '' : '\n') + (grupoAtual ? '**👤 PEÇAS PARTICULARES** _(cliente paga — autoriza o consultor)_' : '**🛡️ PEÇAS DA SEGURADORA**'));
+    }
     var k = vd_chavePeca_(p);
     var titulo = p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + ((p.marca || p.categoria) ? ' ' + (p.marca || p.categoria) : '') : String(p.descricao || '').toUpperCase();
-    var cab = (i + 1) + '. **' + vd_md_(titulo) + '**' + (!p.pneu && p.codigo ? ' · ' + vd_md_(p.codigo) : '') + (p.qtd && +p.qtd > 1 ? ' · QTD ' + p.qtd : '') + (p.particular && d.tipo !== 'PARTICULAR' ? ' · 👤 PARTICULAR' : '');
+    var cab = (i + 1) + '. **' + vd_md_(titulo) + '**' + (!p.pneu && p.codigo ? ' · ' + vd_md_(p.codigo) : '') + (p.qtd && +p.qtd > 1 ? ' · QTD ' + p.qtd : '') + (p.particular && d.tipo !== 'PARTICULAR' && !misto ? ' · 👤 PARTICULAR' : '');
     var sub = [];
     // compra: checklist PAGAS ou linha COMPRADO
     var pg = (pagas || []).filter(function (it) { return k && vd_semAcento_(it.name).indexOf(k) >= 0; }).pop();
