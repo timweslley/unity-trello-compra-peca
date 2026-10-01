@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -247,7 +247,7 @@ function vdf_montarCard_(c, lista, me) {
     dados: an.dados, obs: obs,
     pecas: (function () {
       var criador; try { criador = vd_criador_(c.id); } catch (e) { criador = ''; }
-      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; });
+      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', complemento: !!p.complemento, compData: p.compData || '', podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; });
     })(),
     padrao: an.pecas.length > 0,
     cotacoes: (function () { try { return vd_cotacoesDaDescricao_(c.desc, an.pecas); } catch (e) { return { cotacoes: [], nt: [] }; } })(),
@@ -370,12 +370,18 @@ function vdf_pastaTemp_() {
 
 /* ---------- checklist FORNECIMENTO (peças FO) ---------- */
 
-function vdf_checklistFornecimento_(cardId, fo, token) {
+/** nomeLista: 'FORNECIMENTO' (padrão) ou 'FORNECIMENTO COMPLEMENTO'. Não repete peça que já está em qualquer FORNECIMENTO. */
+function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
   if (!fo || !fo.length) return 0;
+  nomeLista = nomeLista || 'FORNECIMENTO';
   var lists = vd_api_('/cards/' + cardId + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name' } }, token);
-  var cl = lists.filter(function (c) { return /FORNECIMENTO/i.test(c.name); })[0];
-  if (!cl) cl = vd_api_('/checklists', { method: 'post', payload: { idCard: cardId, name: 'FORNECIMENTO' } }, token);
-  var existentes = (cl.checkItems || []).map(function (i) { return vd_semAcento_(i.name); });
+  var todas = lists.filter(function (c) { return /FORNECIMENTO/i.test(c.name); });
+  var cl = nomeLista === 'FORNECIMENTO'
+    ? todas.filter(function (c) { return !/COMPLEMENTO/i.test(c.name); })[0]
+    : todas.filter(function (c) { return String(c.name || '').trim().toUpperCase() === nomeLista; })[0];
+  if (!cl) cl = vd_api_('/checklists', { method: 'post', payload: { idCard: cardId, name: nomeLista, pos: 'bottom' } }, token);
+  var existentes = [];
+  todas.forEach(function (c) { (c.checkItems || []).forEach(function (i) { existentes.push(vd_semAcento_(i.name)); }); });
   var n = 0;
   fo.forEach(function (p) {
     var cod = String(p.codigo || p.codigoOrc || '').trim();
@@ -460,17 +466,18 @@ function vd_checklistPagas_(cardId, compras, token) {
   var existentes = [];
   pagasTodas.forEach(function (c) { (c.checkItems || []).forEach(function (i) { existentes.push(vd_semAcento_(i.name)); }); });
   var porNome = {};
-  var lista = function (part) {
-    var nome = part ? 'PAGAS PARTICULAR' : 'PAGAS';
+  // PAGAS COMPLEMENTO = peças da seguradora que vieram de orçamento complementar
+  var lista = function (part, comp) {
+    var nome = part ? 'PAGAS PARTICULAR' : (comp ? 'PAGAS COMPLEMENTO' : 'PAGAS');
     if (porNome[nome]) return porNome[nome];
     var cl = pagasTodas.filter(function (c) { return String(c.name || '').trim().toUpperCase() === nome; })[0];
-    if (!cl) cl = vd_api_('/checklists', { method: 'post', payload: { idCard: cardId, name: nome, pos: part ? 'bottom' : 'top' } }, token);
+    if (!cl) cl = vd_api_('/checklists', { method: 'post', payload: { idCard: cardId, name: nome, pos: nome === 'PAGAS' ? 'top' : 'bottom' } }, token);
     porNome[nome] = cl;
     return cl;
   };
   var n = 0;
   compras.forEach(function (c) {
-    var cl = lista(!!c.particular);
+    var cl = lista(!!c.particular, !!c.complemento);
     var cod = String(c.codigo || '').replace(/\s+/g, '').toUpperCase();
     var desc = String(c.descricao || '').trim().toUpperCase();
     var forn = String(c.fornecedor || '').trim().toUpperCase();
@@ -931,7 +938,7 @@ function vdf_salvarCompra(token, p) {
     // só cotação que está no card
     var ok = lidas.some(function (q) { return q.chave === c.chave && q.fornecedor === forn && Math.abs(q.valor - valor) < 0.005; });
     if (!ok) { faltas.push(rot + ': escolha uma cotação lançada no card (' + forn + ' ' + vd_valorBR_(valor) + ' não está na descrição)'); return; }
-    compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim(), particular: vdf_pecaParticular_(peca, card, an) && !vdf_ehParticular_(card, an) });
+    compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim(), particular: vdf_pecaParticular_(peca, card, an) && !vdf_ehParticular_(card, an), complemento: !!peca.complemento });
   });
   if (!compras.length && !faltas.length) faltas.push('Escolha o fornecedor de pelo menos uma peça.');
   if (faltas.length) return { ok: false, faltas: faltas };
@@ -1013,6 +1020,10 @@ function vdf_salvar(token, p) {
       : { pneu: false, codigo: String(x.codigo || '').trim().toUpperCase(), descricao: String(x.descricao || '').trim().toUpperCase(), tipos: (x.tipos || []).slice(0, 3), qtd: x.qtd || '' };
   });
   var n = p.novo || {};
+  // peça de orçamento complementar (só peça da seguradora): marca "COMPLEMENTO dd/mm"
+  (p.pecas || []).forEach(function (x, i) {
+    if (x.complemento && !x.particular) { pecas[i].complemento = true; pecas[i].compData = String(x.compData || '').match(/^\d{1,2}\/\d{1,2}$/) ? x.compData : cp_hoje_(); }
+  });
   // peça particular dentro do pedido de seguradora: guarda quem lançou (é quem autoriza)
   if (vd_tipoNormPedido_(n.tipo) !== 'PARTICULAR') {
     (p.pecas || []).forEach(function (x, i) {
@@ -1056,11 +1067,25 @@ function vdf_salvar(token, p) {
     if (posCot) baseTodas = vd_linhasConsultor_(vd_dividir_(card.desc).bloco).map(vd_sigItem_);
   }
 
-  if (!pecas.length && !fo.length) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora).'] };
+  var comp = card && p.complemento ? p.complemento : null;
+  var compFo = comp ? (comp.fo || []) : [];
+  if (!pecas.length && !fo.length && !compFo.length) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora).'] };
   var temOrcNoCard = !!(card && vd_analisar_(card.desc, card.name).doOrcamento);
   var soAcrescentaParticular = !!card && (p.pecas || []).some(function (x) { return x.particular; });
-  if (!particular && !posCot && !(orc && orc.origem) && !temOrcNoCard && !soAcrescentaParticular) {
+  if (!particular && !posCot && !(orc && orc.origem) && !temOrcNoCard && !soAcrescentaParticular && !comp) {
     return { ok: false, faltas: ['Pedido de seguradora: anexe o orçamento autorizado (PDF do Cilia, HDI ou Websoma) na seção Documento — o formulário importa as peças dele. Se for cliente particular, marque "Particular" no tipo do pedido.'] };
+  }
+  // card existente: mantém as linhas de FORNECIMENTO que já estavam no bloco
+  if (card) extra.foLinhas = vd_dividir_(card.desc).bloco.split('\n').filter(function (l) { return /^FORNECIMENTO\b/i.test(vd_limpar_(l).trim()); });
+  // orçamento complementar: peças novas da seguradora -> checklist FORNECIMENTO COMPLEMENTO (antes de montar o bloco, para a contagem)
+  var nFoComp = 0;
+  if (compFo.length) {
+    try {
+      nFoComp = vdf_checklistFornecimento_(card.id, compFo, token, CP.FO);
+      var totFoC = cp_contarChecklist_(card.id, CP.FO, token);
+      extra.foLinhas = (extra.foLinhas || []).filter(function (l) { return !/^FORNECIMENTO COMPLEMENTO/i.test(vd_limpar_(l).trim()); });
+      if (totFoC) extra.foLinhas.push(cp_linhaFo_(totFoC));
+    } catch (e) { console.log('FO complemento: ' + e); }
   }
   var bloco = vd_montarBloco_(d, pecas, obs, 'Pedido enviado por ' + me.fullName + ' pelo formulário em ' + agora, extra);
   var an = vd_analisar_(bloco, d.placa, posCot ? { base: baseSigs, tipo: tipo } : { tipo: tipo });
@@ -1113,7 +1138,7 @@ function vdf_salvar(token, p) {
     } catch (e) {}
   }
 
-  var anexados = 0, capaOk = false, repetidos = [];
+  var anexados = 0, capaOk = false, repetidos = [], idsSubidos = [];
   // anexos que já estão no card (mesmo nome e tamanho) não sobem de novo
   var jaNoCard = [];
   if (p.shortLink && (p.fileIds || []).length) {
@@ -1129,11 +1154,24 @@ function vdf_salvar(token, p) {
       var mp = { file: f.getBlob(), name: f.getName() };
       if (ehCapa) mp.setCover = 'true';
       var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: mp }, token);
+      if (at && at.id) idsSubidos.push(at.id);
       if (ehCapa && at && at.id) { try { vd_api_('/cards/' + card.id, { method: 'put', payload: { idAttachmentCover: at.id } }, token); capaOk = true; } catch (e2) {} }
       f.setTrashed(true);
       anexados++;
     } catch (e) {}
   });
+
+  // orçamento complementar: o robô não precisa ler de novo o PDF que subiu agora; comentário no card
+  var compOf = pecas.filter(function (x) { return x.complemento && x.compData === cp_hoje_() && (!posCot || an.novas.some(function (nv) { return vd_chavePeca_(nv) === vd_chavePeca_(x); })); });
+  if (comp) {
+    try { cp_marcarVistos_(idsSubidos); } catch (e) {}
+    if (compOf.length || nFoComp) {
+      try {
+        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: cp_textoComentario_(me.fullName, comp.origem || '', '', compOf, compFo.slice(0, nFoComp ? compFo.length : 0), 0, '') } }, token);
+      } catch (e) {}
+      try { ev_registrar_('COMPLEMENTO', card, me.username, compOf.map(ev_peca_).concat(compFo.map(function (x) { var e = ev_peca_(x); e.fornecedor = 'SEGURADORA (FO)'; return e; })), { detalhe: compOf.length + ' oficina · ' + nFoComp + ' FO · ' + (comp.origem || '') }); } catch (e) {}
+    }
+  }
 
   // confere na hora
   var acao = '';
@@ -1160,7 +1198,7 @@ function vdf_salvar(token, p) {
       me.username, evPecas, { tipo: tipo, detalhe: (nFo ? nFo + ' peça(s) FO' : '') });
   } catch (e) {}
 
-  return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos };
+  return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos };
 }
 
 /** Sobe um arquivo do formulário para a pasta temporária (sem ler) — fotos, capa etc. */

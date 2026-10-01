@@ -3,7 +3,7 @@
  * (vdf_*) com a conta do script — para ver no quadro como fica cada etapa.
  * Só funciona com VD_BOARD = quadro TESTE. Durante o teste as menções a compras ficam só no Weslley.
  *   tst_atualizarCards()  — redesenha a descrição de todos os cards no modelo novo + links do formulário
- *   tst_fluxoCompleto()   — os 5 cenários abaixo, em sequência
+ *   tst_fluxoCompleto()   — os 6 cenários abaixo, em sequência
  */
 var TST = { CRUZE: 'zTlw8wkG', HB20: 'RlnMHBZB', TRACKER: '9NjfPbKL', MONTANA: 'LrWWoE6V', LR: 'JzBo8oWm' };
 
@@ -136,8 +136,44 @@ function tst_cenario5() {
   if (pend.length) tst_log_('Land Rover: recebe todas as FO', vdf_salvarRecebimento(tk, { shortLink: TST.LR, itens: pend.map(function (i, k) { return { id: i.id, data: '', obs: k === 0 ? 'conferido com a nota da seguradora' : '' }; }), anexos: [], geral: 'teste do recebimento completo' }));
 }
 
+/* 6) TRACKER — orçamento complementar depois da compra: 1 peça nova da oficina + 1 FO nova
+ *    -> pelo formulário (compara, inclui marcada COMPLEMENTO, card volta para EM COTAÇÃO)
+ *    -> cotação -> autorização -> compra no checklist PAGAS COMPLEMENTO */
+function tst_cenario6() {
+  var tk = tst_tk_(), c = vdf_carregarCard(tk, TST.TRACKER);
+  var antigas = c.pecas.filter(function (p) { return !p.particular; });
+  var orc = { oficina: antigas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, medida: p.medida, marca: p.marca, qtd: p.qtd || '1' }; })
+      .concat([{ pneu: false, codigo: '52083520', descricao: 'SUPORTE LATERAL PARACHOQUE DIANT ESQ', qtd: '1', dica: 'GENUÍNO' }]),
+    fo: [{ pneu: false, codigo: '42577912', descricao: 'GRADE INFERIOR PARACHOQUE', qtd: '1' }] };
+  var cmp = vdf_compararComplemento(tk, TST.TRACKER, orc, '');
+  Logger.log('Tracker: comparação do orçamento complementar → ' + cmp.oficina.length + ' nova(s) da oficina, ' + cmp.fo.length + ' FO nova(s), ' + cmp.jaTinha + ' já estavam no card');
+  if (cmp.oficina.length || cmp.fo.length) {
+    var pecas = c.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: p.particular, partPor: p.partPor, complemento: p.complemento, compData: p.compData }; });
+    var seg = pecas.filter(function (p) { return !p.particular; }), part = pecas.filter(function (p) { return p.particular; });
+    cmp.oficina.forEach(function (p) { seg.push({ pneu: false, codigo: p.codigo, descricao: p.descricao, tipos: ['GENUÍNO'], qtd: p.qtd, complemento: true }); });
+    tst_log_('Tracker: consultor envia o orçamento complementar', vdf_salvar(tk, { shortLink: TST.TRACKER, dados: { placa: c.dados.placa, modelo: c.dados.modelo, ano: c.dados.ano, motor: c.dados.motor, chassi: c.dados.chassi },
+      pecas: seg.concat(part), obs: c.obs || '', fileIds: [], capaId: '', orcamento: null, complemento: { origem: 'CILIA', fo: cmp.fo },
+      novo: { tipo: 'SEGURADORA', carro: c.titulo.carro, cor: c.titulo.cor, seguradora: c.titulo.seguradora || c.dados.seguradora, sinistro: c.dados.sinistro || '', unidade: '' } }));
+    c = vdf_carregarCard(tk, TST.TRACKER);
+  }
+  var nova = tst_peca_(c, 'SUPORTE LATERAL');
+  Logger.log('Tracker: card em ' + c.lista + ' · peça nova marcada complemento = ' + nova.complemento + ' (' + nova.compData + ')');
+  if (!c.cotacoes.cotacoes.some(function (q) { return q.chave === nova.chave; })) {
+    tst_log_('Tracker: cotação da peça do complemento', vdf_salvarCotacao(tk, { shortLink: TST.TRACKER, cotacoes: [tst_cot_(c, 'SUPORTE LATERAL', 'IMPERIAL', 'GENUÍNO', '95,00', 2), tst_cot_(c, 'SUPORTE LATERAL', 'METROSUL', 'GENUÍNO', '110,00', 1)] }));
+    c = vdf_carregarCard(tk, TST.TRACKER);
+  }
+  tst_comMencoesSoMinhas_(function () {
+    tst_log_('Tracker: diretoria autoriza o complemento', vdf_autorizar(tk, { shortLink: TST.TRACKER, escolhas: [tst_barata_(c, 'SUPORTE LATERAL')], obs: [], geral: 'complemento da seguradora' }));
+    c = vdf_carregarCard(tk, TST.TRACKER);
+    var a = c.autorizadas.filter(function (x) { return x.chave === nova.chave; })[0];
+    tst_log_('Tracker: compra do complemento (PAGAS COMPLEMENTO)', vdf_salvarCompra(tk, { shortLink: TST.TRACKER, compras: [{ chave: a.chave, fornecedor: a.fornecedor, valor: a.valor, dias: 2 }] }));
+  });
+  c = vdf_carregarCard(tk, TST.TRACKER);
+  Logger.log('Tracker: a receber → ' + c.recebiveis.filter(function (i) { return !i.ok; }).map(function (i) { return i.lista + ': ' + i.nome; }).join(' | '));
+}
+
 function tst_fluxoCompleto() {
-  ['tst_cenario1', 'tst_cenario2', 'tst_cenario3', 'tst_cenario4', 'tst_cenario5'].forEach(function (f) {
+  ['tst_cenario1', 'tst_cenario2', 'tst_cenario3', 'tst_cenario4', 'tst_cenario5', 'tst_cenario6'].forEach(function (f) {
     try { globalThis[f](); } catch (e) { Logger.log('❌ ' + f + ': ' + e.message); }
   });
 }

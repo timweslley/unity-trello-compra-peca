@@ -1,6 +1,6 @@
 /* ============================ RECEBIMENTO DE PEÇAS ============================
  * Aba 📦 Recebimento do formulário (qualquer membro do quadro): marca o que chegou nos checklists
- * PAGAS (compradas pela oficina) e FORNECIMENTO (seguradora), com data de chegada, observação por
+ * PAGAS / PAGAS PARTICULAR / PAGAS COMPLEMENTO (compradas pela oficina) e FORNECIMENTO / FORNECIMENTO COMPLEMENTO (seguradora), com data de chegada, observação por
  * peça e anexos (fotos / nota) — cada anexo ligado a uma ou mais peças.
  * - O ✔ do item é a equipe registrando a chegada (o robô continua sem marcar ✔ sozinho).
  * - Comentário no card com chegada x previsão (atraso em dias úteis) e os anexos.
@@ -14,7 +14,8 @@ function vdf_itensRecebimento_(c) {
   var out = [];
   (c.checklists || []).forEach(function (k) {
     var nm = String(k.name || '').trim();
-    var tipo = /^PAGAS/i.test(nm) ? (/PARTICULAR/i.test(nm) ? 'PAGAS PARTICULAR' : 'PAGAS') : (/FORNECIMENTO/i.test(nm) ? 'FORNECIMENTO' : '');
+    var comp = /COMPLEMENTO/i.test(nm);
+    var tipo = /^PAGAS/i.test(nm) ? (/PARTICULAR/i.test(nm) ? 'PAGAS PARTICULAR' : (comp ? 'PAGAS COMPLEMENTO' : 'PAGAS')) : (/FORNECIMENTO/i.test(nm) ? (comp ? 'FORNECIMENTO COMPLEMENTO' : 'FORNECIMENTO') : '');
     if (!tipo) return;
     (k.checkItems || []).forEach(function (i) { out.push({ id: i.id, nome: i.name, ok: i.state === 'complete', due: i.due || '', lista: tipo }); });
   });
@@ -66,7 +67,7 @@ function vdf_salvarRecebimento(token, p) {
     linhas.push('✔ ' + it.nome + ' — chegou ' + Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM') + txtPrev + (obs ? '\n    📝 ' + obs : ''));
     var partes = String(it.nome).split(/\s+-\s+/);
     var ehPg = /^PAGAS/.test(it.lista);
-    evs.push({ peca: partes[0], particular: it.lista === 'PAGAS PARTICULAR', fornecedor: ehPg && partes.length >= 2 ? partes[1] : (it.lista === 'FORNECIMENTO' ? 'SEGURADORA (FO)' : ''),
+    evs.push({ peca: partes[0], particular: it.lista === 'PAGAS PARTICULAR', fornecedor: ehPg && partes.length >= 2 ? partes[1] : (/^FORNECIMENTO/.test(it.lista) ? 'SEGURADORA (FO)' : ''),
       valor: ehPg ? vd_valorNum_(((partes[2] || '').match(/[\d.]+(?:,\d{1,2})?/) || [''])[0]) : '',
       previsao: it.due || '', dias: atr === null ? '' : atr,
       detalhe: 'chegou ' + Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM/yyyy') + (atr === null ? '' : ' · atraso ' + atr + ' d.u.') + (obs ? ' · ' + obs : '') + ' · ' + it.lista });

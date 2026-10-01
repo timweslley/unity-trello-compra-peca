@@ -110,3 +110,17 @@ No Trello vai só a vitrine: carro em 2 linhas; por peça ✅ autorizada / 🛒 
 - **Fornecedores.gs**: aba FORNECEDORES (semente: tabela do Databox), autocompletar que aprende, apelido → nome oficial.
 - **Recebimento.gs**: aba 📦 Recebimento (data, obs por peça, foto/nota por peça ou para várias); tudo recebido → ENCERRADO COMPRAS/FORNEC.
 - **Campos.gs**: Unidade, Seguradora, Tipo, Placa, Consultor, Total comprado (`cf_sincronizarTodos()`).
+
+## 30/09/2026 — v37: orçamento complementar
+Card já andando que recebe orçamento novo com peças a mais (complemento da seguradora):
+- **Pelo formulário (✏️ Editar peças):** ao ler o PDF novo (ou um anexo do card), o formulário compara com o que o
+  card já tem (lista de peças, checklists FORNECIMENTO/PAGAS e orçamentos anteriores) por código — ou descrição, sem
+  código. Só as peças novas entram, no fim das peças da seguradora, com o selo **➕ COMPLEMENTO** (o consultor marca o tipo).
+  As peças novas da seguradora (FO) vão para o checklist **FORNECIMENTO COMPLEMENTO**.
+- **Pelo robô:** PDF de orçamento anexado direto no card (30+ min depois de criado, mesma placa) → o robô lê, compara,
+  inclui as peças novas (tipo em branco → o card vai para FALTA DADOS pedindo o tipo) e cria o FORNECIMENTO COMPLEMENTO.
+  Desligar: propriedade `CP_LIGADO = NAO`. Só vale para anexos enviados depois de ligar (`CP_DESDE`).
+- Descrição: linha da peça termina com `| COMPLEMENTO dd/mm`; na vitrine aparece "➕ complemento dd/mm".
+- Na compra, peça do complemento vai para o checklist **PAGAS COMPLEMENTO** (particular continua em PAGAS PARTICULAR).
+- Recebimento mostra os grupos PAGAS COMPLEMENTO e FORNECIMENTO COMPLEMENTO.
+- Teste: `tst_cenario6` (Tracker).
