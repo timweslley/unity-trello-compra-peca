@@ -63,8 +63,8 @@ function vdf_salvarRecebimento(token, p) {
       it.ok = true; feitos++;
     }
     var atr = rc_atraso_(it.due, quando);
-    var txtPrev = it.due ? ' (previsão ' + vd_dataCurta_(it.due) + (atr > 0 ? ', **' + atr + ' dia(s) útil(eis) de atraso**' : (atr < 0 ? ', ' + (-atr) + ' dia(s) útil(eis) antes' : ', no prazo')) + ')' : '';
-    linhas.push('✔ ' + it.nome + ' — chegou ' + Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM') + txtPrev + (obs ? '\n    📝 ' + obs : ''));
+    var atrTxt = atr === null ? '' : (atr > 0 ? ' · **' + atr + ' d.u. de atraso**' : (atr < 0 ? ' · ' + (-atr) + ' d.u. antes' : ' · no prazo'));
+    linhas.push('✔ ' + String(it.nome).split(/\s+-\s+/)[0] + ' — ' + Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM') + atrTxt + (obs ? ' · 📝 ' + obs : ''));
     var partes = String(it.nome).split(/\s+-\s+/);
     var ehPg = /^PAGAS/.test(it.lista);
     evs.push({ peca: partes[0], particular: it.lista === 'PAGAS PARTICULAR', fornecedor: ehPg && partes.length >= 2 ? partes[1] : (/^FORNECIMENTO/.test(it.lista) ? 'SEGURADORA (FO)' : ''),
@@ -92,11 +92,10 @@ function vdf_salvarRecebimento(token, p) {
   if (!pend.length && ctx.listas[RC.LISTA_FIM]) { try { movido = vdf_moverPara_(card, ctx, RC.LISTA_FIM, token, me.username); } catch (e) {} }
   try {
     var geral = String(p.geral || '').trim();
-    var txt = '📦 **Recebimento** registrado por ' + me.fullName + ':\n' + (linhas.length ? linhas.join('\n') : '_(só anexos)_') +
-      (nAnexos ? '\n\n📎 Anexos: ' + nomesAnexos.map(function (n) { return n.replace(/^📦\s*/, ''); }).join('; ') : '') +
-      (geral ? '\n\n📝 ' + geral : '') +
-      (pend.length ? '\n\n⏳ Ainda falta chegar: ' + pend.map(function (i) { return i.nome.split(/\s+-\s+/)[0]; }).join(', ') + '.' : '\n\n✅ Todas as peças chegaram.') +
-      (movido ? '\nCard movido para **' + movido + '**.' : '');
+    var txt = '📦 **RECEBIMENTO** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' + (linhas.length ? linhas.join('\n') : '_(só anexos)_') +
+      (nAnexos ? '\n📎 ' + nAnexos + ' anexo(s)' : '') +
+      (geral ? '\n📝 ' + geral : '') +
+      (pend.length ? '\n⏳ Falta chegar: ' + pend.map(function (i) { return i.nome.split(/\s+-\s+/)[0]; }).join(', ') : '\n✅ Tudo recebido.');
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
   } catch (e) {}
   try { ev_registrar_('RECEBIMENTO', card, me.username, evs.length ? evs : null, { detalhe: nAnexos ? nAnexos + ' anexo(s)' : '' }); } catch (e) {}

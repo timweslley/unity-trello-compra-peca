@@ -132,3 +132,12 @@ Card já andando que recebe orçamento novo com peças a mais (complemento da se
 - Formulário (Cotação, Autorizar e Compra): quadro "Totais do card" com menor cotação, autorizado, comprado e valor do
   pedido por seguradora / particular / total; na autorização e na compra, o total da seleção também separado.
 - Preencher todos os cards de uma vez: `cf_sincronizarTodos()`.
+
+## 30/09/2026 — v39: visual Trello, justificativa fora da autorização, comentários curtos
+- Compra fora da autorização (fornecedor/valor diferente do autorizado, ou peça sem autorização): o formulário abre o
+  campo de motivo e não deixa enviar sem ele; o servidor também recusa. O motivo vai para o comentário do card (com
+  menção à diretoria) e para a planilha de eventos.
+- Formulário com cara de Trello: fundo azul do quadro, seções como listas (cinza), peças como cartões (brancos), etiquetas
+  coloridas. Maiúsculas só em avisos e divisões (títulos de seção, grupos seguradora/particular, abas, etiquetas, alertas).
+- Comentários do robô e do formulário enxutos: 1ª linha "ÍCONE AÇÃO — quem · resumo → COLUNA" e, abaixo, só o que precisa
+  de atenção (falta cotar, não cotadas, fora da autorização, falta chegar).

@@ -1125,7 +1125,7 @@ function vd_conferirCard_(card, ctx) {
   var chaveSig = 'VD_SIG_' + card.id;
   var sigAnterior = props.getProperty(chaveSig) || '';
   var idCot = ctx.listas[VD.LISTA_COTACAO], idFalta = ctx.listas[VD.LISTA_FALTA];
-  var txtAviso = res.avisos.length ? '\n\nℹ️ Aviso: ' + res.avisos.join('; ') + '.' : '';
+  var txtAviso = res.avisos.length ? '\nℹ️ ' + res.avisos.join('; ') : '';
 
   var soTipo = faltas.length > 0 && faltas.every(function (f) { return /falta (marcar )?o tipo de peça/.test(f); });
   if (faltas.length) {
@@ -1134,11 +1134,11 @@ function vd_conferirCard_(card, ctx) {
       if (card.idList !== idFalta) vd_mover_(card, idFalta, 'top');
       if (sigAtual !== sigAnterior) {
         var quem = vd_criador_(card.id);
-        vd_comentar_(card, (quem ? '@' + quem + ' ' : '') + '⚠️ **Dados incompletos neste pedido' + (base ? ' (peça nova)' : '') + ':**\n' +
+        vd_comentar_(card, (quem ? '@' + quem + ' ' : '') + '⚠️ **FALTA DADOS' + (base ? ' (PEÇA NOVA)' : '') + '** — corrigir para seguir:\n' +
           faltas.map(function (f) { return '- ' + f; }).join('\n') +
-          '\n\nNão é possível seguir.' + (res.importado ? '\n\n' + res.importado.texto : '') +
-          (res.preenchido.length ? '\n\n🤖 Preenchido automaticamente pelos anexos: ' + res.preenchido.join(', ') + '.' : '') + txtAviso +
-          (ctx.urlForm ? '\n\n✏️ Corrija pelo formulário: ' + ctx.urlForm + '?card=' + card.shortLink + (soTipo ? '&so=tipos' : '') + '\nou edite a descrição — o card volta sozinho para EM COTAÇÃO quando estiver completo.' : ''));
+          (res.importado ? '\n' + res.importado.texto : '') +
+          (res.preenchido.length ? '\n🤖 Lido dos anexos: ' + res.preenchido.join(', ') : '') + txtAviso +
+          (ctx.urlForm ? '\n✏️ ' + ctx.urlForm + '?card=' + card.shortLink + (soTipo ? '&so=tipos' : '') : ''));
         props.setProperty(chaveSig, sigAtual);
       }
     }
@@ -1147,11 +1147,11 @@ function vd_conferirCard_(card, ctx) {
     if (ctx.modoAtivo) {
       if (card.idList === idFalta) {
         vd_mover_(card, idCot, 'bottom');
-        vd_comentar_(card, '✅ Dados completos — card liberado para EM COTAÇÃO.' + (res.importado ? '\n' + res.importado.texto : '') + (res.preenchido.length ? '\n🤖 Preenchido pelos anexos: ' + res.preenchido.join(', ') + '.' : '') + txtAviso);
+        vd_comentar_(card, '✅ **DADOS COMPLETOS** → **EM COTAÇÃO**' + (res.importado ? '\n' + res.importado.texto : '') + (res.preenchido.length ? '\n🤖 Lido dos anexos: ' + res.preenchido.join(', ') : '') + txtAviso);
       } else if (res.importado) {
-        vd_comentar_(card, '✅ Dados completos.\n' + res.importado.texto + txtAviso);
+        vd_comentar_(card, '✅ **DADOS COMPLETOS**\n' + res.importado.texto + txtAviso);
       } else if (sigAnterior !== sigAtual && (res.preenchido.length || res.avisos.length)) {
-        vd_comentar_(card, (res.preenchido.length ? '🤖 Preenchido automaticamente pelos anexos: ' + res.preenchido.join(', ') + '. Dados completos ✅' : '✅ Dados completos.') + txtAviso);
+        vd_comentar_(card, '✅ **DADOS COMPLETOS**' + (res.preenchido.length ? ' · 🤖 lido dos anexos: ' + res.preenchido.join(', ') : '') + txtAviso);
       }
       props.setProperty(chaveSig, sigAtual);
     }
@@ -1193,8 +1193,8 @@ function vd_importarOrcamento_(card, an, lido, ctx) {
   var partes = vdf_partesTitulo_(card.name, { modelo: d.modelo || (lido.modelo && lido.modelo.v) || '', cor: extra.cor, seguradora: d.tipo === 'PARTICULAR' ? 'PARTICULAR' : extra.seguradora });
   extra.tipo = d.tipo;
   var titulo = partes.carro ? vd_titulo_(d.placa, partes.carro, partes.cor || extra.cor, partes.seguradora || extra.seguradora) : '';
-  var texto = '📄 Orçamento ' + o.origem + ' importado do anexo ' + o.anexo + ': ' + o.oficina.length + ' peça(s) da oficina na descrição' +
-    (o.oficina.length ? ' (falta marcar o tipo de cada uma)' : '') + (o.fo.length ? ', ' + o.fo.length + ' no checklist FORNECIMENTO' : '') + '.';
+  var texto = '📄 Orçamento ' + o.origem + ' importado: ' + o.oficina.length + ' peça(s) oficina' +
+    (o.oficina.length ? ' (marcar o tipo)' : '') + (o.fo.length ? ' · ' + o.fo.length + ' FO no checklist FORNECIMENTO' : '');
   if (!ctx.modoAtivo) return { texto: texto, titulo: titulo };
 
   vd_backup_(card, 'orçamento importado pelo robô (' + o.origem + ')');
@@ -1269,15 +1269,12 @@ function vd_conferirPosCotacao_(card, ctx) {
   if (faltas.length) {
     vd_mover_(card, ctx.listas[VD.LISTA_FALTA], 'top');
     var quem = vd_criador_(card.id);
-    vd_comentar_(card, (quem ? '@' + quem + ' ' : '') + '🆕 **Peça nova incluída** (card estava em ' + nomeLista + '):\n' +
-      nomes.map(function (n) { return '- ' + n; }).join('\n') +
-      '\n\n⚠️ **Dados incompletos da peça nova:**\n' + faltas.map(function (f) { return '- ' + f; }).join('\n') +
-      '\n\nNão é possível seguir.' + (ctx.urlForm ? '\n\n✏️ Corrija pelo formulário: ' + ctx.urlForm + '?card=' + card.shortLink : ''));
+    vd_comentar_(card, (quem ? '@' + quem + ' ' : '') + '🆕 **PEÇA NOVA** (estava em ' + nomeLista + ') → **FALTA DADOS**: ' + nomes.join('; ') +
+      '\n' + faltas.map(function (f) { return '- ' + f; }).join('\n') + (ctx.urlForm ? '\n✏️ ' + ctx.urlForm + '?card=' + card.shortLink : ''));
     props.setProperty('VD_SIG_' + card.id, faltas.join('|'));
   } else {
     vd_mover_(card, ctx.listas[VD.LISTA_COTACAO], 'top');
-    vd_comentar_(card, '🆕 **Peça nova incluída** (card estava em ' + nomeLista + '):\n' +
-      nomes.map(function (n) { return '- ' + n; }).join('\n') + '\n\nO card voltou para EM COTAÇÃO.');
+    vd_comentar_(card, '🆕 **PEÇA NOVA** (estava em ' + nomeLista + ') → **EM COTAÇÃO**: ' + nomes.join('; '));
     props.setProperty('VD_SIG_' + card.id, 'OK');
   }
   return res;

@@ -721,11 +721,11 @@ function vdf_salvarCotacao(token, p) {
   try {
     var quem = vd_criador_(card.id);
     var mencoes = [quem].concat(an.pecas.map(function (x) { return x.partPor; })).filter(function (u, i, a) { return u && u !== me.username && a.indexOf(u) === i; });
-    var txt = mencoes.map(function (u) { return '@' + u + ' '; }).join('') + '💰 **Cotação lançada** por ' + me.fullName + ': ' + cots.length + ' cotação(ões) em ' + Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length + ' peça(s)' + (nt.length ? ', ' + nt.length + ' fornecedor(es) sem a peça' : '') + (obs.length ? ', ' + obs.length + ' observação(ões)' : '') + '.';
-    if (cob.faltam.length) txt += '\n\n⏳ **Cotação parcial** — falta cotar (ou justificar): ' + cob.faltam.join(', ') + '.\nO card fica em **' + VD.LISTA_COTACAO + '** até todas as peças estarem cotadas ou justificadas.';
-    else if (cob.semCot.length) txt += '\n\n⚠️ **Peças não cotadas:**\n' + cob.semCot.map(function (s) { return '- ' + s.nome + ': ' + s.texto; }).join('\n');
-    if (movido) txt += '\nCard movido para **' + movido + '**.';
-    if (misto && !cob.faltam.length) txt += '\n👤 Peças particulares (' + an.pecas.filter(function (x) { return x.particular; }).map(vd_nomePeca_).join(', ') + '): quem autoriza é o consultor que as lançou, pela aba **Autorizar** do formulário.';
+    var nPc = Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length;
+    var txt = mencoes.map(function (u) { return '@' + u + ' '; }).join('') + '💰 **COTAÇÃO** — ' + me.fullName + ' · ' + cots.length + ' cotação(ões) em ' + nPc + ' peça(s)' + (nt.length ? ' · ' + nt.length + ' NT' : '') + (movido ? ' → **' + movido + '**' : '');
+    if (cob.faltam.length) txt += '\n⏳ **PARCIAL** — falta cotar ou justificar: ' + cob.faltam.join(', ');
+    else if (cob.semCot.length) txt += '\n⛔ **NÃO COTADAS:** ' + cob.semCot.map(function (s) { return s.nome + ' (' + s.texto + ')'; }).join('; ');
+    if (misto && !cob.faltam.length) txt += '\n👤 Particulares: autoriza o consultor pela aba Autorizar.';
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
@@ -850,7 +850,8 @@ function vdf_autorizar(token, p) {
   var semAut = an.pecas.filter(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador) && !temAut(x); }).length;   // autorizada antes (ex.: complemento) não conta
   try {
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **Compra autorizada** por ' + me.fullName + ': ' + linhas.length + ' peça(s), total ' + vd_valorBR_(total) + '.' + (semAut ? '\n' + semAut + ' peça(s) sem autorização (não comprar).' : '') + obsL.texto + (movido ? '\nCard movido para **' + movido + '**.' : '') + (aguarda.length ? '\n⏳ Aguardando autorização: ' + aguarda.join('; ') + '. O card segue para AUTORIZADO COMPRA quando as duas partes estiverem autorizadas.' : '') } }, token);
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **AUTORIZADO** — ' + me.fullName + ' · ' + linhas.length + ' peça(s) · ' + vd_valorBR_(total) + (movido ? ' → **' + movido + '**' : '') +
+      (semAut ? '\n⛔ Sem autorização (não comprar): ' + semAut + ' peça(s)' : '') + obsL.texto + (aguarda.length ? '\n⏳ Aguarda: ' + aguarda.join('; ') : '') } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, aguarda: aguarda, lista: movido || vdf_nomeLista_(ctx, card.idList) };
@@ -868,7 +869,7 @@ function vdf_linhasObs_(p, porChave, rotulo) {
   });
   var geral = String(p.geral || '').replace(/\s*\n\s*/g, ' ').trim();
   if (geral) { linhas.push('OBS GERAL: (' + rotulo + ') ' + geral); txt.unshift(geral); }
-  return { linhas: linhas, n: linhas.length, texto: txt.length ? '\n\n📝 **Observações:**\n' + txt.join('\n') : '' };
+  return { linhas: linhas, n: linhas.length, texto: txt.length ? '\n📝 ' + txt.map(function (t) { return t.replace(/^- /, ''); }).join(' · ') : '' };
 }
 
 /**
@@ -897,7 +898,7 @@ function vdf_devolverCotacao(token, p) {
   try { movido = vdf_moverPara_(card, ctx, VD.LISTA_COTACAO, token, me.username); } catch (e) {}
   try {
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '↩️ **Cotação devolvida** por ' + me.fullName + ' — completar e lançar de novo.' + obsL.texto + (movido ? '\nCard movido para **' + movido + '**.' : '') } }, token);
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '↩️ **COTAÇÃO DEVOLVIDA** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + obsL.texto } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: obsL.n, lista: movido || vdf_nomeLista_(ctx, card.idList) };
@@ -939,19 +940,24 @@ function vdf_salvarCompra(token, p) {
     // só cotação que está no card
     var ok = lidas.some(function (q) { return q.chave === c.chave && q.fornecedor === forn && Math.abs(q.valor - valor) < 0.005; });
     if (!ok) { faltas.push(rot + ': escolha uma cotação lançada no card (' + forn + ' ' + vd_valorBR_(valor) + ' não está na descrição)'); return; }
-    compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim(), particular: vdf_pecaParticular_(peca, card, an) && !vdf_ehParticular_(card, an), complemento: !!peca.complemento });
+    compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim(), particular: vdf_pecaParticular_(peca, card, an) && !vdf_ehParticular_(card, an), complemento: !!peca.complemento, just: String(c.just || '').replace(/\s*\n\s*/g, ' ').trim() });
   });
   if (!compras.length && !faltas.length) faltas.push('Escolha o fornecedor de pelo menos uma peça.');
   if (faltas.length) return { ok: false, faltas: faltas };
 
-  // fora da autorização: não bloqueia, só avisa no card (regra da diretoria)
-  var auts = vd_autorizacoesDaDescricao_(card.desc, an.pecas), foraAut = [];
+  // fora da autorização: não bloqueia, mas exige justificativa por peça e fica registrado no card
+  var auts = vd_autorizacoesDaDescricao_(card.desc, an.pecas), foraAut = [], semJust = [];
   compras.forEach(function (c) {
-    var ch = c.chave;
+    var ch = c.chave, nome = vd_nomePeca_(porChave[ch]);
     var a = auts.filter(function (x) { return x.chave === ch; })[0];
-    if (!a) foraAut.push(vd_nomePeca_(porChave[ch]) + ' (sem autorização)');
-    else if (a.fornecedor !== c.fornecedor || Math.abs(a.valor - c.valor) >= 0.005) foraAut.push(vd_nomePeca_(porChave[ch]) + ' (autorizado ' + a.fornecedor + ' ' + vd_valorBR_(a.valor) + ', comprado ' + c.fornecedor + ' ' + vd_valorBR_(c.valor) + ')');
+    var txt = '';
+    if (!a) txt = nome + ' (sem autorização)';
+    else if (a.fornecedor !== c.fornecedor || Math.abs(a.valor - c.valor) >= 0.005) txt = nome + ' (aut. ' + a.fornecedor + ' ' + vd_valorBR_(a.valor) + ' → ' + c.fornecedor + ' ' + vd_valorBR_(c.valor) + ')';
+    if (!txt) return;
+    if (!c.just) semJust.push(nome);
+    foraAut.push(txt + (c.just ? ' — ' + c.just : ''));
   });
+  if (semJust.length) return { ok: false, faltas: semJust.map(function (n) { return n + ': compra fora da autorização — escreva o motivo.'; }) };
 
   var n = vd_checklistPagas_(card.id, compras, token);
   try {
@@ -978,7 +984,11 @@ function vdf_salvarCompra(token, p) {
     if (!pendentes) movido = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username);
   } catch (e) {}
   try {
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🛒 **Compra registrada** por ' + me.fullName + ': ' + n + ' item(ns) no checklist PAGAS' + (pendentes ? ' — ' + pendentes + ' peça(s) da oficina ainda sem compra' : ' — todas as peças da oficina compradas') + '.' + (movido ? '\nCard movido para **' + movido + '**.' : '') + (foraAut.length ? '\n\n⚠️ **Compra fora da autorização:** ' + foraAut.join('; ') + '.' : '') } }, token);
+    var dirs = foraAut.length ? sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity').filter(function (u) { return u !== me.username; }) : [];
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +
+      '🛒 **COMPRA** — ' + me.fullName + ' · ' + n + ' item(ns)' + (movido ? ' → **' + movido + '**' : '') +
+      (pendentes ? '\n⏳ Falta comprar: ' + pendentes + ' peça(s)' : '') +
+      (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, pagas: n, pendentes: pendentes, foraAut: foraAut, lista: movido || vdf_nomeLista_(ctx, card.idList) };
@@ -1271,9 +1281,9 @@ function vdf_cotacaoIndisponivel(token, p) {
     var us = [];
     if (temNova) afetadas.forEach(function (x) { if (vdf_pecaParticular_(x, card, an)) us.push(x.partPor || criador); else us = us.concat(sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity')); });
     us = us.filter(function (u, i) { return u && u !== me.username && us.indexOf(u) === i; });
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: us.map(function (u) { return '@' + u + ' '; }).join('') + '⚠️ **Cotação indisponível na compra** (' + me.fullName + '):\n' +
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: us.map(function (u) { return '@' + u + ' '; }).join('') + '⚠️ **COTAÇÃO INDISPONÍVEL** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' +
       linhas.map(function (l) { return '- ' + l.replace(/^INDISPON[IÍ]VEL:\s*/i, ''); }).join('\n') +
-      (temNova ? '\n\nCotação nova lançada — **autorizar de novo** pela aba ✅ Autorizar.' : '\n\nSem cotação nova — o card voltou para cotação.') + (movido ? '\nCard movido para **' + movido + '**.' : '') } }, token);
+      (temNova ? '\n↪️ Cotação nova: autorizar de novo.' : '\n↪️ Sem cotação nova: volta para cotação.') } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };

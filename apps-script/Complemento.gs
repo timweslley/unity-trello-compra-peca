@@ -177,11 +177,11 @@ function cp_nome_(p) {
 
 /** Texto do comentário do complemento. */
 function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTipos) {
-  var t = '📄 **Orçamento complementar** ' + (origem ? '(' + origem + ') ' : '') + (anexo ? 'do anexo ' + anexo + ' ' : '') + (quem ? '— ' + quem : '') + ':';
-  if (novas.length) t += '\n\n➕ **Peças novas da oficina** (incluídas na lista' + (novas.some(function (p) { return !(p.tipos || []).length; }) ? ' — falta marcar o tipo' : '') + '):\n' + novas.map(function (p) { return '- ' + cp_nome_(p); }).join('\n');
-  if (foNovas.length) t += '\n\n📦 **Peças novas da seguradora** (checklist ' + CP.FO + '):\n' + foNovas.map(function (p) { return '- ' + cp_nome_(p); }).join('\n');
-  if (jaTinha) t += '\n\n' + jaTinha + ' peça(s) do orçamento já estavam no card (não foram repetidas).';
-  if (urlTipos && novas.some(function (p) { return !(p.tipos || []).length; })) t += '\n\n✏️ Marque o tipo das peças novas: ' + urlTipos;
+  var semTipo = novas.some(function (p) { return !(p.tipos || []).length; });
+  var t = '📄 **ORÇAMENTO COMPLEMENTAR**' + (origem ? ' (' + origem + ')' : '') + (quem ? ' — ' + quem : ' — robô') + (jaTinha ? ' · ' + jaTinha + ' já estavam no card' : '');
+  if (novas.length) t += '\n➕ **Oficina:** ' + novas.map(cp_nome_).join('; ') + (semTipo ? ' — _marcar o tipo_' : '');
+  if (foNovas.length) t += '\n📦 **FO (' + CP.FO + '):** ' + foNovas.map(cp_nome_).join('; ');
+  if (urlTipos && semTipo) t += '\n✏️ ' + urlTipos;
   return t;
 }
 
