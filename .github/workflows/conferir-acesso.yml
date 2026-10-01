@@ -1,0 +1,26 @@
+# Todo dia confere se o GitHub ainda consegue publicar no Apps Script (login do clasp válido).
+# Se falhar, o GitHub manda e-mail de "workflow failed" para o dono do repositório — dá tempo de
+# refazer o login antes de precisar publicar alguma correção.
+name: Conferir acesso ao Apps Script
+on:
+  schedule:
+    - cron: '50 10 * * *'   # 07:50 em Brasília
+  workflow_dispatch:
+jobs:
+  conferir:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm i -g @google/clasp@2.4.2
+      - name: Login do clasp ainda vale?
+        env:
+          CLASPRC: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC" > ~/.clasprc.json
+          if ! clasp deployments; then
+            echo "::error::O login do clasp expirou. Refazer: npx @google/clasp@2.4.2 login e atualizar o segredo CLASPRC_JSON."
+            exit 1
+          fi

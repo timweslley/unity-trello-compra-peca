@@ -171,3 +171,9 @@ Card já andando que recebe orçamento novo com peças a mais (complemento da se
 - **Trava de checklist:** ✔, nome, data, item ou checklist mexido à mão (fora do formulário/robô) é desfeito no
   ciclo de 1 min, com aviso "🔒 ALTERAÇÃO NÃO PERMITIDA". Retrato na aba CHECKLISTS. Desligar: `CK_TRAVA = NAO`.
 - **Log de descrição:** não comenta mais "descrição alterada" (a trava já desfaz e avisa). Religar: `LOG_DESC_COMENTAR = SIM`.
+
+## 01/10/2026 — v42: sem parar em silêncio
+- Cada parte do ciclo de 1 min roda isolada (`sd_parte_`): 5 falhas seguidas = e-mail para o Weslley (repete a cada 6 h).
+- `sd_diario` (acionador próprio, 07:50): ciclo do TESTE rodando? log do quadro principal em dia? acionadores
+  existem? token do Trello responde? Só manda e-mail se achar problema.
+- GitHub: workflow diário "Conferir acesso ao Apps Script" falha (e o GitHub manda e-mail) quando o login do clasp expira.

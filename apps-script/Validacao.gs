@@ -1439,16 +1439,18 @@ function validarDadosPedido() {
       try { instalarAcionador(); vd_instalarAcionador(); pp.setProperty('VD_ACIONADORES_1MIN', 'SIM'); } catch (e) { console.log('acionadores: ' + e); }
     }
     var rodar = function () {
-      try { tr_executar_(); } catch (e) { console.log('trava: ' + e); }   // antes de tudo: desfaz edição manual
-      try { st_executar_(); } catch (e) { console.log('trava de colunas: ' + e); }   // e movimento manual fora do fluxo
-      try { ck_executar_(); } catch (e) { console.log('trava de checklist: ' + e); }   // e checklist mexido à mão
-      try { exc_executar_(); } catch (e) { console.log('exclusão: ' + e); }   // card excluído por quem não é admin volta
+      sd_parte_('trava de descrição', tr_executar_);   // antes de tudo: desfaz edição manual
+      sd_parte_('trava de colunas', st_executar_);     // e movimento manual fora do fluxo
+      sd_parte_('trava de checklist', ck_executar_);   // e checklist mexido à mão
+      sd_parte_('exclusão', exc_executar_);            // card excluído por quem não é admin volta
       var out = vd_executarNucleo_();
-      try { cp_executar_(); } catch (e) { console.log('complemento: ' + e); }   // orçamento complementar anexado no card
-      try { pz_executar_(); } catch (e) { console.log('prazos: ' + e); }
-      try { sla_executar_(); } catch (e) { console.log('prazos por etapa: ' + e); }
-      try { rel_instalarSeFaltar_(); } catch (e) { console.log('relatório: ' + e); }
-      try { vd_garantirLinks_(); } catch (e) { console.log('links: ' + e); }
+      sd_parte_('complemento', cp_executar_);          // orçamento complementar anexado no card
+      sd_parte_('prazos', pz_executar_);
+      sd_parte_('prazos por etapa', sla_executar_);
+      sd_parte_('relatório', rel_instalarSeFaltar_);
+      sd_parte_('links', function () { return vd_garantirLinks_(); });
+      sd_parte_('alarme diário', sd_instalarSeFaltar_);
+      sd_batida_();
       return out;
     };
     if (typeof comAlarme_ === 'function') return comAlarme_('validarDadosPedido', rodar);
