@@ -108,6 +108,10 @@ function sla_executar_(forcar) {
   var props = PropertiesService.getScriptProperties();
   var agora = new Date(), hoje = sla_dia_(agora);
   var hora = +Utilities.formatDate(agora, 'America/Sao_Paulo', 'H');
+  // zerar (uma vez por quadro, ou de novo apagando SLA_ZERADO_<quadro>): o que já está atrasado hoje fica
+  // marcado para nunca avisar, sem comentar — só pendência nova (nova entrada na etapa / nova previsão) avisa
+  var kZ = 'SLA_ZERADO_' + vd_board_(), silencioso = props.getProperty(kZ) !== 'SIM';
+  if (silencioso) forcar = true;
   if (!forcar) {
     if (!du_ehUtil_(hoje) || hora < 8 || hora >= 18) return 0;
     if (Date.now() - (+props.getProperty('SLA_ULTIMA') || 0) < SLA.INTERVALO_MS) return 0;
@@ -159,6 +163,7 @@ function sla_executar_(forcar) {
           (seg.length && part.length ? ' — peças da seguradora: diretoria; peças particulares: consultor' : '') + '. Autorizar pelo anexo **💰 Cotação / Compra** → aba ✅ Autorizar.';
       }
       try {
+        if (silencioso) { props.setProperty(chave, '2999-01-01T12:00:00.000Z'); return; }   // pendência antiga: não avisa mais
         vd_comentar_(c, mencao + ' ' + txt);
         ev_registrar_('ALERTA PRAZO', c, 'robô', null, { detalhe: et.lista + ' há ' + dias + ' d.u. — ' + mencao });
         props.setProperty(chave, hoje.toISOString()); n++;
@@ -189,11 +194,13 @@ function sla_executar_(forcar) {
     if (atrasados.FO.length) partes.push('verificar prazo do item ' + atrasados.FO.join(', '));
     var mencao = sla_mencao_(sla_users_('SLA_RECEBER', 'comprasunity'));
     try {
+      if (silencioso) { chaves.forEach(function (ch) { props.setProperty(ch, '2999-01-01T12:00:00.000Z'); }); return; }
       vd_comentar_(c, mencao + ' ⏰ Peça sem recebimento informado depois da previsão — ' + partes.join('; ') + '. Se já chegou, registrar na aba **📦 Recebimento**.');
       ev_registrar_('ALERTA PRAZO', c, 'robô', null, { detalhe: 'recebimento: ' + partes.join('; ') });
       chaves.forEach(function (ch) { props.setProperty(ch, hoje.toISOString()); }); n++;
     } catch (e) { console.log('sla/receb: ' + e); }
   });
+  if (silencioso) { props.setProperty(kZ, 'SIM'); console.log('prazos por etapa: histórico zerado (sem avisos)'); return 0; }
   if (n) console.log('prazos por etapa: ' + n + ' aviso(s)');
   return n;
 }
