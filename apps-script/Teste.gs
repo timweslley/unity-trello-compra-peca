@@ -196,6 +196,98 @@ function tst_cenario8() {
   tst_log_('Land Rover: muda previsão com motivo', vdf_atualizarFornecimento(tk, { shortLink: TST.LR, origem: 'formulário', itens: [{ id: fo[0].id, previsao: d2, motivo: 'portal HDI mudou a data' }] }));
 }
 
+/* ============================ CONFERÊNCIA GERAL (só lê) ============================ */
+function tst_saude() {
+  var tk = tst_tk_(), ok = 0, prob = [];
+  var P = PropertiesService.getScriptProperties();
+  var bate = function (cond, txt) { if (cond) ok++; else prob.push(txt); };
+  // acionadores
+  var acs = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
+  Logger.log('acionadores: ' + acs.join(', '));
+  bate(acs.indexOf('validarDadosPedido') >= 0, 'falta o acionador validarDadosPedido');
+  bate(acs.indexOf('verificarAlteracoesDescricao') >= 0, 'falta o acionador do log de descrição (quadro principal)');
+  bate(!P.getProperty('LOG_RECUPERANDO'), 'LOG_RECUPERANDO ficou marcado (log do quadro principal parado)');
+  bate(vd_modo_() === 'ATIVO', 'VD_MODO não está ATIVO');
+  bate(!!P.getProperty('CK_DESDE'), 'trava de checklist não iniciou (CK_DESDE)');
+  bate(!!P.getProperty('CP_DESDE'), 'complemento por anexo não iniciou (CP_DESDE)');
+  // log do quadro principal em dia
+  var ult = P.getProperty('ULTIMA_VERIFICACAO');
+  bate(ult && Date.now() - new Date(ult).getTime() < 15 * 60000, 'log de descrição do quadro principal atrasado (' + ult + ')');
+  // cada card do TESTE abre no formulário e tem vitrine/campos coerentes
+  var cards = vd_api_('/boards/' + vd_board_() + '/cards', { cru: true, query: { fields: 'name,shortLink,desc' } });
+  cards.forEach(function (c) {
+    if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '')) return;
+    try {
+      var m = vdf_carregarCard(tk, c.shortLink);
+      bate(!!m.totais, c.name + ': sem totais');
+      var semVit = m.padrao && !/\*\*/.test(c.desc || '');
+      bate(!semVit, c.name + ': descrição no padrão mas sem vitrine');
+      var compl = vd_completa_(c.id);
+      bate(!m.padrao || !!compl, c.name + ': sem cópia completa na aba TRAVA');
+      (m.recebiveis || []).forEach(function (r) { if (!r.ok && r.due && new Date(r.due) < new Date(Date.now() - 864e5)) prob.push(c.name + ': ' + r.nome.split(' - ')[0] + ' com previsão vencida (' + r.dueTxt + ') sem ✔'); });
+    } catch (e) { prob.push(c.name + ': não abre no formulário — ' + e.message); }
+  });
+  // planilha
+  var ss = vd_planilhaBackup_().getParent();
+  ['TRAVA', 'EVENTOS', 'FORNECEDORES', 'CHECKLISTS'].forEach(function (a) { bate(!!ss.getSheetByName(a), 'falta a aba ' + a); });
+  // permissões (simuladas)
+  var cons = { username: 'consultor_teste' }, dir = { username: 'timweslley' }, comp = { username: 'comprasunity' };
+  bate(!vdf_podeComprar_(cons) && vdf_podeComprar_(dir) && vdf_podeComprar_(comp), 'permissão de compra/cotação errada');
+  bate(vdf_ehAutorizador_(dir) && !vdf_ehAutorizador_(comp), 'permissão de diretoria errada');
+  Logger.log('✅ ' + ok + ' conferência(s) ok');
+  prob.forEach(function (x) { Logger.log('⚠️ ' + x); });
+  return prob;
+}
+
+/* 9) PONTA A PONTA num card novo (particular): pedido -> cotação -> autorização -> compra (1 fora da
+ *    autorização, com motivo) -> previsão alterada -> recebimento -> ENCERRADO. Card: TST9A99. */
+function tst_cenario9() {
+  var tk = tst_tk_();
+  var ex = vdf_buscarPlaca(tk, 'TST9A99');
+  var sl = ex && ex.length ? ex[0].shortLink : '';
+  if (!sl) {
+    var r = tst_log_('Novo: pedido particular', vdf_salvar(tk, { shortLink: '', dados: { placa: 'TST9A99', modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '9BWAG45U0LT000001' },
+      pecas: [{ pneu: false, codigo: '5U0807221', descricao: 'PARACHOQUE DIANT', tipos: ['ORIGINAL'], qtd: '1' }, { pneu: false, codigo: '5U0941005', descricao: 'FAROL ESQ', tipos: ['PARALELO'], qtd: '1' }],
+      obs: 'card de teste ponta a ponta', fileIds: [], capaId: '', orcamento: null,
+      novo: { tipo: 'PARTICULAR', carro: 'GOL', cor: 'BRANCO', seguradora: '', sinistro: '', unidade: '' } }));
+    sl = r.shortLink;
+  }
+  var c = vdf_carregarCard(tk, sl);
+  Logger.log('Novo: card ' + c.nome + ' em ' + c.lista);
+  if (!c.cotacoes.cotacoes.length) {
+    tst_log_('Novo: cotação', vdf_salvarCotacao(tk, { shortLink: sl, cotacoes: [tst_cot_(c, 'PARACHOQUE', 'IMPERIAL', 'ORIGINAL', '450,00', 2), tst_cot_(c, 'PARACHOQUE', 'METROSUL', 'ORIGINAL', '480,00', 1), tst_cot_(c, 'FAROL', 'AVENIDA', 'PARALELO', '210,00', 3)] }));
+    c = vdf_carregarCard(tk, sl);
+  }
+  tst_comMencoesSoMinhas_(function () {
+    if (!c.autorizadas.length) { tst_log_('Novo: autorização', vdf_autorizar(tk, { shortLink: sl, escolhas: [tst_barata_(c, 'PARACHOQUE'), tst_barata_(c, 'FAROL')], obs: [], geral: '' })); c = vdf_carregarCard(tk, sl); }
+    if (!c.pagas.length) {
+      var para = c.autorizadas.filter(function (a) { return a.chave === tst_peca_(c, 'PARACHOQUE').chave; })[0];
+      var far = c.autorizadas.filter(function (a) { return a.chave === tst_peca_(c, 'FAROL').chave; })[0];
+      var sem = vdf_salvarCompra(tk, { shortLink: sl, compras: [{ chave: para.chave, fornecedor: 'METROSUL', valor: 480, dias: 1 }] });
+      Logger.log(sem.ok ? '❌ compra fora da autorização passou sem motivo' : '✅ compra fora da autorização sem motivo recusada');
+      tst_log_('Novo: compra (parachoque fora da autorização, com motivo)', vdf_salvarCompra(tk, { shortLink: sl, compras: [
+        { chave: para.chave, fornecedor: 'METROSUL', valor: 480, dias: 1, just: 'Imperial sem estoque hoje, Metrosul entrega amanhã' },
+        { chave: far.chave, fornecedor: far.fornecedor, valor: far.valor, dias: 3 }] }));
+      c = vdf_carregarCard(tk, sl);
+    }
+  });
+  var rv = c.recebiveis.filter(function (i) { return /FAROL/.test(i.nome) && !i.ok; })[0];
+  if (rv) {
+    var nova = Utilities.formatDate(new Date(Date.now() + 6 * 864e5), 'America/Sao_Paulo', 'yyyy-MM-dd');
+    var sm = vdf_alterarPrevisao(tk, { shortLink: sl, itens: [{ tipo: 'PAGAS', id: rv.id, previsao: nova }] });
+    Logger.log(sm.ok ? '❌ previsão mudou sem motivo' : '✅ previsão sem motivo recusada');
+    tst_log_('Novo: previsão do farol alterada com motivo', vdf_alterarPrevisao(tk, { shortLink: sl, itens: [{ tipo: 'PAGAS', id: rv.id, previsao: nova, motivo: 'fornecedor atrasou o envio' }] }));
+    c = vdf_carregarCard(tk, sl);
+  }
+  // diretoria pode mexer em peça comprada; a trava vale para quem não é diretoria
+  var trav = c.pecas.filter(function (p) { return p.travada; }).map(function (p) { return p.nome + ' (' + p.travada + ')'; });
+  Logger.log((trav.length === 2 ? '✅' : '❌') + ' peças travadas: ' + trav.join('; '));
+  var pend = c.recebiveis.filter(function (i) { return !i.ok; });
+  if (pend.length) tst_log_('Novo: recebimento de tudo', vdf_salvarRecebimento(tk, { shortLink: sl, itens: pend.map(function (i) { return { id: i.id, data: '', obs: '' }; }), anexos: [], geral: 'teste ponta a ponta' }));
+  c = vdf_carregarCard(tk, sl);
+  Logger.log('Novo: terminou em ' + c.lista + ' · total seg+part ' + vd_valorBR_(c.totais.tot.valor) + ' (part. ' + vd_valorBR_(c.totais.part.valor) + ')');
+}
+
 function tst_fluxoCompleto() {
   ['tst_cenario1', 'tst_cenario2', 'tst_cenario3', 'tst_cenario4', 'tst_cenario5', 'tst_cenario6'].forEach(function (f) {
     try { globalThis[f](); } catch (e) { Logger.log('❌ ' + f + ': ' + e.message); }
