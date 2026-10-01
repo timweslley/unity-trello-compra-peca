@@ -929,7 +929,8 @@ function vdf_salvarCompra(token, p) {
   var an = vd_analisar_(card.desc, card.name);
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
-  var lidas = vd_cotacoesDaDescricao_(card.desc, an.pecas).cotacoes;
+  var cotLidas = vd_cotacoesDaDescricao_(card.desc, an.pecas), lidas = cotLidas.cotacoes;
+  var naoCotadas = (cotLidas.semCot || []).map(function (x) { return x.chave; });   // justificadas: não ficam esperando compra
   var faltas = [], compras = [];
   (p.compras || []).forEach(function (c, i) {
     var peca = porChave[c.chave];
@@ -979,6 +980,7 @@ function vdf_salvarCompra(token, p) {
     ls.filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); }).forEach(function (k) { (k.checkItems || []).forEach(function (i) { nomes.push(vd_semAcento_(i.name)); }); });
     an.pecas.forEach(function (x) {
       var k = vd_chavePeca_(x);
+      if (naoCotadas.indexOf(k) >= 0) return;
       if (!nomes.some(function (nm) { return k && nm.indexOf(k) >= 0; })) pendentes++;
     });
     if (!pendentes) movido = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username);
