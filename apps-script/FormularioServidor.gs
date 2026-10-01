@@ -240,7 +240,7 @@ function vdf_buscarPlaca(token, placa) {
 }
 
 function vdf_ehPosCotacao_(nomeLista) {
-  return VD.LISTAS_FORA.indexOf(String(nomeLista || '').trim().toUpperCase()) < 0;
+  return VD.LISTAS_FORA.indexOf(vd_nomeColuna_(nomeLista)) < 0;
 }
 
 /** Card fixo do quadro ("➕ NOVO PEDIDO DE PEÇA") e cards de AVISO nunca são editados pelo formulário. */

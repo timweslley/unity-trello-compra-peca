@@ -55,8 +55,8 @@ function st_executar_() {
     var cardId = a.data.card.id, para = a.data.listAfter.id, de = a.data.listBefore.id;
     if (st_temLicenca_(cardId, para)) return;
     if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
-    var nPara = nome[para] || String(a.data.listAfter.name || '').trim().toUpperCase();
-    var nDe = nome[de] || String(a.data.listBefore.name || '').trim().toUpperCase();
+    var nPara = nome[para] || vd_nomeColuna_(a.data.listAfter.name);
+    var nDe = nome[de] || vd_nomeColuna_(a.data.listBefore.name);
     var motivo = '';
     if (ST.TRAVADAS[nPara]) motivo = 'O card não pode ser movido à mão para **' + nPara + '**: ele vai sozinho ' + ST.TRAVADAS[nPara] + '.';
     else if (inicio.indexOf(para) >= 0 && ST.TRAVADAS[nDe]) motivo = 'Card que já passou da cotação não volta à mão para **' + nPara + '**: para refazer a cotação use **↩️ Devolver para cotação** (aba ✅ Autorizar); para pedir peça nova, **✏️ Editar peças** — o card volta sozinho.';

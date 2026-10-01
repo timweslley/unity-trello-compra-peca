@@ -100,8 +100,14 @@ function vd_api_(caminho, opts, tokenUsuario) {
 function vd_listas_(board) {
   var ls = vd_api_('/boards/' + board + '/lists', { query: { fields: 'name' } });
   var m = {};
-  ls.forEach(function (l) { m[l.name.trim().toUpperCase()] = l.id; });
+  ls.forEach(function (l) { m[vd_nomeColuna_(l.name)] = l.id; });
   return m;
+}
+/** Nome canônico da coluna (o quadro principal usa "FALTA DADOS PARA COTAÇÃO", o TESTE "...COTAR"). */
+function vd_nomeColuna_(n) {
+  var s = String(n || '').trim().toUpperCase();
+  if (/^FALTA DADOS PARA COTA/.test(s)) return 'FALTA DADOS PARA COTAR';
+  return s;
 }
 
 /* ============================ TEXTO ============================ */
