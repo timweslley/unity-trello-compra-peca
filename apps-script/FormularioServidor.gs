@@ -846,7 +846,7 @@ function vdf_autorizar(token, p) {
   try { ev_registrar_('AUTORIZAÇÃO', card, me.username, evAut, { detalhe: aguarda.length ? 'aguardando: ' + aguarda.join('; ') : '' }); } catch (e) {}
   if (!aguarda.length) { try { movido = vdf_moverPara_(card, ctx, VDF_LISTA_AUTORIZADO, token, me.username); } catch (e) {} }
   // "sem autorização" só conta as peças que ESTA pessoa podia autorizar
-  var semAut = an.pecas.filter(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador) && !(p.escolhas || []).some(function (e) { return e.chave === vd_chavePeca_(x); }); }).length;
+  var semAut = an.pecas.filter(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador) && !temAut(x); }).length;   // autorizada antes (ex.: complemento) não conta
   try {
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **Compra autorizada** por ' + me.fullName + ': ' + linhas.length + ' peça(s), total ' + vd_valorBR_(total) + '.' + (semAut ? '\n' + semAut + ' peça(s) sem autorização (não comprar).' : '') + obsL.texto + (movido ? '\nCard movido para **' + movido + '**.' : '') + (aguarda.length ? '\n⏳ Aguardando autorização: ' + aguarda.join('; ') + '. O card segue para AUTORIZADO COMPRA quando as duas partes estiverem autorizadas.' : '') } }, token);
