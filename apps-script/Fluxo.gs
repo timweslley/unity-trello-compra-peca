@@ -199,3 +199,60 @@ function sla_executar_(forcar) {
 
 /** Roda os avisos de prazo agora (ignora horário e intervalo) — teste no editor. */
 function sla_rodarAgora() { Logger.log('avisos de prazo: ' + sla_executar_(true)); }
+
+/* ============================ PROTEÇÃO CONTRA EXCLUSÃO ============================
+ * O Trello não tem permissão "só administrador exclui card". Rede de segurança: card excluído por
+ * quem não é administrador do quadro é RECRIADO na mesma coluna, com o mesmo título e a descrição
+ * completa (guardada na aba TRAVA), comentário listando as compras registradas na planilha de eventos
+ * (checklists e anexos não voltam) e e-mail de alerta. Para tirar um card do quadro: ARQUIVAR.
+ * Desligar: propriedade EXC_PROTEGER = NAO.
+ */
+function exc_executar_() {
+  if (vd_prop_('EXC_PROTEGER', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var props = PropertiesService.getScriptProperties();
+  var agora = new Date().toISOString(), desde = props.getProperty('EXC_ULTIMA');
+  props.setProperty('EXC_ULTIMA', agora);
+  if (!desde) return 0;
+  var board = vd_board_();
+  var acoes = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: 'deleteCard', since: desde, limit: 50, memberCreator_fields: 'username,fullName' } }) || [];
+  if (!acoes.length) return 0;
+  var admins = (vd_api_('/boards/' + board + '/memberships', { cru: true, query: { member: 'false' } }) || [])
+    .filter(function (m) { return m.memberType === 'admin'; }).map(function (m) { return m.idMember; });
+  var n = 0;
+  acoes.forEach(function (a) {
+    if (!a.data || !a.data.card || !a.data.list) return;
+    if (admins.indexOf(a.idMemberCreator) >= 0) return;   // administrador pode excluir
+    var velho = a.data.card, quem = a.memberCreator ? a.memberCreator.username : '?';
+    try {
+      var desc = vd_completa_(velho.id) || tr_ler_(velho.id) || '';
+      var nome = String(velho.name || '').trim() || ('CARD RECUPERADO ' + (velho.idShort || ''));
+      var novo = vd_api_('/cards', { method: 'post', payload: { idList: a.data.list.id, name: nome, pos: 'top' } });
+      if (desc) vd_gravarDesc_(novo.id, desc);
+      var compras = exc_comprasDoCard_(velho.shortLink);
+      vd_comentar_(novo, '@' + quem + ' ♻️ **Card recuperado**: ele foi excluído em ' + Utilities.formatDate(new Date(a.date), 'America/Sao_Paulo', 'dd/MM HH:mm') +
+        ' e só administrador pode excluir — para tirar um card do quadro, use **Arquivar**.\nA descrição voltou; checklists e anexos não voltam com a exclusão.' +
+        (compras.length ? '\n\n🛒 Compras registradas antes da exclusão (planilha de eventos):\n' + compras.map(function (c) { return '- ' + c; }).join('\n') : ''));
+      ev_registrar_('CARD EXCLUÍDO E RECRIADO', { name: nome, shortLink: novo.shortLink, shortUrl: novo.shortUrl }, quem, null, { detalhe: 'card antigo ' + (velho.shortLink || velho.id) });
+      try {
+        MailApp.sendEmail(vd_prop_('EXC_EMAIL', 'weslley.santos@unitycs.com.br'), 'Trello: card excluído e recriado — ' + nome,
+          quem + ' excluiu o card "' + nome + '" (' + vd_board_() + ') em ' + a.date + '.\nO robô recriou o card: ' + novo.shortUrl +
+          '\nChecklists e anexos não voltam com a exclusão — conferir no card.\n\nCompras registradas:\n' + (compras.join('\n') || '(nenhuma)'));
+      } catch (e) {}
+      n++;
+    } catch (e) { console.log('exclusão: ' + e); }
+  });
+  return n;
+}
+
+/** Linhas de COMPRA da planilha de eventos para o card (pelo link curto). */
+function exc_comprasDoCard_(shortLink) {
+  if (!shortLink) return [];
+  try {
+    var sh = ev_aba_(), n = sh.getLastRow();
+    if (n < 2) return [];
+    var v = sh.getRange(2, 1, n - 1, 13).getValues();
+    return v.filter(function (r) { return r[1] === 'COMPRA' && String(r[3]).indexOf(shortLink) >= 0; }).map(function (r) {
+      return [r[7], r[9], r[10] !== '' ? vd_valorBR_(r[10]) : '', r[12] ? 'previsão ' + Utilities.formatDate(new Date(r[12]), 'America/Sao_Paulo', 'dd/MM') : ''].filter(String).join(' - ');
+    });
+  } catch (e) { return []; }
+}

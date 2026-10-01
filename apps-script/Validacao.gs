@@ -1412,6 +1412,7 @@ function validarDadosPedido() {
     var rodar = function () {
       try { tr_executar_(); } catch (e) { console.log('trava: ' + e); }   // antes de tudo: desfaz edição manual
       try { st_executar_(); } catch (e) { console.log('trava de colunas: ' + e); }   // e movimento manual fora do fluxo
+      try { exc_executar_(); } catch (e) { console.log('exclusão: ' + e); }   // card excluído por quem não é admin volta
       var out = vd_executarNucleo_();
       try { pz_executar_(); } catch (e) { console.log('prazos: ' + e); }
       try { sla_executar_(); } catch (e) { console.log('prazos por etapa: ' + e); }
