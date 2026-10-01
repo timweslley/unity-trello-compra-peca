@@ -572,7 +572,8 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     if (!temValor && /^\*\*[^*]+\*\*\s*$/.test(raw.trim()) && l.length <= 60 && l.indexOf('|') < 0) {
       // cabeçalho de fornecedor
       var h = l.split(/\s+-\s+/);
-      forn = h[0].trim().toUpperCase(); obs = h.slice(1).join(' - ').trim();
+      // "**IMPERIAL -**" (cabeçalho antigo, digitado à mão) = IMPERIAL: tira traço/dois-pontos do fim
+      forn = h[0].replace(/[\s\-–:]+$/, '').trim().toUpperCase(); obs = h.slice(1).join(' - ').trim();
       if (/^NT\b|N[ÃA]O\s+TEM/i.test(obs) && out.nt.indexOf(forn) < 0) out.nt.push(forn);
       return;
     }
