@@ -94,3 +94,19 @@ No Trello vai só a vitrine: carro em 2 linhas; por peça ✅ autorizada / 🛒 
 - Voltar atrás: commit `70de2d2` (último antes da vitrine) + `VD_VITRINE = NAO` + `vd_restaurarDescricao(shortLink)` (backup).
 - Ao levar para o quadro principal: o log de descrição (Código.gs) vai ver a troca pela vitrine
   como edição — ajustar para ignorar gravações do robô/formulário antes.
+
+## 30/09/2026 — v26 a v35 (publicação automática pelo GitHub Actions)
+- **Publicação**: todo push em `apps-script/` publica sozinho (segredo `CLASPRC_JSON`, mesma implantação).
+  `powerup/formulario.html` é **gerado** por `tools/gerar_formulario_estatico.py` a partir de
+  `apps-script/Formulario.html` — editar só o do Apps Script e rodar o gerador; a publicação aborta se estiver desatualizado.
+- **Log de descrição** ignora gravações do robô/formulário (assinaturas recentes da trava).
+- **Dias úteis** no prazo de cotação/compra (sem sáb/dom, feriados nacionais, Carnaval e municipais de
+  Toledo, M.C.Rondon, Cascavel, Campo Mourão). `DU_EXTRAS`/`DU_REMOVER`, `VD_DIAS_UTEIS = NAO`, `du_listarFeriados()`.
+- **Peça particular no pedido de seguradora**: aba "👤 Peças particulares" no pedido; linha `| PARTICULAR @consultor`;
+  autoriza o consultor que lançou (ou quem criou o card) + diretoria; card misto só vai para AUTORIZADO COMPRA com as duas partes autorizadas.
+- **Eventos.gs**: aba EVENTOS (pedido, cotação, autorização, devolução, compra, recebimento, colunas, alertas). `EV_LIGADO`.
+- **Fluxo.gs**: trava de colunas (`ST_TRAVA`), prazos por etapa com menção (`SLA_*`; no TESTE só @timweslley),
+  proteção contra exclusão (`EXC_PROTEGER`: card excluído por não-admin é recriado).
+- **Fornecedores.gs**: aba FORNECEDORES (semente: tabela do Databox), autocompletar que aprende, apelido → nome oficial.
+- **Recebimento.gs**: aba 📦 Recebimento (data, obs por peça, foto/nota por peça ou para várias); tudo recebido → ENCERRADO COMPRAS/FORNEC.
+- **Campos.gs**: Unidade, Seguradora, Tipo, Placa, Consultor, Total comprado (`cf_sincronizarTodos()`).
