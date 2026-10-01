@@ -58,6 +58,28 @@ function api_(caminho, params, metodo, payload) {
   return txt ? JSON.parse(txt) : null;
 }
 
+var LOG_ATE_MS = 0;   // só a recuperação usa: processa até este instante
+
+/**
+ * Roda na mão: refaz o log a partir de uma data (ex.: período em que ficou sem comentar),
+ * em janelas de 1 h para não perder nada (a API devolve no máximo 100 ações por vez).
+ */
+function logDescRecuperar() {
+  var inicio = new Date('2026-10-01T03:10:00Z').getTime(), fim = Date.now() - ATRASO_SEGUNDOS * 1000;
+  var p = props_();
+  p.setProperty('LOG_RECUPERANDO', String(Date.now()));   // o acionador espera enquanto isso
+  try {
+  for (var t = inicio; t < fim; t += 3600000) {
+    p.setProperty('ULTIMA_VERIFICACAO', new Date(t).toISOString());
+    LOG_ATE_MS = Math.min(t + 3600000, fim);
+    verificarAlteracoesDescricaoNucleo_();
+  }
+  } finally { p.deleteProperty('LOG_RECUPERANDO'); }
+  LOG_ATE_MS = 0;
+  p.setProperty('ULTIMA_VERIFICACAO', new Date(fim).toISOString());
+  Logger.log('log de descrição recuperado de ' + new Date(inicio).toISOString() + ' até agora');
+}
+
 /** Função principal - é esta que o acionador chama. */
 function verificarAlteracoesDescricaoNucleo_() {
   var lock = LockService.getScriptLock();
@@ -65,12 +87,14 @@ function verificarAlteracoesDescricaoNucleo_() {
 
   try {
     var p = props_();
+    var rec = +(p.getProperty('LOG_RECUPERANDO') || 0);
+    if (!LOG_ATE_MS && rec && Date.now() - rec < 10 * 60000) return;   // recuperação rodando
     var desde = p.getProperty('ULTIMA_VERIFICACAO');
     if (!desde) {
       desde = new Date(Date.now() - JANELA_MINUTOS * 60000).toISOString();
     }
     // edições dos últimos 3 min ficam para a próxima rodada (ver ATRASO_SEGUNDOS)
-    var limite = Date.now() - ATRASO_SEGUNDOS * 1000;
+    var limite = LOG_ATE_MS || (Date.now() - ATRASO_SEGUNDOS * 1000);
     if (new Date(desde).getTime() >= limite) return;
     var agora = new Date(limite).toISOString();
 
@@ -131,11 +155,9 @@ function verificarAlteracoesDescricaoNucleo_() {
       }
     });
 
-    // descrição travada: quem edita à mão leva o aviso da trava (texto volta ao original);
-    // o comentário de "descrição alterada" só sai se LOG_DESC_COMENTAR = SIM
-    var comentarLog = String(PropertiesService.getScriptProperties().getProperty('LOG_DESC_COMENTAR') || 'NAO').toUpperCase() === 'SIM';
+    // quadro principal (oH4TbTqb): o log de descrição SEMPRE comenta (lá não há trava de descrição).
+    // Só um quadro com trava (o de TESTE do formulário) dispensa o comentário — e este log não vigia ele.
     grupos.forEach(function (g) {
-      if (!comentarLog) return;
       if (g.desfeita || sigTexto_(g.antigo) === sigTexto_(g.novo)) return;
       var texto = montarComentario_(g);
       if (!texto) return;
