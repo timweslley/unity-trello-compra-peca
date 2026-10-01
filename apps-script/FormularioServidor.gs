@@ -263,6 +263,7 @@ function vdf_montarCard_(c, lista, me) {
     fornecedores: fo_paraFormulario_(),
     recebiveis: (function () { try { return vdf_itensRecebimento_(c).map(function (i) { i.dueTxt = i.due ? vd_dataCurta_(i.due) : ''; return i; }); } catch (e) { return []; } })(),
     particular: vdf_ehParticular_(c, an),
+    totais: (function () { try { return vd_totais_(c); } catch (e) { return null; } })(),
     pagas: (function () {
       try {
         var out = [];

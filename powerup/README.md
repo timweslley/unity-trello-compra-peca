@@ -124,3 +124,11 @@ Card já andando que recebe orçamento novo com peças a mais (complemento da se
 - Na compra, peça do complemento vai para o checklist **PAGAS COMPLEMENTO** (particular continua em PAGAS PARTICULAR).
 - Recebimento mostra os grupos PAGAS COMPLEMENTO e FORNECIMENTO COMPLEMENTO.
 - Teste: `tst_cenario6` (Tracker).
+
+## 30/09/2026 — v38: totais seguradora / particular / seg+part
+- Campos do card: **Total seguradora**, **Total particular** e **Total seg+part** (o antigo "Total comprado" é renomeado
+  para Total seg+part). Valor de cada peça = o comprado (PAGAS, PAGAS COMPLEMENTO, PAGAS PARTICULAR) quando já comprada;
+  senão o autorizado.
+- Formulário (Cotação, Autorizar e Compra): quadro "Totais do card" com menor cotação, autorizado, comprado e valor do
+  pedido por seguradora / particular / total; na autorização e na compra, o total da seleção também separado.
+- Preencher todos os cards de uma vez: `cf_sincronizarTodos()`.
