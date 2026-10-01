@@ -1307,6 +1307,7 @@ function vd_listasPosCotacao_(ctx) {
 }
 
 function vd_marcar_(card) {
+  try { cf_sincronizar_(card.id); } catch (e) {}   // campos personalizados antes de marcar (a gravação mexe na atividade)
   try {
     var atual = vd_api_('/cards/' + card.id, { query: { fields: 'dateLastActivity,idList' } });
     PropertiesService.getScriptProperties().setProperty('VD_AT_' + card.id, atual.dateLastActivity + '|' + atual.idList);
