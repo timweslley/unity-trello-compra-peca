@@ -3,7 +3,7 @@
  * (vdf_*) com a conta do script — para ver no quadro como fica cada etapa.
  * Só funciona com VD_BOARD = quadro TESTE. Durante o teste as menções a compras ficam só no Weslley.
  *   tst_atualizarCards()  — redesenha a descrição de todos os cards no modelo novo + links do formulário
- *   tst_fluxoCompleto()   — os 6 cenários abaixo, em sequência
+ *   tst_fluxoCompleto()   — os cenários abaixo, em sequência · tst_saude() — conferência geral
  */
 var TST = { CRUZE: 'zTlw8wkG', HB20: 'RlnMHBZB', TRACKER: '9NjfPbKL', MONTANA: 'LrWWoE6V', LR: 'JzBo8oWm' };
 
