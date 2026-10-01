@@ -626,8 +626,8 @@ function vdf_moverPara_(card, ctx, nomeLista, token, usuario) {
 function vdf_linkComprador_(card, ctx, token) {
   try {
     var ans = vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,url' } });
-    if (ans.some(function (a) { return /Cota[çc][ãa]o \/ Compra/i.test(a.name || ''); })) return;
-    vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink + '&modo=compras', name: '💰 Cotação / Compra (formulário)', setCover: false } }, token);
+    if (ans.some(function (a) { return VD_LINK.RX_COMPRA.test(a.name || ''); })) return;
+    vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink + '&modo=compras', name: VD_LINK.COMPRA, setCover: false } }, token);
   } catch (e) {}
 }
 
@@ -1124,7 +1124,7 @@ function vdf_salvar(token, p) {
     card = vd_api_('/cards', { method: 'post', payload: corpo }, token);
     try { vd_gravarDesc_(card.id, corpo.desc, token); } catch (e) { try { tr_guardar_(card.id, corpo.desc); } catch (e2) {} }
     try {
-      vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink, name: '✏️ Editar peças (formulário)', setCover: false } }, token);
+      vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink, name: VD_LINK.EDITAR, setCover: false } }, token);
     } catch (e) {}
   }
   vdf_linkComprador_(card, ctx, token);

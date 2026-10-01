@@ -14,8 +14,11 @@
   button { border: 0; border-radius: 4px; padding: 9px 14px; font-size: 14px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
   .principal { background: var(--laranja); color: #fff; }
   .principal:hover { background: var(--laranja2); }
-  .secundario { background: #1f845a; color: #fff; }
-  .secundario:hover { background: #216e4e; }
+  .secundario { background: #091e420f; color: var(--texto); }
+  .secundario:hover { background: #091e4224; }
+  .destaque { background: #1f845a; color: #fff; box-shadow: 0 0 0 2px #1f845a55; }
+  .destaque:hover { background: #216e4e; }
+  html[data-color-mode="dark"] .secundario { background: #a1bdd914; color: #b6c2cf; }
   .resumo { margin-top: 8px; color: var(--cinza); font-size: 12px; line-height: 1.4; }
   .resumo b { color: var(--texto); font-weight: 600; }
   /* tema escuro do Trello (o client marca data-color-mode no <html>) */
@@ -51,7 +54,18 @@ function botao(texto, classe, acao) {
   b.className = classe; b.textContent = texto; b.onclick = acao;
   return b;
 }
+function tarefaDaColuna(nomeLista) {
+  var L = String(nomeLista || '').toUpperCase();
+  if (/EM COTA/.test(L)) return 'cot';
+  if (/PENDENTE AUTORIZAR|COTA[ÇC][ÃA]O FINALIZADA/.test(L)) return 'aut';
+  if (/^AUTORIZADO/.test(L)) return 'compra';
+  if (/FALTA CHEGAR/.test(L)) return 'rec';
+  return null;
+}
 function contarPecas(desc) {
+  // vitrine: linhas "1. **PEÇA** · código"
+  var v = (desc || '').match(/^\s*\d+\.\s+\*\*/gm);
+  if (v && v.length) return v.length;
   // descrição no padrão do robô: bloco "PEÇAS:" seguido de linhas "1. código | nome | ..."
   var m = /PE[ÇC]AS:\s*([\s\S]*)/i.exec(desc || '');
   if (!m) return 0;
@@ -84,12 +98,12 @@ function desenhar() {
       }));
       res.textContent = 'Abre o formulário para criar um card novo de pedido de peça.';
     } else {
-      bts.appendChild(botao('✏️ Editar peças', 'principal', function () {
-        return abrir(card.shortLink, '', '✏️ Editar peças');
-      }));
-      bts.appendChild(botao('💰 Cotação / Compra', 'secundario', function () {
-        return abrir(card.shortLink, 'compras', '💰 Cotação / Compra');
-      }));
+      // um botão por tarefa; a tarefa que a coluna está esperando fica em destaque
+      var prox = tarefaDaColuna(lista && lista.name);
+      [['', '✏️ EDITAR/INCLUIR PEÇA'], ['cot', '💰 COTAÇÃO'], ['aut', '✅ AUTORIZAR'], ['compra', '🛒 COMPRA'], ['rec', '📦 RECEBIMENTO']].forEach(function (x) {
+        var cls = x[0] === '' ? 'principal' : (x[0] === prox ? 'destaque' : 'secundario');
+        bts.appendChild(botao(x[1] + (x[0] && x[0] === prox ? ' ◀' : ''), cls, function () { return abrir(card.shortLink, x[0], x[1]); }));
+      });
       var partes = [];
       var n = contarPecas(card.desc);
       partes.push('<b>' + n + '</b> peça' + (n === 1 ? '' : 's') + ' na descrição');

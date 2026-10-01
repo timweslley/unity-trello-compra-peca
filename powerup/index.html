@@ -45,32 +45,47 @@
     });
   }
 
-  function editar(t) { return abrir(t, '', '✏️ Editar peças'); }
-  function compras(t) { return abrir(t, 'compras', '💰 Cotação / Compra'); }
+  /* uma ação por tarefa — o mesmo formulário, aberto direto na aba da tarefa */
+  var TAREFAS = [
+    { modo: '',       texto: '✏️ Editar/Incluir peça', icone: ICONE.editar, cor: 'orange' },
+    { modo: 'cot',    texto: '💰 Cotação',             icone: ICONE.compra, cor: 'blue' },
+    { modo: 'aut',    texto: '✅ Autorizar',           icone: ICONE.compra, cor: 'green' },
+    { modo: 'compra', texto: '🛒 Compra',              icone: ICONE.compra, cor: 'purple' },
+    { modo: 'rec',    texto: '📦 Recebimento',         icone: ICONE.compra, cor: 'sky' }
+  ];
+  function acao(tarefa) { return function (t) { return abrir(t, tarefa.modo, tarefa.texto); }; }
+  /* tarefa que a coluna está esperando (vira o chip em destaque no card) */
+  function tarefaDaColuna(nomeLista) {
+    var L = String(nomeLista || '').toUpperCase();
+    if (/EM COTA|FALTA DADOS/.test(L)) return /FALTA DADOS/.test(L) ? '' : 'cot';
+    if (/PENDENTE AUTORIZAR|COTA[ÇC][ÃA]O FINALIZADA/.test(L)) return 'aut';
+    if (/^AUTORIZADO/.test(L)) return 'compra';
+    if (/FALTA CHEGAR/.test(L)) return 'rec';
+    return null;
+  }
 
   TrelloPowerUp.initialize({
-    // menu "Power-ups" do rodapé do card
+    // menu "Power-ups" do rodapé do card: um botão por tarefa
     'card-buttons': function (t) {
       return t.card('name').then(function (c) {
         if (ehCardFixo(c.name)) {
           return [{ icon: ICONE.novo, text: 'Novo pedido', callback: abrirNovo }];
         }
-        return [
-          { icon: ICONE.editar, text: 'Editar peças', callback: editar },
-          { icon: ICONE.compra, text: 'Cotação / Compra', callback: compras }
-        ];
+        return TAREFAS.map(function (x) { return { icon: x.icone, text: x.texto, callback: acao(x) }; });
       });
     },
-    // chips clicáveis logo abaixo do título do card
+    // chips logo abaixo do título: Editar/Incluir peça + a tarefa da coluna atual
     'card-detail-badges': function (t) {
-      return t.card('name').then(function (c) {
+      return Promise.all([t.card('name'), t.list('name').catch(function () { return null; })]).then(function (r) {
+        var c = r[0], lista = r[1];
         if (ehCardFixo(c.name)) {
           return [{ title: 'Unity', text: '➕ Novo pedido', color: 'orange', callback: abrirNovo }];
         }
-        return [
-          { title: 'Unity', text: '✏️ Editar peças', color: 'orange', callback: editar },
-          { title: 'Unity', text: '💰 Cotação / Compra', color: 'green', callback: compras }
-        ];
+        var m = tarefaDaColuna(lista && lista.name);
+        var out = [{ title: 'Peças', text: TAREFAS[0].texto, color: 'orange', callback: acao(TAREFAS[0]) }];
+        TAREFAS.forEach(function (x) { if (x.modo && x.modo === m) out.push({ title: 'Próxima tarefa', text: x.texto, color: x.cor, callback: acao(x) }); });
+        if (m === null || m === '') out.push({ title: 'Compras', text: '💰 Cotação/Compra/Recebimento', color: 'green', callback: function (t) { return abrir(t, 'compras', '💰 Cotação/Compra/Recebimento'); } });
+        return out;
       });
     },
     // seção própria no corpo do card (botões grandes + resumo)

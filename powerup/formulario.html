@@ -102,6 +102,10 @@
   .opcao-aut { display:block; padding:7px 8px; font-weight:normal; font-size:14px; color:var(--texto); cursor:pointer; border-radius:4px; }
   .opcao-aut:hover { background:var(--lista); }
   .opcao-aut input { width:auto; margin-right:6px; }
+  .aviso.trava { background:#172b4d; border-color:#f5cd47; color:#fff; font-weight:800; text-transform:uppercase; letter-spacing:.3px; font-size:13px; }
+  .leitura .item, .leitura .cot { opacity:.85; }
+  .leitura button, .leitura input[type=file], .leitura .rodape { display:none; }
+  .leitura input:disabled, .leitura select:disabled, .leitura textarea:disabled { background:#f7f8f9; color:var(--texto); border-color:var(--borda); }
   .devolvida { border-left-color:var(--amarelo) !important; background:var(--amarelo2) !important; }
   #telaSucesso section, #comprador > .aviso { background:#fff; }
 </style>
@@ -324,6 +328,7 @@
 var CFG = { chave: PU_CFG.CHAVE, urlApp: PU_CFG.URL_FORM, teste: true, tipos: ['GENUÍNO', 'ORIGINAL', 'PARALELO', 'USADO'], categPneu: ['IMPORTADO', '1ª LINHA'] };
 var TOKEN = '', CARD_EDICAO = '', FILE_IDS = [], CAPA_ID = '', seq = 0;
 var COMP = null;   // orçamento complementar lido neste card: {origem, fo:[peças novas da seguradora]}
+var ABA_INICIAL = '';   // modo=cot|aut|compra|rec abre direto na aba da tarefa
 var ORC = null, POS = false, LISTA = '', SO_TIPOS = false, MODO_COMPRAS = false, CARD = null, COMPRADOR = false;
 
 function tipoPedido() { var r = document.querySelector('input[name=tipoPedido]:checked'); return r ? r.value : 'SEGURADORA'; }
@@ -490,8 +495,10 @@ function iniciar() {
     else if (!m || (loc.parameter && loc.parameter.novo)) { guardar('vd_card_pend', null); guardar('vd_modo_pend', null); }
     TOKEN = ler('vd_token');
     CARD_EDICAO = ler('vd_card_pend');
-    MODO_COMPRAS = ler('vd_modo_pend') === 'compras' && !!CARD_EDICAO;
-    if (MODO_COMPRAS) document.querySelector('header h1').textContent = 'Cotação / Compra de Peça — Unity';
+    var modoP = ler('vd_modo_pend');
+    MODO_COMPRAS = /^(compras|cot|aut|compra|rec)$/.test(modoP) && !!CARD_EDICAO;
+    ABA_INICIAL = /^(cot|aut|compra|rec)$/.test(modoP) ? modoP : '';
+    if (MODO_COMPRAS) document.querySelector('header h1').textContent = ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento' })[ABA_INICIAL] ? ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento' })[ABA_INICIAL] + ' de Peça — Unity' : 'Cotação / Compra / Recebimento — Unity';
     if (!TOKEN) return telaLogin();
     chamar('vdf_abrir', TOKEN, CARD_EDICAO || '').then(function (ab) {
       var info = ab.info;
@@ -603,16 +610,30 @@ function telaComprador(c) {
   desenharTotais(c);
   montarCotacao(c); montarAutorizacao(c); montarCompra(c);
   mostrar('btnDev', c.podeDevolver !== false);
-  mostrar('abaAut', !!c.podeAutorizar);
-  mostrar('abaRec', (c.recebiveis || []).length > 0); montarRecebimento(c);
-  if (!COMPRADOR) {
-    $('btnCompra').disabled = true;
-    $('btnCompra').insertAdjacentHTML('afterend', '<span class="dica ruim">Só o setor de compras registra compra — sua conta pode lançar cotação.</span>');
-  }
+  mostrar('abaAut', true);
+  mostrar('abaRec', true); montarRecebimento(c);
+  // quem não tem permissão vê a aba, mas só para consulta
+  if (!c.podeAutorizar) somenteLeitura('painelAut', 'Só quem autoriza pode mexer aqui: diretoria (peças da seguradora) ou o consultor que lançou a peça particular.');
+  if (!COMPRADOR) somenteLeitura('painelCompra', 'Só o setor de compras registra compra.');
+  if (!(c.recebiveis || []).length) somenteLeitura('painelRec', 'Ainda não há peça comprada ou de fornecimento para receber.');
   var temCot = c.cotacoes && c.cotacoes.cotacoes.length, L = (c.lista || '').toUpperCase();
   var temRec = (c.recebiveis || []).some(function (i) { return !i.ok; });
-  mostrarAba(temRec && /FALTA CHEGAR/.test(L) ? 'rec' : (temCot && c.podeAutorizar && /PENDENTE AUTORIZAR|COTA[ÇC][ÃA]O FINALIZADA/.test(L) ? 'aut' : (temCot && L.indexOf('AUTORIZADO') === 0 ? 'compra' : 'cot')));
+  mostrarAba(ABA_INICIAL || (temRec && /FALTA CHEGAR/.test(L) ? 'rec' : (temCot && c.podeAutorizar && /PENDENTE AUTORIZAR|COTA[ÇC][ÃA]O FINALIZADA/.test(L) ? 'aut' : (temCot && L.indexOf('AUTORIZADO') === 0 ? 'compra' : 'cot'))));
 }
+/* ---------- modo somente visualização (usuário sem permissão para a tarefa) ---------- */
+function somenteLeitura(idPainel, motivo) {
+  var p = $(idPainel); if (!p || p.dataset.leitura) return;
+  p.dataset.leitura = '1'; p.classList.add('leitura');
+  p.insertAdjacentHTML('afterbegin', '<div class="aviso trava">🔒 SOMENTE VISUALIZAÇÃO — ' + esc(motivo) + '</div>');
+  Array.prototype.forEach.call(p.querySelectorAll('input, select, textarea, button'), function (el) { el.disabled = true; });
+}
+function somenteLeituraForm(motivo) {
+  var f = $('form'); if (f.dataset.leitura) return;
+  f.dataset.leitura = '1'; f.classList.add('leitura');
+  f.insertAdjacentHTML('afterbegin', '<div class="aviso trava">🔒 SOMENTE VISUALIZAÇÃO — ' + esc(motivo) + '</div>');
+  Array.prototype.forEach.call(f.querySelectorAll('input, select, textarea, button'), function (el) { el.disabled = true; });
+}
+
 /* ---------- totais do card: seguradora / particular / seg+part ---------- */
 function desenharTotais(c) {
   var T = c.totais, el = $('totaisCard');

@@ -813,7 +813,7 @@ function tr_executar_() {
     if (agora - (+(todas[chaveAv] || 0)) > TR.AVISO_MS) {
       try {
         vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 A descrição deste card é controlada pelo formulário — a alteração feita à mão foi desfeita. ' +
-          'Para mudar peças ou dados do carro use o anexo **✏️ Editar peças (formulário)**; cotação e compra pelo **💰 Cotação / Compra (formulário)**.');
+          'Use **' + VD_LINK.EDITAR + '** para peças/dados do carro e **' + VD_LINK.COMPRA + '** para o resto.');
       } catch (e) {}
       props.setProperty(chaveAv, String(agora));
     }
@@ -1007,17 +1007,17 @@ function vd_conferirCard_(card, ctx) {
 
   // link "Editar peças" nos anexos do card (atalho para o formulário)
   if (ctx.modoAtivo && ctx.urlForm && card.attachments) {
-    var temLink = card.attachments.some(function (a) { return /Editar pe[çc]as/i.test(a.name || '') || (String(a.url || '').indexOf(ctx.urlForm) === 0 && String(a.url).indexOf('modo=') < 0); });
+    var temLink = card.attachments.some(function (a) { return VD_LINK.RX_EDITAR.test(a.name || '') || (String(a.url || '').indexOf(ctx.urlForm) === 0 && String(a.url).indexOf('modo=') < 0); });
     if (!temLink) {
       try {
-        vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink, name: '✏️ Editar peças (formulário)', setCover: false } });
+        vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink, name: VD_LINK.EDITAR, setCover: false } });
         res.linkCriado = true;
       } catch (e) {}
     }
     // link do comprador (cotação / compra)
-    if (!card.attachments.some(function (a) { return /Cota[çc][ãa]o \/ Compra/i.test(a.name || ''); })) {
+    if (!card.attachments.some(function (a) { return VD_LINK.RX_COMPRA.test(a.name || ''); })) {
       try {
-        vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink + '&modo=compras', name: '💰 Cotação / Compra (formulário)', setCover: false } });
+        vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink + '&modo=compras', name: VD_LINK.COMPRA, setCover: false } });
       } catch (e) {}
     }
   }
@@ -1320,6 +1320,14 @@ function vd_marcar_(card) {
   } catch (e) {}
 }
 
+/* Links do formulário anexados no card (para quem abre o card sem o Power-Up, ex.: celular). */
+var VD_LINK = {
+  EDITAR: '✏️ EDITAR/INCLUIR PEÇA',
+  COMPRA: '💰 COTAÇÃO/COMPRA/RECEBIMENTO',
+  RX_EDITAR: /Editar pe[çc]as|EDITAR\/INCLUIR PE[ÇC]A/i,
+  RX_COMPRA: /Cota[çc][ãa]o \/ Compra|COTA[ÇC][ÃA]O\/COMPRA/i
+};
+
 /**
  * Garante em TODOS os cards abertos do quadro os dois links do formulário
  * ("✏️ Editar peças" e "💰 Cotação / Compra"). Roda no máximo a cada 15 min.
@@ -1337,11 +1345,17 @@ function vd_garantirLinks_(forcar) {
   cards.forEach(function (c) {
     if (/^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) return;
     var ans = c.attachments || [];
-    var temEditar = ans.some(function (a) { return /Editar pe[çc]as/i.test(a.name || ''); });
-    var temCompra = ans.some(function (a) { return /Cota[çc][ãa]o \/ Compra/i.test(a.name || ''); });
+    var temEditar = false, temCompra = false;
     try {
-      if (!temEditar) { vd_api_('/cards/' + c.id + '/attachments', { method: 'post', payload: { url: urlForm + '?card=' + c.shortLink, name: '✏️ Editar peças (formulário)', setCover: false } }); n++; }
-      if (!temCompra) { vd_api_('/cards/' + c.id + '/attachments', { method: 'post', payload: { url: urlForm + '?card=' + c.shortLink + '&modo=compras', name: '💰 Cotação / Compra (formulário)', setCover: false } }); n++; }
+      ans.forEach(function (a) {
+        var ed = VD_LINK.RX_EDITAR.test(a.name || ''), co = VD_LINK.RX_COMPRA.test(a.name || '');
+        if (!ed && !co) return;
+        // nome antigo ("Editar peças (formulário)" / "Cotação / Compra (formulário)"): troca pelo nome novo
+        if ((ed && a.name !== VD_LINK.EDITAR) || (co && a.name !== VD_LINK.COMPRA)) { vd_api_('/cards/' + c.id + '/attachments/' + a.id, { method: 'delete' }); return; }
+        if (ed) temEditar = true; else temCompra = true;
+      });
+      if (!temEditar) { vd_api_('/cards/' + c.id + '/attachments', { method: 'post', payload: { url: urlForm + '?card=' + c.shortLink, name: VD_LINK.EDITAR, setCover: false } }); n++; }
+      if (!temCompra) { vd_api_('/cards/' + c.id + '/attachments', { method: 'post', payload: { url: urlForm + '?card=' + c.shortLink + '&modo=compras', name: VD_LINK.COMPRA, setCover: false } }); n++; }
     } catch (e) {}
   });
   console.log('links do formulário incluídos: ' + n);
@@ -1363,14 +1377,14 @@ function vd_trocarLinksFormulario() {
     if (/^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) return;
     (c.attachments || []).forEach(function (a) {
       var nome = a.name || '', url = String(a.url || '');
-      var editar = /Editar pe[çc]as \(formul[áa]rio\)/i.test(nome), compra = /Cota[çc][ãa]o \/ Compra \(formul[áa]rio\)/i.test(nome);
+      var editar = VD_LINK.RX_EDITAR.test(nome), compra = VD_LINK.RX_COMPRA.test(nome);
       if (!editar && !compra) return;
       if (url.indexOf(urlForm) === 0) return;
       try {
         vd_api_('/cards/' + c.id + '/attachments/' + a.id, { method: 'delete' });
         vd_api_('/cards/' + c.id + '/attachments', { method: 'post', payload: {
           url: urlForm + '?card=' + c.shortLink + (compra ? '&modo=compras' : ''),
-          name: compra ? '💰 Cotação / Compra (formulário)' : '✏️ Editar peças (formulário)', setCover: false } });
+          name: compra ? VD_LINK.COMPRA : VD_LINK.EDITAR, setCover: false } });
         trocados++;
       } catch (e) { console.log('falhou em ' + c.name + ': ' + e.message); }
     });

@@ -141,3 +141,13 @@ Card já andando que recebe orçamento novo com peças a mais (complemento da se
   coloridas. Maiúsculas só em avisos e divisões (títulos de seção, grupos seguradora/particular, abas, etiquetas, alertas).
 - Comentários do robô e do formulário enxutos: 1ª linha "ÍCONE AÇÃO — quem · resumo → COLUNA" e, abaixo, só o que precisa
   de atenção (falta cotar, não cotadas, fora da autorização, falta chegar).
+
+## 30/09/2026 — v40: um botão por tarefa + somente visualização
+- Power-Up: botões ✏️ Editar/Incluir peça · 💰 Cotação · ✅ Autorizar · 🛒 Compra · 📦 Recebimento (mesmo formulário,
+  abrindo direto na aba: `modo=cot|aut|compra|rec`). No topo do card ficam 2 chips: Editar/Incluir peça e a
+  **próxima tarefa** da coluna (EM COTAÇÃO → Cotação; PENDENTE AUTORIZAR/COTAÇÃO FINALIZADA → Autorizar;
+  AUTORIZADO COMPRA → Compra; FALTA CHEGAR → Recebimento). A seção do card mostra os 5 botões com a próxima em verde.
+- Links anexados (para quem não usa o Power-Up): **✏️ EDITAR/INCLUIR PEÇA** e **💰 COTAÇÃO/COMPRA/RECEBIMENTO**
+  (os nomes antigos são trocados sozinhos pelo robô).
+- Permissões continuam as mesmas; quem não pode fazer a tarefa vê a aba com a faixa **🔒 SOMENTE VISUALIZAÇÃO**
+  e tudo bloqueado (Autorizar: diretoria / consultor da peça particular; Compra: setor de compras).
