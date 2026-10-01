@@ -100,7 +100,7 @@ function desenhar() {
     } else {
       // um botão por tarefa; a tarefa que a coluna está esperando fica em destaque
       var prox = tarefaDaColuna(lista && lista.name);
-      [['', '✏️ EDITAR/INCLUIR PEÇA'], ['cot', '💰 COTAÇÃO'], ['aut', '✅ AUTORIZAR'], ['compra', '🛒 COMPRA'], ['rec', '📦 RECEBIMENTO']].forEach(function (x) {
+      [['', '✏️ EDITAR/INCLUIR PEÇA'], ['cot', '💰 COTAÇÃO'], ['aut', '✅ AUTORIZAR'], ['compra', '🛒 COMPRA'], ['rec', '📦 RECEBIMENTO'], ['forn', '🚚 FORNECIMENTO']].forEach(function (x) {
         var cls = x[0] === '' ? 'principal' : (x[0] === prox ? 'destaque' : 'secundario');
         bts.appendChild(botao(x[1] + (x[0] && x[0] === prox ? ' ◀' : ''), cls, function () { return abrir(card.shortLink, x[0], x[1]); }));
       });

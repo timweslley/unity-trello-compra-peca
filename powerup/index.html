@@ -51,7 +51,8 @@
     { modo: 'cot',    texto: '💰 Cotação',             icone: ICONE.compra, cor: 'blue' },
     { modo: 'aut',    texto: '✅ Autorizar',           icone: ICONE.compra, cor: 'green' },
     { modo: 'compra', texto: '🛒 Compra',              icone: ICONE.compra, cor: 'purple' },
-    { modo: 'rec',    texto: '📦 Recebimento',         icone: ICONE.compra, cor: 'sky' }
+    { modo: 'rec',    texto: '📦 Recebimento',         icone: ICONE.compra, cor: 'sky' },
+    { modo: 'forn',   texto: '🚚 Fornecimento (FO)',   icone: ICONE.compra, cor: 'yellow' }
   ];
   function acao(tarefa) { return function (t) { return abrir(t, tarefa.modo, tarefa.texto); }; }
   /* tarefa que a coluna está esperando (vira o chip em destaque no card) */

@@ -104,6 +104,9 @@
   .leitura .item, .leitura .cot { opacity:.85; }
   .leitura button, .leitura input[type=file], .leitura .rodape { display:none; }
   .leitura input:disabled, .leitura select:disabled, .leitura textarea:disabled { background:#f7f8f9; color:var(--texto); border-color:var(--borda); }
+  .selo-trava { display:inline-block; font-size:11px; font-weight:800; border-radius:4px; padding:2px 8px; margin-left:4px; text-transform:uppercase; background:#172b4d; color:#fff; }
+  .item.travada { background:#f7f8f9; }
+  .item.travada button { display:none; }
   .devolvida { border-left-color:var(--amarelo) !important; background:var(--amarelo2) !important; }
   #telaSucesso section, #comprador > .aviso { background:#fff; }
 </style>
@@ -246,6 +249,7 @@
       <button type="button" class="aba oculto" id="abaAut" onclick="mostrarAba('aut')">✅ Autorizar</button>
       <button type="button" class="aba" id="abaCompra" onclick="mostrarAba('compra')">🛒 Compra</button>
       <button type="button" class="aba oculto" id="abaRec" onclick="mostrarAba('rec')">📦 Recebimento</button>
+      <button type="button" class="aba oculto" id="abaForn" onclick="mostrarAba('forn')">🚚 Fornecimento</button>
     </div>
     <div id="totaisCard" class="oculto"></div>
 
@@ -294,6 +298,23 @@
       <div class="rodape" style="margin-bottom:30px">
         <button type="button" class="principal" id="btnCompra" onclick="enviarCompra()">Enviar compra</button>
         <span class="carregando oculto" id="enviandoCompra">Enviando…</span>
+      </div>
+    </div>
+
+    <div id="painelForn" class="oculto">
+      <section>
+        <h2>Fornecimento da seguradora (FO)</h2>
+        <div class="dica" style="margin-bottom:10px">Fornecedor e previsão de cada peça que a seguradora fornece. Previsão que já existia e muda: escreva o motivo. A chegada se marca na aba <b>📦 Recebimento</b>.</div>
+        <div class="item" style="background:var(--azul2)">
+          <label>📎 Ler print ou PDF do fornecimento (portal da seguradora ou orçamento com fornecedor/prazo)</label>
+          <input type="file" id="fornArq" accept="application/pdf,image/*" onchange="lerFornecimento(this)">
+          <div id="fornLeitura" class="dica"></div>
+        </div>
+        <div id="fornItens"></div>
+      </section>
+      <div class="rodape" style="margin-bottom:30px">
+        <button type="button" class="principal" id="btnForn" onclick="enviarFornecimento()">Salvar fornecimento</button>
+        <span class="carregando oculto" id="enviandoForn">Enviando…</span>
       </div>
     </div>
 
@@ -373,7 +394,7 @@ function avisarPai(msg) { try { var w = window; for (var i = 0; i < 4 && w !== w
 
 /* Leituras: se o Google prender a chamada (~2 min, DEADLINE_EXCEEDED), dispara outra em paralelo
  * depois de 6 s (até 3) e fica com a primeira resposta. Gravações seguem uma chamada só. */
-var CHAMADA_LEITURA = { vdf_iniciar: 1, vdf_buscarPlaca: 1, vdf_carregarCard: 1, vdf_lerDocumento: 1, vdf_lerAnexoCard: 1 };
+var CHAMADA_LEITURA = { vdf_iniciar: 1, vdf_buscarPlaca: 1, vdf_carregarCard: 1, vdf_lerDocumento: 1, vdf_lerAnexoCard: 1, vdf_lerFornecimento: 1 };
 function chamar(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
   var leitura = !!CHAMADA_LEITURA[fn], espera = (fn === 'vdf_lerDocumento' || fn === 'vdf_lerAnexoCard') ? 25000 : 6000;
@@ -428,9 +449,9 @@ function iniciar() {
     TOKEN = ler('vd_token');
     CARD_EDICAO = ler('vd_card_pend');
     var modoP = ler('vd_modo_pend');
-    MODO_COMPRAS = /^(compras|cot|aut|compra|rec)$/.test(modoP) && !!CARD_EDICAO;
-    ABA_INICIAL = /^(cot|aut|compra|rec)$/.test(modoP) ? modoP : '';
-    if (MODO_COMPRAS) document.querySelector('header h1').textContent = ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento' })[ABA_INICIAL] ? ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento' })[ABA_INICIAL] + ' de Peça — Unity' : 'Cotação / Compra / Recebimento — Unity';
+    MODO_COMPRAS = /^(compras|cot|aut|compra|rec|forn)$/.test(modoP) && !!CARD_EDICAO;
+    ABA_INICIAL = /^(cot|aut|compra|rec|forn)$/.test(modoP) ? modoP : '';
+    if (MODO_COMPRAS) document.querySelector('header h1').textContent = ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento', forn: 'Fornecimento' })[ABA_INICIAL] ? ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento', forn: 'Fornecimento' })[ABA_INICIAL] + ' de Peça — Unity' : 'Cotação / Compra / Recebimento — Unity';
     if (!TOKEN) return telaLogin();
     chamar('vdf_iniciar', TOKEN).then(function (info) {
       $('usuario').innerHTML = esc(info.nome) + ' <a href="#" onclick="sair();return false">sair</a>';
@@ -544,7 +565,13 @@ function telaComprador(c) {
   mostrar('abaRec', true); montarRecebimento(c);
   // quem não tem permissão vê a aba, mas só para consulta
   if (!c.podeAutorizar) somenteLeitura('painelAut', 'Só quem autoriza pode mexer aqui: diretoria (peças da seguradora) ou o consultor que lançou a peça particular.');
-  if (!COMPRADOR) somenteLeitura('painelCompra', 'Só o setor de compras registra compra.');
+  var foItens = (c.recebiveis || []).filter(function (i) { return /^FORNECIMENTO/.test(i.lista); });
+  mostrar('abaForn', foItens.length > 0); montarFornecimento(c, foItens);
+  if (!COMPRADOR) {
+    somenteLeitura('painelCot', 'Só o setor de compras (ou a diretoria) lança cotação.');
+    somenteLeitura('painelCompra', 'Só o setor de compras (ou a diretoria) registra compra.');
+    somenteLeitura('painelForn', 'Só o setor de compras (ou a diretoria) atualiza o fornecimento.');
+  }
   if (!(c.recebiveis || []).length) somenteLeitura('painelRec', 'Ainda não há peça comprada ou de fornecimento para receber.');
   var temCot = c.cotacoes && c.cotacoes.cotacoes.length, L = (c.lista || '').toUpperCase();
   var temRec = (c.recebiveis || []).some(function (i) { return !i.ok; });
@@ -593,6 +620,7 @@ function mostrarAba(a) {
   mostrar('painelCot', a === 'cot'); mostrar('painelAut', a === 'aut'); mostrar('painelCompra', a === 'compra');
   $('abaCot').classList.toggle('marcada', a === 'cot'); $('abaAut').classList.toggle('marcada', a === 'aut'); $('abaCompra').classList.toggle('marcada', a === 'compra');
   mostrar('painelRec', a === 'rec'); $('abaRec').classList.toggle('marcada', a === 'rec');
+  mostrar('painelForn', a === 'forn'); $('abaForn').classList.toggle('marcada', a === 'forn');
   mostrar('erroComprador', false);
 }
 
@@ -911,11 +939,15 @@ function montarCompra(c) {
     var minhas = lidas.filter(function (q) { return q.chave === p.chave; });
     var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + '</strong></div>';
     ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
-    if (ja) h += '<div class="comprado">✔ já comprado: ' + esc(ja.nome) + (ja.due ? ' — previsão ' + esc(ja.due) : '') + (ja.ok ? ' (recebido)' : '') + '</div>';
+    if (ja) {
+      h += '<div class="comprado">✔ já comprado: ' + esc(ja.nome) + (ja.due ? ' — previsão ' + esc(ja.due) : '') + (ja.ok ? ' (recebido)' : '') + '</div>';
+      var rv = (c.recebiveis || []).filter(function (r) { return /^PAGAS/.test(r.lista) && semAc(r.nome).indexOf(p.chave) >= 0; })[0];
+      if (rv && !rv.ok) h += botaoPrev('PAGAS', rv.id, rv.dueIso, 'data');
+    }
     else if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça — lance na aba Cotação.</div>';
     else {
       var aut = autDe(c, p.chave);
-      if (aut) h += '<div class="comprado">✅ autorizado: ' + esc(aut.fornecedor) + ' — ' + esc(fmtValor(aut.valor)) + '</div>';
+      if (aut) h += '<div class="comprado">✅ autorizado: ' + esc(aut.fornecedor) + ' — ' + esc(fmtValor(aut.valor)) + '</div>' + botaoPrev('COT', p.chave, '', 'dias');
       else if ((c.autorizadas || []).length) h += '<div class="dica ruim">⚠️ Peça sem autorização — não comprar.</div>';
       h += '<select class="k-sel" onchange="avisoForaAut(this);totalCompra()"><option value="">— ainda não comprar —</option>' + minhas.map(function (q, j) { return '<option value="' + j + '"' + (mesmaCot(q, aut) ? ' selected' : '') + '>' + esc(rotuloCot(q)) + selosPeca(minhas)(q, true) + (mesmaCot(q, aut) ? ' ✅ autorizado' : '') + '</option>'; }).join('') + '</select><div class="alerta k-aviso oculto"></div>'
         + '<input type="text" class="k-just oculto" style="margin-top:6px" placeholder="Motivo da compra fora da autorização (obrigatório)">';
@@ -942,6 +974,97 @@ function montarCompra(c) {
   $('compraAviso').innerHTML = semNenhuma ? '⚠️ Este card ainda <b>não tem autorização da diretoria</b>. Se registrar a compra agora, ela fica marcada no card como <b>fora da autorização</b>.' : '';
   mostrar('compraAviso', semNenhuma);
 }
+/* ---------- previsão depois da autorização / compra: só com justificativa ---------- */
+function botaoPrev(tipo, ref, atual, campo) {
+  return '<div style="margin-top:6px"><button type="button" class="mini" onclick="abrirPrev(this)">📅 ' + (campo === 'dias' ? 'alterar prazo autorizado' : 'alterar previsão') + '</button></div>'
+    + '<div class="prev oculto" data-tipo="' + tipo + '" data-ref="' + esc(ref) + '" style="margin-top:8px;padding:10px;border:1px dashed var(--azul);border-radius:8px">'
+    + '<div class="grade"><div><label>' + (campo === 'dias' ? 'Novo prazo (dias úteis)' : 'Nova previsão') + '</label>'
+    + (campo === 'dias' ? '<input type="number" min="0" class="p-dias">' : '<input type="date" class="p-data" value="' + esc(atual || '') + '">') + '</div>'
+    + '<div><label>Motivo (obrigatório)</label><input type="text" class="p-motivo" placeholder="Ex.: fornecedor atrasou o envio"></div></div>'
+    + '<button type="button" class="principal" style="margin-top:8px" onclick="enviarPrev(this)">Salvar previsão</button></div>';
+}
+function abrirPrev(btn) { var b = btn.parentNode.nextElementSibling; b.classList.toggle('oculto'); }
+function enviarPrev(btn) {
+  var box = btn.closest('.prev'), tipo = box.dataset.tipo, motivo = box.querySelector('.p-motivo').value.trim();
+  var item = { tipo: tipo, motivo: motivo };
+  if (tipo === 'COT') { item.chave = box.dataset.ref; item.dias = box.querySelector('.p-dias').value.trim(); if (!item.dias) return errosComprador(['Informe o novo prazo em dias úteis.']); }
+  else { item.id = box.dataset.ref; item.previsao = box.querySelector('.p-data').value; if (!item.previsao) return errosComprador(['Informe a nova data.']); }
+  if (!motivo) return errosComprador(['Escreva o motivo da mudança de previsão — vai para o card.']);
+  btn.disabled = true; btn.textContent = 'Salvando…';
+  chamar('vdf_alterarPrevisao', TOKEN, { shortLink: CARD_EDICAO, itens: [item] }).then(function (r) {
+    btn.disabled = false; btn.textContent = 'Salvar previsão';
+    if (!r.ok) return errosComprador(r.faltas);
+    sucesso('📅 Previsão alterada no card <b>' + esc(r.nome) + '</b> (comentário com o motivo registrado).', r.url, 'Voltar ao card');
+  }).catch(function (e) { btn.disabled = false; btn.textContent = 'Salvar previsão'; errosComprador([e.message]); });
+}
+
+/* ---------- fornecimento da seguradora (FO) ---------- */
+function baseFo(nome) { return String(nome || '').replace(/\s+[-—]\s+(EM COTA[ÇC][ÃA]O.*|B\.?O\.?\b.*)$/i, ''); }
+function montarFornecimento(c, itens) {
+  var box = $('fornItens'); box.innerHTML = '';
+  if (!itens.length) { box.innerHTML = '<div class="dica">Este card não tem peça fornecida pela seguradora.</div>'; return; }
+  var grupo = '';
+  itens.forEach(function (it) {
+    if (it.lista !== grupo) { grupo = it.lista; var g = document.createElement('div'); g.className = 'grupo part'; g.textContent = grupo === 'FORNECIMENTO' ? '📦 Fornecimento (FO)' : '📦➕ Fornecimento — complemento'; box.appendChild(g); }
+    var b = baseFo(it.nome), m = b.match(/^(.*\S)\s+-\s+([^-]+)$/);
+    var forn = m && !/\d{4,}/.test(m[2]) ? m[2].trim() : '';
+    var sit = /EM COTA/i.test(it.nome) ? 'EM COTAÇÃO' : (/B\.?O\.?/.test(it.nome.replace(b, '')) ? 'BO' : '');
+    var d = document.createElement('div'); d.className = 'item'; d.dataset.id = it.id; d.dataset.due = it.dueIso || ''; d.dataset.forn = forn; d.dataset.sit = sit;
+    d.innerHTML = '<div class="item-topo"><strong>' + esc(forn ? b.slice(0, b.length - forn.length).replace(/\s+-\s*$/, '') : b) + '</strong>' + (it.ok ? '<span class="selo preco">✔ recebida</span>' : '') + '</div>'
+      + '<div class="grade"><div><label>Fornecedor</label><input type="text" class="f-forn maiusc" list="dlForn" value="' + esc(forn) + '" onchange="this.value=nomeForn(this.value)"></div>'
+      + '<div><label>Previsão</label><input type="date" class="f-prev" value="' + esc(it.dueIso || '') + '" onchange="fornMotivo(this)"></div>'
+      + '<div><label>Situação</label><select class="f-sit"><option value="">—</option><option value="EM COTAÇÃO"' + (sit === 'EM COTAÇÃO' ? ' selected' : '') + '>Em cotação, ainda sem prazo</option><option value="BO"' + (sit === 'BO' ? ' selected' : '') + '>B.O. no portal</option></select></div>'
+      + '<div><label>Motivo da nova previsão</label><input type="text" class="f-motivo" placeholder="' + (it.dueIso ? 'Obrigatório se mudar a previsão' : 'Opcional') + '"></div></div>';
+    box.appendChild(d);
+  });
+}
+var FORN_ARQS = [];
+function lerFornecimento(inp) {
+  var f = inp.files && inp.files[0], av = $('fornLeitura'); if (!f) return;
+  if (f.size > 15 * 1024 * 1024) { av.textContent = 'Arquivo muito grande (máx. 15 MB).'; return; }
+  av.className = 'dica'; av.textContent = '⏳ Lendo "' + f.name + '"… (alguns segundos)';
+  lerArquivo(f).then(function (b64) { return chamar('vdf_lerFornecimento', TOKEN, CARD_EDICAO, b64, f.type || 'application/octet-stream', f.name); }).then(function (r) {
+    inp.value = '';
+    if (r.fileId) FORN_ARQS.push(r.fileId);
+    if (r.erro) { av.className = 'alerta'; av.textContent = r.erro; return; }
+    var n = 0;
+    (r.achados || []).forEach(function (a) {
+      var it = document.querySelector('#fornItens .item[data-id="' + a.id + '"]'); if (!it) return;
+      if (a.fornecedor) { it.querySelector('.f-forn').value = nomeForn(a.fornecedor); }
+      if (a.previsao) { it.querySelector('.f-prev').value = a.previsao; }
+      if (a.fornecedor || a.previsao) { n++; it.style.boxShadow = '0 0 0 2px var(--verde)'; }
+    });
+    var h = '<div class="aviso ' + (n ? 'ok' : 'info') + '" style="margin-top:8px">' + (n ? '✓ ' + n + ' peça(s) preenchida(s) pelo documento — confira e clique em <b>Salvar fornecimento</b> (o arquivo vai anexado no card).' : 'Li o documento, mas não achei fornecedor/prazo das peças deste card.') + '</div>';
+    if ((r.faltando || []).length) h += '<div class="alerta">⚠️ NÃO APARECEM NO DOCUMENTO: ' + esc(r.faltando.join('; ')) + '</div>';
+    if ((r.extras || []).length) h += '<div class="alerta">⚠️ O DOCUMENTO TEM ' + r.extras.length + ' PEÇA(S) A MAIS QUE O CARD: ' + esc(r.extras.join('; ')) + ' — O ORÇAMENTO ATUALIZADO (COMPLEMENTO) NÃO FOI ANEXADO. Anexe pelo ✏️ EDITAR/INCLUIR PEÇA.</div>';
+    av.className = ''; av.innerHTML = h;
+  }).catch(function (e) { av.className = 'alerta'; av.textContent = e.message; });
+}
+function fornMotivo(inp) { var it = inp.closest('.item'); if (it.dataset.due && inp.value !== it.dataset.due) it.querySelector('.f-motivo').focus(); }
+function enviarFornecimento() {
+  mostrar('erroComprador', false);
+  var itens = [], faltas = [];
+  Array.prototype.forEach.call(document.querySelectorAll('#fornItens .item'), function (it) {
+    var forn = it.querySelector('.f-forn').value.trim(), prev = it.querySelector('.f-prev').value, sit = it.querySelector('.f-sit').value, mot = it.querySelector('.f-motivo').value.trim();
+    var x = { id: it.dataset.id }, mudou = false;
+    if (forn !== it.dataset.forn || sit !== it.dataset.sit) { x.fornecedor = forn; x.situacao = sit; mudou = true; }
+    if (prev && prev !== it.dataset.due) {
+      x.previsao = prev; x.motivo = mot; mudou = true;
+      if (it.dataset.due && !mot) faltas.push(it.querySelector('strong').textContent + ': escreva o motivo da mudança de previsão.');
+    }
+    if (mudou) itens.push(x);
+  });
+  if (faltas.length) return errosComprador(faltas);
+  if (!itens.length && !FORN_ARQS.length) return errosComprador(['Nada mudou.']);
+  $('btnForn').disabled = true; mostrar('enviandoForn', true);
+  chamar('vdf_atualizarFornecimento', TOKEN, { shortLink: CARD_EDICAO, origem: 'formulário', itens: itens, fileIds: FORN_ARQS }).then(function (r) {
+    FORN_ARQS = [];
+    $('btnForn').disabled = false; mostrar('enviandoForn', false);
+    if (!r.ok) return errosComprador(r.faltas);
+    sucesso('🚚 Fornecimento atualizado no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s).', r.url, 'Voltar ao card');
+  }).catch(function (e) { $('btnForn').disabled = false; mostrar('enviandoForn', false); errosComprador([e.message]); });
+}
+
 function totalCompra() {
   var e = [];
   Array.prototype.forEach.call(document.querySelectorAll('#compraItens .item'), function (it) {
@@ -1219,7 +1342,7 @@ function importarOrcamento(o) {
     + '<br>Com orçamento, dos dados do carro só são obrigatórios placa e carro.';
   if (ORC.fo.length) {
     h += '<br><br><b>Fornecimento (seguradora) — vai para o checklist FORNECIMENTO do card:</b><ul>'
-      + ORC.fo.map(function (p) { return '<li>' + esc((p.codigo ? p.codigo + ' ' : '') + (p.pneu ? 'PNEU ' + p.medida + ' ' + p.marca : p.descricao) + (+p.qtd > 1 ? ' (x' + p.qtd + ')' : '')) + '</li>'; }).join('')
+      + ORC.fo.map(function (p) { return '<li>' + esc((p.codigo ? p.codigo + ' ' : '') + (p.pneu ? 'PNEU ' + p.medida + ' ' + p.marca : p.descricao) + (+p.qtd > 1 ? ' (x' + p.qtd + ')' : '')) + (p.fornecedor || p.previsao ? ' <b>→ ' + esc([p.fornecedor, p.previsao ? 'prev. ' + String(p.previsao).slice(8, 10) + '/' + String(p.previsao).slice(5, 7) : ''].filter(String).join(' · ')) + '</b>' : '') + '</li>'; }).join('')
       + '</ul>';
   }
   $('avisoOrc').innerHTML = h; mostrar('avisoOrc', true);
@@ -1280,6 +1403,8 @@ function novoItem(tipo, dados) {
   var div = document.createElement('div');
   div.className = 'item'; div.id = id; div.dataset.tipo = tipo; div.dataset.partPor = dados.partPor || '';
   if (dados.complemento && !dados.particular) { div.dataset.comp = '1'; div.dataset.compData = dados.compData || ''; }
+  var travada = dados.travada && !(CARD && CARD.diretoria);
+  if (dados.travada) div.dataset.travada = dados.travada;
   var caixa = dados.particular !== undefined ? caixaDe(!!dados.particular) : caixaDe(pedidoPart());
   var h = '<div class="item-topo"><strong class="num"></strong>' + (div.dataset.comp ? '<span class="selo-comp">➕ COMPLEMENTO' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</span>' : '')
     + '<select onchange="trocarTipo(\'' + id + '\', this.value)"><option value="peca"' + (tipo === 'peca' ? ' selected' : '') + '>Peça</option><option value="pneu"' + (tipo === 'pneu' ? ' selected' : '') + '>Pneu</option></select>'
@@ -1312,6 +1437,13 @@ function novoItem(tipo, dados) {
   div.innerHTML = h;
   caixa.appendChild(div);
   if (tipo === 'peca') limitarTipos(id); else pintarChips(id);
+  if (dados.travada) {
+    div.querySelector('.item-topo strong').insertAdjacentHTML('afterend', '<span class="selo-trava">🔒 ' + esc(dados.travada) + '</span>');
+    if (travada) {
+      div.classList.add('travada');
+      Array.prototype.forEach.call(div.querySelectorAll('input, select, button'), function (el) { el.disabled = true; });
+    }
+  }
   numerar();
 }
 

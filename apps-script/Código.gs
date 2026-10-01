@@ -131,7 +131,11 @@ function verificarAlteracoesDescricaoNucleo_() {
       }
     });
 
+    // descrição travada: quem edita à mão leva o aviso da trava (texto volta ao original);
+    // o comentário de "descrição alterada" só sai se LOG_DESC_COMENTAR = SIM
+    var comentarLog = String(PropertiesService.getScriptProperties().getProperty('LOG_DESC_COMENTAR') || 'NAO').toUpperCase() === 'SIM';
     grupos.forEach(function (g) {
+      if (!comentarLog) return;
       if (g.desfeita || sigTexto_(g.antigo) === sigTexto_(g.novo)) return;
       var texto = montarComentario_(g);
       if (!texto) return;

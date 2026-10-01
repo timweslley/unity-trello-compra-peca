@@ -151,3 +151,23 @@ Card já andando que recebe orçamento novo com peças a mais (complemento da se
   (os nomes antigos são trocados sozinhos pelo robô).
 - Permissões continuam as mesmas; quem não pode fazer a tarefa vê a aba com a faixa **🔒 SOMENTE VISUALIZAÇÃO**
   e tudo bloqueado (Autorizar: diretoria / consultor da peça particular; Compra: setor de compras).
+
+## 01/10/2026 — v41: permissões, trava de peça e de checklist, previsão, fornecimento (FO)
+- **Permissões:** cotação, compra, cotação indisponível, previsão e fornecimento = setor de compras **ou diretoria**
+  (diretoria faz tudo). Recebimento: todos. Sem permissão = aba em SOMENTE VISUALIZAÇÃO.
+- **Peça autorizada/comprada travada** no ✏️ EDITAR/INCLUIR PEÇA (selo 🔒): o consultor só inclui peça nova; só a
+  diretoria altera/remove. O servidor também recusa.
+- **Previsão depois da autorização/compra:** aba Compra → "📅 alterar previsão" (item comprado) ou "📅 alterar prazo
+  autorizado" (dias úteis) — motivo obrigatório, comentário "📅 PREVISÃO ALTERADA" e evento PREVISÃO. Antes da
+  autorização continua o ✏️ da aba Cotação.
+- **Aba 🚚 FORNECIMENTO (FO):** fornecedor, previsão e situação (em cotação / B.O.) por peça; previsão que muda
+  pede motivo. Botão "📎 Ler print ou PDF do fornecimento": preenche fornecedor e previsão, avisa peças que não
+  aparecem e peças a MAIS no documento (= orçamento atualizado/complemento não anexado). O arquivo vai anexado.
+- **Orçamento com fornecedor/prazo das FO (ex.: grupo Porto):** o checklist FORNECIMENTO já nasce com
+  "CÓDIGO DESCRIÇÃO - FORNECEDOR" e a previsão.
+- **API da rotina Unity:** `POST {fn:'vdf_atualizarFornecimento', args:[token, {shortLink, origem:'rotina',
+  itens:[{id|codigo, fornecedor, previsao:'aaaa-mm-dd', situacao:''|'EM COTAÇÃO'|'BO', entregue, motivo}],
+  novos:[{codigo, descricao, fornecedor, previsao, entregue}]}]}` — rotina sem motivo = "portal da seguradora".
+- **Trava de checklist:** ✔, nome, data, item ou checklist mexido à mão (fora do formulário/robô) é desfeito no
+  ciclo de 1 min, com aviso "🔒 ALTERAÇÃO NÃO PERMITIDA". Retrato na aba CHECKLISTS. Desligar: `CK_TRAVA = NAO`.
+- **Log de descrição:** não comenta mais "descrição alterada" (a trava já desfaz e avisa). Religar: `LOG_DESC_COMENTAR = SIM`.

@@ -87,6 +87,8 @@ function vd_api_(caminho, opts, tokenUsuario) {
     e.codigo = code;
     throw e;
   }
+  // escrita oficial em checklist: licença para a trava de checklist não desfazer
+  if (params.method !== 'get' && /checkItem|checklists/i.test(caminho)) { try { ck_licenca_(caminho.split('?')[0], opts.payload); } catch (e) {} }
   var t = r.getContentText();
   var out = t ? JSON.parse(t) : null;
   if (params.method === 'get' && !opts.cru && t && t.indexOf('"desc"') >= 0) {
@@ -530,7 +532,10 @@ function vd_lerAnexoTrello_(a, opt) {
       r = vd_extrair_(texto);
       var orc = vd_lerOrcamento_(texto);
       r.cor = orc.cor; r.seguradora = orc.seguradora; r.sinistro = orc.sinistro; r.orcamento = orc.origem;
-      if (orc.origem) { r.orc = { o: vd_orcCompacto_(orc.oficina), f: vd_orcCompacto_(orc.fo) }; orcFull = orc; }
+      if (orc.origem) {
+        try { if (pv_enriquecerFo_(texto, orc.fo)) r.foi = orc.fo.filter(function (x) { return x.fornecedor || x.previsao; }).map(function (x) { return [x.codigo || '', x.fornecedor || '', x.previsao || '']; }); } catch (e) {}
+        r.orc = { o: vd_orcCompacto_(orc.oficina), f: vd_orcCompacto_(orc.fo) }; orcFull = orc;
+      }
     } catch (e) {
       r = { erro: String(e).slice(0, 100), chassis: [], placas: [] };
     }
@@ -606,7 +611,11 @@ function vd_lerAnexosCard_(card, placa, prazo) {
     orcamento: (function () {
       for (var k = 0; k < validos.length; k++) {
         var o = validos[k].orc;
-        if (o && (o.o.length || o.f.length)) return { origem: validos[k].orcamento, oficina: vd_orcExpandir_(o.o), fo: vd_orcExpandir_(o.f), anexo: validos[k].anexo };
+        if (o && (o.o.length || o.f.length)) {
+          var foX = vd_orcExpandir_(o.f);
+          (validos[k].foi || []).forEach(function (fi) { foX.forEach(function (x) { if (fi[0] && x.codigo === fi[0]) { x.fornecedor = fi[1]; x.previsao = fi[2]; } }); });
+          return { origem: validos[k].orcamento, oficina: vd_orcExpandir_(o.o), fo: foX, anexo: validos[k].anexo };
+        }
       }
       return null;
     })(),
@@ -812,8 +821,8 @@ function tr_executar_() {
     var chaveAv = 'VD_DESC_AV_' + c.id;
     if (agora - (+(todas[chaveAv] || 0)) > TR.AVISO_MS) {
       try {
-        vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 A descrição deste card é controlada pelo formulário — a alteração feita à mão foi desfeita. ' +
-          'Use **' + VD_LINK.EDITAR + '** para peças/dados do carro e **' + VD_LINK.COMPRA + '** para o resto.');
+        vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 **ALTERAÇÃO NÃO PERMITIDA** — a descrição só muda pelo formulário; o texto voltou ao original. ' +
+          'Use **' + VD_LINK.EDITAR + '** (peças/carro) ou **' + VD_LINK.COMPRA + '**.');
       } catch (e) {}
       props.setProperty(chaveAv, String(agora));
     }
@@ -1432,6 +1441,7 @@ function validarDadosPedido() {
     var rodar = function () {
       try { tr_executar_(); } catch (e) { console.log('trava: ' + e); }   // antes de tudo: desfaz edição manual
       try { st_executar_(); } catch (e) { console.log('trava de colunas: ' + e); }   // e movimento manual fora do fluxo
+      try { ck_executar_(); } catch (e) { console.log('trava de checklist: ' + e); }   // e checklist mexido à mão
       try { exc_executar_(); } catch (e) { console.log('exclusão: ' + e); }   // card excluído por quem não é admin volta
       var out = vd_executarNucleo_();
       try { cp_executar_(); } catch (e) { console.log('complemento: ' + e); }   // orçamento complementar anexado no card

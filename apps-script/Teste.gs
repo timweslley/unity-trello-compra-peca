@@ -183,6 +183,19 @@ function tst_cenario7() {
   });
 }
 
+/* 8) LAND ROVER — rotina atualiza o fornecimento (FO) pela API: fornecedor + previsão; depois muda a previsão sem motivo (recusa) e com motivo */
+function tst_cenario8() {
+  var tk = tst_tk_(), c = vdf_carregarCard(tk, TST.LR);
+  var fo = c.recebiveis.filter(function (i) { return /^FORNECIMENTO/.test(i.lista); });
+  if (!fo.length) throw new Error('Land Rover sem FO');
+  var d1 = Utilities.formatDate(du_somarUteis_(5) ? new Date(du_somarUteis_(5)) : new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
+  tst_log_('Land Rover: rotina lança fornecedor/previsão', vdf_atualizarFornecimento(tk, { shortLink: TST.LR, origem: 'rotina', itens: [{ id: fo[0].id, fornecedor: 'GM ZAFFARI', previsao: d1 }] }));
+  var d2 = Utilities.formatDate(new Date(new Date(d1 + 'T12:00:00').getTime() + 3 * 864e5), 'America/Sao_Paulo', 'yyyy-MM-dd');
+  var sem = vdf_atualizarFornecimento(tk, { shortLink: TST.LR, origem: 'formulário', itens: [{ id: fo[0].id, previsao: d2 }] });
+  Logger.log(sem.ok ? '❌ aceitou mudar previsão sem motivo' : '✅ recusou sem motivo: ' + sem.faltas.join(' | '));
+  tst_log_('Land Rover: muda previsão com motivo', vdf_atualizarFornecimento(tk, { shortLink: TST.LR, origem: 'formulário', itens: [{ id: fo[0].id, previsao: d2, motivo: 'portal HDI mudou a data' }] }));
+}
+
 function tst_fluxoCompleto() {
   ['tst_cenario1', 'tst_cenario2', 'tst_cenario3', 'tst_cenario4', 'tst_cenario5', 'tst_cenario6'].forEach(function (f) {
     try { globalThis[f](); } catch (e) { Logger.log('❌ ' + f + ': ' + e.message); }
