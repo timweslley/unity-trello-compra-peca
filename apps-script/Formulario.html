@@ -44,7 +44,7 @@
   .cot-lida.removida .cl-txt { text-decoration:line-through; color:#999; }
   button.mini { padding:2px 8px; font-size:12px; margin-left:4px; background:#f1f3f5; color:#333; border:1px solid #ced4da; }
   .totais { width:100%; border-collapse:collapse; font-size:13px; margin:10px 0 4px; background:#fff; }
-  .totais th, .totais td { border:1px solid #dfe3e8; padding:5px 8px; text-align:right; white-space:nowrap; }
+  .totais th, .totais td { border:1px solid #dfe3e8; padding:5px 6px; text-align:right; white-space:nowrap; }
   .totais th:first-child, .totais td:first-child { text-align:left; }
   .totais thead th { background:#f1f4f7; font-weight:600; }
   .totais tr.tot td { font-weight:700; background:#f7f9fb; }
@@ -526,11 +526,11 @@ function desenharTotais(c) {
   var T = c.totais, el = $('totaisCard');
   if (!T || !(c.pecas || []).length) { mostrar('totaisCard', false); return; }
   var v = function (x) { return x ? fmtValor(x) : '—'; };
-  var linha = function (rot, g, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + rot + '</td><td>' + v(g.cot) + '</td><td>' + v(g.aut) + '</td><td>' + v(g.comp) + '</td><td class="destaque">' + v(g.valor) + '</td></tr>'; };
-  var h = '<table class="totais"><thead><tr><th>Totais do card</th><th>Menor cotação</th><th>Autorizado</th><th>Comprado</th><th>Valor do pedido</th></tr></thead><tbody>';
-  if (T.temSeg) h += linha('🛡️ Seguradora', T.seg);
-  if (T.temPart) h += linha('👤 Particular', T.part);
-  h += linha('Total seg + part', T.tot, 'tot') + '</tbody></table>'
+  var linha = function (rot, g, cls) { return '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + rot + '</td><td class="destaque">' + v(g.valor) + '</td><td>' + v(g.aut) + '</td><td>' + v(g.comp) + '</td><td>' + v(g.cot) + '</td></tr>'; };
+  var h = '<table class="totais"><thead><tr><th>Totais</th><th>Valor do pedido</th><th>Autorizado</th><th>Comprado</th><th>Menor cotação</th></tr></thead><tbody>';
+  if (T.temSeg) h += linha('🛡️ Seg.', T.seg);
+  if (T.temPart) h += linha('👤 Part.', T.part);
+  h += linha('Seg + part', T.tot, 'tot') + '</tbody></table>'
     + '<div class="dica" style="margin-bottom:8px">Valor do pedido = o comprado de cada peça já comprada; senão o autorizado (é o que vai para os campos Total seguradora / Total particular / Total seg+part do card).</div>';
   el.innerHTML = h; mostrar('totaisCard', true);
 }
