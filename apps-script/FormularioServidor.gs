@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -261,6 +261,7 @@ function vdf_montarCard_(c, lista, me) {
     podeAutorizar: vdf_podeAutorizar_(me, c, an),
     podeDevolver: vdf_podeDevolver_(me, c, an),
     fornecedores: fo_paraFormulario_(),
+    recebiveis: (function () { try { return vdf_itensRecebimento_(c).map(function (i) { i.dueTxt = i.due ? vd_dataCurta_(i.due) : ''; return i; }); } catch (e) { return []; } })(),
     particular: vdf_ehParticular_(c, an),
     pagas: (function () {
       try {

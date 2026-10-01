@@ -212,6 +212,7 @@
       <button type="button" class="aba marcada" id="abaCot" onclick="mostrarAba('cot')">💰 Cotação</button>
       <button type="button" class="aba oculto" id="abaAut" onclick="mostrarAba('aut')">✅ Autorizar</button>
       <button type="button" class="aba" id="abaCompra" onclick="mostrarAba('compra')">🛒 Compra</button>
+      <button type="button" class="aba oculto" id="abaRec" onclick="mostrarAba('rec')">📦 Recebimento</button>
     </div>
 
     <div id="painelCot">
@@ -258,6 +259,26 @@
       <div class="rodape" style="margin-bottom:30px">
         <button type="button" class="principal" id="btnCompra" onclick="enviarCompra()">Enviar compra</button>
         <span class="carregando oculto" id="enviandoCompra">Enviando…</span>
+      </div>
+    </div>
+
+    <div id="painelRec" class="oculto">
+      <section>
+        <h2>Recebimento — marque o que chegou</h2>
+        <div class="dica" style="margin-bottom:10px">Marque cada peça que chegou, confira a data e, se precisar, escreva uma observação e anexe foto ou nota <b>da peça</b>. A chegada é comparada com a previsão (dias úteis) e fica registrada no card. Quando tudo chegar, o card segue sozinho.</div>
+        <div id="recItens"></div>
+      </section>
+      <section>
+        <h2>Nota fiscal ou fotos de várias peças</h2>
+        <div class="dica" style="margin-bottom:8px">Uma nota (ou foto) que vale para mais de uma peça: anexe aqui e marque a quais peças ela se refere.</div>
+        <input type="file" id="recArqGeral" multiple accept="image/*,application/pdf,.xml" onchange="recAnexar(this, null)">
+        <div id="recGerais" style="margin-top:8px"></div>
+        <label for="recGeral" style="margin-top:12px">Observação geral (opcional)</label>
+        <textarea id="recGeral" rows="2" placeholder="Ex.: caixa amassada; faltou parafuso"></textarea>
+      </section>
+      <div class="rodape" style="margin-bottom:30px">
+        <button type="button" class="principal" id="btnRec" onclick="enviarRecebimento()">📦 Registrar recebimento</button>
+        <span class="carregando oculto" id="enviandoRec">Enviando…</span>
       </div>
     </div>
   </div>
@@ -466,16 +487,19 @@ function telaComprador(c) {
   montarCotacao(c); montarAutorizacao(c); montarCompra(c);
   mostrar('btnDev', c.podeDevolver !== false);
   mostrar('abaAut', !!c.podeAutorizar);
+  mostrar('abaRec', (c.recebiveis || []).length > 0); montarRecebimento(c);
   if (!COMPRADOR) {
     $('btnCompra').disabled = true;
     $('btnCompra').insertAdjacentHTML('afterend', '<span class="dica ruim">Só o setor de compras registra compra — sua conta pode lançar cotação.</span>');
   }
   var temCot = c.cotacoes && c.cotacoes.cotacoes.length, L = (c.lista || '').toUpperCase();
-  mostrarAba(temCot && c.podeAutorizar && /PENDENTE AUTORIZAR|COTA[ÇC][ÃA]O FINALIZADA/.test(L) ? 'aut' : (temCot && L.indexOf('AUTORIZADO') === 0 ? 'compra' : 'cot'));
+  var temRec = (c.recebiveis || []).some(function (i) { return !i.ok; });
+  mostrarAba(temRec && /FALTA CHEGAR/.test(L) ? 'rec' : (temCot && c.podeAutorizar && /PENDENTE AUTORIZAR|COTA[ÇC][ÃA]O FINALIZADA/.test(L) ? 'aut' : (temCot && L.indexOf('AUTORIZADO') === 0 ? 'compra' : 'cot')));
 }
 function mostrarAba(a) {
   mostrar('painelCot', a === 'cot'); mostrar('painelAut', a === 'aut'); mostrar('painelCompra', a === 'compra');
   $('abaCot').classList.toggle('marcada', a === 'cot'); $('abaAut').classList.toggle('marcada', a === 'aut'); $('abaCompra').classList.toggle('marcada', a === 'compra');
+  mostrar('painelRec', a === 'rec'); $('abaRec').classList.toggle('marcada', a === 'rec');
   mostrar('erroComprador', false);
 }
 
@@ -574,6 +598,84 @@ function enviarAutorizacao() {
     if (!r.ok) return errosComprador(r.faltas);
     sucesso('✅ Compra autorizada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s), total ' + esc(fmtValor(r.total)) + '.' + (r.semAut ? '<br>' + r.semAut + ' peça(s) sem autorização.' : '') + (r.aguarda && r.aguarda.length ? '<br>⏳ Ainda falta autorizar: ' + esc(r.aguarda.join('; ')) + '.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
   }).catch(function (x) { $('btnAut').disabled = false; mostrar('enviandoAut', false); errosComprador([x.message]); });
+}
+
+/* ---------- recebimento (qualquer membro do quadro) ---------- */
+var REC_ANEXOS = [];   // [{fileId, nome, ids:[idItem]}]
+function hojeISO() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+function montarRecebimento(c) {
+  REC_ANEXOS = []; $('recGerais').innerHTML = '';
+  var box = $('recItens'); box.innerHTML = '';
+  var pend = (c.recebiveis || []).filter(function (i) { return !i.ok; }), ja = (c.recebiveis || []).filter(function (i) { return i.ok; });
+  if (!pend.length) box.innerHTML = '<div class="dica">Nada pendente de chegada neste card.</div>';
+  var grupo = '';
+  pend.forEach(function (it) {
+    if (it.lista !== grupo) {
+      grupo = it.lista;
+      var g = document.createElement('div'); g.className = 'grupo' + (grupo === 'FORNECIMENTO' ? ' part' : '');
+      g.textContent = grupo === 'PAGAS' ? '🛒 Compradas pela oficina (PAGAS)' : '📦 Fornecidas pela seguradora (FORNECIMENTO)';
+      box.appendChild(g);
+    }
+    var d = document.createElement('div'); d.className = 'item'; d.dataset.id = it.id;
+    d.innerHTML = '<div class="item-topo"><label class="chip"><input type="checkbox" class="r-ok" onchange="this.parentNode.classList.toggle(\'marcado\', this.checked)"> Chegou</label> <strong style="margin-left:6px">' + esc(it.nome) + '</strong></div>'
+      + '<div class="grade" style="margin-top:6px"><div><label>Data da chegada</label><input type="date" class="r-data" value="' + hojeISO() + '" max="' + hojeISO() + '"></div>'
+      + '<div><label>Previsão</label><div class="dica" style="padding-top:10px">' + (it.dueTxt ? esc(it.dueTxt) : 'sem previsão') + '</div></div>'
+      + '<div class="inteiro"><label>Observação da peça (opcional)</label><input type="text" class="r-obs" placeholder="Ex.: veio sem suporte; cor diferente"></div>'
+      + '<div class="inteiro"><label>Foto / nota só desta peça (opcional)</label><input type="file" multiple accept="image/*,application/pdf,.xml" onchange="recAnexar(this, \'' + it.id + '\')"><div class="dica r-arqs"></div></div></div>';
+    box.appendChild(d);
+  });
+  if (ja.length) {
+    var j = document.createElement('div'); j.className = 'dica'; j.style.marginTop = '10px';
+    j.innerHTML = '✔ Já recebidas: ' + ja.map(function (i) { return esc(i.nome.split(' - ')[0]); }).join(' · ');
+    box.appendChild(j);
+  }
+}
+function recAnexar(inp, idItem) {
+  var files = Array.prototype.slice.call(inp.files || []);
+  var dicaEl = idItem ? inp.parentNode.querySelector('.r-arqs') : $('recGerais');
+  (function prox() {
+    var f = files.shift(); if (!f) { inp.value = ''; return; }
+    if (f.size > 15 * 1024 * 1024) { errosComprador(['Arquivo muito grande (máx. 15 MB): ' + f.name]); return prox(); }
+    var aviso = document.createElement('div'); aviso.textContent = '⏳ enviando ' + f.name + '…'; dicaEl.appendChild(aviso);
+    lerArquivo(f).then(function (b64) { return chamar('vdf_subirArquivo', TOKEN, b64, f.type || 'application/octet-stream', f.name); }).then(function (r) {
+      var a = { fileId: r.fileId, nome: f.name, ids: idItem ? [idItem] : [] }; REC_ANEXOS.push(a);
+      if (idItem) aviso.textContent = '📎 ' + f.name;
+      else { aviso.remove(); desenharAnexoGeral(a); }
+      prox();
+    }).catch(function (e) { aviso.textContent = '❌ ' + f.name + ': ' + e.message; prox(); });
+  })();
+}
+function desenharAnexoGeral(a) {
+  var pend = ((CARD && CARD.recebiveis) || []).filter(function (i) { return !i.ok; });
+  var d = document.createElement('div'); d.className = 'item';
+  d.innerHTML = '<div><b>📎 ' + esc(a.nome) + '</b> — refere-se a:</div><div class="chips" style="margin-top:6px">' + pend.map(function (i) {
+    return '<label class="chip"><input type="checkbox" value="' + esc(i.id) + '" onchange="recMarcarAnexo(this)"> ' + esc(i.nome.split(' - ')[0]) + '</label>';
+  }).join('') + '</div>';
+  d.dataset.fileId = a.fileId;
+  $('recGerais').appendChild(d);
+}
+function recMarcarAnexo(cb) {
+  cb.parentNode.classList.toggle('marcado', cb.checked);
+  var fid = cb.closest('.item').dataset.fileId, a = REC_ANEXOS.filter(function (x) { return x.fileId === fid; })[0];
+  if (!a) return;
+  a.ids = Array.prototype.filter.call(cb.closest('.chips').querySelectorAll('input'), function (i) { return i.checked; }).map(function (i) { return i.value; });
+}
+function enviarRecebimento() {
+  mostrar('erroComprador', false);
+  var itens = [];
+  Array.prototype.forEach.call($('recItens').querySelectorAll('.item'), function (d) {
+    if (!d.querySelector('.r-ok').checked) return;
+    itens.push({ id: d.dataset.id, data: d.querySelector('.r-data').value, obs: d.querySelector('.r-obs').value.trim() });
+  });
+  if (!itens.length && !REC_ANEXOS.length) return errosComprador(['Marque pelo menos uma peça que chegou (ou anexe a nota/foto).']);
+  var semPeca = REC_ANEXOS.filter(function (a) { return !a.ids.length; });
+  if (semPeca.length) return errosComprador(['Marque a quais peças se refere: ' + semPeca.map(function (a) { return a.nome; }).join(', ')]);
+  $('btnRec').disabled = true; mostrar('enviandoRec', true);
+  chamar('vdf_salvarRecebimento', TOKEN, { shortLink: CARD_EDICAO, itens: itens, anexos: REC_ANEXOS, geral: $('recGeral').value.trim() }).then(function (r) {
+    $('btnRec').disabled = false; mostrar('enviandoRec', false);
+    if (!r.ok) return errosComprador(r.faltas);
+    sucesso('📦 Recebimento registrado no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s)' + (r.anexos ? ', ' + r.anexos + ' anexo(s)' : '') + '.' + (r.faltam ? '<br>Ainda falta chegar ' + r.faltam + ' item(ns).' : '<br>✅ Todas as peças chegaram.') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+  }).catch(function (e) { $('btnRec').disabled = false; mostrar('enviandoRec', false); errosComprador([e.message]); });
 }
 
 function montarCotacao(c) {
