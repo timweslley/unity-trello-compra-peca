@@ -172,6 +172,17 @@ function tst_cenario6() {
   Logger.log('Tracker: a receber → ' + c.recebiveis.filter(function (i) { return !i.ok; }).map(function (i) { return i.lista + ': ' + i.nome; }).join(' | '));
 }
 
+/* 7) MONTANA — compra do parachoque SEM autorização: sem motivo é recusada; com motivo passa e fica no card */
+function tst_cenario7() {
+  var tk = tst_tk_(), c = vdf_carregarCard(tk, TST.MONTANA);
+  var q = tst_barata_(c, 'PARACHOQUE TRAS');
+  var sem = vdf_salvarCompra(tk, { shortLink: TST.MONTANA, compras: [{ chave: q.chave, fornecedor: q.fornecedor, valor: q.valor, dias: 4 }] });
+  Logger.log((sem.ok ? '❌ aceitou sem motivo' : '✅ recusou sem motivo: ' + sem.faltas.join(' | ')));
+  tst_comMencoesSoMinhas_(function () {
+    tst_log_('Montana: compra fora da autorização com motivo', vdf_salvarCompra(tk, { shortLink: TST.MONTANA, compras: [{ chave: q.chave, fornecedor: q.fornecedor, valor: q.valor, dias: 4, just: 'cliente com pressa — diretoria aprovou por telefone' }] }));
+  });
+}
+
 function tst_fluxoCompleto() {
   ['tst_cenario1', 'tst_cenario2', 'tst_cenario3', 'tst_cenario4', 'tst_cenario5', 'tst_cenario6'].forEach(function (f) {
     try { globalThis[f](); } catch (e) { Logger.log('❌ ' + f + ': ' + e.message); }
