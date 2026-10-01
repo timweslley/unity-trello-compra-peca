@@ -78,3 +78,124 @@ function st_executar_() {
   if (desfeitos) console.log('trava de colunas: ' + desfeitos + ' movimento(s) desfeito(s)');
   return desfeitos;
 }
+
+/* ============================ PRAZOS POR ETAPA (SLA) ============================
+ * Comentário mencionando o responsável quando a etapa passa do prazo (dias úteis):
+ *   EM COTAÇÃO há 2+ dias úteis                        -> compras        (SLA_COTAR, padrão comprasunity)
+ *   PENDENTE AUTORIZAR / COTAÇÃO FINALIZADA há 2+ d.u.  -> quem autoriza  (peças da seguradora: SLA_AUTORIZAR,
+ *                                                         padrão timweslley,comercialunity; peças particulares: o consultor)
+ *   peça comprada/FO sem recebimento 1 d.u. depois da previsão -> compras (SLA_RECEBER, padrão comprasunity)
+ * O aviso se repete a cada 2 dias úteis enquanto continuar atrasado. Roda de hora em hora, em dia útil,
+ * das 8h às 18h. Prazos: SLA_DIAS_COTAR, SLA_DIAS_AUTORIZAR, SLA_DIAS_RECEBER. Desligar: SLA_LIGADO = NAO.
+ */
+var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, LIMITE_MS: 40 * 1000 };
+
+function sla_dia_(d) { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); }
+function sla_mais_(d, n) { d = sla_dia_(d); var g = 0; while (n > 0 && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) n--; } return d; }
+function sla_users_(prop, padrao) { return String(vd_prop_(prop, padrao)).split(/[,;\s]+/).filter(String); }
+function sla_mencao_(us) { return us.filter(function (u, i) { return u && us.indexOf(u) === i; }).map(function (u) { return '@' + u; }).join(' '); }
+
+/** Já avisou desta pendência há menos de 2 dias úteis? (chave por card+etapa+entrada ou por item+previsão) */
+function sla_podeAvisar_(props, chave, hoje) {
+  var ult = props.getProperty(chave);
+  if (!ult) return true;
+  return sla_mais_(new Date(ult), SLA.REPETIR_DU) <= hoje;
+}
+
+function sla_executar_(forcar) {
+  if (vd_prop_('SLA_LIGADO', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var props = PropertiesService.getScriptProperties();
+  var agora = new Date(), hoje = sla_dia_(agora);
+  var hora = +Utilities.formatDate(agora, 'America/Sao_Paulo', 'H');
+  if (!forcar) {
+    if (!du_ehUtil_(hoje) || hora < 8 || hora >= 18) return 0;
+    if (Date.now() - (+props.getProperty('SLA_ULTIMA') || 0) < SLA.INTERVALO_MS) return 0;
+  }
+  props.setProperty('SLA_ULTIMA', String(Date.now()));
+  var fim = Date.now() + SLA.LIMITE_MS, n = 0;
+  var board = vd_board_(), ls = vd_listas_(board);
+  var etapas = [
+    { lista: 'EM COTAÇÃO', dias: +vd_prop_('SLA_DIAS_COTAR', 2), quem: 'cotar' },
+    { lista: 'PENDENTE AUTORIZAR', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' },
+    { lista: 'COTAÇÃO FINALIZADA', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' }
+  ];
+  // 1) tempo parado na etapa
+  etapas.forEach(function (et) {
+    var idL = ls[et.lista];
+    if (!idL || Date.now() > fim) return;
+    vd_api_('/lists/' + idL + '/cards', { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels' } }).forEach(function (c) {
+      if (Date.now() > fim) return;
+      if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '')) return;
+      var acs = vd_api_('/cards/' + c.id + '/actions', { cru: true, query: { filter: 'updateCard:idList,createCard,copyCard,moveCardToBoard', limit: 20 } }) || [];
+      var ent = null;
+      for (var i = 0; i < acs.length && !ent; i++) {
+        var a = acs[i];
+        if (a.type !== 'updateCard' || (a.data && a.data.listAfter && a.data.listAfter.id === idL)) ent = a.date;
+      }
+      if (!ent) ent = new Date(1000 * parseInt(c.id.substring(0, 8), 16)).toISOString();
+      var limite = sla_mais_(ent, et.dias);
+      if (hoje < limite) return;
+      var chave = 'SLA_' + c.id + '_' + idL + '_' + ent.slice(0, 16);
+      if (!sla_podeAvisar_(props, chave, hoje)) return;
+      var dias = 0, d = sla_dia_(ent), g = 0;
+      while (d < hoje && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) dias++; }
+      var mencao, txt;
+      if (et.quem === 'cotar') {
+        mencao = sla_mencao_(sla_users_('SLA_COTAR', 'comprasunity'));
+        txt = '⏰ Card em **EM COTAÇÃO** há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + '). Lançar a cotação pelo anexo **💰 Cotação / Compra**.';
+      } else {
+        var an = vd_analisar_(c.desc, c.name), criador = '';
+        try { criador = vd_criador_(c.id); } catch (e) {}
+        var auts = []; try { auts = vd_autorizacoesDaDescricao_(c.desc, an.pecas); } catch (e) {}
+        var falta = an.pecas.filter(function (p) { return !auts.some(function (x) { return x.chave === vd_chavePeca_(p); }); });
+        var seg = falta.filter(function (p) { return !vdf_pecaParticular_(p, c, an); }), part = falta.filter(function (p) { return vdf_pecaParticular_(p, c, an); });
+        var us = [];
+        if (seg.length) us = us.concat(sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity'));
+        part.forEach(function (p) { us.push(p.partPor || criador); });
+        if (!us.length) return;
+        mencao = sla_mencao_(us);
+        txt = '⏰ Cotação aguardando autorização há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + ')' +
+          (seg.length && part.length ? ' — peças da seguradora: diretoria; peças particulares: consultor' : '') + '. Autorizar pelo anexo **💰 Cotação / Compra** → aba ✅ Autorizar.';
+      }
+      try {
+        vd_comentar_(c, mencao + ' ' + txt);
+        ev_registrar_('ALERTA PRAZO', c, 'robô', null, { detalhe: et.lista + ' há ' + dias + ' d.u. — ' + mencao });
+        props.setProperty(chave, hoje.toISOString()); n++;
+      } catch (e) { console.log('sla: ' + e); }
+    });
+  });
+  // 2) peça comprada / FO sem recebimento 1 d.u. depois da previsão
+  var folga = +vd_prop_('SLA_DIAS_RECEBER', 1);
+  var cards = vd_api_('/boards/' + board + '/cards', { cru: true, query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checklist_fields: 'name', checkItem_fields: 'name,state,due' } });
+  cards.forEach(function (c) {
+    if (Date.now() > fim) return;
+    var atrasados = { PAGAS: [], FO: [] }, chaves = [];
+    (c.checklists || []).forEach(function (k) {
+      var tipo = /^PAGAS/i.test(String(k.name || '').trim()) ? 'PAGAS' : (/FORNECIMENTO/i.test(k.name || '') ? 'FO' : '');
+      if (!tipo) return;
+      (k.checkItems || []).forEach(function (it) {
+        if (it.state === 'complete' || !it.due) return;
+        if (hoje <= sla_mais_(it.due, folga)) return;
+        var ch = 'SLA_I_' + it.id + '_' + String(it.due).slice(0, 10);
+        if (!sla_podeAvisar_(props, ch, hoje)) return;
+        atrasados[tipo].push(it.name.split(/\s+-\s+/)[0] + ' (previsão ' + vd_dataCurta_(it.due) + ')');
+        chaves.push(ch);
+      });
+    });
+    if (!chaves.length) return;
+    var partes = [];
+    if (atrasados.PAGAS.length) partes.push('verificar compra do item ' + atrasados.PAGAS.join(', '));
+    if (atrasados.FO.length) partes.push('verificar prazo do item ' + atrasados.FO.join(', '));
+    var mencao = sla_mencao_(sla_users_('SLA_RECEBER', 'comprasunity'));
+    try {
+      vd_comentar_(c, mencao + ' ⏰ Peça sem recebimento informado depois da previsão — ' + partes.join('; ') + '. Se já chegou, registrar na aba **📦 Recebimento**.');
+      ev_registrar_('ALERTA PRAZO', c, 'robô', null, { detalhe: 'recebimento: ' + partes.join('; ') });
+      chaves.forEach(function (ch) { props.setProperty(ch, hoje.toISOString()); }); n++;
+    } catch (e) { console.log('sla/receb: ' + e); }
+  });
+  if (n) console.log('prazos por etapa: ' + n + ' aviso(s)');
+  return n;
+}
+
+/** Roda os avisos de prazo agora (ignora horário e intervalo) — teste no editor. */
+function sla_rodarAgora() { Logger.log('avisos de prazo: ' + sla_executar_(true)); }

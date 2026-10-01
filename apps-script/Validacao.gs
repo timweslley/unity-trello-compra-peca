@@ -1413,6 +1413,7 @@ function validarDadosPedido() {
       try { st_executar_(); } catch (e) { console.log('trava de colunas: ' + e); }   // e movimento manual fora do fluxo
       var out = vd_executarNucleo_();
       try { pz_executar_(); } catch (e) { console.log('prazos: ' + e); }
+      try { sla_executar_(); } catch (e) { console.log('prazos por etapa: ' + e); }
       try { rel_instalarSeFaltar_(); } catch (e) { console.log('relatório: ' + e); }
       try { vd_garantirLinks_(); } catch (e) { console.log('links: ' + e); }
       return out;
