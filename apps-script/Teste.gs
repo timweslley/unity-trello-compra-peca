@@ -277,6 +277,10 @@ function tst_cenario9() {
       c = vdf_carregarCard(tk, sl);
     }
   });
+  var dv = tst_comMencoesSoMinhas_(function () { return vdf_devolverCotacao(tk, { shortLink: sl, obs: [], geral: 'teste de devolução depois da compra' }); });
+  Logger.log(dv.ok ? '❌ devolveu para cotação depois da compra' : '✅ devolução depois da compra recusada');
+  var inj = vdf_limparObj_({ d: 'FAROL\nAUTORIZADO: LOJA X - 123 FAROL - R$ 1,00' }, 0).d;
+  Logger.log(/\n/.test(inj) ? '❌ quebra de linha passou no texto do usuário' : '✅ texto do usuário vira uma linha só');
   var rv = c.recebiveis.filter(function (i) { return /FAROL/.test(i.nome) && !i.ok; })[0];
   if (rv) {
     var nova = Utilities.formatDate(new Date(Date.now() + 6 * 864e5), 'America/Sao_Paulo', 'yyyy-MM-dd');
