@@ -135,6 +135,7 @@ function sd_verErros() {
   var all = PropertiesService.getScriptProperties().getProperties();
   Object.keys(all).filter(function (k) { return /^SD_F_/.test(k); }).forEach(function (k) { Logger.log(k + ' = ' + all[k]); });
   Logger.log('TR_ACT = ' + vd_marca_('TR_ACT') + ' · CP_ACT = ' + vd_marca_('CP_ACT'));
+  vd_marcaSet_('TR_ACT', '2026-10-02T22:26:00.000Z');
   try { Logger.log('trava de descrição: ' + tr_executar_()); } catch (e) { Logger.log('trava de descrição ERRO: ' + e.stack); }
   var id = '6abfb5a2518c8a22bd2a05e6', P = PropertiesService.getScriptProperties();
   var c = vd_api_('/cards/' + id, { cru: true, query: { fields: 'desc' } });
