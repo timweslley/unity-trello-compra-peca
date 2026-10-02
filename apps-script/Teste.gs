@@ -263,6 +263,12 @@ function tst_cenario9() {
     if (!c.pagas.length) {
       var para = c.autorizadas.filter(function (a) { return a.chave === tst_peca_(c, 'PARACHOQUE').chave; })[0];
       var far = c.autorizadas.filter(function (a) { return a.chave === tst_peca_(c, 'FAROL').chave; })[0];
+      // sem a etiqueta ORDEM AUTORIZADA a compra é recusada
+      var semEt = vdf_salvarCompra(tk, { shortLink: sl, compras: [{ chave: far.chave, fornecedor: far.fornecedor, valor: far.valor, dias: 3 }] });
+      Logger.log(semEt.ok ? '❌ compra sem etiqueta ORDEM AUTORIZADA passou' : '✅ compra sem etiqueta ORDEM AUTORIZADA recusada');
+      var etq = vd_api_('/boards/' + vd_board_() + '/labels', { query: { fields: 'name', limit: 100 } }).filter(function (l) { return /ORDEM AUTORIZADA/i.test(l.name || ''); })[0];
+      var cid = vd_api_('/cards/' + sl, { query: { fields: 'id' } }).id;
+      if (etq) vd_api_('/cards/' + cid + '/idLabels', { method: 'post', payload: { value: etq.id } });
       var sem = vdf_salvarCompra(tk, { shortLink: sl, compras: [{ chave: para.chave, fornecedor: 'METROSUL', valor: 480, dias: 1 }] });
       Logger.log(sem.ok ? '❌ compra fora da autorização passou sem motivo' : '✅ compra fora da autorização sem motivo recusada');
       tst_log_('Novo: compra (parachoque fora da autorização, com motivo)', vdf_salvarCompra(tk, { shortLink: sl, compras: [

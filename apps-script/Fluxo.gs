@@ -71,7 +71,8 @@ function st_executar_() {
       vd_api_('/cards/' + cardId, { method: 'put', payload: { idList: de, pos: 'top' } });
       desfeitos++;
       var quem = a.memberCreator ? a.memberCreator.username : '';
-      vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 ' + motivo + '\nO card voltou para **' + nDe + '**.');
+      var orig = ''; try { orig = es_autor_(cardId); } catch (e) {}
+      vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 ' + motivo + orig + '\nO card voltou para **' + nDe + '**.');
       ev_registrar_('MOVIMENTO DESFEITO', c, quem || '?', null, { detalhe: nDe + ' → ' + nPara + ' (à mão) — voltou para ' + nDe });
     } catch (e) { console.log('trava de colunas: ' + e); }
   });

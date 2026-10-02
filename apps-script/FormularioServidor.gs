@@ -239,6 +239,12 @@ function vdf_buscarPlaca(token, placa) {
   }).map(function (c) { return { shortLink: c.shortLink, nome: c.name, lista: nomeLista[c.idList] || '' }; });
 }
 
+/** Compra só com a etiqueta ORDEM AUTORIZADA no card (ordem de serviço liberada). */
+var VDF_ETIQ_ORDEM = 'ORDEM AUTORIZADA';
+function vdf_temOrdemAut_(card) {
+  return (card.labels || []).some(function (l) { return vd_semAcento_(String(l.name || '')).toUpperCase().indexOf(VDF_ETIQ_ORDEM) >= 0; });
+}
+
 function vdf_ehPosCotacao_(nomeLista) {
   return VD.LISTAS_FORA.indexOf(vd_nomeColuna_(nomeLista)) < 0;
 }
@@ -286,7 +292,7 @@ function vdf_montarCard_(c, lista, me) {
     fornecedores: fo_paraFormulario_(),
     recebiveis: (function () { try { return vdf_itensRecebimento_(c).map(function (i) { i.dueTxt = i.due ? vd_dataCurta_(i.due) : ''; i.dueIso = i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : ''; return i; }); } catch (e) { return []; } })(),
     particular: vdf_ehParticular_(c, an),
-    diretoria: vdf_ehAutorizador_(me), podeComprar: vdf_podeComprar_(me),
+    diretoria: vdf_ehAutorizador_(me), podeComprar: vdf_podeComprar_(me), ordemAut: vdf_temOrdemAut_(c),
     totais: (function () { try { return vd_totais_(c); } catch (e) { return null; } })(),
     pagas: (function () {
       try {
@@ -957,6 +963,7 @@ function vdf_salvarCompra(token, p) {
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro — não recebe cotação nem compra.'] };
+  if (!vdf_temOrdemAut_(card)) return { ok: false, faltas: ['🏷️ FALTA A ETIQUETA ORDEM AUTORIZADA — compra só com a ordem de serviço autorizada. Coloque a etiqueta no card e envie de novo.'] };
   var an = vd_analisar_(card.desc, card.name);
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });

@@ -971,8 +971,12 @@ function montarCompra(c) {
   });
   totalCompra();
   var semNenhuma = !(c.autorizadas || []).length;
-  $('compraAviso').innerHTML = semNenhuma ? '⚠️ Este card ainda <b>não tem autorização da diretoria</b>. Se registrar a compra agora, ela fica marcada no card como <b>fora da autorização</b>.' : '';
-  mostrar('compraAviso', semNenhuma);
+  var semOrdem = c.ordemAut === false;
+  $('compraAviso').innerHTML = (semOrdem ? '🏷️ <b>FALTA A ETIQUETA ORDEM AUTORIZADA</b> — a compra só é registrada com a ordem de serviço autorizada. Coloque a etiqueta no card.' : '')
+    + (semOrdem && semNenhuma ? '<br>' : '')
+    + (semNenhuma ? '⚠️ Este card ainda <b>não tem autorização da diretoria</b>. Se registrar a compra agora, ela fica marcada no card como <b>fora da autorização</b>.' : '');
+  mostrar('compraAviso', semNenhuma || semOrdem);
+  var bc = $('btnCompra'); if (bc) bc.disabled = semOrdem;
 }
 /* ---------- previsão depois da autorização / compra: só com justificativa ---------- */
 function botaoPrev(tipo, ref, atual, campo) {

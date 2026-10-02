@@ -77,6 +77,7 @@ function vd_api_(caminho, opts, tokenUsuario) {
   if (opts.multipart) {
     params.payload = opts.multipart;
   } else if (opts.payload) {
+    if (params.method === 'post' && /\/actions\/comments/.test(caminho) && opts.payload.text) { try { opts.payload.text = es_filtrarMencoes_(opts.payload.text); } catch (e) {} }
     params.contentType = 'application/json';
     params.payload = JSON.stringify(opts.payload);
   }
@@ -88,7 +89,7 @@ function vd_api_(caminho, opts, tokenUsuario) {
     throw e;
   }
   // escrita oficial em checklist: licença para a trava de checklist não desfazer
-  if (params.method !== 'get' && /checkItem|checklists/i.test(caminho)) { try { ck_licenca_(caminho.split('?')[0], opts.payload); } catch (e) {} }
+  if (params.method !== 'get' && !opts.semLicenca && /checkItem|checklists/i.test(caminho)) { try { ck_licenca_(caminho.split('?')[0], opts.payload); } catch (e) {} }
   var t = r.getContentText();
   var out = t ? JSON.parse(t) : null;
   if (params.method === 'get' && !opts.cru && t && t.indexOf('"desc"') >= 0) {
@@ -828,7 +829,7 @@ function tr_executar_() {
     if (agora - (+(todas[chaveAv] || 0)) > TR.AVISO_MS) {
       try {
         vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 **ALTERAÇÃO NÃO PERMITIDA** — a descrição só muda pelo formulário; o texto voltou ao original. ' +
-          'Use **' + VD_LINK.EDITAR + '** (peças/carro) ou **' + VD_LINK.COMPRA + '**.');
+          'Use **' + VD_LINK.EDITAR + '** (peças/carro) ou **' + VD_LINK.COMPRA + '**.' + (function () { try { return es_autor_(c.id); } catch (e) { return ''; } })());
       } catch (e) {}
       props.setProperty(chaveAv, String(agora));
     }

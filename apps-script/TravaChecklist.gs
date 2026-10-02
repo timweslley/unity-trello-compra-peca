@@ -152,7 +152,8 @@ function ck_executar_() {
   Object.keys(avisos).forEach(function (id) {
     var av = avisos[id];
     try {
-      vd_comentar_({ id: id }, (av.quem ? '@' + av.quem + ' ' : '') + '🔒 **ALTERAÇÃO NÃO PERMITIDA** — checklist só muda pelo formulário (✔ de chegada: aba 📦 Recebimento). Desfeito:\n' +
+      var orig = ''; try { orig = es_autor_(id); } catch (e) {}
+      vd_comentar_({ id: id }, (av.quem ? '@' + av.quem + ' ' : '') + '🔒 **ALTERAÇÃO NÃO PERMITIDA** — checklist só muda pelo formulário (✔ de chegada: aba 📦 Recebimento).' + orig + ' Desfeito:\n' +
         av.itens.map(function (t) { return '- ' + t; }).join('\n'));
     } catch (e) {}
   });

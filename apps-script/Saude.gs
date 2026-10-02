@@ -6,8 +6,10 @@
  *  - sd_diario (acionador próprio, todo dia ~7h50): confere se o ciclo e o log de descrição do quadro
  *    principal estão rodando, se os acionadores existem e se o token do Trello responde.
  *    Só manda e-mail se achar problema. Rodar na mão: sd_diario().
+ *  - sd_backupSemanal_ (dentro do diário, toda segunda): cópia da planilha (TRAVA, EVENTOS,
+ *    FORNECEDORES, CHECKLISTS) na pasta "Backups" ao lado dela; guarda as 8 últimas. Na mão: sd_backupAgora().
  */
-var SD = { EMAIL: 'weslley.santos@unitycs.com.br', FALHAS: 5, REPETE_MS: 6 * 3600 * 1000 };
+var SD = { EMAIL: 'weslley.santos@unitycs.com.br', FALHAS: 5, REPETE_MS: 6 * 3600 * 1000, BACKUPS: 8, PASTA: 'Backups' };
 
 function sd_parte_(nome, fn) {
   var p = PropertiesService.getScriptProperties(), k = 'SD_F_' + nome;
@@ -56,8 +58,36 @@ function sd_diario() {
     try { var est = JSON.parse(p.getProperty(k)); if (est.n >= SD.FALHAS) prob.push('"' + k.slice(5) + '" falhando (' + est.n + 'x): ' + est.erro); } catch (e) {}
   });
   Object.keys(p.getProperties()).filter(function (k) { return k.indexOf('FALHAS_') === 0; }).forEach(function (k) { prob.push('"' + k.slice(7) + '" com ' + p.getProperty(k) + ' falha(s) seguida(s)'); });
+  try { sd_backupSemanal_(); } catch (e) { prob.push('backup semanal da planilha falhou: ' + e.message); }
   Logger.log(prob.length ? prob.join('\n') : 'tudo ok');
   if (prob.length) MailApp.sendEmail(SD.EMAIL, 'ALERTA Trello: conferência diária achou ' + prob.length + ' problema(s)', prob.map(function (x) { return '- ' + x; }).join('\n') +
     '\n\nExecuções: https://script.google.com/home/projects/' + ScriptApp.getScriptId() + '/executions');
   return prob;
+}
+
+/* ---------- backup semanal da planilha ---------- */
+function sd_backupSemanal_() {
+  var p = PropertiesService.getScriptProperties();
+  var hoje = new Date(), semana = Utilities.formatDate(hoje, 'America/Sao_Paulo', 'YYYY-ww');
+  if (Utilities.formatDate(hoje, 'America/Sao_Paulo', 'u') !== '1' && p.getProperty('SD_BACKUP_SEMANA')) return '';   // só segunda (o 1º roda já)
+  if (p.getProperty('SD_BACKUP_SEMANA') === semana) return '';
+  var nome = sd_backupAgora();
+  p.setProperty('SD_BACKUP_SEMANA', semana);
+  return nome;
+}
+
+function sd_backupAgora() {
+  var ss = vd_planilhaBackup_().getParent();
+  var arq = DriveApp.getFileById(ss.getId());
+  var pai = arq.getParents().hasNext() ? arq.getParents().next() : DriveApp.getRootFolder();
+  var it = pai.getFoldersByName(SD.PASTA), pasta = it.hasNext() ? it.next() : pai.createFolder(SD.PASTA);
+  var nome = ss.getName() + ' — backup ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
+  arq.makeCopy(nome, pasta);
+  // guarda só as últimas
+  var copias = [], fs = pasta.getFiles();
+  while (fs.hasNext()) { var f = fs.next(); if (f.getName().indexOf(ss.getName() + ' — backup ') === 0) copias.push(f); }
+  copias.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+  copias.slice(SD.BACKUPS).forEach(function (f) { f.setTrashed(true); });
+  Logger.log('backup: ' + nome + ' (pasta ' + pasta.getName() + ', ' + Math.min(copias.length, SD.BACKUPS) + ' guardado(s))');
+  return nome;
 }
