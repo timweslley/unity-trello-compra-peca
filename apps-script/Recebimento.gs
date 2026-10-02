@@ -107,7 +107,7 @@ function vdf_salvarRecebimento(token, p) {
 }
 
 /**
- * Coluna certa pelo estado dos checklists PAGAS*/FORNECIMENTO* (chamado depois de toda escrita neles):
+ * Coluna certa pelo estado dos checklists PAGAS e FORNECIMENTO (chamado depois de toda escrita neles):
  *  - tudo recebido e card em FALTA CHEGAR                      -> ENCERRADO COMPRAS/FORNEC.
  *  - item pendente e card em ENCERRADO / ENTREGUES              -> FALTA CHEGAR (complemento / FO nova)
  *  - card sem peça da oficina, só FO, ainda em EM COTAÇÃO      -> FALTA CHEGAR (não tem o que cotar)
