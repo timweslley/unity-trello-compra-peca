@@ -44,12 +44,26 @@ function rc_data_(s) {
 /**
  * p = {shortLink, itens:[{id, data:'aaaa-mm-dd', obs}], anexos:[{fileId, ids:[idItem...]}], geral}
  */
+/** Recebimento: em Toledo só compras/diretoria; nas filiais (ou card sem unidade) também o consultor (qualquer membro). */
+function vdf_podeReceber_(me, card) {
+  if (vdf_podeComprar_(me)) return true;
+  var u = ev_unidade_(card);
+  if (!u) {   // sem etiqueta de unidade: campo personalizado "Unidade"
+    try {
+      var d = cf_defs_()['Unidade'], itens = vd_api_('/cards/' + card.id + '/customFieldItems', { cru: true }) || [];
+      var it = d && itens.filter(function (x) { return x.idCustomField === d.id; })[0];
+      if (it && it.idValue) Object.keys(d.opcoes).forEach(function (k) { if (d.opcoes[k] === it.idValue) u = k; });
+    } catch (e) {}
+  }
+  return !/TOLEDO/i.test(u || '');
+}
 function vdf_salvarRecebimento(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Em Toledo, o recebimento é registrado pelo setor de compras (ou pela diretoria) — sua conta: ' + me.username + '.'] };
   var todos = vdf_itensRecebimento_(card), porId = {};
   todos.forEach(function (i) { porId[i.id] = i; });
   var itens = (p.itens || []).filter(function (x) { return porId[x.id]; });

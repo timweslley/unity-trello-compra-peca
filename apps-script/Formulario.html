@@ -573,6 +573,7 @@ function telaComprador(c) {
     somenteLeitura('painelForn', 'Só o setor de compras (ou a diretoria) atualiza o fornecimento.');
   }
   if (!(c.recebiveis || []).length) somenteLeitura('painelRec', 'Ainda não há peça comprada ou de fornecimento para receber.');
+  else if (c.podeReceber === false) somenteLeitura('painelRec', 'Em Toledo, o recebimento é registrado pelo setor de compras (ou pela diretoria).');
   var temCot = c.cotacoes && c.cotacoes.cotacoes.length, L = (c.lista || '').toUpperCase();
   var temRec = (c.recebiveis || []).some(function (i) { return !i.ok; });
   mostrarAba(ABA_INICIAL || (temRec && /FALTA CHEGAR/.test(L) ? 'rec' : (temCot && c.podeAutorizar && /PENDENTE AUTORIZAR|COTA[ÇC][ÃA]O FINALIZADA/.test(L) ? 'aut' : (temCot && L.indexOf('AUTORIZADO') === 0 ? 'compra' : 'cot'))));

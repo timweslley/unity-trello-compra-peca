@@ -292,7 +292,7 @@ function vdf_montarCard_(c, lista, me) {
     fornecedores: fo_paraFormulario_(),
     recebiveis: (function () { try { return vdf_itensRecebimento_(c).map(function (i) { i.dueTxt = i.due ? vd_dataCurta_(i.due) : ''; i.dueIso = i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : ''; return i; }); } catch (e) { return []; } })(),
     particular: vdf_ehParticular_(c, an),
-    diretoria: vdf_ehAutorizador_(me), podeComprar: vdf_podeComprar_(me), ordemAut: vdf_temOrdemAut_(c),
+    diretoria: vdf_ehAutorizador_(me), podeComprar: vdf_podeComprar_(me), podeReceber: vdf_podeReceber_(me, c), ordemAut: vdf_temOrdemAut_(c),
     totais: (function () { try { return vd_totais_(c); } catch (e) { return null; } })(),
     pagas: (function () {
       try {

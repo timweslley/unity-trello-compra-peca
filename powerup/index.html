@@ -75,7 +75,7 @@
         return TAREFAS.map(function (x) { return { icon: x.icone, text: x.texto, callback: acao(x) }; });
       });
     },
-    // chips logo abaixo do título: Editar/Incluir peça + a tarefa da coluna atual
+    // chips logo abaixo do título: as 6 tarefas; a que a coluna espera vem primeiro, colorida
     'card-detail-badges': function (t) {
       return Promise.all([t.card('name'), t.list('name').catch(function () { return null; })]).then(function (r) {
         var c = r[0], lista = r[1];
@@ -83,9 +83,13 @@
           return [{ title: 'Unity', text: '➕ Novo pedido', color: 'orange', callback: abrirNovo }];
         }
         var m = tarefaDaColuna(lista && lista.name);
-        var out = [{ title: 'Peças', text: TAREFAS[0].texto, color: 'orange', callback: acao(TAREFAS[0]) }];
-        TAREFAS.forEach(function (x) { if (x.modo && x.modo === m) out.push({ title: 'Próxima tarefa', text: x.texto, color: x.cor, callback: acao(x) }); });
-        if (m === null || m === '') out.push({ title: 'Compras', text: '💰 Cotação/Compra/Recebimento', color: 'green', callback: function (t) { return abrir(t, 'compras', '💰 Cotação/Compra/Recebimento'); } });
+        var vez = TAREFAS.filter(function (x) { return x.modo && x.modo === m; })[0];
+        var out = [];
+        if (vez) out.push({ title: 'Tarefa da vez', text: vez.texto + ' ◀', color: vez.cor, callback: acao(vez) });
+        TAREFAS.forEach(function (x, i) {
+          if (x === vez) return;
+          out.push({ title: out.length ? '' : 'Tarefas', text: x.texto, color: i === 0 ? 'orange' : null, callback: acao(x) });
+        });
         return out;
       });
     },
