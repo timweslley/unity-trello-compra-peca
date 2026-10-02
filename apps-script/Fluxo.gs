@@ -202,6 +202,7 @@ function sla_executar_(forcar) {
   var cards = vd_api_('/boards/' + board + '/cards', { cru: true, query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checklist_fields: 'name', checkItem_fields: 'name,state,due' } });
   cards.forEach(function (c) {
     if (Date.now() > fim) return;
+    if (vd_legado_(c.id)) return;   // card antigo: sem avisos de prazo
     var atrasados = { PAGAS: [], FO: [] }, chaves = [];
     (c.checklists || []).forEach(function (k) {
       var tipo = /^PAGAS/i.test(String(k.name || '').trim()) ? 'PAGAS' : (/FORNECIMENTO/i.test(k.name || '') ? 'FO' : '');
