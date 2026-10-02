@@ -1469,7 +1469,7 @@ function validarDadosPedido() {
       sd_parte_('trava de checklist', ck_executar_);   // e checklist mexido à mão
       sd_parte_('exclusão', exc_executar_);
       sd_parte_('faturamento', fat_executar_);           // comentário "faturado" arquiva (substitui o Butler)            // card excluído por quem não é admin volta
-      var out = vd_executarNucleo_();
+      var t0n = Date.now(), out = vd_executarNucleo_(); if (Date.now() - t0n > 1500) SD_TEMPOS.push('núcleo ' + ((Date.now() - t0n) / 1000).toFixed(1) + 's');
       sd_parte_('complemento', cp_executar_);          // orçamento complementar anexado no card
       sd_parte_('prazos', pz_executar_);
       sd_parte_('prazos por etapa', sla_executar_);
@@ -1477,6 +1477,7 @@ function validarDadosPedido() {
       sd_parte_('links', function () { return vd_garantirLinks_(); });
       sd_parte_('alarme diário', sd_instalarSeFaltar_);
       sd_batida_();
+      if (SD_TEMPOS.length) console.log('tempos: ' + SD_TEMPOS.join(' · '));
       return out;
     };
     if (typeof comAlarme_ === 'function') return comAlarme_('validarDadosPedido', rodar);

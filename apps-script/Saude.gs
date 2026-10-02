@@ -11,8 +11,9 @@
  */
 var SD = { EMAIL: 'weslley.santos@unitycs.com.br', FALHAS: 5, REPETE_MS: 6 * 3600 * 1000, BACKUPS: 8, PASTA: 'Backups' };
 
+var SD_TEMPOS = [];
 function sd_parte_(nome, fn) {
-  var p = PropertiesService.getScriptProperties(), k = 'SD_F_' + nome;
+  var p = PropertiesService.getScriptProperties(), k = 'SD_F_' + nome, t0 = Date.now();
   try {
     var r = fn();
     if (p.getProperty(k)) p.deleteProperty(k);
@@ -30,6 +31,9 @@ function sd_parte_(nome, fn) {
     }
     p.setProperty(k, JSON.stringify(est));
     console.log(nome + ': ' + est.erro);
+  } finally {
+    var dt = Date.now() - t0;
+    if (dt > 1500) SD_TEMPOS.push(nome + ' ' + (dt / 1000).toFixed(1) + 's');
   }
 }
 
