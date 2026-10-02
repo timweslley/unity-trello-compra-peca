@@ -20,6 +20,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Formulário estático em dia
         run: python3 tools/gerar_formulario_estatico.py --conferir
+      - name: Sintaxe do código (um erro derruba o projeto inteiro)
+        run: |
+          set -e
+          for f in apps-script/*.gs; do cp "$f" /tmp/chk.js; node --check /tmp/chk.js || { echo "::error file=$f::erro de sintaxe"; exit 1; }; done
       - uses: actions/setup-node@v4
         with:
           node-version: 20
