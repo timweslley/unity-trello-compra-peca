@@ -11,7 +11,8 @@
  */
 var CF = {
   CAMPOS: [
-    { nome: 'Unidade', tipo: 'list', opcoes: ['TOLEDO', 'MARECHAL C. RONDON', 'CASCAVEL', 'CAMPO MOURÃO'] },
+    // mesmos nomes do quadro principal (as regras do Butler que põem os membros da unidade esperam estes)
+    { nome: 'Unidade', tipo: 'list', opcoes: ['TOLEDO', 'RONDON', 'CASCAVEL', 'MOURÃO'] },
     { nome: 'Seguradora', tipo: 'list', opcoes: ['PARTICULAR'] },
     { nome: 'Tipo', tipo: 'list', opcoes: ['SEGURADORA', 'PARTICULAR', 'MISTO'] },
     { nome: 'Placa', tipo: 'text' },
@@ -57,6 +58,14 @@ function cf_opcao_(defs, campo, texto) {
   var d = defs[campo]; texto = String(texto || '').trim().toUpperCase();
   if (!d || !texto) return '';
   if (d.opcoes[texto]) return d.opcoes[texto];
+  // unidade: usa a opção que o quadro já tem (RONDON / MARECHAL C. RONDON, MOURÃO / CAMPO MOURÃO) em vez de criar outra
+  if (campo === 'Unidade') {
+    var chaveU = /RONDON/.test(texto) ? 'RONDON' : /MOUR/.test(texto) ? 'MOUR' : texto;
+    var achou = Object.keys(d.opcoes).filter(function (k) { return k.indexOf(chaveU) >= 0; })[0];
+    if (achou) return d.opcoes[achou];
+    texto = chaveU === 'MOUR' ? 'MOURÃO' : chaveU;
+    if (d.opcoes[texto]) return d.opcoes[texto];
+  }
   var o = vd_api_('/customFields/' + d.id + '/options', { method: 'post', payload: { value: { text: texto }, color: 'none', pos: 'bottom' } });
   d.opcoes[texto] = o.id;
   try { CacheService.getScriptCache().remove('cf_defs2_' + vd_board_()); } catch (e) {}

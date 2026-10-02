@@ -64,6 +64,14 @@ function st_executar_() {
     var motivo = '', ESP = 'ESPERA/NÃO AUTORIZADO', kEsp = 'ST_ESP_' + cardId;
     // card estacionado em ESPERA: guarda de onde veio; pode voltar só para lá
     if (nPara === ESP && ST.TRAVADAS[nDe]) { props.setProperty(kEsp, nDe); return; }
+    // Butler "todos os checklists completos em FALTA CHEGAR -> ENCERRADO": é a mesma regra do sistema, aceita
+    if (nDe === 'FALTA CHEGAR' && nPara === 'ENCERRADO COMPRAS/FORNEC.') {
+      try {
+        var cE = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name', checklists: 'all', checkItem_fields: 'name,state' } });
+        var itE = vdf_itensRecebimento_(cE);
+        if (itE.length && itE.every(function (i) { return i.ok; })) return;
+      } catch (e) {}
+    }
     if (nDe === ESP && ST.TRAVADAS[nPara] && props.getProperty(kEsp) === nPara) { props.deleteProperty(kEsp); return; }
     if (nDe === ESP && inicio.indexOf(para) >= 0 && props.getProperty(kEsp)) {
       motivo = 'Card que já passou da cotação não volta pela ESPERA para **' + nPara + '**: devolva para **' + props.getProperty(kEsp) + '**, ou use **↩️ Devolver para cotação** / **✏️ EDITAR/INCLUIR PEÇA**.';
