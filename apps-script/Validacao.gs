@@ -1467,7 +1467,8 @@ function validarDadosPedido() {
       sd_parte_('trava de descrição', tr_executar_);   // antes de tudo: desfaz edição manual
       sd_parte_('trava de colunas', st_executar_);     // e movimento manual fora do fluxo
       sd_parte_('trava de checklist', ck_executar_);   // e checklist mexido à mão
-      sd_parte_('exclusão', exc_executar_);            // card excluído por quem não é admin volta
+      sd_parte_('exclusão', exc_executar_);
+      sd_parte_('faturamento', fat_executar_);           // comentário "faturado" arquiva (substitui o Butler)            // card excluído por quem não é admin volta
       var out = vd_executarNucleo_();
       sd_parte_('complemento', cp_executar_);          // orçamento complementar anexado no card
       sd_parte_('prazos', pz_executar_);

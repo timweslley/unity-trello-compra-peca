@@ -142,7 +142,8 @@ function sla_executar_(forcar) {
   var etapas = [
     { lista: 'EM COTAÇÃO', dias: +vd_prop_('SLA_DIAS_COTAR', 2), quem: 'cotar' },
     { lista: 'PENDENTE AUTORIZAR', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' },
-    { lista: 'COTAÇÃO FINALIZADA', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' }
+    { lista: 'COTAÇÃO FINALIZADA', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' },
+    { lista: 'ENTREGUES', dias: +vd_prop_('SLA_DIAS_FATURAR', 7), quem: 'faturar' }   // vale também para card antigo
   ];
   // 1) tempo parado na etapa
   etapas.forEach(function (et) {
@@ -151,7 +152,7 @@ function sla_executar_(forcar) {
     vd_api_('/lists/' + idL + '/cards', { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels' } }).forEach(function (c) {
       if (Date.now() > fim) return;
       if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '')) return;
-      if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
+      if (et.quem !== 'faturar' && vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo (menos a cobrança do faturamento)
       var acs = vd_api_('/cards/' + c.id + '/actions', { cru: true, query: { filter: 'updateCard:idList,createCard,copyCard,moveCardToBoard', limit: 20 } }) || [];
       var ent = null;
       for (var i = 0; i < acs.length && !ent; i++) {
@@ -166,7 +167,12 @@ function sla_executar_(forcar) {
       var dias = 0, d = sla_dia_(ent), g = 0;
       while (d < hoje && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) dias++; }
       var mencao, txt;
-      if (et.quem === 'cotar') {
+      if (et.quem === 'faturar') {
+        var usF = fat_usuarios_();
+        if (vd_board_() !== VD.BOARD_PADRAO) usF = usF.filter(function (u) { return u !== 'timweslley'; });
+        mencao = sla_mencao_(vd_board_() === VD.BOARD_PADRAO ? ['timweslley'] : usF);
+        txt = '⏰ Card em **ENTREGUES** há ' + dias + ' dia(s) útil(eis) sem confirmação de faturamento (prazo: ' + et.dias + '). Depois de faturar, comente a palavra faturado no card — ele é arquivado.';
+      } else if (et.quem === 'cotar') {
         mencao = sla_mencao_(sla_users_('SLA_COTAR', 'comprasunity'));
         txt = '⏰ Card em **EM COTAÇÃO** há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + '). Lançar a cotação pelo anexo **💰 Cotação / Compra**.';
       } else {
