@@ -129,3 +129,11 @@ function sd_limparPropriedades_() {
 
 /** Últimas medições do ciclo de 1 min (partes acima de 1,5 s). Rodar na mão. */
 function sd_verTempos() { Logger.log(JSON.parse(PropertiesService.getScriptProperties().getProperty('SD_TEMPOS_LOG') || '[]').join('\n')); }
+
+/** Erros guardados de cada parte do ciclo (SD_F_*) e uma rodada da trava de descrição. Rodar na mão. */
+function sd_verErros() {
+  var all = PropertiesService.getScriptProperties().getProperties();
+  Object.keys(all).filter(function (k) { return /^SD_F_/.test(k); }).forEach(function (k) { Logger.log(k + ' = ' + all[k]); });
+  Logger.log('TR_ACT = ' + vd_marca_('TR_ACT') + ' · CP_ACT = ' + vd_marca_('CP_ACT'));
+  try { Logger.log('trava de descrição: ' + tr_executar_()); } catch (e) { Logger.log('trava de descrição ERRO: ' + e.stack); }
+}
