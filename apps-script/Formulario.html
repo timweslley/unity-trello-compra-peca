@@ -734,7 +734,7 @@ function montarRecebimento(c) {
     if (it.lista !== grupo) {
       grupo = it.lista;
       var g = document.createElement('div'); g.className = 'grupo' + (/^FORNECIMENTO/.test(grupo) ? ' part' : '');
-      g.textContent = ({ 'PAGAS': '🛒 Compradas — peças da seguradora (PAGAS)', 'PAGAS PARTICULAR': '👤 Compradas — peças particulares (PAGAS PARTICULAR)',
+      g.textContent = ({ 'PAGAS': (c.particular ? '🛒 Compradas pela oficina (PAGAS)' : '🛒 Compradas — peças da seguradora (PAGAS)'), 'PAGAS PARTICULAR': '👤 Compradas — peças particulares (PAGAS PARTICULAR)',
         'PAGAS COMPLEMENTO': '➕ Compradas — orçamento complementar (PAGAS COMPLEMENTO)', 'FORNECIMENTO': '📦 Fornecidas pela seguradora (FORNECIMENTO)',
         'FORNECIMENTO COMPLEMENTO': '📦➕ Fornecidas pela seguradora — complemento (FORNECIMENTO COMPLEMENTO)' })[grupo] || grupo;
       box.appendChild(g);
