@@ -136,4 +136,10 @@ function sd_verErros() {
   Object.keys(all).filter(function (k) { return /^SD_F_/.test(k); }).forEach(function (k) { Logger.log(k + ' = ' + all[k]); });
   Logger.log('TR_ACT = ' + vd_marca_('TR_ACT') + ' · CP_ACT = ' + vd_marca_('CP_ACT'));
   try { Logger.log('trava de descrição: ' + tr_executar_()); } catch (e) { Logger.log('trava de descrição ERRO: ' + e.stack); }
+  var id = '6abfb5a2518c8a22bd2a05e6', P = PropertiesService.getScriptProperties();
+  var c = vd_api_('/cards/' + id, { cru: true, query: { fields: 'desc' } });
+  var of = tr_ler_(id);
+  Logger.log('guardado=' + P.getProperty(TR.PREFIXO + id) + ' atual=' + tr_hash_(c.desc) + ' oficial=' + (of === null ? 'null' : tr_hash_(of)) + ' legado=' + vd_legado_(id));
+  var acts = vd_api_('/boards/' + vd_board_() + '/actions', { cru: true, query: { filter: 'updateCard:desc', limit: 5, fields: 'data,date' } });
+  Logger.log(JSON.stringify(acts.map(function (a) { return [a.date, a.data && a.data.card && a.data.card.id]; })));
 }
