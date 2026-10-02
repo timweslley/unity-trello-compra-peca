@@ -214,30 +214,36 @@ function cp_criadoEm_(id) { return parseInt(String(id).slice(0, 8), 16) * 1000; 
 function cp_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || !cp_ligado_()) return 0;
   var props = PropertiesService.getScriptProperties();
-  var desde = +(vd_marca_('CP_DESDE') || 0);
-  if (!desde) { vd_marcaSet_('CP_DESDE', String(Date.now())); return 0; }   // só anexos daqui para frente
+  // histórico do quadro: só os anexos novos desde a última rodada (antes baixava os anexos de todos os cards)
+  var desde = vd_marca_('CP_ACT');
+  if (!desde) {
+    var antigo = +(vd_marca_('CP_DESDE') || 0);   // marcador antigo (ms) continua valendo na troca
+    desde = new Date(antigo || Date.now()).toISOString();
+    vd_marcaSet_('CP_ACT', desde);
+    if (!antigo) return 0;
+  }
   var vistos = []; try { vistos = JSON.parse(props.getProperty('CP_VISTOS') || '[]'); } catch (e) {}
   var prazo = Date.now() + 60 * 1000;
   var ctx = vd_contexto_();
-  var cards = vd_api_('/boards/' + ctx.board + '/cards', { cru: true, query: { fields: 'name,idList,shortLink,shortUrl', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
-  var n = 0, mudou = false;
-  cards.forEach(function (c) {
-    if (Date.now() > prazo) return;
-    if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) return;
-    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
-
-    var criado = cp_criadoEm_(c.id);
-    var cand = (c.attachments || []).filter(function (a) {
-      if (vistos.indexOf(a.id) >= 0 || !vd_anexoLegivel_(a)) return false;
-      var t = new Date(a.date).getTime();
-      return t > desde && t - criado > CP.ESPERA_CRIACAO_MS;
-    });
-    cand.forEach(function (a) {
-      if (Date.now() > prazo) return;
-      vistos.push(a.id); mudou = true;
-      try { if (cp_doAnexo_(c, a, ctx)) n++; } catch (e) { console.log('complemento ' + c.name + ': ' + e); }
-    });
-  });
+  var acts = vd_api_('/boards/' + ctx.board + '/actions', { cru: true, query: { filter: 'addAttachmentToCard', since: desde, limit: 100, fields: 'data,date' } }) || [];
+  if (!acts.length) return 0;
+  acts.reverse();   // mais antigo primeiro
+  var n = 0, mudou = false, ultima = desde;
+  for (var k = 0; k < acts.length; k++) {
+    if (Date.now() > prazo) break;
+    var ac = acts[k], d = ac.data || {}, c = d.card || {}, at = d.attachment || {};
+    ultima = new Date(new Date(ac.date).getTime() + 1).toISOString();
+    if (!c.id || !at.id || vistos.indexOf(at.id) >= 0) continue;
+    if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) continue;
+    if (vd_legado_(c.id)) continue;
+    var a;
+    try { a = vd_api_('/cards/' + c.id + '/attachments/' + at.id, { cru: true, query: { fields: 'name,mimeType,isUpload,bytes,url,date' } }); } catch (e) { continue; }
+    if (!vd_anexoLegivel_(a)) continue;
+    if (new Date(a.date).getTime() - cp_criadoEm_(c.id) <= CP.ESPERA_CRIACAO_MS) continue;   // orçamento original do card
+    vistos.push(a.id); mudou = true;
+    try { if (cp_doAnexo_(c, a, ctx)) n++; } catch (e) { console.log('complemento ' + c.name + ': ' + e); }
+  }
+  vd_marcaSet_('CP_ACT', ultima);
   if (mudou) props.setProperty('CP_VISTOS', JSON.stringify(vistos.slice(-CP.MAX_VISTOS)));
   return n;
 }

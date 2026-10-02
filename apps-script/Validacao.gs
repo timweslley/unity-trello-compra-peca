@@ -815,9 +815,24 @@ function tr_executar_() {
   var board = vd_board_();
   var props = PropertiesService.getScriptProperties();
   var todas = props.getProperties();
-  var cards = vd_api_('/boards/' + board + '/cards', { cru: true, query: { fields: 'name,desc,shortLink,shortUrl,dateLastActivity' } });
-  var baseline = [], restaurados = 0, agora = Date.now();
+  var agora = Date.now();
+  // só os cards cuja descrição mudou (histórico do quadro), não o quadro inteiro: no principal são ~650 cards.
+  // Edição dos últimos 40 s fica para o próximo ciclo (gravação do formulário em andamento).
+  var ate = agora - TR.ESPERA_MS, desde = vd_marca_('TR_ACT');
+  if (!desde) { vd_marcaSet_('TR_ACT', new Date(ate).toISOString()); return 0; }
+  if (new Date(desde).getTime() >= ate) return 0;
+  var acts = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: 'updateCard:desc', since: desde, before: new Date(ate).toISOString(), limit: 200, fields: 'data,date' } }) || [];
+  vd_marcaSet_('TR_ACT', new Date(ate).toISOString());
+  var ids = [];
+  acts.forEach(function (a) { var id = a.data && a.data.card && a.data.card.id; if (id && ids.indexOf(id) < 0) ids.push(id); });
+  var cards = [];
+  ids.forEach(function (id) {
+    if (vd_legado_(id)) return;
+    try { cards.push(vd_api_('/cards/' + id, { cru: true, query: { fields: 'name,desc,shortLink,shortUrl,dateLastActivity,closed' } })); } catch (e) {}
+  });
+  var baseline = [], restaurados = 0;
   cards.forEach(function (c) {
+    if (c.closed) return;
     if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
     var chave = TR.PREFIXO + c.id;
     var h = tr_hash_(c.desc);
@@ -826,10 +841,9 @@ function tr_executar_() {
     // mudou: dá um tempo para gravação em andamento (formulário) registrar a assinatura
     var atual = props.getProperty(chave);
     if (atual === h) return;
-    var acts = [];
-    try { acts = vd_api_('/cards/' + c.id + '/actions', { query: { filter: 'updateCard:desc', limit: 1, memberCreator_fields: 'username' } }) || []; } catch (e) {}
-    var ultima = acts[0];
-    if (ultima && agora - new Date(ultima.date).getTime() < TR.ESPERA_MS) return;
+    var acs = [];
+    try { acs = vd_api_('/cards/' + c.id + '/actions', { query: { filter: 'updateCard:desc', limit: 1, memberCreator_fields: 'username' } }) || []; } catch (e) {}
+    var ultima = acs[0];
     var oficial = tr_ler_(c.id);
     if (oficial === null) { baseline.push({ id: c.id, desc: c.desc, base: true }); return; }
     if (tr_hash_(oficial) === h) { props.setProperty(chave, h); return; }
@@ -1367,7 +1381,7 @@ function vd_garantirLinks_(forcar) {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
   var ultimo = +(props.getProperty('VD_LINKS_EM') || 0);
-  if (!forcar && Date.now() - ultimo < 15 * 60 * 1000) return 0;
+  if (!forcar && Date.now() - ultimo < 60 * 60 * 1000) return 0;   // o formulário já anexa os links ao criar o card
   props.setProperty('VD_LINKS_EM', String(Date.now()));
   var urlForm = vd_prop_('VD_URL_FORM', VD.URL_FORM);
   if (!urlForm) return 0;
@@ -1471,7 +1485,7 @@ function validarDadosPedido() {
       sd_parte_('faturamento', fat_executar_);           // comentário "faturado" arquiva (substitui o Butler)            // card excluído por quem não é admin volta
       var t0n = Date.now(), out = vd_executarNucleo_(); if (Date.now() - t0n > 1500) SD_TEMPOS.push('núcleo ' + ((Date.now() - t0n) / 1000).toFixed(1) + 's');
       sd_parte_('complemento', cp_executar_);          // orçamento complementar anexado no card
-      sd_parte_('prazos', pz_executar_);
+      if (new Date().getMinutes() % 5 === 0) sd_parte_('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
       sd_parte_('prazos por etapa', sla_executar_);
       sd_parte_('relatório', rel_instalarSeFaltar_);
       sd_parte_('links', function () { return vd_garantirLinks_(); });
