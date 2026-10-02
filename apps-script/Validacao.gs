@@ -844,6 +844,7 @@ function tr_executar_() {
     var acs = [];
     try { acs = vd_api_('/cards/' + c.id + '/actions', { query: { filter: 'updateCard:desc', limit: 1, memberCreator_fields: 'username' } }) || []; } catch (e) {}
     var ultima = acs[0];
+    if (ultima && agora - new Date(ultima.date).getTime() < TR.ESPERA_MS) return;   // gravação recente: o marcador ainda cobre, volta no próximo ciclo
     var oficial = tr_ler_(c.id);
     if (oficial === null) { baseline.push({ id: c.id, desc: c.desc, base: true }); return; }
     if (tr_hash_(oficial) === h) { props.setProperty(chave, h); return; }
