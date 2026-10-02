@@ -47,12 +47,12 @@
 
   /* uma ação por tarefa — o mesmo formulário, aberto direto na aba da tarefa */
   var TAREFAS = [
-    { modo: '',       texto: '✏️ Editar/Incluir peça', icone: ICONE.editar, cor: 'orange' },
-    { modo: 'cot',    texto: '💰 Cotação',             icone: ICONE.compra, cor: 'blue' },
-    { modo: 'aut',    texto: '✅ Autorizar',           icone: ICONE.compra, cor: 'green' },
-    { modo: 'compra', texto: '🛒 Compra',              icone: ICONE.compra, cor: 'purple' },
-    { modo: 'rec',    texto: '📦 Recebimento',         icone: ICONE.compra, cor: 'sky' },
-    { modo: 'forn',   texto: '🚚 Fornecimento (FO)',   icone: ICONE.compra, cor: 'yellow' }
+    { modo: '',       texto: '✏️ Editar/Incluir peça', icone: ICONE.editar, cor: 'orange', quem: 'Consultor' },
+    { modo: 'cot',    texto: '💰 Cotação',             icone: ICONE.compra, cor: 'blue', quem: 'Comprador' },
+    { modo: 'aut',    texto: '✅ Autorizar',           icone: ICONE.compra, cor: 'green', quem: 'Diretoria' },
+    { modo: 'compra', texto: '🛒 Compra',              icone: ICONE.compra, cor: 'purple', quem: 'Comprador' },
+    { modo: 'rec',    texto: '📦 Recebimento',         icone: ICONE.compra, cor: 'sky', quem: 'Chegada' },
+    { modo: 'forn',   texto: '🚚 Fornecimento (FO)',   icone: ICONE.compra, cor: 'yellow', quem: 'Seguradora' }
   ];
   function acao(tarefa) { return function (t) { return abrir(t, tarefa.modo, tarefa.texto); }; }
   /* tarefa que a coluna está esperando (vira o chip em destaque no card) */
@@ -88,7 +88,7 @@
         if (vez) out.push({ title: 'Tarefa da vez', text: vez.texto + ' ◀', color: vez.cor, callback: acao(vez) });
         TAREFAS.forEach(function (x, i) {
           if (x === vez) return;
-          out.push({ title: out.length ? '\u00a0' : 'Tarefas', text: x.texto, color: i === 0 ? 'orange' : null, callback: acao(x) });
+          out.push({ title: x.quem, text: x.texto, color: i === 0 ? 'orange' : null, callback: acao(x) });
         });
         return out;
       });
