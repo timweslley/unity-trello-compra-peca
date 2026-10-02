@@ -74,3 +74,17 @@ function vd_legado_(cardId) {
   var cmp = vd_completasTodas_()[cardId];
   return !cmp;
 }
+
+/** VIRADA: sistema passa do quadro TESTE para o principal (oH4TbTqb). Rodar na mão, uma vez.
+ *  Espera o ciclo em andamento, troca VD_BOARD, desliga o espelho e marca a data da virada
+ *  (cards do principal criados antes disso seguem o jeito antigo). Voltar ao TESTE: apagar VD_BOARD. */
+function vd_virarParaPrincipal() {
+  var lock = LockService.getScriptLock();
+  lock.waitLock(5 * 60 * 1000);
+  try {
+    var p = PropertiesService.getScriptProperties();
+    p.setProperty('VD_BOARD', 'oH4TbTqb');
+    try { es_desligar(); } catch (e) { Logger.log('espelho: ' + e); }
+    Logger.log('quadro em uso: ' + vd_board_() + ' · virada em ' + new Date(vd_viradaMs_()));
+  } finally { lock.releaseLock(); }
+}
