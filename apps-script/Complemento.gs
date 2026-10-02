@@ -214,8 +214,8 @@ function cp_criadoEm_(id) { return parseInt(String(id).slice(0, 8), 16) * 1000; 
 function cp_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || !cp_ligado_()) return 0;
   var props = PropertiesService.getScriptProperties();
-  var desde = +(props.getProperty('CP_DESDE') || 0);
-  if (!desde) { props.setProperty('CP_DESDE', String(Date.now())); return 0; }   // só anexos daqui para frente
+  var desde = +(vd_marca_('CP_DESDE') || 0);
+  if (!desde) { vd_marcaSet_('CP_DESDE', String(Date.now())); return 0; }   // só anexos daqui para frente
   var vistos = []; try { vistos = JSON.parse(props.getProperty('CP_VISTOS') || '[]'); } catch (e) {}
   var prazo = Date.now() + 60 * 1000;
   var ctx = vd_contexto_();
@@ -276,4 +276,6 @@ function cp_aplicar_(card, cmp, o) {
     ev_registrar_('COMPLEMENTO', card, o.quem || 'robô', cmp.oficina.map(ev_peca_).concat(cmp.fo.map(function (p) { var e = ev_peca_(p); e.fornecedor = 'SEGURADORA (FO)'; return e; })),
       { detalhe: cmp.oficina.length + ' oficina · ' + cmp.fo.length + ' FO · ' + (o.origem || '') });
   } catch (e) {}
+  // só FO nova num card já encerrado: volta para FALTA CHEGAR (peça da oficina nova o robô devolve para cotação)
+  if (cmp.fo.length && !cmp.oficina.length) { try { rc_reavaliarColuna_(card.id, o.token, o.quem || 'robô'); } catch (e) { console.log('complemento/coluna: ' + e); } }
 }

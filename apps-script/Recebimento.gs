@@ -46,6 +46,7 @@ function rc_data_(s) {
  */
 function vdf_salvarRecebimento(token, p) {
   var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
@@ -77,7 +78,7 @@ function vdf_salvarRecebimento(token, p) {
   var nAnexos = 0, nomesAnexos = [];
   anexos.forEach(function (a) {
     try {
-      var f = DriveApp.getFileById(a.fileId);
+      var f = vdf_arquivoTemp_(a.fileId);
       var refs = (a.ids || []).map(function (id) { return porId[id] ? String(porId[id].nome).split(/\s+-\s+/)[0] : ''; }).filter(String);
       var tipo = /pdf|xml/i.test(f.getMimeType() || '') || /\.(pdf|xml)$/i.test(f.getName()) ? 'NF' : 'Foto';
       var nome = '📦 ' + tipo + (refs.length ? ' — ' + refs.join(', ').slice(0, 120) : '') + ' — ' + f.getName();
@@ -89,7 +90,8 @@ function vdf_salvarRecebimento(token, p) {
 
   var pend = todos.filter(function (i) { return !i.ok; });
   var movido = '';
-  if (!pend.length && ctx.listas[RC.LISTA_FIM]) { try { movido = vdf_moverPara_(card, ctx, RC.LISTA_FIM, token, me.username); } catch (e) {} }
+  // só fecha o card se ele estiver em FALTA CHEGAR (peça da oficina ainda em cotação/compra não fica para trás)
+  try { movido = rc_reavaliarColuna_(card.id, token, me.username); } catch (e) { console.log('recebimento/coluna: ' + e); }
   try {
     var geral = String(p.geral || '').trim();
     var txt = '📦 **RECEBIMENTO** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' + (linhas.length ? linhas.join('\n') : '_(só anexos)_') +
@@ -102,4 +104,41 @@ function vdf_salvarRecebimento(token, p) {
   try { vd_redesenhar_(card.id, token); } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: feitos, anexos: nAnexos, faltam: pend.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
+
+/**
+ * Coluna certa pelo estado dos checklists PAGAS*/FORNECIMENTO* (chamado depois de toda escrita neles):
+ *  - tudo recebido e card em FALTA CHEGAR                      -> ENCERRADO COMPRAS/FORNEC.
+ *  - item pendente e card em ENCERRADO / ENTREGUES              -> FALTA CHEGAR (complemento / FO nova)
+ *  - card sem peça da oficina, só FO, ainda em EM COTAÇÃO      -> FALTA CHEGAR (não tem o que cotar)
+ * Card em qualquer outra coluna não é mexido (peça ainda em cotação/autorização/compra).
+ * Retorna o nome da coluna para onde foi ('' se ficou).
+ */
+function rc_reavaliarColuna_(cardOuId, token, usuario) {
+  var id = typeof cardOuId === 'string' ? cardOuId : cardOuId.id;
+  var card = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state' } });
+  if (vdf_cardProtegido_(card.name)) return '';
+  var ctx = vd_contexto_(), lista = vdf_nomeLista_(ctx, card.idList);
+  var itens = vdf_itensRecebimento_(card), pend = itens.filter(function (i) { return !i.ok; });
+  var alvo = '';
+  if (lista === VDF_LISTA_CHEGAR && itens.length && !pend.length) alvo = RC.LISTA_FIM;
+  else if (lista === VDF_LISTA_AUTORIZADO) {
+    // toda peça autorizada já está no PAGAS (ex.: a não autorizada foi removida do pedido)
+    var anA = vd_analisar_(card.desc, card.name), autsA = vd_autorizacoesDaDescricao_(card.desc, anA.pecas);
+    var pagas = vdf_itensPagas_(card);
+    if (autsA.length && autsA.every(function (a) { return pagas.some(function (n) { return vd_casaItem_(n, a.chave); }); })) alvo = VDF_LISTA_CHEGAR;
+  }
+  else if ((lista === RC.LISTA_FIM || lista === 'ENTREGUES') && pend.length) alvo = VDF_LISTA_CHEGAR;
+  else if (lista === VD.LISTA_COTACAO && itens.length && itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista); })) {
+    var an = vd_analisar_(card.desc, card.name);
+    if (!an.pecas.length) alvo = pend.length ? VDF_LISTA_CHEGAR : RC.LISTA_FIM;
+  }
+  if (!alvo || !ctx.listas[alvo]) return '';
+  var movido = vdf_moverPara_(card, ctx, alvo, token, usuario || 'robô');
+  if (movido && lista !== VDF_LISTA_CHEGAR) {
+    try {
+      vd_comentar_(card, '↪️ Card → **' + movido + '** (' + (alvo === VDF_LISTA_CHEGAR ? pend.length + ' peça(s) para chegar' : 'tudo recebido') + ').');
+    } catch (e) {}
+  }
+  return movido;
 }

@@ -196,7 +196,7 @@ function vdf_itensPagas_(c) {
 function vdf_travaPeca_(p, auts, c) {
   var k = vd_chavePeca_(p);
   if (!k) return '';
-  if (vdf_itensPagas_(c).some(function (n) { return n.indexOf(k) >= 0; })) return 'COMPRADA';
+  if (vdf_itensPagas_(c).some(function (n) { return vd_casaItem_(n, k); })) return 'COMPRADA';
   if ((auts || []).some(function (a) { return a.chave === k; })) return 'AUTORIZADA';
   return '';
 }
@@ -425,7 +425,7 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
     // orçamento que já traz fornecedor/prazo da FO (ex.: grupo Porto): entra no item
     var nome = (cod ? cod + ' ' : '') + desc + (p.qtd && +p.qtd > 1 ? ' (x' + p.qtd + ')' : '') + (p.fornecedor ? ' - ' + String(p.fornecedor).toUpperCase() : '');
     var chave = vd_semAcento_(cod || desc);
-    if (existentes.some(function (e) { return e.indexOf(chave) >= 0; })) return;
+    if (existentes.some(function (e) { return vd_casaItem_(e, chave); })) return;
     var corpoFo = { name: nome, pos: 'bottom' };
     if (p.previsao) corpoFo.due = p.previsao;
     vd_api_('/checklists/' + cl.id + '/checkItems', { method: 'post', payload: corpoFo }, token);
@@ -483,6 +483,18 @@ function vd_chavePeca_(p) {
   return vd_semAcento_(cod || p.descricao || '').replace(/\s+/g, ' ').trim();
 }
 
+/** O item de checklist ("CÓD DESC - FORN - R$" ou "DESC - FORN") é desta peça? Comparação exata, não por pedaço:
+ *  "FAROL" não casa com "FAROL AUXILIAR - ...". Código (sem espaço e com número) casa pela 1ª palavra. */
+function vd_casaItem_(nomeItem, k) {
+  k = String(k || '').replace(/\s+/g, ' ').trim();
+  if (!k) return false;
+  var n = vd_semAcento_(nomeItem).replace(/\s+/g, ' ').trim();
+  if (n === k) return true;
+  if (/^\S+$/.test(k) && /\d/.test(k)) return n.indexOf(k + ' ') === 0;
+  if (/^PNEU /.test(k)) return n.indexOf(k + ' ') === 0;
+  return n.indexOf(k + ' - ') === 0 || n.indexOf(k + ' (X') === 0;
+}
+
 /** Nome "CÓDIGO DESCRIÇÃO" de uma peça do pedido (como vai para os checklists). */
 function vd_nomePeca_(p) {
   if (p.pneu) return ('PNEU ' + String(p.medida || '').replace(/\s+/g, '') + ' ' + (p.marca || p.categoria || '')).trim();
@@ -521,7 +533,7 @@ function vd_checklistPagas_(cardId, compras, token) {
     var valor = vd_valorBR_(c.valor);
     var nome = (cod ? cod + ' ' : '') + desc + ' - ' + forn + (valor ? ' - ' + valor : '');
     var chave = vd_semAcento_(cod || desc);
-    if (chave && existentes.some(function (e) { return e.indexOf(chave) >= 0; })) return;
+    if (chave && existentes.some(function (e) { return vd_casaItem_(e, chave); })) return;
     var payload = { name: nome, pos: 'bottom' };
     var due = c.previsao ? vd_dataBR_(c.previsao) : (c.dias !== undefined && c.dias !== '' ? vd_dataMaisDias_(c.dias) : '');
     if (due) payload.due = due;
@@ -649,9 +661,10 @@ function vdf_nomeLista_(ctx, id) {
 
 function vdf_moverPara_(card, ctx, nomeLista, token, usuario) {
   var id = ctx.listas[nomeLista];
-  if (!id || id === card.idList) return '';
+  if (!id) return '';
+  try { st_permitir_(card.id, id); } catch (e) {}   // antes do PUT (e mesmo se alguém já arrastou para lá): a trava não desfaz
+  if (id === card.idList) return '';
   var de = vdf_nomeLista_(ctx, card.idList);
-  try { st_permitir_(card.id, id); } catch (e) {}   // antes do PUT: a trava de colunas não desfaz
   vd_api_('/cards/' + card.id, { method: 'put', payload: { idList: id, pos: 'top' } }, token);
   card.idList = id;
   try { ev_registrar_('COLUNA', card, usuario || 'formulário', null, { detalhe: (de || '?') + ' → ' + nomeLista }); } catch (e) {}
@@ -674,6 +687,7 @@ function vdf_linkComprador_(card, ctx, token) {
  */
 function vdf_salvarCotacao(token, p) {
   var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
   if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) lança cotação — sua conta: ' + me.username + '.'] };
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
@@ -831,6 +845,7 @@ var VDF_LISTA_AUTORIZADO = 'AUTORIZADO COMPRA';
  */
 function vdf_autorizar(token, p) {
   var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro — não recebe autorização.'] };
@@ -916,11 +931,17 @@ function vdf_linhasObs_(p, porChave, rotulo) {
  */
 function vdf_devolverCotacao(token, p) {
   var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
   var an = vd_analisar_(card.desc, card.name);
   if (!vdf_podeDevolver_(me, card, an)) return { ok: false, faltas: ['Só a diretoria pode devolver a cotação' + (an.pecas.some(function (x) { return x.particular; }) ? ' deste card (tem peças da seguradora junto com as particulares)' : '') + ' — sua conta: ' + me.username + '. Escreva a observação na peça e autorize só o que estiver certo.'] };
+  // depois da compra não volta para cotação (anularia a autorização de peça já comprada)
+  try {
+    var cCk = vd_api_('/cards/' + card.id, { query: { fields: 'name', checklists: 'all', checkItem_fields: 'name' } });
+    if (vdf_itensPagas_(cCk).length) return { ok: false, faltas: ['Este card já tem peça comprada — não volta para cotação. Para trocar uma peça, use "cotação autorizada indisponível" na aba Compra, ou inclua a peça nova pelo ✏️ EDITAR/INCLUIR PEÇA.'] };
+  } catch (e) { return { ok: false, faltas: ['Não consegui conferir as compras do card agora. Tente de novo em alguns segundos.'] }; }
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
   var obsL = vdf_linhasObs_(p, porChave, 'devolução');
@@ -959,6 +980,7 @@ function vd_ultimaDevolucao_(desc) {
  */
 function vdf_salvarCompra(token, p) {
   var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
   if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) registra compra — sua conta: ' + me.username + '.'] };
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
@@ -977,7 +999,11 @@ function vdf_salvarCompra(token, p) {
     var forn = String(c.fornecedor || '').trim().toUpperCase();
     var valor = vd_valorNum_(c.valor);
     // só cotação que está no card
-    var ok = lidas.some(function (q) { return q.chave === c.chave && q.fornecedor === forn && Math.abs(q.valor - valor) < 0.005; });
+    var qc = lidas.filter(function (q) { return q.chave === c.chave && q.fornecedor === forn && Math.abs(q.valor - valor) < 0.005; })[0];
+    var ok = !!qc;
+    // prazo diferente do cotado = previsão mudada na compra: exige motivo (vai para o card como fora da autorização)
+    if (qc && String(qc.dias == null ? '' : qc.dias) !== '' && String(c.dias == null ? '' : c.dias).trim() !== '' && +c.dias !== +qc.dias && !String(c.just || '').trim())
+      { faltas.push(rot + ': prazo ' + c.dias + ' d.u. diferente do cotado (' + qc.dias + ' d.u.) — escreva o motivo.'); return; }
     if (!ok) { faltas.push(rot + ': escolha uma cotação lançada no card (' + forn + ' ' + vd_valorBR_(valor) + ' não está na descrição)'); return; }
     compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim(), particular: vdf_pecaParticular_(peca, card, an) && !vdf_ehParticular_(card, an), complemento: !!peca.complemento, just: String(c.just || '').replace(/\s*\n\s*/g, ' ').trim() });
   });
@@ -992,6 +1018,10 @@ function vdf_salvarCompra(token, p) {
     var txt = '';
     if (!a) txt = nome + ' (sem autorização)';
     else if (a.fornecedor !== c.fornecedor || Math.abs(a.valor - c.valor) >= 0.005) txt = nome + ' (aut. ' + a.fornecedor + ' ' + vd_valorBR_(a.valor) + ' → ' + c.fornecedor + ' ' + vd_valorBR_(c.valor) + ')';
+    else {
+      var qd = lidas.filter(function (q) { return q.chave === ch && q.fornecedor === c.fornecedor && Math.abs(q.valor - c.valor) < 0.005; })[0];
+      if (qd && String(qd.dias == null ? '' : qd.dias) !== '' && c.dias !== '' && +c.dias !== +qd.dias) txt = nome + ' (prazo ' + qd.dias + ' → ' + c.dias + ' d.u.)';
+    }
     if (!txt) return;
     if (!c.just) semJust.push(nome);
     foraAut.push(txt + (c.just ? ' — ' + c.just : ''));
@@ -1016,10 +1046,14 @@ function vdf_salvarCompra(token, p) {
     var ls = vd_api_('/cards/' + card.id, { query: { fields: 'id', checklists: 'all', checkItem_fields: 'name' } }).checklists || [];
     var nomes = [];
     ls.filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); }).forEach(function (k) { (k.checkItems || []).forEach(function (i) { nomes.push(vd_semAcento_(i.name)); }); });
+    // pendente = peça autorizada (ou, sem nenhuma autorização no card, qualquer peça) ainda sem PAGAS;
+    // peça não autorizada não prende o card em AUTORIZADO COMPRA
+    var autCh = auts.map(function (a) { return a.chave; });
     an.pecas.forEach(function (x) {
       var k = vd_chavePeca_(x);
       if (naoCotadas.indexOf(k) >= 0) return;
-      if (!nomes.some(function (nm) { return k && nm.indexOf(k) >= 0; })) pendentes++;
+      if (autCh.length && autCh.indexOf(k) < 0) return;
+      if (!nomes.some(function (nm) { return vd_casaItem_(nm, k); })) pendentes++;
     });
     if (!pendentes) movido = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username);
   } catch (e) {}
@@ -1057,6 +1091,7 @@ function vd_comprasDaDescricao_(desc) {
  */
 function vdf_salvar(token, p) {
   var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
   var ctx = vd_contexto_();
   var d = {
     modelo: String(p.dados.modelo || '').trim().toUpperCase(),
@@ -1080,7 +1115,8 @@ function vdf_salvar(token, p) {
     (p.pecas || []).forEach(function (x, i) {
       if (!x.particular) return;
       pecas[i].particular = true;
-      pecas[i].partPor = String(x.partPor || me.username || '').toLowerCase().replace(/[^\w.\-]/g, '');
+      // quem lançou a peça particular é quem autoriza: fora da diretoria, sempre a própria pessoa
+      pecas[i].partPor = String((vdf_ehAutorizador_(me) && x.partPor) || me.username || '').toLowerCase().replace(/[^\w.\-]/g, '');
     });
     // na descrição: primeiro as peças da seguradora, depois as particulares
     pecas = pecas.filter(function (x) { return !x.particular; }).concat(pecas.filter(function (x) { return x.particular; }));
@@ -1126,7 +1162,25 @@ function vdf_salvar(token, p) {
           if (tr && novasSig.indexOf(vdf_sigTrava_(x)) < 0) travaErr.push(vd_nomePeca_(x) + ': peça ' + tr.toLowerCase() + ' — não pode ser alterada nem removida (só a diretoria).');
         });
         if (travaErr.length) return { ok: false, faltas: travaErr };
-      } catch (e) { console.log('trava de peça: ' + e); }
+      } catch (e) { console.log('trava de peça: ' + e); return { ok: false, faltas: ['Não consegui conferir as peças travadas agora (Trello lento). Envie de novo em alguns segundos.'] }; }
+    }
+    // fora da diretoria: não muda o tipo do pedido nem passa peça de seguradora para particular (e vice-versa)
+    if (!vdf_ehAutorizador_(me)) {
+      var anOr = vd_analisar_(card.desc, card.name), cardOr = { name: card.name, labels: [] };
+      var eraPart = vdf_ehParticular_(cardOr, anOr);
+      var tNovo = vd_tipoNormPedido_(n.tipo);
+      if (anOr.pecas.length && tNovo && eraPart !== (tNovo === 'PARTICULAR'))
+        return { ok: false, faltas: ['Só a diretoria muda o tipo do pedido (seguradora / particular).'] };
+      var orPor = {};
+      anOr.pecas.forEach(function (x) { orPor[vd_chavePeca_(x)] = x; });
+      var trocou = [];
+      pecas.forEach(function (x) {
+        var o = orPor[vd_chavePeca_(x)];
+        if (!o) return;
+        if (!!o.particular !== !!x.particular) trocou.push(vd_nomePeca_(x));
+        if (o.partPor) x.partPor = o.partPor;
+      });
+      if (trocou.length) return { ok: false, faltas: trocou.map(function (t) { return t + ': só a diretoria passa a peça entre seguradora e particular.'; }) };
     }
     if (posCot) baseSigs = vd_analisar_(card.desc, card.name).pecas.map(function (x) { return x.sig; });
     if (posCot) baseTodas = vd_linhasConsultor_(vd_dividir_(card.desc).bloco).map(vd_sigItem_);
@@ -1184,7 +1238,8 @@ function vdf_salvar(token, p) {
   var nFo = 0;
   try { nFo = vdf_checklistFornecimento_(card.id, fo, token); } catch (e) {}
   var nPagas = 0;
-  var compras = (p.compras || []).filter(function (c) { return String(c.fornecedor || '').trim(); });
+  // compra só pela aba Compra (vdf_salvarCompra: permissão, etiqueta, autorização); o pedido não grava compra
+  var compras = [];
   if (compras.length) {
     try { nPagas = vd_checklistPagas_(card.id, compras, token); } catch (e) {}
     // registra a compra na descrição, abaixo da linha de cotação
@@ -1211,7 +1266,7 @@ function vdf_salvar(token, p) {
   }
   (p.fileIds || []).forEach(function (fid) {
     try {
-      var f = DriveApp.getFileById(fid);
+      var f = vdf_arquivoTemp_(fid);
       var ehCapa = p.capaId && fid === p.capaId;
       if (!ehCapa && jaNoCard.some(function (a) { return a.name === f.getName() && +a.bytes === f.getSize(); })) {
         repetidos.push(f.getName()); f.setTrashed(true); return;
@@ -1251,6 +1306,8 @@ function vdf_salvar(token, p) {
       } else {
         props.setProperty('VD_PK2_' + card.id, JSON.stringify(vd_linhasConsultor_(an.div.bloco).map(vd_sigItem_)));
         acao = 'card continua em ' + lista;
+        // peça removida / FO complementar: a coluna pode ter mudado (tudo comprado, ou card encerrado reaberto)
+        try { var mvS = rc_reavaliarColuna_(card.id, token, me.username); if (mvS) acao = 'card → ' + mvS; } catch (e) { console.log('salvar/coluna: ' + e); }
       }
     } else if (c2.idList === ctx.listas[VD.LISTA_COTACAO] || c2.idList === ctx.listas[VD.LISTA_FALTA]) {
       acao = vd_conferirCard_(c2, ctx).acao;
@@ -1281,6 +1338,7 @@ function vdf_subirArquivo(token, base64, mime, nome) {
  */
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
   if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) registra cotação indisponível — sua conta: ' + me.username + '.'] };
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name' } });
@@ -1295,7 +1353,7 @@ function vdf_cotacaoIndisponivel(token, p) {
     var peca = porChave[it.chave];
     if (!peca) { faltas.push('item ' + (i + 1) + ': peça não encontrada'); return; }
     var nomeP = peca.pneu ? 'PNEU ' + String(peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(peca);
-    var forn = String(it.fornecedor || '').trim().toUpperCase(), valor = vd_valorNum_(it.valor), motivo = String(it.motivo || '').replace(/\s*\n\s*/g, ' ').trim();
+    var forn = String(it.fornecedor || '').trim().toUpperCase(), valor = vd_valorNum_(it.valor), motivo = String(it.motivo || '').replace(/\s*\n\s*/g, ' ').replace(/\s+-\s+/g, ' – ').replace(/R\$/gi, 'R$ ').trim();
     if (!motivo) { faltas.push(nomeP + ': escreva o motivo (por que a cotação não está disponível)'); return; }
     if (pagos.some(function (n) { return n.indexOf(vd_chavePeca_(peca)) >= 0; })) { faltas.push(nomeP + ': já está comprada'); return; }
     if (!lidas.some(function (q) { return q.chave === it.chave && q.fornecedor === forn && Math.abs(q.valor - valor) < 0.005; })) { faltas.push(nomeP + ': cotação ' + forn + ' ' + vd_valorBR_(valor) + ' não está no card'); return; }

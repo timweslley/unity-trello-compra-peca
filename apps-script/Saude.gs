@@ -92,3 +92,17 @@ function sd_backupAgora() {
   Logger.log('backup: ' + nome + ' (pasta ' + pasta.getName() + ', ' + Math.min(copias.length, SD.BACKUPS) + ' guardado(s))');
   return nome;
 }
+
+/** Uso das Propriedades do script (limite do Google: ~500 KB no total, 9 KB por valor). Rodar na mão. */
+function sd_propriedades() {
+  var all = PropertiesService.getScriptProperties().getProperties(), tot = 0, por = {}, maior = ['', 0];
+  Object.keys(all).forEach(function (k) {
+    var t = k.length + String(all[k]).length; tot += t;
+    var pre = (k.match(/^[A-Z]+_[A-Z0-9]*_?/) || [k])[0];
+    por[pre] = (por[pre] || 0) + t;
+    if (t > maior[1]) maior = [k, t];
+  });
+  var top = Object.keys(por).sort(function (a, b) { return por[b] - por[a]; }).slice(0, 12).map(function (k) { return k + ' ' + Math.round(por[k] / 1024) + ' KB'; });
+  Logger.log('propriedades: ' + Object.keys(all).length + ' chaves · ' + Math.round(tot / 1024) + ' KB de ~500 KB · maior: ' + maior[0] + ' (' + Math.round(maior[1] / 1024) + ' KB)\n' + top.join('\n'));
+  return tot;
+}

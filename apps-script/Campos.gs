@@ -94,7 +94,7 @@ function vd_totais_(c) {
     if (minhas.length) g.cot += Math.min.apply(null, minhas);
     var a = auts.filter(function (x) { return x.chave === k; })[0];
     if (a && !isNaN(a.valor)) { g.aut += a.valor; g.nAut++; }
-    var it = itens.filter(function (x) { return !x.usado && k && x.nome.indexOf(k) >= 0; })[0];
+    var it = itens.filter(function (x) { return !x.usado && k && vd_casaItem_(x.nome, k); })[0];
     if (it) { it.usado = true; g.comp += it.valor; g.nComp++; g.valor += it.valor; }
     else if (a && !isNaN(a.valor)) g.valor += a.valor;
   });

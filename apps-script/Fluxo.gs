@@ -29,7 +29,7 @@ function st_ligado_() { return vd_prop_('ST_TRAVA', 'SIM') !== 'NAO'; }
 /** Licença para o próximo movimento deste card para esta coluna (robô / formulário). */
 function st_permitir_(cardId, idLista) {
   if (!cardId || !idLista) return;
-  try { CacheService.getScriptCache().put(ST.PREFIXO_OK + cardId + '_' + idLista, '1', 900); } catch (e) {}
+  try { CacheService.getScriptCache().put(ST.PREFIXO_OK + cardId + '_' + idLista, '1', 240); } catch (e) {}   // 4 min: o ciclo é de 1 min
 }
 function st_temLicenca_(cardId, idLista) {
   try { return CacheService.getScriptCache().get(ST.PREFIXO_OK + cardId + '_' + idLista) === '1'; } catch (e) { return false; }
@@ -40,25 +40,34 @@ function st_executar_() {
   if (!st_ligado_() || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
   var agora = new Date().toISOString();
-  var desde = props.getProperty('ST_ULTIMA');
-  if (!desde) { props.setProperty('ST_ULTIMA', agora); return 0; }   // 1ª vez: não olha para trás
+  var desde = vd_marca_('ST_ULTIMA');
+  if (!desde) { vd_marcaSet_('ST_ULTIMA', agora); return 0; }   // 1ª vez: não olha para trás
   var board = vd_board_();
   var acoes = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: 'updateCard:idList', since: desde, limit: 100, memberCreator_fields: 'username,fullName' } }) || [];
-  props.setProperty('ST_ULTIMA', agora);
-  if (!acoes.length) return 0;
+  if (!acoes.length) { vd_marcaSet_('ST_ULTIMA', agora); return 0; }
+  var ultimaFeita = desde;   // o marcador só avança sobre o que foi processado de verdade
   var ls = vd_listas_(board), nome = {};
   Object.keys(ls).forEach(function (k) { nome[ls[k]] = k; });
   var inicio = ST.INICIO.map(function (n) { return ls[n]; }).filter(String);
   var fim = Date.now() + ST.LIMITE_MS, desfeitos = 0, vistos = {};
+  var parou = false;
   acoes.reverse().forEach(function (a) {
-    if (Date.now() > fim || !a.data || !a.data.card || !a.data.listAfter || !a.data.listBefore) return;
+    if (parou || Date.now() > fim) { parou = true; return; }
+    if (a.date) ultimaFeita = new Date(new Date(a.date).getTime() + 1).toISOString();   // +1 ms: não reprocessa a mesma ação
+    if (!a.data || !a.data.card || !a.data.listAfter || !a.data.listBefore) return;
     var cardId = a.data.card.id, para = a.data.listAfter.id, de = a.data.listBefore.id;
-    if (st_temLicenca_(cardId, para)) return;
+    if (st_temLicenca_(cardId, para)) { try { CacheService.getScriptCache().remove(ST.PREFIXO_OK + cardId + '_' + para); } catch (e) {} return; }
     if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
     var nPara = nome[para] || vd_nomeColuna_(a.data.listAfter.name);
     var nDe = nome[de] || vd_nomeColuna_(a.data.listBefore.name);
-    var motivo = '';
-    if (ST.TRAVADAS[nPara]) motivo = 'O card não pode ser movido à mão para **' + nPara + '**: ele vai sozinho ' + ST.TRAVADAS[nPara] + '.';
+    var motivo = '', ESP = 'ESPERA/NÃO AUTORIZADO', kEsp = 'ST_ESP_' + cardId;
+    // card estacionado em ESPERA: guarda de onde veio; pode voltar só para lá
+    if (nPara === ESP && ST.TRAVADAS[nDe]) { props.setProperty(kEsp, nDe); return; }
+    if (nDe === ESP && ST.TRAVADAS[nPara] && props.getProperty(kEsp) === nPara) { props.deleteProperty(kEsp); return; }
+    if (nDe === ESP && inicio.indexOf(para) >= 0 && props.getProperty(kEsp)) {
+      motivo = 'Card que já passou da cotação não volta pela ESPERA para **' + nPara + '**: devolva para **' + props.getProperty(kEsp) + '**, ou use **↩️ Devolver para cotação** / **✏️ EDITAR/INCLUIR PEÇA**.';
+    }
+    else if (ST.TRAVADAS[nPara]) motivo = 'O card não pode ser movido à mão para **' + nPara + '**: ele vai sozinho ' + ST.TRAVADAS[nPara] + '.';
     else if (inicio.indexOf(para) >= 0 && ST.TRAVADAS[nDe]) motivo = 'Card que já passou da cotação não volta à mão para **' + nPara + '**: para refazer a cotação use **↩️ Devolver para cotação** (aba ✅ Autorizar); para pedir peça nova, **✏️ Editar peças** — o card volta sozinho.';
     if (!motivo) return;
     if (vistos[cardId]) return;   // vários movimentos seguidos: trata uma vez, devolvendo para a origem do primeiro
@@ -76,6 +85,7 @@ function st_executar_() {
       ev_registrar_('MOVIMENTO DESFEITO', c, quem || '?', null, { detalhe: nDe + ' → ' + nPara + ' (à mão) — voltou para ' + nDe });
     } catch (e) { console.log('trava de colunas: ' + e); }
   });
+  vd_marcaSet_('ST_ULTIMA', parou ? ultimaFeita : agora);
   if (desfeitos) console.log('trava de colunas: ' + desfeitos + ' movimento(s) desfeito(s)');
   return desfeitos;
 }
@@ -219,8 +229,8 @@ function sla_rodarAgora() { Logger.log('avisos de prazo: ' + sla_executar_(true)
 function exc_executar_() {
   if (vd_prop_('EXC_PROTEGER', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
-  var agora = new Date().toISOString(), desde = props.getProperty('EXC_ULTIMA');
-  props.setProperty('EXC_ULTIMA', agora);
+  var agora = new Date().toISOString(), desde = vd_marca_('EXC_ULTIMA');
+  vd_marcaSet_('EXC_ULTIMA', agora);
   if (!desde) return 0;
   var board = vd_board_();
   var acoes = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: 'deleteCard', since: desde, limit: 50, memberCreator_fields: 'username,fullName' } }) || [];

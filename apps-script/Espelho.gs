@@ -25,7 +25,8 @@ var ES = {
          'removeChecklistFromCard,updateChecklist,createCheckItem,deleteCheckItem,updateCheckItem,updateCheckItemStateOnCard'
 };
 
-function es_ligado_() { return vd_prop_('ES_LIGADO', 'NAO') === 'SIM'; }
+// só vale com o sistema no TESTE: esquecer o espelho ligado na virada não cala as menções do quadro principal
+function es_ligado_() { return vd_prop_('ES_LIGADO', 'NAO') === 'SIM' && vd_board_() === ES.DESTINO; }
 
 /** Nunca escreve no principal: só roda com o sistema apontado para o TESTE. */
 function es_guarda_() {
@@ -114,7 +115,7 @@ function es_desligar() {
 
 /* ---------- ciclo de 10 min ---------- */
 function es_sincronizar() {
-  if (!es_ligado_()) return;
+  if (!es_ligado_()) return;   // (fora do TESTE: não roda e não dá erro a cada 10 min)
   es_guarda_();
   var p = PropertiesService.getScriptProperties();
   var rodando = +(p.getProperty('ES_RODANDO') || 0);

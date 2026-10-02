@@ -8,8 +8,8 @@
  */
 var CK = {
   TIPOS: 'createCheckItem,updateCheckItem,updateCheckItemStateOnCard,deleteCheckItem,addChecklistToCard,removeChecklistFromCard,updateChecklist',
-  ANTES_MS: 15 * 1000,     // ação até 15 s antes da licença...
-  DEPOIS_MS: 120 * 1000,   // ...ou até 2 min depois dela = oficial
+  ANTES_MS: 15 * 1000,     // ação até 15 s depois da licença...
+  DEPOIS_MS: 120 * 1000,   // ...ou até 2 min antes dela = oficial (licença gravada antes e depois da escrita)
   ABA: 'CHECKLISTS'
 };
 
@@ -116,13 +116,12 @@ function ck_desfazer_(a) {
 function ck_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || !ck_ligado_()) return 0;
   var props = PropertiesService.getScriptProperties(), board = vd_board_();
-  var desde = props.getProperty('CK_DESDE');
+  var desde = vd_marca_('CK_DESDE');
   if (!desde) {
-    // 1ª vez: retrato de todos os cards e começa a vigiar daqui para frente
-    var todos = vd_api_('/boards/' + board + '/cards', { cru: true, query: { fields: 'id', checklists: 'all', checklist_fields: 'id' } });
-    ck_retratar_(todos.filter(function (c) { return (c.checklists || []).length; }).map(function (c) { return c.id; }));
+    // 1ª vez: só começa a vigiar daqui para frente; o retrato de cada card é tirado quando ele mexe
+    // (no quadro principal, retratar ~650 cards de uma vez estouraria o ciclo de 1 minuto)
     var ult = vd_api_('/boards/' + board + '/actions', { cru: true, query: { limit: 1, fields: 'id' } });
-    props.setProperty('CK_DESDE', ult.length ? ult[0].id : new Date().toISOString());
+    vd_marcaSet_('CK_DESDE', ult.length ? ult[0].id : new Date().toISOString());
     return 0;
   }
   var acts = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: CK.TIPOS, since: desde, limit: 200, memberCreator_fields: 'username,fullName' } });
@@ -148,7 +147,7 @@ function ck_executar_() {
     av.itens.push(txt);
     try { ev_registrar_('CHECKLIST DESFEITO', { name: a.data.card.name, shortLink: a.data.card.shortLink, labels: [] }, quem || '?', null, { detalhe: txt }); } catch (e) {}
   });
-  props.setProperty('CK_DESDE', acts[0].id);
+  vd_marcaSet_('CK_DESDE', acts[0].id);
   Object.keys(avisos).forEach(function (id) {
     var av = avisos[id];
     try {

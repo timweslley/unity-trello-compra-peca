@@ -58,7 +58,7 @@ function ev_registrar_(evento, card, usuario, itens, extra) {
         it.dias === 0 || it.dias ? it.dias : '', prev && !isNaN(prev) ? prev : '',
         usuario || '', it.detalhe || extra.detalhe || '', vd_board_()];
     };
-    var linhas = (itens && itens.length ? itens : [null]).map(base);
+    var linhas = (itens && itens.length ? itens : [null]).map(base).map(function (l) { return l.map(sg_celula_); });
     // appendRow é atômico por linha: robô e formulário podem gravar ao mesmo tempo sem se atropelar
     // (não usa a trava do script — o robô a segura durante a rodada inteira)
     var sh = ev_aba_();

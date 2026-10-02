@@ -81,6 +81,9 @@ function vd_api_(caminho, opts, tokenUsuario) {
     params.contentType = 'application/json';
     params.payload = JSON.stringify(opts.payload);
   }
+  // escrita em checklist: licença ANTES (o ciclo da trava pode ler entre a escrita e a resposta) e de novo depois
+  var ehCk = params.method !== 'get' && !opts.semLicenca && /checkItem|checklists/i.test(caminho);
+  if (ehCk) { try { ck_licenca_(caminho.split('?')[0], opts.payload); } catch (e) {} }
   var r = UrlFetchApp.fetch(url, params);
   var code = r.getResponseCode();
   if (code >= 300) {
@@ -1170,6 +1173,8 @@ function vd_conferirCard_(card, ctx) {
         vd_comentar_(card, '✅ **DADOS COMPLETOS**' + (res.preenchido.length ? ' · 🤖 lido dos anexos: ' + res.preenchido.join(', ') : '') + txtAviso);
       }
       props.setProperty(chaveSig, sigAtual);
+      // pedido só com peças da seguradora (FO): não tem o que cotar -> FALTA CHEGAR
+      if (!an.pecas.length) { try { var mv = rc_reavaliarColuna_(card.id, null, 'robô'); if (mv) res.acao = '→ ' + mv; } catch (e) { console.log('só FO: ' + e); } }
     }
   }
   return res;

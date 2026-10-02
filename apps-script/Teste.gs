@@ -208,8 +208,8 @@ function tst_saude() {
   bate(acs.indexOf('verificarAlteracoesDescricao') >= 0, 'falta o acionador do log de descrição (quadro principal)');
   bate(!P.getProperty('LOG_RECUPERANDO'), 'LOG_RECUPERANDO ficou marcado (log do quadro principal parado)');
   bate(vd_modo_() === 'ATIVO', 'VD_MODO não está ATIVO');
-  bate(!!P.getProperty('CK_DESDE'), 'trava de checklist não iniciou (CK_DESDE)');
-  bate(!!P.getProperty('CP_DESDE'), 'complemento por anexo não iniciou (CP_DESDE)');
+  bate(!!vd_marca_('CK_DESDE'), 'trava de checklist não iniciou (CK_DESDE)');
+  bate(!!vd_marca_('CP_DESDE'), 'complemento por anexo não iniciou (CP_DESDE)');
   // log do quadro principal em dia
   var ult = P.getProperty('ULTIMA_VERIFICACAO');
   bate(ult && Date.now() - new Date(ult).getTime() < 15 * 60000, 'log de descrição do quadro principal atrasado (' + ult + ')');

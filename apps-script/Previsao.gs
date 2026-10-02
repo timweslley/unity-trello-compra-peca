@@ -41,6 +41,7 @@ function pv_dueCard_(cardId, token) {
  */
 function vdf_alterarPrevisao(token, p) {
   var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
   if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) altera previsão — sua conta: ' + me.username + '.'] };
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
@@ -133,10 +134,12 @@ function pv_achaFo_(itensFo, x) {
  */
 function vdf_atualizarFornecimento(token, p) {
   var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
   if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) atualiza o fornecimento — sua conta: ' + me.username + '.'] };
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
-  var rotina = /rotina/i.test(String(p.origem || ''));
+  // "rotina" (motivo automático = portal da seguradora) só vale para a diretoria, que é quem roda a ROTINA UNITY
+  var rotina = /rotina/i.test(String(p.origem || '')) && vdf_ehAutorizador_(me);
   var foLista = []; try { foLista = fo_lista_(); } catch (e) {}
   var itensFo = [];
   (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { i._lista = String(k.name).trim().toUpperCase(); itensFo.push(i); }); });
@@ -194,15 +197,17 @@ function vdf_atualizarFornecimento(token, p) {
     });
   }
   (p.fileIds || []).forEach(function (fid) {
-    try { var f = DriveApp.getFileById(fid); vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: f.getBlob(), name: '🚚 FO — ' + f.getName() } }, token); f.setTrashed(true); } catch (e) {}
+    try { var f = vdf_arquivoTemp_(fid); vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: f.getBlob(), name: '🚚 FO — ' + f.getName() } }, token); f.setTrashed(true); } catch (e) {}
   });
   pv_dueCard_(card.id, token);
   try { fo_registrarUso_(forns, me.username); } catch (e) {}
   try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🚚 **FORNECIMENTO** — ' + me.fullName + (rotina ? ' (rotina)' : '') + '\n' + linhas.join('\n') } }, token); } catch (e) {}
   try { ev_registrar_('FORNECIMENTO', card, me.username, evs.map(function (e) { e.fornecedor = e.fornecedor || 'SEGURADORA (FO)'; return e; })); } catch (e) {}
   try { vd_redesenhar_(card.id, token); } catch (e) {}
+  var movidoF = '';
+  try { movidoF = rc_reavaliarColuna_(card.id, token, me.username); } catch (e) { console.log('fornecimento/coluna: ' + e); }   // FO entregue fecha; FO nova reabre
   try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, url: card.shortUrl, nome: card.name, n: ops.length + novos.length };
+  return { ok: true, url: card.shortUrl, nome: card.name, n: ops.length + novos.length, lista: movidoF || undefined };
 }
 
 
