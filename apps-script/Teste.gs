@@ -299,3 +299,32 @@ function tst_fluxoCompleto() {
     try { globalThis[f](); } catch (e) { Logger.log('❌ ' + f + ': ' + e.message); }
   });
 }
+
+/* DEMONSTRAÇÃO (prints do guia): 4 cards particulares, cada um parado numa etapa.
+ * DEM1A01 EM COTAÇÃO · DEM2A02 COTAÇÃO FINALIZADA · DEM3A03 AUTORIZADO COMPRA (sem etiqueta) · DEM4A04 FALTA CHEGAR */
+function tst_demo() {
+  var tk = tst_tk_();
+  var pecas = [{ pneu: false, codigo: '5U0807221', descricao: 'PARACHOQUE DIANT', tipos: ['ORIGINAL'], qtd: '1' }, { pneu: false, codigo: '5U0941005', descricao: 'FAROL ESQ', tipos: ['PARALELO'], qtd: '1' }];
+  var etq = vd_api_('/boards/' + vd_board_() + '/labels', { query: { fields: 'name', limit: 100 } }).filter(function (l) { return /ORDEM AUTORIZADA/i.test(l.name || ''); })[0];
+  var out = {};
+  [['DEM1A01', 1], ['DEM2A02', 2], ['DEM3A03', 3], ['DEM4A04', 4]].forEach(function (d) {
+    var placa = d[0], ate = d[1];
+    var ex = vdf_buscarPlaca(tk, placa), sl = ex && ex.length ? ex[0].shortLink : '';
+    if (!sl) sl = vdf_salvar(tk, { shortLink: '', dados: { placa: placa, modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '9BWAG45U0LT00000' + ate },
+      pecas: pecas, obs: 'card de demonstração', fileIds: [], capaId: '', orcamento: null,
+      novo: { tipo: 'PARTICULAR', carro: 'GOL', cor: 'BRANCO', seguradora: '', sinistro: '', unidade: '' } }).shortLink;
+    var c = vdf_carregarCard(tk, sl);
+    tst_comMencoesSoMinhas_(function () {
+      if (ate >= 2 && !c.cotacoes.cotacoes.length) { vdf_salvarCotacao(tk, { shortLink: sl, cotacoes: [tst_cot_(c, 'PARACHOQUE', 'IMPERIAL', 'ORIGINAL', '450,00', 2), tst_cot_(c, 'PARACHOQUE', 'METROSUL', 'ORIGINAL', '480,00', 1), tst_cot_(c, 'FAROL', 'AVENIDA', 'PARALELO', '210,00', 3)] }); c = vdf_carregarCard(tk, sl); }
+      if (ate >= 3 && !c.autorizadas.length) { vdf_autorizar(tk, { shortLink: sl, escolhas: [tst_barata_(c, 'PARACHOQUE'), tst_barata_(c, 'FAROL')], obs: [], geral: '' }); c = vdf_carregarCard(tk, sl); }
+      if (ate >= 4 && !c.pagas.length) {
+        var cid = vd_api_('/cards/' + sl, { query: { fields: 'id' } }).id;
+        if (etq) { try { vd_api_('/cards/' + cid + '/idLabels', { method: 'post', payload: { value: etq.id } }); } catch (e) {} }
+        vdf_salvarCompra(tk, { shortLink: sl, compras: c.autorizadas.map(function (a) { return { chave: a.chave, fornecedor: a.fornecedor, valor: a.valor, dias: 3 }; }) });
+      }
+    });
+    out[placa] = 'https://trello.com/c/' + sl + ' · ' + vdf_carregarCard(tk, sl).lista;
+  });
+  Logger.log(JSON.stringify(out, null, 1));
+  return out;
+}
