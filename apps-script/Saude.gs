@@ -126,3 +126,6 @@ function sd_limparPropriedades_() {
   if (n) console.log('propriedades: ' + n + ' de cards fechados apagadas');
   return n;
 }
+
+/** Últimas medições do ciclo de 1 min (partes acima de 1,5 s). Rodar na mão. */
+function sd_verTempos() { Logger.log(JSON.parse(PropertiesService.getScriptProperties().getProperty('SD_TEMPOS_LOG') || '[]').join('\n')); }

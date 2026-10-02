@@ -1477,7 +1477,14 @@ function validarDadosPedido() {
       sd_parte_('links', function () { return vd_garantirLinks_(); });
       sd_parte_('alarme diário', sd_instalarSeFaltar_);
       sd_batida_();
-      if (SD_TEMPOS.length) console.log('tempos: ' + SD_TEMPOS.join(' · '));
+      if (SD_TEMPOS.length) {
+        console.log('tempos: ' + SD_TEMPOS.join(' · '));
+        try {
+          var lg = JSON.parse(pp.getProperty('SD_TEMPOS_LOG') || '[]');
+          lg.push(Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'HH:mm') + ' ' + SD_TEMPOS.join(' · '));
+          pp.setProperty('SD_TEMPOS_LOG', JSON.stringify(lg.slice(-40)));
+        } catch (e) {}
+      }
       return out;
     };
     if (typeof comAlarme_ === 'function') return comAlarme_('validarDadosPedido', rodar);
