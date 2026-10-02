@@ -56,6 +56,7 @@ function st_executar_() {
     if (a.date) ultimaFeita = new Date(new Date(a.date).getTime() + 1).toISOString();   // +1 ms: não reprocessa a mesma ação
     if (!a.data || !a.data.card || !a.data.listAfter || !a.data.listBefore) return;
     var cardId = a.data.card.id, para = a.data.listAfter.id, de = a.data.listBefore.id;
+    if (vd_legado_(cardId)) return;   // card antigo: segue o jeito antigo
     if (st_temLicenca_(cardId, para)) { try { CacheService.getScriptCache().remove(ST.PREFIXO_OK + cardId + '_' + para); } catch (e) {} return; }
     if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
     var nPara = nome[para] || vd_nomeColuna_(a.data.listAfter.name);
@@ -142,6 +143,7 @@ function sla_executar_(forcar) {
     vd_api_('/lists/' + idL + '/cards', { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels' } }).forEach(function (c) {
       if (Date.now() > fim) return;
       if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '')) return;
+      if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
       var acs = vd_api_('/cards/' + c.id + '/actions', { cru: true, query: { filter: 'updateCard:idList,createCard,copyCard,moveCardToBoard', limit: 20 } }) || [];
       var ent = null;
       for (var i = 0; i < acs.length && !ent; i++) {

@@ -136,6 +136,7 @@ function ck_executar_() {
   acts.slice().reverse().forEach(function (a) {
     var cardId = a.data && a.data.card && a.data.card.id;
     if (!cardId) return;
+    if (vd_legado_(cardId)) return;   // card antigo: segue o jeito antigo
     if (tocados.indexOf(cardId) < 0) tocados.push(cardId);
     if (ck_licenciada_(a, cache)) return;
     var txt = '';

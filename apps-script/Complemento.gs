@@ -224,6 +224,8 @@ function cp_executar_() {
   cards.forEach(function (c) {
     if (Date.now() > prazo) return;
     if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) return;
+    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
+
     var criado = cp_criadoEm_(c.id);
     var cand = (c.attachments || []).filter(function (a) {
       if (vistos.indexOf(a.id) >= 0 || !vd_anexoLegivel_(a)) return false;

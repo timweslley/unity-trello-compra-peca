@@ -56,3 +56,21 @@ function vd_marca_(nome) {
   return v;
 }
 function vd_marcaSet_(nome, v) { PropertiesService.getScriptProperties().setProperty(nome + '_' + vd_board_(), String(v)); }
+
+/* ---------- cards antigos (anteriores à virada) ----------
+ * Card criado antes da virada e nunca salvo pelo formulário termina do jeito antigo: o robô não organiza,
+ * não trava coluna/checklist/descrição, não cobra SLA nem põe ATRASADO/links. Salvou pelo formulário uma vez
+ * (tem a descrição oficial na aba TRAVA) -> passa a seguir o fluxo novo.
+ * A data da virada é por quadro (VD_VIRADA_EM_<quadro>), gravada na primeira vez que o robô roda nele. */
+function vd_viradaMs_() {
+  var p = PropertiesService.getScriptProperties(), k = 'VD_VIRADA_EM_' + vd_board_(), v = p.getProperty(k);
+  if (!v) { v = String(Date.now()); p.setProperty(k, v); }
+  return +v;
+}
+function vd_legado_(cardId) {
+  cardId = String(cardId || '');
+  if (!/^[0-9a-f]{24}$/.test(cardId)) return false;
+  if (parseInt(cardId.slice(0, 8), 16) * 1000 >= vd_viradaMs_()) return false;
+  var cmp = vd_completasTodas_()[cardId];
+  return !cmp;
+}

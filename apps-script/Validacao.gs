@@ -818,6 +818,7 @@ function tr_executar_() {
   var cards = vd_api_('/boards/' + board + '/cards', { cru: true, query: { fields: 'name,desc,shortLink,shortUrl,dateLastActivity' } });
   var baseline = [], restaurados = 0, agora = Date.now();
   cards.forEach(function (c) {
+    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
     var chave = TR.PREFIXO + c.id;
     var h = tr_hash_(c.desc);
     if (!todas[chave]) { baseline.push({ id: c.id, desc: c.desc, base: true }); return; }
@@ -1374,6 +1375,7 @@ function vd_garantirLinks_(forcar) {
   var n = 0;
   cards.forEach(function (c) {
     if (/^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) return;
+    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
     var ans = c.attachments || [];
     var temEditar = false, temCompra = false;
     try {
@@ -1434,6 +1436,7 @@ function vd_executarNucleo_() {
   // 1) colunas depois de EM COTAÇÃO: só peça nova
   vd_cardsDasListas_(vd_listasPosCotacao_(ctx), false).forEach(function (c) {
     if (Date.now() > ctx.prazo || !mudou(c)) return;
+    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
     var r = vd_conferirPosCotacao_(c, ctx);
     if (r.acao !== 'base registrada' && r.acao !== 'sem peça nova' && r.acao !== 'ignorado') { out.push(r); vd_marcar_(c); }
     else props.setProperty('VD_AT_' + c.id, c.dateLastActivity + '|' + c.idList);
@@ -1443,6 +1446,7 @@ function vd_executarNucleo_() {
   vd_cardsParaConferir_(ctx).forEach(function (c) {
     if (Date.now() > ctx.prazo) return;
     if (!mudou(c) && ctx.modoAtivo) return;
+    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
     out.push(vd_conferirCard_(c, ctx));
     if (ctx.modoAtivo) vd_marcar_(c);
   });
@@ -1593,6 +1597,7 @@ function pz_executar_() {
   cards.forEach(function (c) {
     if (Date.now() > fim) return;
     if (fora.indexOf(c.idList) >= 0) return;
+    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
     var chave = 'PZ_AT_' + c.id;
     var marca = c.dateLastActivity + '|' + c.idList;
     if (props.getProperty(chave) === marca) return;
