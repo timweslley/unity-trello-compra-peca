@@ -1301,10 +1301,10 @@ function vdf_salvar(token, p) {
     if (posCot) {
       if (novasPecas.length) {
         // peça nova em card que já andou: devolve para EM COTAÇÃO
-        props.setProperty('VD_PK2_' + card.id, JSON.stringify(baseTodas));
+        vd_pkSet_(card.id, baseTodas);
         acao = vd_conferirPosCotacao_(c2, ctx).acao;
       } else {
-        props.setProperty('VD_PK2_' + card.id, JSON.stringify(vd_linhasConsultor_(an.div.bloco).map(vd_sigItem_)));
+        vd_pkSet_(card.id, vd_linhasConsultor_(an.div.bloco).map(vd_sigItem_));
         acao = 'card continua em ' + lista;
         // peça removida / FO complementar: a coluna pode ter mudado (tudo comprado, ou card encerrado reaberto)
         try { var mvS = rc_reavaliarColuna_(card.id, token, me.username); if (mvS) acao = 'card → ' + mvS; } catch (e) { console.log('salvar/coluna: ' + e); }

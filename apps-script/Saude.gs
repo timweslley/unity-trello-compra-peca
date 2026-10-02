@@ -60,6 +60,8 @@ function sd_diario() {
   Object.keys(p.getProperties()).filter(function (k) { return k.indexOf('FALHAS_') === 0; }).forEach(function (k) { prob.push('"' + k.slice(7) + '" com ' + p.getProperty(k) + ' falha(s) seguida(s)'); });
   try { sd_backupSemanal_(); } catch (e) { prob.push('backup semanal da planilha falhou: ' + e.message); }
   try { pn_atualizar(); } catch (e) { prob.push('painel de indicadores não atualizou: ' + e.message); }
+  try { sd_limparPropriedades_(); } catch (e) { prob.push('limpeza das propriedades falhou: ' + e.message); }
+  try { var tamP = sd_propriedades(); if (tamP > 380 * 1024) prob.push('Propriedades do script em ' + Math.round(tamP / 1024) + ' KB (limite ~500 KB)'); } catch (e) {}
   Logger.log(prob.length ? prob.join('\n') : 'tudo ok');
   if (prob.length) MailApp.sendEmail(SD.EMAIL, 'ALERTA Trello: conferência diária achou ' + prob.length + ' problema(s)', prob.map(function (x) { return '- ' + x; }).join('\n') +
     '\n\nExecuções: https://script.google.com/home/projects/' + ScriptApp.getScriptId() + '/executions');
@@ -105,4 +107,17 @@ function sd_propriedades() {
   var top = Object.keys(por).sort(function (a, b) { return por[b] - por[a]; }).slice(0, 12).map(function (k) { return k + ' ' + Math.round(por[k] / 1024) + ' KB'; });
   Logger.log('propriedades: ' + Object.keys(all).length + ' chaves · ' + Math.round(tot / 1024) + ' KB de ~500 KB · maior: ' + maior[0] + ' (' + Math.round(maior[1] / 1024) + ' KB)\n' + top.join('\n'));
   return tot;
+}
+
+/** Limpeza diária: apaga as propriedades por card (VD_PK2_, VD_AT_, VD_SIG_, PZ_AT_, SLA_, ...) de cards que
+ *  não estão mais abertos no quadro em uso (arquivados, apagados, ou de outro quadro depois da virada). */
+var SD_PREF_CARD = /^(?:VD_PK2_|VD_AT_|VD_SIG_|VD_NOVAS_|VD_DESC_AV_|PZ_AT_|ST_ESP_)([0-9a-f]{24})$|^SLA_([0-9a-f]{24})_/;
+function sd_limparPropriedades_() {
+  var p = PropertiesService.getScriptProperties(), all = p.getKeys(), abertos = {};
+  vd_api_('/boards/' + vd_board_() + '/cards', { cru: true, query: { fields: 'id' } }).forEach(function (c) { abertos[c.id] = 1; });
+  if (Object.keys(abertos).length < 5) return 0;   // leitura estranha: não apaga nada
+  var n = 0;
+  all.forEach(function (k) { var m = k.match(SD_PREF_CARD), id = m && (m[1] || m[2]); if (id && !abertos[id]) { p.deleteProperty(k); n++; } });
+  if (n) console.log('propriedades: ' + n + ' de cards fechados apagadas');
+  return n;
 }

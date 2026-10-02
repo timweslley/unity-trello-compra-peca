@@ -230,6 +230,15 @@ function vd_sigItem_(linha) {
   return vd_semAcento_(vd_limpar_(linha)).replace(/^\s*(?:\d+\s*[.)\-]|[-•*])\s*/, '').replace(/\s*\|\s*/g, '|').replace(/\s+/g, ' ').trim();
 }
 
+/** Impressão curta da assinatura (10 caracteres): VD_PK2_ guarda só isto — com ~650 cards no quadro principal
+ *  as assinaturas inteiras estourariam o limite de ~500 KB das Propriedades. Valor antigo (texto inteiro) é convertido. */
+function vd_pkH_(sig) {
+  sig = String(sig || '');
+  if (/^#[A-Za-z0-9+\/]{9}$/.test(sig)) return sig;
+  return '#' + Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, sig, Utilities.Charset.UTF_8)).slice(0, 9);
+}
+function vd_pkSet_(cardId, sigs) { PropertiesService.getScriptProperties().setProperty('VD_PK2_' + cardId, JSON.stringify((sigs || []).map(vd_pkH_))); }
+
 /** Linhas "do consultor" no bloco (tudo que não é cabeçalho do carro nem linha do robô). */
 function vd_linhasConsultor_(bloco) {
   var out = [];
@@ -1126,7 +1135,7 @@ function vd_conferirCard_(card, ctx) {
   }
 
   // mantém a "foto" das linhas do consultor atualizada enquanto o card está em EM COTAÇÃO / FALTA DADOS
-  props.setProperty('VD_PK2_' + card.id, JSON.stringify(vd_linhasConsultor_(an.div.bloco).map(vd_sigItem_)));
+  vd_pkSet_(card.id, vd_linhasConsultor_(an.div.bloco).map(vd_sigItem_));
 
   var faltas = vd_agruparTipo_(an.faltas).concat(faltasExtra);
   // pedido de seguradora: o orçamento autorizado tem de estar no card (o robô importa as peças dele)
@@ -1254,12 +1263,12 @@ function vd_conferirPosCotacao_(card, ctx) {
     try { res.pagas = vd_checklistPagas_(card.id, compras); } catch (e) { res.avisos.push('PAGAS: ' + e.message); }
   }
 
-  if (baseTxt === null) { props.setProperty(chavePK, JSON.stringify(sigs)); res.acao = res.pagas ? 'pagas' : 'base registrada'; return res; }
-  var base = JSON.parse(baseTxt);
+  if (baseTxt === null) { vd_pkSet_(card.id, sigs); res.acao = res.pagas ? 'pagas' : 'base registrada'; return res; }
+  var base = JSON.parse(baseTxt).map(vd_pkH_), sigsH = sigs.map(vd_pkH_);
   var novas = [];
-  linhas.forEach(function (l, i) { if (base.indexOf(sigs[i]) < 0) novas.push(l); });
+  linhas.forEach(function (l, i) { if (base.indexOf(sigsH[i]) < 0) novas.push(l); });
   if (!novas.length) {
-    if (JSON.stringify(base) !== JSON.stringify(sigs)) props.setProperty(chavePK, JSON.stringify(sigs));
+    if (baseTxt !== JSON.stringify(sigsH)) vd_pkSet_(card.id, sigs);
     res.acao = res.pagas ? 'pagas' : 'sem peça nova';
     return res;
   }
@@ -1281,7 +1290,7 @@ function vd_conferirPosCotacao_(card, ctx) {
   // base = as peças que já existiam; a partir de agora só as peças novas são conferidas
   var basePecas = sigsPecas.filter(function (s) { return base.indexOf(s) >= 0; });
   props.setProperty('VD_NOVAS_' + card.id, JSON.stringify(basePecas));
-  props.setProperty(chavePK, JSON.stringify(sigs));
+  vd_pkSet_(card.id, sigs);
   if (!ctx.modoAtivo) { props.deleteProperty('VD_NOVAS_' + card.id); return res; }
 
   var listaDe = card.idList;
