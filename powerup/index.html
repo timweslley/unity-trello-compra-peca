@@ -88,7 +88,7 @@
         if (vez) out.push({ title: 'Tarefa da vez', text: vez.texto + ' ◀', color: vez.cor, callback: acao(vez) });
         TAREFAS.forEach(function (x, i) {
           if (x === vez) return;
-          out.push({ title: out.length ? '' : 'Tarefas', text: x.texto, color: i === 0 ? 'orange' : null, callback: acao(x) });
+          out.push({ title: out.length ? '\u00a0' : 'Tarefas', text: x.texto, color: i === 0 ? 'orange' : null, callback: acao(x) });
         });
         return out;
       });
