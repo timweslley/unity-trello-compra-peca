@@ -1448,8 +1448,33 @@ function vd_executarNucleo_() {
   var out = [];
   var mudou = function (c) { return props.getProperty('VD_AT_' + c.id) !== c.dateLastActivity + '|' + c.idList; };
 
+  // Quais cards olhar: só os que tiveram atividade desde o último ciclo (histórico do quadro).
+  // A cada 30 min (e na 1ª vez) faz a varredura completa das colunas, por segurança.
+  var posCot = vd_listasPosCotacao_(ctx), idCot = [ctx.listas[VD.LISTA_COTACAO], ctx.listas[VD.LISTA_FALTA]].filter(String);
+  var marca = vd_marca_('NU_ACT'), inicio = new Date().toISOString();
+  var completa = !marca || new Date().getMinutes() % 30 === 0 || !ctx.modoAtivo;
+  var listaPos = null, listaCot = null;
+  if (!completa) {
+    try {
+      var acts = vd_api_('/boards/' + ctx.board + '/actions', { cru: true, query: { since: new Date(new Date(marca).getTime() - 5000).toISOString(), limit: 1000, fields: 'data' } }) || [];
+      var ids = [];
+      acts.forEach(function (a) { var id = a.data && a.data.card && a.data.card.id; if (id && ids.indexOf(id) < 0 && !vd_legado_(id)) ids.push(id); });
+      listaPos = []; listaCot = [];
+      ids.forEach(function (id) {
+        if (Date.now() > ctx.prazo) return;
+        var c;
+        try { c = vd_api_('/cards/' + id, { cru: true, query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels,closed', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } }); } catch (e) { return; }
+        if (!c || c.closed) return;
+        if (posCot.indexOf(c.idList) >= 0) listaPos.push(c);
+        else if (idCot.indexOf(c.idList) >= 0) listaCot.push(c);
+      });
+    } catch (e) { console.log('núcleo/histórico: ' + e); completa = true; listaPos = listaCot = null; }
+  }
+  if (completa) { listaPos = vd_cardsDasListas_(posCot, false); listaCot = vd_cardsParaConferir_(ctx); }
+  vd_marcaSet_('NU_ACT', inicio);
+
   // 1) colunas depois de EM COTAÇÃO: só peça nova
-  vd_cardsDasListas_(vd_listasPosCotacao_(ctx), false).forEach(function (c) {
+  listaPos.forEach(function (c) {
     if (Date.now() > ctx.prazo || !mudou(c)) return;
     if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
     var r = vd_conferirPosCotacao_(c, ctx);
@@ -1458,7 +1483,7 @@ function vd_executarNucleo_() {
   });
 
   // 2) EM COTAÇÃO e FALTA DADOS: conferência completa (ou só da peça nova)
-  vd_cardsParaConferir_(ctx).forEach(function (c) {
+  listaCot.forEach(function (c) {
     if (Date.now() > ctx.prazo) return;
     if (!mudou(c) && ctx.modoAtivo) return;
     if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
