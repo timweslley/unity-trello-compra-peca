@@ -177,6 +177,7 @@
   /* cabeçalho do card (o 1º negrito vira o título, como no verso do card) */
   .tt #infoComprador { background:transparent; padding:0 0 4px; margin-bottom:12px; color:var(--suave2); font-size:13px; }
   .tt #infoComprador > b:first-child { display:block; font-size:20px; line-height:24px; font-weight:600; color:var(--texto); margin-bottom:4px; }
+  .tt #infoComprador .sep { display:none; }
   .tt #infoComprador a { color:var(--azul); text-decoration:none; }
   .tt #infoComprador a:hover { text-decoration:underline; }
   .tt #infoComprador .aviso.devolvida { font-size:14px; color:#533f04; padding:10px 12px; }
@@ -715,7 +716,7 @@ function semAc(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, 
 function telaComprador(c) {
   mostrar('telaCarregando', false); mostrar('form', false); mostrar('comprador', true);
   var pecas = pecasOficina(c);
-  $('infoComprador').innerHTML = '<b>' + esc(c.nome) + '</b> — está em <b>' + esc(c.lista) + '</b>. ' + pecas.length + ' peça(s) pela oficina'
+  $('infoComprador').innerHTML = '<b>' + esc(c.nome) + '</b><span class="sep"> — </span>está em <b>' + esc(c.lista) + '</b>. ' + pecas.length + ' peça(s) pela oficina'
     + (c.tipo === 'PARTICULAR' ? ' · pedido <b>particular</b>' : ' · pedido de <b>seguradora</b>')
     + '.<br><a href="' + esc(c.url) + '" target="_blank">Abrir o card</a> · <a href="#" onclick="guardar(\'vd_modo_pend\',null);location.href=CFG.urlApp+\'?card=\'+CARD_EDICAO;return false">Editar o pedido (consultor)</a>';
   if (c.devolucao) $('infoComprador').innerHTML += '<div class="aviso devolvida" style="margin-top:8px">↩️ <b>Cotação devolvida</b> por ' + esc(c.devolucao.quem) + ' em ' + esc(c.devolucao.quando) + (c.devolucao.geral ? ': <b>' + esc(c.devolucao.geral) + '</b>' : '') + '<br>Veja as observações em cada peça, complete e envie a cotação de novo.</div>';
