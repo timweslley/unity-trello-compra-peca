@@ -3,9 +3,9 @@
  * descrição no padrão (dados do carro + PEÇAS: + fornecimento) a partir do que o card já tem — texto livre,
  * checklists PAGAS/FORNECIMENTO, título — e grava com vd_gravarDesc_ (vitrine + cópia completa). Nada muda de coluna.
  *
- *   mg_simularNoTeste(n)  : SIMULAÇÃO — só lê o principal; copia até n cards ativos antigos para o TESTE (mesma
- *                           coluna, anexos e checklists) e converte a CÓPIA. Relatório na aba MIGRACAO + Logger.
- *                           Pode rodar várias vezes: pula o que já foi simulado.
+ *   mg_simularNoTeste(n)  : SIMULAÇÃO — só lê o principal; arquiva a simulação anterior, copia até n cards ativos antigos
+ *                           para o TESTE (mesma coluna, anexos e checklists) e converte a CÓPIA. Relatório na aba MIGRACAO + Logger.
+ *   mg_simularMais(n)     : continua a simulação (pula o que já foi simulado).
  *   mg_limparSimulacao()  : arquiva as cópias simuladas no TESTE e limpa a aba.
  *   mg_converter_(card)   : a conversão em si (reaproveitada pela migração real, quando/se for aprovada).
  *
@@ -246,6 +246,11 @@ function mg_guardaSimulacao_() {
 function mg_simularNoTeste(n) {
   mg_guardaSimulacao_();
   n = +n || 10;
+  try { Logger.log('cópias da simulação anterior arquivadas: ' + mg_limparSimulacao()); } catch (e) { Logger.log('limpar: ' + e); }   // amostra sempre fresca
+  return mg_simularLote_(n);
+}
+function mg_simularLote_(n) {
+  mg_guardaSimulacao_();
   var fim = Date.now() + MG.LIMITE_MS, feitos = 0, rel = [];
   var ja = mg_jaSimulados_(), espelho = {};
   try { espelho = es_mapa_(); } catch (e) {}
@@ -295,6 +300,9 @@ function mg_renomearPagas_(cardId, renomear) {
   });
   return n;
 }
+
+/** Continua a simulação sem apagar a anterior. */
+function mg_simularMais(n) { return mg_simularLote_(+n || 10); }
 
 /** Arquiva as cópias simuladas no TESTE e limpa a aba MIGRACAO. */
 function mg_limparSimulacao() {
