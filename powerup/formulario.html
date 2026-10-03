@@ -1043,7 +1043,10 @@ function montarCompra(c) {
   totalCompra();
   var semNenhuma = !(c.autorizadas || []).length;
   var semOrdem = c.ordemAut === false;
-  $('compraAviso').innerHTML = (semOrdem ? '🏷️ <b>FALTA A ETIQUETA ORDEM AUTORIZADA</b> — a compra só é registrada com a ordem de serviço autorizada. Coloque a etiqueta no card.' : '')
+  $('compraAviso').innerHTML = (semOrdem ? '🏷️ <b>FALTA A ETIQUETA ORDEM AUTORIZADA</b> — a compra só é liberada com a ordem de serviço autorizada.<br>'
+      + '1️⃣ Confira no <b>Databox</b> se a ordem está <b>autorizada</b> e o orçamento <b>importado</b>.<br>'
+      + '2️⃣ Está tudo certo? Coloque a etiqueta <b>ORDEM AUTORIZADA</b> no card e abra a compra de novo.<br>'
+      + '3️⃣ Não está? Comente no card avisando ' + (c.solicitante ? '<b>@' + esc(c.solicitante) + '</b> (quem fez o pedido)' : '<b>quem fez o pedido</b>') + ' do que falta.' : '')
     + (semOrdem && semNenhuma ? '<br>' : '')
     + (semNenhuma ? '⚠️ Este card ainda <b>não tem autorização da diretoria</b>. Se registrar a compra agora, ela fica marcada no card como <b>fora da autorização</b>.' : '');
   mostrar('compraAviso', semNenhuma || semOrdem);

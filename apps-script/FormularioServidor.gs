@@ -271,11 +271,11 @@ function vdf_montarCard_(c, lista, me) {
   var autorizadas = [];
   try { autorizadas = vd_autorizacoesDaDescricao_(c.desc, an.pecas); } catch (e) {}
   var obs = vd_campo_(an.div.bloco, 'OBS|OBSERVA[ÇC][ÃA]O');
+  var criador; try { criador = vd_criador_(c.id); } catch (e) { criador = ''; }
   return {
     shortLink: c.shortLink, url: c.shortUrl, nome: c.name, lista: lista, posCotacao: vdf_ehPosCotacao_(lista),
     dados: an.dados, obs: obs,
     pecas: (function () {
-      var criador; try { criador = vd_criador_(c.id); } catch (e) { criador = ''; }
       return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', complemento: !!p.complemento, compData: p.compData || '', travada: vdf_travaPeca_(p, autorizadas, c), podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; });
     })(),
     padrao: an.pecas.length > 0,
@@ -292,7 +292,7 @@ function vdf_montarCard_(c, lista, me) {
     fornecedores: fo_paraFormulario_(),
     recebiveis: (function () { try { return vdf_itensRecebimento_(c).map(function (i) { i.dueTxt = i.due ? vd_dataCurta_(i.due) : ''; i.dueIso = i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : ''; return i; }); } catch (e) { return []; } })(),
     particular: vdf_ehParticular_(c, an),
-    diretoria: vdf_ehAutorizador_(me), podeComprar: vdf_podeComprar_(me), podeReceber: vdf_podeReceber_(me, c), ordemAut: vdf_temOrdemAut_(c),
+    diretoria: vdf_ehAutorizador_(me), podeComprar: vdf_podeComprar_(me), podeReceber: vdf_podeReceber_(me, c), ordemAut: vdf_temOrdemAut_(c), solicitante: criador || '',
     totais: (function () { try { return vd_totais_(c); } catch (e) { return null; } })(),
     pagas: (function () {
       try {
@@ -985,7 +985,7 @@ function vdf_salvarCompra(token, p) {
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro — não recebe cotação nem compra.'] };
-  if (!vdf_temOrdemAut_(card)) return { ok: false, faltas: ['🏷️ FALTA A ETIQUETA ORDEM AUTORIZADA — compra só com a ordem de serviço autorizada. Coloque a etiqueta no card e envie de novo.'] };
+  if (!vdf_temOrdemAut_(card)) return { ok: false, faltas: ['🏷️ FALTA A ETIQUETA ORDEM AUTORIZADA — confira no Databox se a ordem está autorizada e o orçamento importado. Se estiver tudo certo, coloque a etiqueta no card e envie de novo; se não, avise o solicitante no card.'] };
   var an = vd_analisar_(card.desc, card.name);
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
