@@ -112,7 +112,7 @@ function mg_ehFornecedor_(l) {
 function mg_ehConsulta_(l) { return mg_ehFornecedor_(l) || /(\s-?\s*(NT|ND|N\/T|N[ÃA]O TEM)|\s[-–])\s*$/i.test(l); }
 function mg_ehItem_(l) {
   if (!l || l.length > 90 || /:/.test(l) || !/[A-Za-zÀ-ú]{3,}/.test(l)) return false;
-  if (l.split(/\s+/).length > 7 || /\b(PRECISO|GENTILEZA|CONSIDERAR|PODE SER|SE N[ÃA]O|FAVOR|OBRIGAD|APRESENTAR|SOMENTE|APENAS)\b/i.test(l)) return false;
+  if (l.split(/\s+/).length > 12 || /\b(PRECISO|GENTILEZA|CONSIDERAR|PODE SER|SE N[ÃA]O|FAVOR|OBRIGAD|APRESENTAR|SOMENTE|APENAS)\b/i.test(l)) return false;
   if (/^[A-Z]{3}[\s-]?\d[A-Z0-9]\d{2}\b/.test(l) || /\b[A-HJ-NPR-Z0-9]{17}\b/.test(l)) return false;   // placa / chassi
   if (mg_ehConsulta_(l)) return false;
   if (/R\$|\d+[.,]\d{2}\b|\b(DIAS?|PRAZO|PREVIS|ENTREG|CHEG|PAGO|PAGA|NOTA|NF|ORÇAMENTO|FATUR)\b/i.test(l)) return false;
@@ -149,7 +149,7 @@ function mg_pecasDoTexto_(desc, modeloLinha) {
     if (!l2) { if (comecou && ++vazias > 1) break; continue; }
     if (mg_ehRotulo_(l2) || mg_ehSeparador_(l2)) { if (comecou) break; else continue; }
     if (!comecou && (/\b(19[89]\d|20[0-4]\d)(\s*\/\s*(19[89]\d|20[0-4]\d))?\s*$/.test(l2) || l2 === modeloLinha)) continue;   // linha do modelo
-    if (/R\$\s*\d|\d{2,}[.,]\d{1,2}\s*$/.test(l2)) { if (comecou) break; else continue; }
+    if (/R\$\s*\d|\d{2,}[.,]\d{1,2}\s*$/.test(l2) || mg_ehConsulta_(l2)) { if (comecou) break; else continue; }
     var item = mg_ehItem_(l2) || (/^[A-Z0-9][A-Z0-9\-.\/]{3,}\s*[-–:]\s*\S/i.test(l2) && !/R\$/.test(l2));
     if (item) { out.push(l2); comecou = true; vazias = 0; }
     else if (comecou) break;
