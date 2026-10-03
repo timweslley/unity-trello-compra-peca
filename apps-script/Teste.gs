@@ -358,7 +358,7 @@ function tst_principal() {
     var up = passo('Anexo: orçamento PDF enviado', function () { return vdf_subirArquivo(tk, Utilities.base64Encode(pdf.getBytes()), 'application/pdf', 'ORCAMENTO-TESTE-' + TSTP.PLACA + '.pdf'); });
     // 2) pedido novo
     var ex = vdf_buscarPlaca(tk, TSTP.PLACA); sl = ex && ex.length ? ex[0].shortLink : '';
-    var unid = vd_api_('/boards/' + vd_board_() + '/labels', { query: { fields: 'name', limit: 100 } }).filter(function (l) { return /TOLEDO|RONDON|CASCAVEL|MOUR/i.test(l.name || ''); });
+    var unid = cf_opcoesUnidade_();
     var uTol = (unid.filter(function (l) { return /TOLEDO/i.test(l.name); })[0] || {}).id, uRon = (unid.filter(function (l) { return /RONDON/i.test(l.name); })[0] || {}).id;
     if (!sl) {
       var r = passo('Pedido: consultor cria o card (ordem 999999, unidade TOLEDO)', function () { return vdf_salvar(tk, { shortLink: '', dados: { placa: TSTP.PLACA, modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '9BWAG45U0LT009999', ordem: '999999' },
@@ -375,7 +375,7 @@ function tst_principal() {
       pecas: c.pecas.map(function (x) { return { pneu: x.pneu, codigo: x.codigo, descricao: x.descricao, tipos: x.tipos, medida: x.medida, categoria: x.categoria, marca: x.marca, qtd: x.qtd, particular: x.particular, partPor: x.partPor }; }),
       obs: c.obs || '', fileIds: [], capaId: '', orcamento: null, novo: { tipo: 'PARTICULAR', carro: 'GOL', cor: 'BRANCO', seguradora: '', sinistro: '', unidade: uRon || '' } }); });
     c = vdf_carregarCard(tk, sl);
-    espera('Edição gravou ordem e unidade novas', function () { var cc = vd_api_('/cards/' + sl, { query: { fields: 'labels' } }); var nomes = (cc.labels || []).map(function (l) { return l.name; }).join(','); return [c.ordem === '888888' && c.unidadeId === uRon && !/TOLEDO/.test(nomes), 'ordem ' + c.ordem + ' · etiquetas ' + nomes]; });
+    espera('Edição gravou ordem e unidade novas', function () { var cc = vd_api_('/cards/' + sl, { query: { fields: 'id,labels' } }); return [c.ordem === '888888' && c.unidadeId === uRon && cf_unidadeDoCard_(cc) === 'RONDON', 'ordem ' + c.ordem + ' · campo Unidade = ' + cf_unidadeDoCard_(cc)]; });
     espera('Card abre no formulário (' + c.nome + ')', function () { return [c.pecas.length === 2 && c.lista, 'em ' + c.lista + ' · ' + c.pecas.length + ' peças · ' + c.anexos.length + ' anexo(s)']; });
     espera('Anexo PDF no card', function () { return [c.anexos.some(function (a) { return a.pdf; }), c.anexos.map(function (a) { return a.nome; }).join(', ')]; });
     // 3) cotação
@@ -393,9 +393,8 @@ function tst_principal() {
     passo('Botão "Avisar solicitante" comenta no card', function () { return vdf_avisarSolicitante(tk, { shortLink: sl, naoAutorizada: true, naoImportado: true, obs: 'teste automático do aviso' }); });
     espera('Aviso repetido em seguida é bloqueado', function () { var s = vdf_avisarSolicitante(tk, { shortLink: sl, naoAutorizada: true }); return [!s.ok, (s.faltas || [])[0]]; });
     // 6) etiqueta + compra
-    var etq = vd_api_('/boards/' + vd_board_() + '/labels', { query: { fields: 'name', limit: 100 } }).filter(function (l) { return /ORDEM AUTORIZADA/i.test(l.name || ''); })[0];
-    espera('Etiqueta ORDEM AUTORIZADA existe no quadro', function () { return [!!etq, etq ? etq.name : 'não achada']; });
-    if (etq) vd_api_('/cards/' + cid + '/idLabels', { method: 'post', payload: { value: etq.id } });
+    passo('Comprador marca ORDEM AUTORIZADA pelo formulário', function () { return vdf_marcarOrdemAutorizada(tk, { shortLink: sl }); });
+    espera('Card ficou com a etiqueta', function () { var cc = vdf_carregarCard(tk, sl); return [cc.ordemAut === true, '']; });
     passo('Compra das 2 peças (checklist PAGAS)', function () { return vdf_salvarCompra(tk, { shortLink: sl, compras: [{ chave: para.chave, fornecedor: para.fornecedor, valor: para.valor, dias: 2 }, { chave: far.chave, fornecedor: far.fornecedor, valor: far.valor, dias: 3 }] }); });
     c = vdf_carregarCard(tk, sl);
     espera('Devolução depois da compra é recusada', function () { var s = vdf_devolverCotacao(tk, { shortLink: sl, obs: [], geral: 'teste' }); return [!s.ok, (s.faltas || [])[0]]; });

@@ -294,7 +294,7 @@
         <div id="blocoUnidade">
           <label for="unidade">Unidade <span class="obr">*</span></label>
           <select id="unidade"><option value="">—</option></select>
-          <div class="dica">Vira a etiqueta da unidade no card.</div>
+          <div class="dica">Vai para o campo "Unidade" do card.</div>
         </div>
       </div>
       <div class="dica" id="dicaTitulo" style="margin-top:12px">O título do card fica: PLACA CARRO COR SEGURADORA.</div>
@@ -1146,7 +1146,7 @@ function montarCompra(c) {
   var semOrdem = c.ordemAut === false;
   $('compraAviso').innerHTML = (semOrdem ? '🏷️ <b>FALTA A ETIQUETA ORDEM AUTORIZADA</b> — a compra só é liberada com a ordem de serviço autorizada.<br>'
       + '1️⃣ Confira no <b>Databox</b> se a ordem está <b>autorizada</b> e o orçamento <b>importado</b>.<br>'
-      + '2️⃣ Está tudo certo? Coloque a etiqueta <b>ORDEM AUTORIZADA</b> no card e abra a compra de novo.<br>'
+      + '2️⃣ Está tudo certo? ' + (c.podeComprar ? '<button type="button" id="btnOrdemAut" class="principal" style="padding:4px 10px;font-size:13px" onclick="marcarOrdemAut()">✅ Marcar ORDEM AUTORIZADA no card</button>' : 'Coloque a etiqueta <b>ORDEM AUTORIZADA</b> no card e abra a compra de novo.') + '<br>'
       + '3️⃣ Não está? Avise ' + (c.solicitante ? '<b>@' + esc(c.solicitante) + '</b> (quem fez o pedido)' : '<b>quem fez o pedido</b>') + ' pelo botão abaixo.'
       + (c.podeComprar ? '<div style="margin-top:8px;color:inherit">'
         + '<label style="display:block"><input type="checkbox" id="avsNaoAut"> Ordem de serviço não autorizada no Databox</label>'
@@ -1286,6 +1286,14 @@ function enviarIndisponivel() {
     if (!r.ok) return errosComprador(r.faltas);
     sucesso('⚠️ Cotação indisponível registrada no card <b>' + esc(r.nome) + '</b> (' + r.n + ' peça(s)).' + (r.nova ? '<br>A cotação nova foi para <b>autorização</b>.' : '<br>Sem cotação nova: o card voltou para cotação.') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
   }).catch(function (e) { mostrar('enviandoCompra', false); errosComprador([e.message]); });
+}
+function marcarOrdemAut() {
+  mostrar('erroComprador', false);
+  var b = $('btnOrdemAut'); b.disabled = true;
+  chamar('vdf_marcarOrdemAutorizada', TOKEN, { shortLink: CARD_EDICAO }).then(function (r) {
+    if (!r.ok) { b.disabled = false; return errosComprador(r.faltas); }
+    return chamar('vdf_carregarCard', TOKEN, CARD_EDICAO).then(function (c) { CARD = c; telaComprador(c); mostrarAba('compra'); });
+  }).catch(function (e) { b.disabled = false; errosComprador([e.message]); });
 }
 function avisarSolicitante() {
   mostrar('erroComprador', false);

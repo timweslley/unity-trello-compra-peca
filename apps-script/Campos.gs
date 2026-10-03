@@ -117,6 +117,31 @@ function vd_totais_(c) {
   return T;
 }
 
+/** Texto da opção do campo "Unidade" do card (TOLEDO / RONDON / CASCAVEL / MOURÃO / SERVOPA) ou ''. Lê card.customFieldItems; se não veio, busca. */
+function cf_unidadeDoCard_(c) {
+  if (!c || !c.id) return '';
+  var d = cf_defs_()['Unidade']; if (!d) return '';
+  var itens = c.customFieldItems;
+  if (!itens) { try { itens = vd_api_('/cards/' + c.id + '/customFieldItems', { cru: true }) || []; } catch (e) { return ''; } }
+  var it = itens.filter(function (x) { return x.idCustomField === d.id; })[0];
+  if (!it || !it.idValue) return '';
+  var nome = ''; Object.keys(d.opcoes).forEach(function (k) { if (d.opcoes[k] === it.idValue) nome = k; });
+  return nome;
+}
+/** Opções do campo "Unidade" para o formulário: [{id, name}], na ordem das unidades. */
+function cf_opcoesUnidade_() {
+  var d = cf_defs_()['Unidade']; if (!d) return [];
+  var ordem = ['TOLEDO', 'RONDON', 'CASCAVEL', 'MOURÃO'];
+  return Object.keys(d.opcoes).map(function (k) { return { id: d.opcoes[k], name: k }; })
+    .sort(function (a, b) { var ia = ordem.indexOf(a.name), ib = ordem.indexOf(b.name); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.name.localeCompare(b.name); });
+}
+/** Grava a opção (id) no campo "Unidade" do card. */
+function cf_gravarUnidade_(cardId, idOpcao) {
+  var d = cf_defs_()['Unidade']; if (!d || !idOpcao) return false;
+  vd_api_('/cards/' + cardId + '/customField/' + d.id + '/item', { method: 'put', payload: { idValue: idOpcao } });
+  return true;
+}
+
 /** Valores calculados do card. */
 function cf_valores_(c) {
   var an = vd_analisar_(c.desc || '', c.name || '');
@@ -128,7 +153,7 @@ function cf_valores_(c) {
   var consultor = '';
   try { consultor = vd_criador_(c.id); } catch (e) {}
   return {
-    'Unidade': ev_unidade_(c), 'Seguradora': seg, 'Tipo': an.pecas.length || an.dados.tipo ? tipo : '',
+    'Unidade': cf_unidadeDoCard_(c) ? undefined : (ev_unidadeEtiqueta_(c) || undefined), 'Seguradora': seg,   // o campo é a fonte; só preenche de etiqueta (card antigo) quando está vazio 'Tipo': an.pecas.length || an.dados.tipo ? tipo : '',
     'Placa': an.dados.placa || vd_placaDoTexto_(c.name || '') || '', 'Consultor': consultor ? '@' + consultor : '',
     'Total seguradora': T ? num(T.seg.valor) : undefined,
     'Total particular': T ? num(T.part.valor) : undefined,

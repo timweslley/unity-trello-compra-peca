@@ -27,12 +27,19 @@ function ev_aba_() {
   return sh;
 }
 
+/** Unidade do card: campo personalizado "Unidade" (fonte); etiqueta TOL/MCR/CVEL/CMO só para cards antigos sem o campo. */
 function ev_unidade_(card) {
+  var u = '';
+  try { u = cf_unidadeDoCard_(card); } catch (e) {}
+  if (u) return u;
+  return ev_unidadeEtiqueta_(card);
+}
+function ev_unidadeEtiqueta_(card) {
   var nomes = ((card && card.labels) || []).map(function (l) { return String(l.name || '').toUpperCase(); }).join(' ');
   if (/TOLEDO|\bTOL\b/.test(nomes)) return 'TOLEDO';
-  if (/RONDON|\bMCR\b/.test(nomes)) return 'MARECHAL C. RONDON';
+  if (/RONDON|\bMCR\b/.test(nomes)) return 'RONDON';
   if (/CASCAVEL|\bCVEL\b/.test(nomes)) return 'CASCAVEL';
-  if (/MOUR/.test(nomes)) return 'CAMPO MOURÃO';
+  if (/MOUR/.test(nomes)) return 'MOURÃO';
   return '';
 }
 

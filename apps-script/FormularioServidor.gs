@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_avisarSolicitante'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -132,9 +132,7 @@ function vdf_podeDevolver_(me, card, an) {
 function vdf_iniciar(token) {
   var me = vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'name,shortUrl' } });
-  var labels = vd_api_('/boards/' + vd_board_() + '/labels', { query: { fields: 'name,color', limit: 100 } })
-    .filter(function (l) { return /TOLEDO|RONDON|CASCAVEL|MOUR/i.test(l.name || ''); })
-    .map(function (l) { return { id: l.id, name: l.name }; });
+  var labels = cf_opcoesUnidade_();   // opções do campo personalizado "Unidade"
   return {
     nome: me.fullName, usuario: me.username, quadro: board.name, urlQuadro: board.shortUrl, unidades: labels, comprador: vdf_podeComprar_(me), diretoria: vdf_ehAutorizador_(me),
     cfg: { teste: vd_board_() === VD.BOARD_PADRAO, tipos: VD.TIPOS, categPneu: VD.CATEG_PNEU }
@@ -161,9 +159,7 @@ function vdf_abrir(token, shortLink) {
   }
   var me = JSON.parse(rs[0].getContentText());
   var board = JSON.parse(rs[1].getContentText());
-  var labels = JSON.parse(rs[2].getContentText())
-    .filter(function (l) { return /TOLEDO|RONDON|CASCAVEL|MOUR/i.test(l.name || ''); })
-    .map(function (l) { return { id: l.id, name: l.name }; });
+  var labels = cf_opcoesUnidade_();   // opções do campo personalizado "Unidade"
   var listas = JSON.parse(rs[3].getContentText());
   // membro do quadro? (mesma regra de vdf_usuario_, com o cache)
   var cache = CacheService.getScriptCache(), chave = 'vdf_membros_' + b, membros = cache.get(chave);
@@ -272,19 +268,18 @@ function vdf_gravarOrdem_(cardId, ordem) {
   vd_api_('/cards/' + cardId + '/customField/' + d.id + '/item', { method: 'put', payload: corpo });
   return true;
 }
-/** Id da etiqueta de unidade que o card tem (TOLEDO / RONDON / CASCAVEL / MOURÃO). */
+/** Id da opção do campo "Unidade" do card ('' se não tem). */
 function vdf_unidadeDoCard_(c) {
-  var l = (c.labels || []).filter(function (x) { return /TOLEDO|RONDON|CASCAVEL|MOUR/i.test(x.name || ''); })[0];
-  return l ? l.id : '';
+  try {
+    var d = cf_defs_()['Unidade']; if (!d) return '';
+    var it = (c.customFieldItems || []).filter(function (i) { return i.idCustomField === d.id; })[0];
+    return it && it.idValue ? it.idValue : '';
+  } catch (e) { return ''; }
 }
-/** Troca a etiqueta de unidade do card (tira as outras unidades, põe a escolhida). */
-function vdf_gravarUnidade_(card, idLabel, token) {
-  if (!idLabel) return false;
-  var atuais = (card.labels || []).filter(function (x) { return /TOLEDO|RONDON|CASCAVEL|MOUR/i.test(x.name || ''); });
-  if (atuais.some(function (x) { return x.id === idLabel; }) && atuais.length === 1) return false;
-  atuais.forEach(function (x) { if (x.id !== idLabel) { try { vd_api_('/cards/' + card.id + '/idLabels/' + x.id, { method: 'delete' }, token); } catch (e) {} } });
-  if (!atuais.some(function (x) { return x.id === idLabel; })) vd_api_('/cards/' + card.id + '/idLabels', { method: 'post', payload: { value: idLabel } }, token);
-  return true;
+/** Grava a unidade escolhida no campo "Unidade" (só se mudou). */
+function vdf_gravarUnidade_(card, idOpcao) {
+  if (!idOpcao || vdf_unidadeDoCard_(card) === idOpcao) return false;
+  return cf_gravarUnidade_(card.id, idOpcao);
 }
 
 function vdf_carregarCard(token, shortLink) {
@@ -1009,6 +1004,30 @@ function vd_ultimaDevolucao_(desc) {
 }
 
 /**
+ * Comprador conferiu no Databox (ordem autorizada + orçamento importado) e marca a etiqueta ORDEM AUTORIZADA pelo formulário.
+ * p = {shortLink}
+ */
+function vdf_marcarOrdemAutorizada(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) marca a ordem autorizada — sua conta: ' + me.username + '.'] };
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,idBoard,shortLink,shortUrl,labels' } });
+  var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
+  if (card.idBoard !== board.id) return { ok: false, faltas: ['Este card não é do quadro do formulário.'] };
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (vdf_temOrdemAut_(card)) return { ok: true, ja: true, nome: card.name, url: card.shortUrl };
+  var labels = vd_api_('/boards/' + vd_board_() + '/labels', { query: { fields: 'name', limit: 100 } });
+  var etq = labels.filter(function (l) { return vd_semAcento_(String(l.name || '')).toUpperCase().indexOf(VDF_ETIQ_ORDEM) >= 0 && !/NAO/.test(vd_semAcento_(String(l.name || '')).toUpperCase()); })[0];
+  if (!etq) return { ok: false, faltas: ['O quadro não tem a etiqueta ORDEM AUTORIZADA.'] };
+  vd_api_('/cards/' + card.id + '/idLabels', { method: 'post', payload: { value: etq.id } }, token);
+  (card.labels || []).forEach(function (l) {   // tira "ORDEM NAO AUTORIZADA", se tinha
+    if (/ORDEM NAO AUTORIZADA/.test(vd_semAcento_(String(l.name || '')).toUpperCase())) { try { vd_api_('/cards/' + card.id + '/idLabels/' + l.id, { method: 'delete' }, token); } catch (e) {} }
+  });
+  try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🏷️ **ORDEM AUTORIZADA** marcada por ' + me.fullName + ' pelo formulário (conferido no Databox).' } }, token); } catch (e) {}
+  return { ok: true, nome: card.name, url: card.shortUrl };
+}
+
+/**
  * Card sem etiqueta ORDEM AUTORIZADA: o comprador conferiu no Databox e avisa quem fez o pedido.
  * p = {shortLink, naoAutorizada:bool, naoImportado:bool, obs}
  */
@@ -1291,7 +1310,6 @@ function vdf_salvar(token, p) {
     if (upd.name) card.name = upd.name;
   } else {
     var corpo = { idList: ctx.listas[VD.LISTA_COTACAO], name: titulo, desc: bloco + '\n\n' + VD.MARCADOR, pos: 'top' };
-    if (n.unidade) corpo.idLabels = n.unidade;
     card = vd_api_('/cards', { method: 'post', payload: corpo }, token);
     try { vd_gravarDesc_(card.id, corpo.desc, token); } catch (e) { try { tr_guardar_(card.id, corpo.desc); } catch (e2) {} }
     try {
@@ -1300,7 +1318,7 @@ function vdf_salvar(token, p) {
   }
   // nº da ordem (Databox) e unidade: campo personalizado + etiqueta, no pedido novo e na edição
   try { if (vdf_gravarOrdem_(card.id, p.dados.ordem)) cardCampos = true; } catch (e) { console.log('ordem: ' + e); }
-  try { if (vdf_gravarUnidade_(card, n.unidade, token)) cardCampos = true; } catch (e) { console.log('unidade: ' + e); }
+  try { if (vdf_gravarUnidade_(card, n.unidade)) cardCampos = true; } catch (e) { console.log('unidade: ' + e); }
   if (cardCampos) { try { cf_sincronizar_(card.id); } catch (e) {} }
   vdf_linkComprador_(card, ctx, token);
 

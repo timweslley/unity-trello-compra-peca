@@ -47,14 +47,7 @@ function rc_data_(s) {
 /** Recebimento: em Toledo só compras/diretoria; nas filiais (ou card sem unidade) também o consultor (qualquer membro). */
 function vdf_podeReceber_(me, card) {
   if (vdf_podeComprar_(me)) return true;
-  var u = ev_unidade_(card);
-  if (!u) {   // sem etiqueta de unidade: campo personalizado "Unidade"
-    try {
-      var d = cf_defs_()['Unidade'], itens = vd_api_('/cards/' + card.id + '/customFieldItems', { cru: true }) || [];
-      var it = d && itens.filter(function (x) { return x.idCustomField === d.id; })[0];
-      if (it && it.idValue) Object.keys(d.opcoes).forEach(function (k) { if (d.opcoes[k] === it.idValue) u = k; });
-    } catch (e) {}
-  }
+  var u = ev_unidade_(card);   // campo "Unidade"; etiqueta só em card antigo
   return !/TOLEDO/i.test(u || '');
 }
 function vdf_salvarRecebimento(token, p) {
