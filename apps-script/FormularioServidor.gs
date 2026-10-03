@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_avisarSolicitante'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -972,6 +972,36 @@ function vd_ultimaDevolucao_(desc) {
     else if (/^COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d/i.test(l)) dev = null;
   });
   return dev;
+}
+
+/**
+ * Card sem etiqueta ORDEM AUTORIZADA: o comprador conferiu no Databox e avisa quem fez o pedido.
+ * p = {shortLink, naoAutorizada:bool, naoImportado:bool, obs}
+ */
+function vdf_avisarSolicitante(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) faz este aviso — sua conta: ' + me.username + '.'] };
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,idBoard,shortLink,shortUrl,labels' } });
+  var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
+  if (card.idBoard !== board.id) return { ok: false, faltas: ['Este card não é do quadro do formulário.'] };
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (vdf_temOrdemAut_(card)) return { ok: false, faltas: ['O card já tem a etiqueta ORDEM AUTORIZADA — pode registrar a compra.'] };
+  var falta = [];
+  if (p.naoAutorizada) falta.push('ordem de serviço **não autorizada** no Databox');
+  if (p.naoImportado) falta.push('orçamento **não importado** no Databox');
+  var obs = String(p.obs || '').trim().slice(0, 500);
+  if (!falta.length && !obs) return { ok: false, faltas: ['Marque o que falta no Databox ou escreva uma observação.'] };
+  var cache = CacheService.getScriptCache(), ch = 'avsol_' + card.shortLink;
+  if (cache.get(ch)) return { ok: false, faltas: ['Este aviso já foi enviado há poucos minutos. Aguarde a resposta no card.'] };
+  var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
+  var txt = (quem ? '@' + quem + ' ' : '') + '🏷️ **ORDEM AUTORIZADA PENDENTE** — ' + me.fullName + ' conferiu no Databox antes da compra:' +
+    falta.map(function (f) { return '\n• ' + f; }).join('') +
+    (obs ? '\n• Obs.: ' + obs : '') +
+    '\nA compra fica parada até resolver. Depois de acertar no Databox, coloque a etiqueta **ORDEM AUTORIZADA** no card.';
+  vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
+  cache.put(ch, '1', 600);
+  return { ok: true, nome: card.name, url: card.shortUrl, quem: quem };
 }
 
 /**

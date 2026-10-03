@@ -976,7 +976,12 @@ function montarCompra(c) {
   $('compraAviso').innerHTML = (semOrdem ? '🏷️ <b>FALTA A ETIQUETA ORDEM AUTORIZADA</b> — a compra só é liberada com a ordem de serviço autorizada.<br>'
       + '1️⃣ Confira no <b>Databox</b> se a ordem está <b>autorizada</b> e o orçamento <b>importado</b>.<br>'
       + '2️⃣ Está tudo certo? Coloque a etiqueta <b>ORDEM AUTORIZADA</b> no card e abra a compra de novo.<br>'
-      + '3️⃣ Não está? Comente no card avisando ' + (c.solicitante ? '<b>@' + esc(c.solicitante) + '</b> (quem fez o pedido)' : '<b>quem fez o pedido</b>') + ' do que falta.' : '')
+      + '3️⃣ Não está? Avise ' + (c.solicitante ? '<b>@' + esc(c.solicitante) + '</b> (quem fez o pedido)' : '<b>quem fez o pedido</b>') + ' pelo botão abaixo.'
+      + (c.podeComprar ? '<div style="margin-top:8px;color:inherit">'
+        + '<label style="display:block"><input type="checkbox" id="avsNaoAut"> Ordem de serviço não autorizada no Databox</label>'
+        + '<label style="display:block"><input type="checkbox" id="avsNaoImp"> Orçamento não importado no Databox</label>'
+        + '<input type="text" id="avsObs" placeholder="Observação (opcional)" style="margin-top:4px">'
+        + '<button type="button" id="btnAvisarSol" style="margin-top:6px" onclick="avisarSolicitante()">📣 Avisar ' + (c.solicitante ? '@' + esc(c.solicitante) : 'o solicitante') + ' no card</button></div>' : '') : '')
     + (semOrdem && semNenhuma ? '<br>' : '')
     + (semNenhuma ? '⚠️ Este card ainda <b>não tem autorização da diretoria</b>. Se registrar a compra agora, ela fica marcada no card como <b>fora da autorização</b>.' : '');
   mostrar('compraAviso', semNenhuma || semOrdem);
@@ -1110,6 +1115,17 @@ function enviarIndisponivel() {
     if (!r.ok) return errosComprador(r.faltas);
     sucesso('⚠️ Cotação indisponível registrada no card <b>' + esc(r.nome) + '</b> (' + r.n + ' peça(s)).' + (r.nova ? '<br>A cotação nova foi para <b>autorização</b>.' : '<br>Sem cotação nova: o card voltou para cotação.') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
   }).catch(function (e) { mostrar('enviandoCompra', false); errosComprador([e.message]); });
+}
+function avisarSolicitante() {
+  mostrar('erroComprador', false);
+  var p = { shortLink: CARD_EDICAO, naoAutorizada: $('avsNaoAut').checked, naoImportado: $('avsNaoImp').checked, obs: $('avsObs').value.trim() };
+  if (!p.naoAutorizada && !p.naoImportado && !p.obs) return errosComprador(['Marque o que falta no Databox ou escreva uma observação.']);
+  var b = $('btnAvisarSol'); b.disabled = true;
+  chamar('vdf_avisarSolicitante', TOKEN, p).then(function (r) {
+    b.disabled = false;
+    if (!r.ok) return errosComprador(r.faltas);
+    sucesso('📣 Aviso enviado no card <b>' + esc(r.nome) + '</b>' + (r.quem ? ' para <b>@' + esc(r.quem) + '</b>' : '') + '.<br>A compra fica liberada quando a etiqueta <b>ORDEM AUTORIZADA</b> for colocada.', r.url, 'Voltar ao card');
+  }).catch(function (e) { b.disabled = false; errosComprador([e.message]); });
 }
 function foraDaAut(item, q) { return !!q && !mesmaCot(q, autDe(CARD, item.dataset.chave)); }
 function avisoForaAut(sel) {
