@@ -286,6 +286,16 @@
           <input type="text" id="chassi" class="maiusc" maxlength="20" placeholder="17 caracteres" oninput="conferirChassi()">
           <div class="dica" id="dicaChassi"></div>
         </div>
+        <div>
+          <label for="ordem">Nº da ordem (Databox)</label>
+          <input type="text" id="ordem" inputmode="numeric" maxlength="8" placeholder="Ex.: 2105" oninput="this.value=this.value.replace(/\D/g,'')">
+          <div class="dica">O comprador usa para conferir a ordem no Databox. Vai para o campo "Nº Ordem" do card.</div>
+        </div>
+        <div id="blocoUnidade">
+          <label for="unidade">Unidade <span class="obr">*</span></label>
+          <select id="unidade"><option value="">—</option></select>
+          <div class="dica">Vira a etiqueta da unidade no card.</div>
+        </div>
       </div>
       <div class="dica" id="dicaTitulo" style="margin-top:12px">O título do card fica: PLACA CARRO COR SEGURADORA.</div>
       <div id="blocoNovo" class="grade" style="margin-top:8px">
@@ -304,10 +314,6 @@
         <div>
           <label for="sinistro">Sinistro</label>
           <input type="text" id="sinistro" placeholder="Opcional">
-        </div>
-        <div id="blocoUnidade">
-          <label for="unidade">Unidade</label>
-          <select id="unidade"><option value="">—</option></select>
         </div>
       </div>
     </section>
@@ -648,7 +654,7 @@ function carregarCard(sl, pronto) {
     if (MODO_COMPRAS) return telaComprador(c);
     $('modoEdicao').innerHTML = 'Editando o card <b>' + esc(c.nome) + '</b>. As cotações que já estão no card são mantidas. '
       + '<a href="#" onclick="modoNovo();return false">Fazer pedido novo em vez disso</a>';
-    mostrar('modoEdicao', true); mostrar('blocoUnidade', false);
+    mostrar('modoEdicao', true);
     POS = !!c.posCotacao; LISTA = c.lista || '';
     if (c.doOrcamento) ORC = ORC || { origem: c.origemOrc || 'ORÇAMENTO', fo: [] };
     setTipoPedido(c.tipo === 'PARTICULAR' ? 'PARTICULAR' : 'SEGURADORA');
@@ -661,6 +667,7 @@ function carregarCard(sl, pronto) {
     }
     $('placa').value = d.placa || ''; $('modelo').value = d.modelo || ''; $('ano').value = d.ano || '';
     $('motor').value = d.motor || ''; $('chassi').value = d.chassi || ''; $('obs').value = c.obs || '';
+    $('ordem').value = c.ordem || ''; $('unidade').value = c.unidadeId || '';
     conferirChassi();
     $('itens').innerHTML = ''; $('itensPart').innerHTML = '';
     (c.pecas || []).forEach(function (p) { novoItem(p.pneu ? 'pneu' : 'peca', p); });
@@ -718,6 +725,7 @@ function telaComprador(c) {
   var pecas = pecasOficina(c);
   $('infoComprador').innerHTML = '<b>' + esc(c.nome) + '</b><span class="sep"> — </span>está em <b>' + esc(c.lista) + '</b>. ' + pecas.length + ' peça(s) pela oficina'
     + (c.tipo === 'PARTICULAR' ? ' · pedido <b>particular</b>' : ' · pedido de <b>seguradora</b>')
+    + (c.ordem ? ' · ordem nº <b>' + esc(c.ordem) + '</b>' : ' · <b>sem nº de ordem</b>')
     + '.<br><a href="' + esc(c.url) + '" target="_blank">Abrir o card</a> · <a href="#" onclick="guardar(\'vd_modo_pend\',null);location.href=CFG.urlApp+\'?card=\'+CARD_EDICAO;return false">Editar o pedido (consultor)</a>';
   if (c.devolucao) $('infoComprador').innerHTML += '<div class="aviso devolvida" style="margin-top:8px">↩️ <b>Cotação devolvida</b> por ' + esc(c.devolucao.quem) + ' em ' + esc(c.devolucao.quando) + (c.devolucao.geral ? ': <b>' + esc(c.devolucao.geral) + '</b>' : '') + '<br>Veja as observações em cada peça, complete e envie a cotação de novo.</div>';
   if (!pecas.length) { $('erroComprador').textContent = 'Este card não tem peça pela oficina na descrição (só fornecimento da seguradora ou descrição fora do padrão).'; mostrar('erroComprador', true); }
@@ -1342,7 +1350,7 @@ function mostrarTudo() {
 
 function modoNovo() {
   CARD_EDICAO = ''; guardar('vd_card_pend', null);
-  mostrar('modoEdicao', false); mostrar('blocoUnidade', true);
+  mostrar('modoEdicao', false); $('ordem').value = ''; $('unidade').value = '';
   POS = false; LISTA = ''; COMP = null; if (ORC && !ORC.fo.length && !$('avisoOrc').innerHTML) ORC = null;
   $('cardsPlaca').innerHTML = '';
   CARD = null; $('anexosCard').innerHTML = ''; mostrar('anexosCard', false);
@@ -1696,9 +1704,11 @@ function coletar() {
   });
   var d = {
     placa: normPlaca($('placa').value), modelo: $('modelo').value.trim(), ano: $('ano').value.trim(),
-    motor: $('motor').value.trim(), chassi: $('chassi').value.toUpperCase().replace(/[\s.\-]/g, '')
+    motor: $('motor').value.trim(), chassi: $('chassi').value.toUpperCase().replace(/[\s.\-]/g, ''),
+    ordem: $('ordem').value.replace(/\D/g, '')
   };
   var carro = [];
+  if (!$('unidade').value) carro.push('unidade');
   var part = tipoPedido() === 'PARTICULAR' && !modoMisto();
   var soPlacaCarro = modoMisto() || (!part && (!!ORC || POS));
   if (!placaOk(d.placa)) carro.push('placa');

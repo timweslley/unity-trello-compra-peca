@@ -153,7 +153,7 @@ function vdf_abrir(token, shortLink) {
     req('/boards/' + b + '/labels?fields=name,color&limit=100'),
     req('/boards/' + b + '/lists?fields=name&filter=all')
   ];
-  if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due&attachments=true&attachment_fields=name,mimeType,isUpload,bytes,url'));
+  if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due&attachments=true&attachment_fields=name,mimeType,isUpload,bytes,url&customFieldItems=true'));
   var rs = UrlFetchApp.fetchAll(reqs);
   if (rs[0].getResponseCode() >= 300) throw new Error('LOGIN: seu acesso ao Trello expirou. Entre de novo.');
   for (var i = 1; i < rs.length; i++) {
@@ -254,10 +254,43 @@ function vdf_cardProtegido_(nome) {
   return /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '') || /^\s*AVISO\b/i.test(nome || '');
 }
 
+/** Nº da ordem de serviço (Databox) gravado no campo personalizado "Nº Ordem" do card. */
+var VDF_CAMPO_ORDEM = 'Nº Ordem';
+function vdf_ordemDoCard_(c) {
+  try {
+    var d = cf_defs_()[VDF_CAMPO_ORDEM]; if (!d) return '';
+    var it = (c.customFieldItems || []).filter(function (i) { return i.idCustomField === d.id; })[0];
+    return it && it.value ? String(it.value.number || it.value.text || '') : '';
+  } catch (e) { return ''; }
+}
+/** Grava o Nº da ordem no campo personalizado (vazio não apaga o que já está no card). */
+function vdf_gravarOrdem_(cardId, ordem) {
+  ordem = String(ordem || '').replace(/\D/g, '');
+  if (!ordem) return false;
+  var d = cf_defs_()[VDF_CAMPO_ORDEM]; if (!d) return false;
+  var corpo = d.tipo === 'number' ? { value: { number: ordem } } : { value: { text: ordem } };
+  vd_api_('/cards/' + cardId + '/customField/' + d.id + '/item', { method: 'put', payload: corpo });
+  return true;
+}
+/** Id da etiqueta de unidade que o card tem (TOLEDO / RONDON / CASCAVEL / MOURÃO). */
+function vdf_unidadeDoCard_(c) {
+  var l = (c.labels || []).filter(function (x) { return /TOLEDO|RONDON|CASCAVEL|MOUR/i.test(x.name || ''); })[0];
+  return l ? l.id : '';
+}
+/** Troca a etiqueta de unidade do card (tira as outras unidades, põe a escolhida). */
+function vdf_gravarUnidade_(card, idLabel, token) {
+  if (!idLabel) return false;
+  var atuais = (card.labels || []).filter(function (x) { return /TOLEDO|RONDON|CASCAVEL|MOUR/i.test(x.name || ''); });
+  if (atuais.some(function (x) { return x.id === idLabel; }) && atuais.length === 1) return false;
+  atuais.forEach(function (x) { if (x.id !== idLabel) { try { vd_api_('/cards/' + card.id + '/idLabels/' + x.id, { method: 'delete' }, token); } catch (e) {} } });
+  if (!atuais.some(function (x) { return x.id === idLabel; })) vd_api_('/cards/' + card.id + '/idLabels', { method: 'post', payload: { value: idLabel } }, token);
+  return true;
+}
+
 function vdf_carregarCard(token, shortLink) {
   var me = vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
-  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } });
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url', customFieldItems: 'true' } });
   if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
   var lista = vd_api_('/lists/' + c.idList, { query: { fields: 'name' } }).name;
   return vdf_montarCard_(c, lista, me);
@@ -293,6 +326,7 @@ function vdf_montarCard_(c, lista, me) {
     recebiveis: (function () { try { return vdf_itensRecebimento_(c).map(function (i) { i.dueTxt = i.due ? vd_dataCurta_(i.due) : ''; i.dueIso = i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : ''; return i; }); } catch (e) { return []; } })(),
     particular: vdf_ehParticular_(c, an),
     diretoria: vdf_ehAutorizador_(me), podeComprar: vdf_podeComprar_(me), podeReceber: vdf_podeReceber_(me, c), ordemAut: vdf_temOrdemAut_(c), solicitante: criador || '',
+    ordem: vdf_ordemDoCard_(c), unidadeId: vdf_unidadeDoCard_(c),
     totais: (function () { try { return vd_totais_(c); } catch (e) { return null; } })(),
     pagas: (function () {
       try {
@@ -1122,6 +1156,7 @@ function vd_comprasDaDescricao_(desc) {
 function vdf_salvar(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
+  var cardCampos = false;
   var ctx = vd_contexto_();
   var d = {
     modelo: String(p.dados.modelo || '').trim().toUpperCase(),
@@ -1263,6 +1298,10 @@ function vdf_salvar(token, p) {
       vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink, name: VD_LINK.EDITAR, setCover: false } }, token);
     } catch (e) {}
   }
+  // nº da ordem (Databox) e unidade: campo personalizado + etiqueta, no pedido novo e na edição
+  try { if (vdf_gravarOrdem_(card.id, p.dados.ordem)) cardCampos = true; } catch (e) { console.log('ordem: ' + e); }
+  try { if (vdf_gravarUnidade_(card, n.unidade, token)) cardCampos = true; } catch (e) { console.log('unidade: ' + e); }
+  if (cardCampos) { try { cf_sincronizar_(card.id); } catch (e) {} }
   vdf_linkComprador_(card, ctx, token);
 
   var nFo = 0;
