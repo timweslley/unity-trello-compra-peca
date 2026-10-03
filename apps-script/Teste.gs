@@ -332,3 +332,85 @@ function tst_demo() {
   Logger.log(JSON.stringify(out, null, 1));
   return out;
 }
+
+/* ============================ TESTE NO QUADRO PRINCIPAL ============================
+ * tst_principal() — cria um card PARTICULAR fictício (placa TST9Z99) com um orçamento em PDF anexado
+ * e passa por todo o fluxo: pedido -> cotação -> autorização -> compra sem etiqueta (recusa) ->
+ * aviso ao solicitante -> etiqueta -> compra -> previsão -> recebimento -> ENCERRADO.
+ * Menções só no Weslley. No final o card é ARQUIVADO e renomeado "🧪 TESTE — pode excluir".
+ * Devolve o relatório (também no Logger). */
+var TSTP = { PLACA: 'TST9Z99' };
+function tst_principal() {
+  var tk = PropertiesService.getScriptProperties().getProperty('TRELLO_TOKEN');
+  var rel = [], ok = 0, erro = 0, sl = '', cid = '';
+  var passo = function (nome, fn) {
+    var t0 = Date.now();
+    try { var r = fn(); var bom = !(r && r.ok === false); rel.push((bom ? '✅ ' : '❌ ') + nome + (r && r.lista ? ' → ' + r.lista : '') + (bom ? '' : ' — ' + JSON.stringify(r.faltas)) + ' (' + Math.round((Date.now() - t0) / 100) / 10 + ' s)'); if (bom) ok++; else erro++; return r; }
+    catch (e) { rel.push('❌ ' + nome + ' — ' + e.message); erro++; return null; }
+  };
+  var espera = function (nome, fn) { var r = fn(); rel.push((r[0] ? '✅ ' : '❌ ') + nome + (r[1] ? ' — ' + r[1] : '')); if (r[0]) ok++; else erro++; };
+  tst_comMencoesSoMinhas_(function () {
+    // 1) anexo válido: orçamento em PDF
+    var html = '<h2>ORÇAMENTO DE TESTE — Unity</h2><p>Placa ' + TSTP.PLACA + ' · VW GOL 1.0 2020/2021 · PARTICULAR</p>'
+      + '<table border="1" cellpadding="4"><tr><th>Código</th><th>Peça</th><th>Qtd</th></tr><tr><td>5U0807221</td><td>PARACHOQUE DIANT</td><td>1</td></tr><tr><td>5U0941005</td><td>FAROL ESQ</td><td>1</td></tr></table>'
+      + '<p>Documento fictício gerado pelo teste automático — pode descartar.</p>';
+    var pdf = Utilities.newBlob(html, 'text/html', 'orcamento.html').getAs('application/pdf');
+    var up = passo('Anexo: orçamento PDF enviado', function () { return vdf_subirArquivo(tk, Utilities.base64Encode(pdf.getBytes()), 'application/pdf', 'ORCAMENTO-TESTE-' + TSTP.PLACA + '.pdf'); });
+    // 2) pedido novo
+    var ex = vdf_buscarPlaca(tk, TSTP.PLACA); sl = ex && ex.length ? ex[0].shortLink : '';
+    if (!sl) {
+      var r = passo('Pedido: consultor cria o card', function () { return vdf_salvar(tk, { shortLink: '', dados: { placa: TSTP.PLACA, modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '9BWAG45U0LT009999' },
+        pecas: [{ pneu: false, codigo: '5U0807221', descricao: 'PARACHOQUE DIANT', tipos: ['ORIGINAL'], qtd: '1' }, { pneu: false, codigo: '5U0941005', descricao: 'FAROL ESQ', tipos: ['PARALELO'], qtd: '1' }],
+        obs: 'CARD DE TESTE AUTOMÁTICO — não comprar', fileIds: up && up.fileId ? [up.fileId] : [], capaId: '', orcamento: null,
+        novo: { tipo: 'PARTICULAR', carro: 'GOL', cor: 'BRANCO', seguradora: '', sinistro: '', unidade: '' } }); });
+      sl = r && r.shortLink;
+    }
+    if (!sl) return;
+    cid = vd_api_('/cards/' + sl, { query: { fields: 'id' } }).id;
+    var c = vdf_carregarCard(tk, sl);
+    espera('Card abre no formulário (' + c.nome + ')', function () { return [c.pecas.length === 2 && c.lista, 'em ' + c.lista + ' · ' + c.pecas.length + ' peças · ' + c.anexos.length + ' anexo(s)']; });
+    espera('Anexo PDF no card', function () { return [c.anexos.some(function (a) { return a.pdf; }), c.anexos.map(function (a) { return a.nome; }).join(', ')]; });
+    // 3) cotação
+    passo('Cotação: 3 cotações lançadas', function () { return vdf_salvarCotacao(tk, { shortLink: sl, cotacoes: [tst_cot_(c, 'PARACHOQUE', 'IMPERIAL', 'ORIGINAL', '450,00', 2), tst_cot_(c, 'PARACHOQUE', 'METROSUL', 'ORIGINAL', '480,00', 1), tst_cot_(c, 'FAROL', 'AVENIDA', 'PARALELO', '210,00', 3)] }); });
+    c = vdf_carregarCard(tk, sl);
+    // 4) autorização (particular: quem autoriza é o consultor que lançou)
+    passo('Autorização das 2 peças', function () { return vdf_autorizar(tk, { shortLink: sl, escolhas: [tst_barata_(c, 'PARACHOQUE'), tst_barata_(c, 'FAROL')], obs: [], geral: 'teste automático' }); });
+    c = vdf_carregarCard(tk, sl);
+    espera('Card sem etiqueta ORDEM AUTORIZADA mostra o solicitante', function () { return [c.ordemAut === false && !!c.solicitante, 'solicitante @' + c.solicitante + ' · em ' + c.lista]; });
+    // 5) compra sem etiqueta -> recusa; aviso ao solicitante
+    var far = c.autorizadas.filter(function (a) { return a.chave === tst_peca_(c, 'FAROL').chave; })[0];
+    var para = c.autorizadas.filter(function (a) { return a.chave === tst_peca_(c, 'PARACHOQUE').chave; })[0];
+    espera('Compra sem etiqueta é recusada', function () { var s = vdf_salvarCompra(tk, { shortLink: sl, compras: [{ chave: far.chave, fornecedor: far.fornecedor, valor: far.valor, dias: 3 }] }); return [!s.ok, (s.faltas || [])[0]]; });
+    espera('Aviso vazio é recusado', function () { var s = vdf_avisarSolicitante(tk, { shortLink: sl }); return [!s.ok, (s.faltas || [])[0]]; });
+    passo('Botão "Avisar solicitante" comenta no card', function () { return vdf_avisarSolicitante(tk, { shortLink: sl, naoAutorizada: true, naoImportado: true, obs: 'teste automático do aviso' }); });
+    espera('Aviso repetido em seguida é bloqueado', function () { var s = vdf_avisarSolicitante(tk, { shortLink: sl, naoAutorizada: true }); return [!s.ok, (s.faltas || [])[0]]; });
+    // 6) etiqueta + compra
+    var etq = vd_api_('/boards/' + vd_board_() + '/labels', { query: { fields: 'name', limit: 100 } }).filter(function (l) { return /ORDEM AUTORIZADA/i.test(l.name || ''); })[0];
+    espera('Etiqueta ORDEM AUTORIZADA existe no quadro', function () { return [!!etq, etq ? etq.name : 'não achada']; });
+    if (etq) vd_api_('/cards/' + cid + '/idLabels', { method: 'post', payload: { value: etq.id } });
+    passo('Compra das 2 peças (checklist PAGAS)', function () { return vdf_salvarCompra(tk, { shortLink: sl, compras: [{ chave: para.chave, fornecedor: para.fornecedor, valor: para.valor, dias: 2 }, { chave: far.chave, fornecedor: far.fornecedor, valor: far.valor, dias: 3 }] }); });
+    c = vdf_carregarCard(tk, sl);
+    espera('Devolução depois da compra é recusada', function () { var s = vdf_devolverCotacao(tk, { shortLink: sl, obs: [], geral: 'teste' }); return [!s.ok, (s.faltas || [])[0]]; });
+    // 7) previsão
+    var rv = c.recebiveis.filter(function (i) { return /FAROL/.test(i.nome) && !i.ok; })[0];
+    if (rv) {
+      var nova = Utilities.formatDate(new Date(Date.now() + 6 * 864e5), 'America/Sao_Paulo', 'yyyy-MM-dd');
+      espera('Previsão sem motivo é recusada', function () { var s = vdf_alterarPrevisao(tk, { shortLink: sl, itens: [{ tipo: 'PAGAS', id: rv.id, previsao: nova }] }); return [!s.ok, (s.faltas || [])[0]]; });
+      passo('Previsão do farol alterada com motivo', function () { return vdf_alterarPrevisao(tk, { shortLink: sl, itens: [{ tipo: 'PAGAS', id: rv.id, previsao: nova, motivo: 'teste automático' }] }); });
+    }
+    // 8) recebimento
+    c = vdf_carregarCard(tk, sl);
+    var pend = c.recebiveis.filter(function (i) { return !i.ok; });
+    passo('Recebimento de tudo (' + pend.length + ' item(ns))', function () { return vdf_salvarRecebimento(tk, { shortLink: sl, itens: pend.map(function (i) { return { id: i.id, data: '', obs: '' }; }), anexos: [], geral: 'teste automático' }); });
+    c = vdf_carregarCard(tk, sl);
+    espera('Card terminou em ENCERRADO', function () { return [/ENCERRADO/i.test(c.lista), c.lista + ' · total ' + vd_valorBR_(c.totais.tot.valor)]; });
+  });
+  if (cid) {
+    try { vd_api_('/cards/' + cid, { method: 'put', payload: { name: '🧪 TESTE — pode excluir (' + TSTP.PLACA + ')', closed: true } }); rel.push('🗄️ Card arquivado: https://trello.com/c/' + sl); }
+    catch (e) { rel.push('⚠️ não consegui arquivar: ' + e.message); }
+  }
+  rel.unshift('RESULTADO: ' + ok + ' ok · ' + erro + ' erro(s)');
+  Logger.log(rel.join('\n'));
+  PropertiesService.getScriptProperties().setProperty('TST_PRINCIPAL_REL', rel.join('\n').slice(0, 8000));
+  return rel;
+}
