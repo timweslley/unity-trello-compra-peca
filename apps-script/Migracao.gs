@@ -46,6 +46,7 @@ function mg_candidatos_() {
     var col = listas[c.idList] || '';
     if (MG.FORA.indexOf(col) >= 0) return false;
     if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '')) return false;
+    if (!vd_placaDoTexto_(c.name || '') && !vd_placaDoTexto_(vd_campo_(vd_limpar_(c.desc || ''), VD_ROT.placa))) return false;   // sem placa: não é pedido de peça (ex.: cards de notas do Qive)
     return vd_legado_(c.id);
   }).map(function (c) { c.coluna = listas[c.idList] || ''; return c; });
   var ordem = ['FALTA DADOS PARA COTAR', 'EM COTAÇÃO', 'COTAÇÃO FINALIZADA', 'PENDENTE AUTORIZAR', 'AUTORIZADO COMPRA', 'FALTA CHEGAR'];
@@ -58,7 +59,7 @@ function mg_candidatos_() {
 /** "87610R1530 ESPELHO RETROVISOR ESQ - IMPERIAL - R$ 420" -> {codigo, descricao}. */
 function mg_item_(txt) {
   var s = vd_limpar_(String(txt || '')).trim();
-  s = s.replace(/^\s*(?:\d+\s*[.)\-]|[-•*✔✓☐☑])\s*/, '').trim();
+  s = s.replace(/^\s*(?:\d{1,3}\s*[.)]|[-•*✔✓☐☑])\s*/, '').trim();   // numeração/bullet (não um código numérico seguido de " - ")
   var partes = s.split(/\s+-\s+|\s+[–—]\s+/);
   if (partes.length > 1 && /R\$|\d+[.,]\d{2}\b|\bDIAS?\b|PREVIS/i.test(partes.slice(1).join(' '))) s = partes[0].trim();
   var qtd = '';
@@ -71,31 +72,65 @@ function mg_item_(txt) {
     return { pneu: true, medida: medida, categoria: vd_categPneu_(marca), marca: vd_categPneu_(marca) ? '' : marca, qtd: qtd };
   }
   var toks = s.split(/\s+/), codigo = '', descricao = s;
-  var t0 = (toks[0] || '').replace(/[^A-Z0-9\-.\/]/gi, '');
-  if (toks.length > 1 && /\d/.test(t0) && t0.replace(/[^A-Z0-9]/gi, '').length >= 4 && !/^\d{1,3}$/.test(t0)) {
-    codigo = t0.toUpperCase(); descricao = toks.slice(1).join(' ');
-  }
+  var ehCod = function (t) { t = String(t || '').replace(/[^A-Z0-9\-.\/]/gi, ''); return /\d/.test(t) && t.replace(/[^A-Z0-9]/gi, '').length >= 4 && !/^\d{1,3}$/.test(t) && !/^\d{2,4}\/\d{2,4}$/.test(t); };
+  if (toks.length > 1 && ehCod(toks[0])) { codigo = toks[0].replace(/[^A-Z0-9\-.\/]/gi, '').toUpperCase(); descricao = toks.slice(1).join(' '); }
+  else if (toks.length > 1 && ehCod(toks[toks.length - 1]) && toks[toks.length - 1].replace(/[^A-Z0-9]/gi, '').length >= 6) { codigo = toks[toks.length - 1].replace(/[^A-Z0-9\-.\/]/gi, '').toUpperCase(); descricao = toks.slice(0, -1).join(' '); }
   descricao = descricao.replace(/^[\s:\-–]+/, '').trim().toUpperCase();
   return { pneu: false, codigo: codigo, descricao: descricao, tipos: [], qtd: qtd };
 }
 
-/** Linhas de peça no texto livre: bloco depois de PEÇAS:/COTAR:/PEDIDO: até linha em branco (após conteúdo) ou ---. */
-function mg_pecasDoTexto_(desc) {
-  var linhas = vd_limpar_(desc).split('\n'), ini = -1;
-  for (var i = 0; i < linhas.length; i++) {
-    if (/^\s*(PE[ÇC]AS|COTAR|PEDIDO|COMPRAR|ITENS)\s*(PE[ÇC]AS)?\s*:?\s*$/i.test(linhas[i]) || /^\s*(PE[ÇC]AS|COTAR)\s*:\s*\S/i.test(linhas[i])) { ini = i; break; }
+/** Linha que parece um item de peça (curta, sem rótulo, sem preço/prazo). */
+var MG_FORN = null;
+function mg_ehFornecedor_(l) {
+  if (MG_FORN === null) { MG_FORN = {}; try { fo_lista_().forEach(function (f) { MG_FORN[fo_norm_(f.nome)] = 1; (f.apelidos || []).forEach(function (a) { MG_FORN[fo_norm_(a)] = 1; }); }); } catch (e) {} }
+  var n = fo_norm_(l).replace(/\s+(NT|ND|PE|LINK|GENUINO|USADA|USADO)$/, '').trim();
+  return !!MG_FORN[n] || /^(MERCADO LIVRE|ML|SHOPEE|AMAZON)\b/i.test(n);
+}
+function mg_ehItem_(l) {
+  if (!l || l.length > 90 || /:/.test(l) || !/[A-Za-zÀ-ú]{3,}/.test(l)) return false;
+  if (l.split(/\s+/).length > 7 || /\b(PRECISO|GENTILEZA|CONSIDERAR|PODE SER|SE N[ÃA]O|FAVOR|OBRIGAD|APRESENTAR|SOMENTE|APENAS)\b/i.test(l)) return false;
+  if (/^[A-Z]{3}[\s-]?\d[A-Z0-9]\d{2}\b/.test(l) || /\b[A-HJ-NPR-Z0-9]{17}\b/.test(l)) return false;   // placa / chassi
+  if (mg_ehFornecedor_(l) || /(\s-?\s*(NT|ND|N\/T|N[ÃA]O TEM)|\s[-–])\s*$/i.test(l)) return false;   // "FORNECEDOR - NT" é consulta, não peça
+  if (/R\$|\d+[.,]\d{2}\b|\b(DIAS?|PRAZO|PREVIS|ENTREG|CHEG|PAGO|PAGA|NOTA|NF|ORÇAMENTO|FATUR)\b/i.test(l)) return false;
+  if (/^(FOTOS?|SEGUE|EM ANEXO|OBS|AGUARD|CONFORME|VERIFICAR|FOI |SER[ÁA] |COMPRAR|COTAR|PE[ÇC]AS|PEDIDO|N[ÃA]O |JA |J[ÁA] |CLIENTE|LIBERADO|AUTORIZAD)/i.test(l)) return false;
+  return true;
+}
+function mg_ehRotulo_(l) { return /^\s*(MODELO|VE[IÍ]CULO|ANO|MOTOR|CHASSI|PLACA|COR|SEGURADORA|SINISTRO|TIPO|OBS|OBSERVA[ÇC][ÃA]O|UNIDADE|CONSULTOR)\b/i.test(l) || /^\s*COMPRAR\b.*\d{1,2}\/\d{1,2}/i.test(l); }
+function mg_ehSeparador_(l) { return /^[\\\-=_ .~]{3,}$/.test(l); }
+
+/** Linhas de peça no texto livre: bloco depois de PEÇAS:/COTAR:/PEDIDO: ou, sem cabeçalho, o primeiro bloco de linhas "de item". */
+function mg_pecasDoTexto_(desc, modeloLinha) {
+  modeloLinha = String(modeloLinha || '').trim();
+  var linhas = vd_limpar_(desc).split('\n').map(function (l) { return l.trim(); }), ini = -1, i;
+  for (i = 0; i < linhas.length; i++) {
+    if (/^(PE[ÇC]AS|COTAR|PEDIDO|COMPRAR|ITENS)\s*(PE[ÇC]AS)?\s*:?\s*$/i.test(linhas[i]) || /^(PE[ÇC]AS|COTAR)\s*:\s*\S/i.test(linhas[i])) { ini = i; break; }
   }
-  if (ini < 0) return [];
-  var out = [], primeiro = linhas[ini].replace(/^\s*(PE[ÇC]AS|COTAR|PEDIDO|COMPRAR|ITENS)\s*(PE[ÇC]AS)?\s*:?\s*/i, '').trim();
-  if (primeiro) out.push(primeiro);
-  for (var j = ini + 1; j < linhas.length; j++) {
-    var l = linhas[j].trim();
-    if (!l) { if (out.length) break; continue; }
-    if (/^(-{3,}|={3,}|OBS\b|OBSERVA|FOTOS?\b|ANEXO|SEGUE|CONFORME|N[ÃA]O PRECISA|FORNECIMENTO|FO\b|\*\*?[A-Z ]+-\s*$)/i.test(l)) break;
-    if (/R\$\s*\d|\d+[.,]\d{2}\s*$/.test(l) && out.length) break;   // começou a parte de cotações
-    out.push(l);
+  var out = [], vazias = 0, comecou = false;
+  if (ini >= 0) {
+    var primeiro = linhas[ini].replace(/^(PE[ÇC]AS|COTAR|PEDIDO|COMPRAR|ITENS)\s*(PE[ÇC]AS)?\s*:?\s*/i, '').trim();
+    if (primeiro) { out.push(primeiro); comecou = true; }
+    for (i = ini + 1; i < linhas.length; i++) {
+      var l = linhas[i];
+      if (!l) { if (comecou && ++vazias > 1) break; continue; }
+      if (mg_ehSeparador_(l) || /^(FORNECIMENTO|FO\b)/i.test(l)) break;
+      if (/R\$\s*\d|\d{2,}[.,]\d{1,2}\s*$/.test(l) && comecou) break;
+      if (!mg_ehItem_(l) && !/^\d/.test(l) && !/\s-\s/.test(l)) { if (comecou) break; else continue; }
+      out.push(l); comecou = true; vazias = 0;
+    }
+    return out;
   }
-  return out.filter(function (l) { return l.length > 2 && !/^(FOTOS?|SEGUE|EM ANEXO)/i.test(l); });
+  // sem cabeçalho: primeiro bloco de linhas que parecem itens (depois dos rótulos MODELO/CHASSI/PLACA)
+  for (i = 0; i < linhas.length; i++) {
+    var l2 = linhas[i];
+    if (!l2) { if (comecou && ++vazias > 1) break; continue; }
+    if (mg_ehRotulo_(l2) || mg_ehSeparador_(l2)) { if (comecou) break; else continue; }
+    if (!comecou && (/\b(19[89]\d|20[0-4]\d)(\s*\/\s*(19[89]\d|20[0-4]\d))?\s*$/.test(l2) || l2 === modeloLinha)) continue;   // linha do modelo
+    if (/R\$\s*\d|\d{2,}[.,]\d{1,2}\s*$/.test(l2)) { if (comecou) break; else continue; }
+    var item = mg_ehItem_(l2) || (/^[A-Z0-9][A-Z0-9\-.\/]{3,}\s*[-–:]\s*\S/i.test(l2) && !/R\$/.test(l2));
+    if (item) { out.push(l2); comecou = true; vazias = 0; }
+    else if (comecou) break;
+  }
+  return out.filter(function (l) { return l.length > 2; });
 }
 
 /** Modelo quando não há linha "MODELO:": primeira linha "de carro" do texto (maiúscula, sem rótulo, sem preço). */
@@ -105,7 +140,8 @@ function mg_modeloDoTexto_(desc) {
     var l = linhas[i].trim();
     if (!l || /:/.test(l) || /R\$|COTAR|PE[ÇC]AS|FOTO/i.test(l)) continue;
     if (l.length < 8 || l.length > 90 || !/[A-Z]{3,}/.test(l) || l !== l.toUpperCase()) continue;
-    return l;
+    var carro = /\b(19[89]\d|20[0-4]\d)\b/.test(l) || /\b(FIAT|VW|VOLKS|CHEVROLET|GM|FORD|HONDA|TOYOTA|HYUNDAI|RENAULT|NISSAN|JEEP|BMW|AUDI|MERCEDES|PEUGEOT|CITRO|KIA|MITSUBISHI|BYD|GWM|CAOA|CHERY|RAM|DODGE|VOLVO|LAND ROVER|JAC|SUZUKI|YAMAHA|IVECO|SCANIA|PORSCHE|MINI|LEXUS|SUBARU|TROLLER|HAVAL|OMODA|JAECOO)\b/.test(l);
+    if (carro) return l;
   }
   return '';
 }
@@ -154,7 +190,7 @@ function mg_converter_(card, comentarios) {
   });
   if (pecas.length) fonte = 'checklist PAGAS';
   else {
-    var lp = mg_pecasDoTexto_(desc);
+    var lp = mg_pecasDoTexto_(desc, vd_campo_(limpo, VD_ROT.modelo) ? '' : mg_modeloDoTexto_(desc));
     if (lp.length) { pecas = lp.map(mg_item_); fonte = 'texto da descrição'; }
     else if (fo.length) fonte = 'só fornecimento (checklist FORNECIMENTO)';
   }
