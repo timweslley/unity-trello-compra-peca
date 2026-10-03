@@ -358,16 +358,24 @@ function tst_principal() {
     var up = passo('Anexo: orçamento PDF enviado', function () { return vdf_subirArquivo(tk, Utilities.base64Encode(pdf.getBytes()), 'application/pdf', 'ORCAMENTO-TESTE-' + TSTP.PLACA + '.pdf'); });
     // 2) pedido novo
     var ex = vdf_buscarPlaca(tk, TSTP.PLACA); sl = ex && ex.length ? ex[0].shortLink : '';
+    var unid = vd_api_('/boards/' + vd_board_() + '/labels', { query: { fields: 'name', limit: 100 } }).filter(function (l) { return /TOLEDO|RONDON|CASCAVEL|MOUR/i.test(l.name || ''); });
+    var uTol = (unid.filter(function (l) { return /TOLEDO/i.test(l.name); })[0] || {}).id, uRon = (unid.filter(function (l) { return /RONDON/i.test(l.name); })[0] || {}).id;
     if (!sl) {
-      var r = passo('Pedido: consultor cria o card', function () { return vdf_salvar(tk, { shortLink: '', dados: { placa: TSTP.PLACA, modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '9BWAG45U0LT009999' },
+      var r = passo('Pedido: consultor cria o card (ordem 999999, unidade TOLEDO)', function () { return vdf_salvar(tk, { shortLink: '', dados: { placa: TSTP.PLACA, modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '9BWAG45U0LT009999', ordem: '999999' },
         pecas: [{ pneu: false, codigo: '5U0807221', descricao: 'PARACHOQUE DIANT', tipos: ['ORIGINAL'], qtd: '1' }, { pneu: false, codigo: '5U0941005', descricao: 'FAROL ESQ', tipos: ['PARALELO'], qtd: '1' }],
         obs: 'CARD DE TESTE AUTOMÁTICO — não comprar', fileIds: up && up.fileId ? [up.fileId] : [], capaId: '', orcamento: null,
-        novo: { tipo: 'PARTICULAR', carro: 'GOL', cor: 'BRANCO', seguradora: '', sinistro: '', unidade: '' } }); });
+        novo: { tipo: 'PARTICULAR', carro: 'GOL', cor: 'BRANCO', seguradora: '', sinistro: '', unidade: uTol || '' } }); });
       sl = r && r.shortLink;
     }
     if (!sl) return;
     cid = vd_api_('/cards/' + sl, { query: { fields: 'id' } }).id;
     var c = vdf_carregarCard(tk, sl);
+    espera('Nº da ordem e unidade gravados no card', function () { return [c.ordem === '999999' && c.unidadeId === uTol, 'ordem ' + c.ordem + ' · unidade ' + (c.unidadeId === uTol ? 'TOLEDO' : c.unidadeId)]; });
+    passo('Edição: troca ordem (888888) e unidade (RONDON)', function () { return vdf_salvar(tk, { shortLink: sl, dados: { placa: TSTP.PLACA, modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '9BWAG45U0LT009999', ordem: '888888' },
+      pecas: c.pecas.map(function (x) { return { pneu: x.pneu, codigo: x.codigo, descricao: x.descricao, tipos: x.tipos, medida: x.medida, categoria: x.categoria, marca: x.marca, qtd: x.qtd, particular: x.particular, partPor: x.partPor }; }),
+      obs: c.obs || '', fileIds: [], capaId: '', orcamento: null, novo: { tipo: 'PARTICULAR', carro: 'GOL', cor: 'BRANCO', seguradora: '', sinistro: '', unidade: uRon || '' } }); });
+    c = vdf_carregarCard(tk, sl);
+    espera('Edição gravou ordem e unidade novas', function () { var cc = vd_api_('/cards/' + sl, { query: { fields: 'labels' } }); var nomes = (cc.labels || []).map(function (l) { return l.name; }).join(','); return [c.ordem === '888888' && c.unidadeId === uRon && !/TOLEDO/.test(nomes), 'ordem ' + c.ordem + ' · etiquetas ' + nomes]; });
     espera('Card abre no formulário (' + c.nome + ')', function () { return [c.pecas.length === 2 && c.lista, 'em ' + c.lista + ' · ' + c.pecas.length + ' peças · ' + c.anexos.length + ' anexo(s)']; });
     espera('Anexo PDF no card', function () { return [c.anexos.some(function (a) { return a.pdf; }), c.anexos.map(function (a) { return a.nome; }).join(', ')]; });
     // 3) cotação
