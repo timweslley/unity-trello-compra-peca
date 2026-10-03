@@ -108,11 +108,13 @@ function mg_ehFornecedor_(l) {
   var n = fo_norm_(l).replace(/\s+(NT|ND|PE|LINK|GENUINO|USADA|USADO)$/, '').trim();
   return !!MG_FORN[n] || /^(MERCADO LIVRE|ML|SHOPEE|AMAZON)\b/i.test(n);
 }
+/** "FORNECEDOR - NT", "IMPERIAL - ND", "AVENIDA -": consulta a fornecedor, não é peça. */
+function mg_ehConsulta_(l) { return mg_ehFornecedor_(l) || /(\s-?\s*(NT|ND|N\/T|N[ÃA]O TEM)|\s[-–])\s*$/i.test(l); }
 function mg_ehItem_(l) {
   if (!l || l.length > 90 || /:/.test(l) || !/[A-Za-zÀ-ú]{3,}/.test(l)) return false;
   if (l.split(/\s+/).length > 7 || /\b(PRECISO|GENTILEZA|CONSIDERAR|PODE SER|SE N[ÃA]O|FAVOR|OBRIGAD|APRESENTAR|SOMENTE|APENAS)\b/i.test(l)) return false;
   if (/^[A-Z]{3}[\s-]?\d[A-Z0-9]\d{2}\b/.test(l) || /\b[A-HJ-NPR-Z0-9]{17}\b/.test(l)) return false;   // placa / chassi
-  if (mg_ehFornecedor_(l) || /(\s-?\s*(NT|ND|N\/T|N[ÃA]O TEM)|\s[-–])\s*$/i.test(l)) return false;   // "FORNECEDOR - NT" é consulta, não peça
+  if (mg_ehConsulta_(l)) return false;
   if (/R\$|\d+[.,]\d{2}\b|\b(DIAS?|PRAZO|PREVIS|ENTREG|CHEG|PAGO|PAGA|NOTA|NF|ORÇAMENTO|FATUR)\b/i.test(l)) return false;
   if (/^(FOTOS?|SEGUE|EM ANEXO|OBS|AGUARD|CONFORME|VERIFICAR|FOI |SER[ÁA] |COMPRAR|COTAR|PE[ÇC]AS|PEDIDO|N[ÃA]O |JA |J[ÁA] |CLIENTE|LIBERADO|AUTORIZAD)/i.test(l)) return false;
   return true;
@@ -136,7 +138,7 @@ function mg_pecasDoTexto_(desc, modeloLinha) {
       if (!l) { if (comecou && ++vazias > 1) break; continue; }
       if (mg_ehSeparador_(l) || /^(FORNECIMENTO|FO\b)/i.test(l)) break;
       if (/R\$\s*\d|\d{2,}[.,]\d{1,2}\s*$/.test(l) && comecou) break;
-      if (!mg_ehItem_(l) && !/^\d/.test(l) && !/\s-\s/.test(l)) { if (comecou) break; else continue; }
+      if (mg_ehConsulta_(l) || (!mg_ehItem_(l) && !/^\d/.test(l) && !/\s-\s/.test(l))) { if (comecou) break; else continue; }
       out.push(l); comecou = true; vazias = 0;
     }
     return out;
