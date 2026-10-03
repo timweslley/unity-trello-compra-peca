@@ -25,7 +25,7 @@ function mg_aba_() {
   var ss = vd_planilhaBackup_().getParent(), sh = ss.getSheetByName(MG.ABA);
   if (!sh) {
     sh = ss.insertSheet(MG.ABA);
-    sh.appendRow(['Card principal (id)', 'Card TESTE (id)', 'Link TESTE', 'Nome', 'Coluna', 'Fonte das peças', 'Peças oficina', 'FO', 'Modelo', 'Ano', 'Chassi', 'Tipo', 'Nº ordem (comentários)', 'Avisos do parser', 'Quando']);
+    sh.appendRow(['Card principal (id)', 'Card TESTE (id)', 'Link TESTE', 'Nome', 'Coluna', 'Fonte das peças', 'Peças oficina', 'Compras (forn/valor)', 'FO', 'Modelo', 'Ano', 'Chassi', 'Tipo', 'Nº ordem (comentários)', 'Avisos do parser', 'Quando']);
     sh.setFrozenRows(1);
   }
   return sh;
@@ -68,7 +68,7 @@ function mg_item_(txt) {
   var pneu = s.match(/\bPNEUS?\b.*?(\d{3}\/\d{2}\s*Z?R\s*\d{2}(?:[.,]5)?)/i) || s.match(/^(\d{3}\/\d{2}\s*Z?R\s*\d{2})/i);
   if (pneu) {
     var medida = pneu[1].replace(/\s+/g, '').toUpperCase();
-    var marca = s.replace(/\bPNEUS?\b/i, '').replace(pneu[1], '').replace(/^\s*[\w]{3,}\d*\s+(?=[A-Z])/, '').replace(/\s+/g, ' ').trim();
+    var marca = s.replace(/\bPNEUS?\b/i, '').replace(pneu[1], '').replace(/^\s*[A-Z0-9]*\d[A-Z0-9]*\s+/i, '').replace(/\s+/g, ' ').trim();   // tira só um código numérico na frente
     return { pneu: true, medida: medida, categoria: vd_categPneu_(marca), marca: vd_categPneu_(marca) ? '' : marca, qtd: qtd };
   }
   var toks = s.split(/\s+/), codigo = '', descricao = s;
@@ -77,6 +77,28 @@ function mg_item_(txt) {
   else if (toks.length > 1 && ehCod(toks[toks.length - 1]) && toks[toks.length - 1].replace(/[^A-Z0-9]/gi, '').length >= 6) { codigo = toks[toks.length - 1].replace(/[^A-Z0-9\-.\/]/gi, '').toUpperCase(); descricao = toks.slice(0, -1).join(' '); }
   descricao = descricao.replace(/^[\s:\-–]+/, '').trim().toUpperCase();
   return { pneu: false, codigo: codigo, descricao: descricao, tipos: [], qtd: qtd };
+}
+
+/** Item do checklist PAGAS no formato antigo "FORNECEDOR - [CÓDIGO] PEÇA [CÓDIGO] - R$valor" (ou já no novo
+ *  "CÓDIGO PEÇA - FORNECEDOR - R$ valor"). Devolve {codigo, descricao, fornecedor, valor, pneu...} e o nome no formato novo. */
+function mg_itemPagas_(nome) {
+  var s = vd_limpar_(String(nome || '')).trim(), valor = '';
+  if (/^(NOTA FISCAL|NF\b|NFE?\b|FRETE|BOLETO)/i.test(s)) return null;   // não é peça
+  var mv = s.match(/\s*-?\s*R\$\s*([\d.]+(?:,\d{1,2})?)\s*$/i);
+  if (mv) { valor = mv[1]; s = s.slice(0, mv.index).trim(); }
+  var partes = s.split(/\s*-\s*/).map(function (x) { return x.trim(); }).filter(String), fornecedor = '', resto = s;
+  if (partes.length >= 2) {
+    var ehCodigoOuPeca = function (t) { return /\d{4,}/.test(t.split(/\s+/)[0]) || /\d{4,}/.test(t.split(/\s+/).pop()); };
+    if (ehCodigoOuPeca(partes[0]) && !ehCodigoOuPeca(partes[partes.length - 1])) { fornecedor = partes[partes.length - 1]; resto = partes.slice(0, -1).join(' - '); }   // formato novo
+    else { fornecedor = partes[0]; resto = partes.slice(1).join(' - '); }   // formato antigo
+    if (/^\d/.test(fornecedor) && !mg_ehFornecedor_(fornecedor)) { fornecedor = ''; resto = s; }
+  }
+  var it = mg_item_(resto);
+  it.fornecedor = fornecedor.toUpperCase();
+  it.valor = valor;
+  var cab = it.pneu ? 'PNEU ' + it.medida + (it.marca || it.categoria ? ' ' + (it.marca || it.categoria) : '') : ((it.codigo ? it.codigo + ' ' : '') + it.descricao);
+  it.nomeNovo = cab + (it.fornecedor ? ' - ' + it.fornecedor : '') + (valor ? ' - ' + vd_valorBR_(valor) : '');
+  return it;
 }
 
 /** Linha que parece um item de peça (curta, sem rótulo, sem preço/prazo). */
@@ -182,10 +204,14 @@ function mg_converter_(card, comentarios) {
   var sinistro = vd_campo_(limpo, VD_ROT_EXTRA.sinistro);
 
   // peças da oficina: checklist PAGAS* > bloco no texto
-  var fonte = 'nenhuma', pecas = [], fo = [];
+  var fonte = 'nenhuma', pecas = [], fo = [], renomear = [], compras = 0;
   (card.checklists || []).forEach(function (k) {
     var n = String(k.name || '').trim();
-    if (/^PAGAS/i.test(n)) (k.checkItems || []).forEach(function (i) { pecas.push(mg_item_(i.name)); });
+    if (/^PAGAS/i.test(n)) (k.checkItems || []).forEach(function (i) {
+      var it = mg_itemPagas_(i.name); if (!it) return;
+      pecas.push(it); if (it.fornecedor || it.valor) compras++;
+      if (it.nomeNovo && it.nomeNovo !== String(i.name).trim()) renomear.push({ de: String(i.name).trim(), para: it.nomeNovo });
+    });
     else if (/^FORNECIMENTO/i.test(n)) (k.checkItems || []).forEach(function (i) { fo.push(mg_item_(i.name)); });
   });
   if (pecas.length) fonte = 'checklist PAGAS';
@@ -204,8 +230,8 @@ function mg_converter_(card, comentarios) {
   var descNova = bloco + '\n\n' + VD.MARCADOR + (original ? '\n_(texto que estava no card antes da conversão)_\n' + original : '');
   var an = vd_analisar_(descNova, nome);
   return {
-    desc: descNova,
-    info: { fonte: fonte, pecas: pecas.length, fo: fo.length, modelo: d.modelo, ano: d.ano, chassi: d.chassi, tipo: tipo,
+    desc: descNova, renomear: renomear,
+    info: { fonte: fonte, pecas: pecas.length, fo: fo.length, compras: compras, modelo: d.modelo, ano: d.ano, chassi: d.chassi, tipo: tipo,
             ordem: mg_ordemDosComentarios_(comentarios), avisos: an.faltas.slice(0, 6).join(' | ') + (an.faltas.length > 6 ? ' (+' + (an.faltas.length - 6) + ')' : '') }
   };
 }
@@ -239,19 +265,35 @@ function mg_simularNoTeste(n) {
       var novo = vd_api_('/cards', { method: 'post', query: { idList: idL, idCardSource: c.id, keepFromSource: 'attachments,checklists,due,start,labels', pos: 'top' } });
       try { ck_licenca_('/cards/' + novo.id + '/checklists'); } catch (e) {}
       var r = mg_converter_(c, comentarios);
+      var ren = 0; try { ren = mg_renomearPagas_(novo.id, r.renomear); } catch (e) { console.log('renomear: ' + e); }
       vd_gravarDesc_(novo.id, r.desc);
-      sh.appendRow([c.id, novo.id, novo.shortUrl || '', c.name, c.coluna, r.info.fonte, r.info.pecas, r.info.fo, r.info.modelo, r.info.ano, r.info.chassi, r.info.tipo, r.info.ordem, r.info.avisos, new Date()]);
-      rel.push('✅ ' + c.coluna + ' · ' + c.name + ' → ' + (novo.shortUrl || novo.id) + ' · peças ' + r.info.pecas + ' (' + r.info.fonte + ') · FO ' + r.info.fo + (r.info.ordem ? ' · O.S. ' + r.info.ordem : '') + (r.info.avisos ? ' · ⚠ ' + r.info.avisos : ''));
+      sh.appendRow([c.id, novo.id, novo.shortUrl || '', c.name, c.coluna, r.info.fonte, r.info.pecas, r.info.compras, r.info.fo, r.info.modelo, r.info.ano, r.info.chassi, r.info.tipo, r.info.ordem, r.info.avisos, new Date()]);
+      rel.push('✅ ' + c.coluna + ' · ' + c.name + ' → ' + (novo.shortUrl || novo.id) + ' · peças ' + r.info.pecas + ' (' + r.info.fonte + (r.info.compras ? ', ' + r.info.compras + ' com fornecedor/valor, ' + ren + ' item(ns) renomeado(s)' : '') + ') · FO ' + r.info.fo + (r.info.ordem ? ' · O.S. ' + r.info.ordem : '') + (r.info.avisos ? ' · ⚠ ' + r.info.avisos : ''));
       feitos++;
     } catch (e) {
       rel.push('❌ ' + c.coluna + ' · ' + c.name + ' — ' + e.message);
-      sh.appendRow([c.id, '', '', c.name, c.coluna, 'ERRO: ' + e.message, '', '', '', '', '', '', '', '', new Date()]);
+      sh.appendRow([c.id, '', '', c.name, c.coluna, 'ERRO: ' + e.message, '', '', '', '', '', '', '', '', '', new Date()]);
     }
   }
   rel.unshift('simulados nesta rodada: ' + feitos + ' · restantes: ' + Math.max(0, cands.length - feitos));
   Logger.log(rel.join('\n'));
   PropertiesService.getScriptProperties().setProperty('MG_REL', rel.join('\n').slice(0, 8000));
   return rel;
+}
+
+/** Renomeia na cópia os itens do PAGAS para o formato novo (CÓDIGO PEÇA - FORNECEDOR - R$ valor); estado e previsão ficam. */
+function mg_renomearPagas_(cardId, renomear) {
+  if (!renomear || !renomear.length) return 0;
+  var lists = vd_api_('/cards/' + cardId + '/checklists', { cru: true, query: { checkItems: 'all', checkItem_fields: 'name' } }) || [], n = 0;
+  lists.filter(function (k) { return /^PAGAS/i.test(String(k.name || '').trim()); }).forEach(function (k) {
+    (k.checkItems || []).forEach(function (i) {
+      var r = renomear.filter(function (x) { return x.de === String(i.name).trim(); })[0];
+      if (!r) return;
+      vd_api_('/cards/' + cardId + '/checkItem/' + i.id, { method: 'put', payload: { name: r.para }, semLicenca: true });
+      n++;
+    });
+  });
+  return n;
 }
 
 /** Arquiva as cópias simuladas no TESTE e limpa a aba MIGRACAO. */
