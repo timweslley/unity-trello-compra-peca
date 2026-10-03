@@ -11,5 +11,7 @@ window.PU_CFG = {
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
    * libera chamadas em paralelo também nas gravações. */
-  SERVIDOR_RID: true
+  SERVIDOR_RID: true,
+  /* visual novo (tema "trello") em avaliação: só estes usuários veem; vazio = ninguém */
+  TEMA_TRELLO_USUARIOS: ['timweslley']
 };

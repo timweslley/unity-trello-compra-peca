@@ -3,6 +3,14 @@
 <head>
 <base target="_top">
 <meta charset="utf-8">
+<script>
+/* tema "trello" (em avaliação): ?tema=trello liga e guarda; ?tema=padrao desliga. Aplicado antes do CSS para não piscar. */
+(function () { try {
+  var q = location.search || '', ls = window.localStorage;
+  if (/[?&]tema=padrao\b/.test(q)) ls.removeItem('vd_tema'); else if (/[?&]tema=trello\b/.test(q)) ls.setItem('vd_tema', 'trello');
+  if (ls.getItem('vd_tema') === 'trello') document.documentElement.className += ' tt';
+} catch (e) {} })();
+</script>
 <style>
   /* visual no padrão do Trello: quadro azul, seções como listas (cinza), itens como cartões (brancos).
      MAIÚSCULAS só em avisos e divisões (títulos de seção, grupos, abas, etiquetas). */
@@ -109,6 +117,89 @@
   .item.travada button { display:none; }
   .devolvida { border-left-color:var(--amarelo) !important; background:var(--amarelo2) !important; }
   #telaSucesso section, #comprador > .aviso { background:#fff; }
+
+  /* ===================== TEMA "TRELLO" (html.tt) — verso do card do Trello atual ===================== */
+  .tt { --texto:#172b4d; --suave:#44546f; --suave2:#626f86; --borda:#091e4224; --borda-input:#8590a2; --fundo2:#f7f8f9; --neutro:#091e420f; --neutro2:#091e4224;
+        --azul:#0c66e4; --azul2:#e9f2ff; --verde:#1f845a; --verde2:#dcfff1; --vermelho:#c9372c; --vermelho2:#ffeceb; --amarelo2:#fff7d6; --laranja:#e56910; }
+  .tt, .tt body { background:#fff; }
+  .tt body { font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans", Ubuntu, "Droid Sans", "Helvetica Neue", sans-serif; font-size:14px; line-height:20px; }
+  .tt header { background:#fff; color:var(--texto); border-bottom:1px solid var(--borda); padding:10px 16px; backdrop-filter:none; position:sticky; top:0; z-index:5; }
+  .tt header::before { content:"U"; width:24px; height:24px; border-radius:4px; background:var(--laranja); color:#fff; font-weight:700; font-size:13px; display:grid; place-items:center; flex:0 0 auto; }
+  .tt header h1 { font-size:16px; font-weight:600; letter-spacing:0; }
+  .tt .usuario { color:var(--suave2); opacity:1; font-size:12px; }
+  .tt .usuario a { color:var(--suave2); }
+  .tt #btnFechar { background:var(--neutro); color:var(--texto); padding:6px 12px; font-weight:500; }
+  .tt #btnFechar:hover { background:var(--neutro2); }
+  .tt main { padding:16px 16px 48px; }
+  .tt section { background:transparent; border-radius:0; padding:0; margin-bottom:24px; box-shadow:none; }
+  .tt section h2 { font-size:16px; font-weight:600; text-transform:none; letter-spacing:0; border:0; padding:0; margin:0 0 8px; }
+  .tt label { font-weight:600; color:var(--suave); }
+  .tt input[type=text], .tt input[type=number], .tt input[type=date], .tt select, .tt textarea { border:1px solid var(--borda-input); border-radius:3px; font-size:14px; padding:7px 10px; line-height:20px; }
+  .tt input:focus, .tt select:focus, .tt textarea:focus { border-color:var(--azul); box-shadow:0 0 0 1px var(--azul); }
+  .tt input::placeholder, .tt textarea::placeholder { color:var(--suave2); text-transform:none; }
+  .tt .dica { color:var(--suave2); }
+  .tt .dica.ruim { display:inline-block; text-transform:none; letter-spacing:0; font-weight:500; color:#ae2e24; background:var(--vermelho2); border-radius:3px; padding:3px 8px; }
+  .tt .dica.ruim::before { content:"⚠ "; }
+  .tt button, .tt .botao { border-radius:3px; padding:6px 12px; font-weight:500; line-height:20px; }
+  .tt .principal { background:var(--azul); }
+  .tt .principal:hover { background:#0055cc; }
+  .tt .secundario { background:var(--neutro); }
+  .tt .secundario:hover { background:var(--neutro2); }
+  .tt .perigo { color:var(--suave2); }
+  .tt .perigo:hover { color:var(--vermelho); }
+  .tt button.mini { background:var(--neutro); border-radius:3px; }
+  .tt .item { border:1px solid var(--borda); border-radius:8px; box-shadow:none; background:#fff; }
+  .tt .item.travada { background:var(--fundo2); }
+  .tt .chip { border:1px solid var(--borda-input); border-radius:3px; font-size:14px; padding:5px 10px; }
+  .tt .chip.marcado { border-color:var(--azul); background:var(--azul2); color:var(--azul); font-weight:600; }
+  .tt .grupo { background:transparent; color:var(--suave); padding:4px 0; border-bottom:2px solid var(--azul); border-radius:0; letter-spacing:.3px; font-weight:600; }
+  .tt .grupo.part { color:#533f04; border-bottom-color:#f5cd47; }
+  /* totais, como a tabela de campos personalizados */
+  .tt #totaisCard { background:transparent; padding:0; box-shadow:none; border-radius:0; margin-bottom:20px; }
+  .tt .totais { border:1px solid var(--borda); border-radius:8px; box-shadow:none; }
+  .tt .totais thead th { background:var(--fundo2); color:var(--suave2); text-transform:none; letter-spacing:0; font-size:12px; font-weight:600; padding:8px 10px; }
+  .tt .totais th, .tt .totais td { padding:8px 10px; }
+  .tt .totais tr.tot td { background:var(--fundo2); font-weight:600; }
+  .tt .totais td.destaque { font-weight:600; }
+  /* avisos */
+  .tt .aviso { border-radius:3px; border-left-width:0; box-shadow:none; padding:10px 12px; font-size:14px; }
+  .tt .aviso.erro { font-weight:500; }
+  .tt .aviso.erro b:first-child { text-transform:none; letter-spacing:0; font-weight:600; }
+  .tt .aviso.info { background:var(--azul2); color:var(--texto); }
+  .tt .aviso.ok { font-weight:500; }
+  .tt .aviso.trava { background:var(--fundo2); color:var(--texto); border:1px solid var(--borda); text-transform:none; letter-spacing:0; font-weight:600; font-size:14px; }
+  .tt .alerta { background:var(--vermelho2); color:#ae2e24; text-transform:none; letter-spacing:0; font-weight:600; border-radius:3px; }
+  .tt .selo-comp, .tt .selo-part, .tt .selo, .tt .selo-trava { font-weight:600; letter-spacing:0; text-transform:none; border-radius:3px; }
+  .tt .selo-part { background:#f5cd47; }
+  .tt .selo-trava { background:var(--neutro); color:var(--suave); }
+  /* cabeçalho do card (o 1º negrito vira o título, como no verso do card) */
+  .tt #infoComprador { background:transparent; padding:0 0 4px; margin-bottom:12px; color:var(--suave2); font-size:13px; }
+  .tt #infoComprador > b:first-child { display:block; font-size:20px; line-height:24px; font-weight:600; color:var(--texto); margin-bottom:4px; }
+  .tt #infoComprador a { color:var(--azul); text-decoration:none; }
+  .tt #infoComprador a:hover { text-decoration:underline; }
+  .tt #infoComprador .aviso.devolvida { font-size:14px; color:#533f04; padding:10px 12px; }
+  /* abas = seletor segmentado, com ícone de linha no lugar do emoji */
+  .tt .abas { gap:4px; padding:4px; background:var(--fundo2); border-radius:8px; }
+  .tt .aba { background:transparent; color:var(--suave); text-transform:none; letter-spacing:0; font-size:14px; font-weight:500; padding:7px 6px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; gap:6px; }
+  .tt .aba:hover { background:var(--neutro); }
+  .tt .aba.marcada { background:#fff; color:var(--azul); font-weight:600; }
+  .tt .aba .emo { display:none; }
+  .tt .aba::before { content:""; width:16px; height:16px; background:currentColor; -webkit-mask:var(--ico) center / contain no-repeat; mask:var(--ico) center / contain no-repeat; flex:0 0 auto; }
+  .tt #abaCot { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v10M9.5 9.5h3.5a1.75 1.75 0 010 3.5h-2a1.75 1.75 0 000 3.5H15'/%3E%3C/svg%3E"); }
+  .tt #abaAut { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E"); }
+  .tt #abaCompra { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='M3 4h2l2.4 11h11.2L21 8H7'/%3E%3Ccircle cx='9' cy='19' r='1.5'/%3E%3Ccircle cx='17' cy='19' r='1.5'/%3E%3C/svg%3E"); }
+  .tt #abaRec { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='M3 8l9-4 9 4v9l-9 4-9-4zM3 8l9 4 9-4M12 12v9'/%3E%3C/svg%3E"); }
+  .tt #abaForn { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='M3 6h11v10H3zM14 10h4l3 3v3h-7z'/%3E%3Ccircle cx='7' cy='18' r='1.5'/%3E%3Ccircle cx='17' cy='18' r='1.5'/%3E%3C/svg%3E"); }
+  @media (max-width:560px) { .tt .aba .rotulo { display:none; } .tt .aba::before { width:20px; height:20px; } }
+  /* telas cheias */
+  .tt .centro, .tt .centro.carregando, .tt .rodape .carregando, .tt .rodape > .dica { color:var(--suave2); }
+  .tt .centro p { color:var(--texto); }
+  .tt #telaSucesso section, .tt #comprador > .aviso { background:transparent; }
+  .tt #telaSucesso .aviso.ok { background:var(--verde2); }
+  .tt .cot-lida b { color:var(--texto); }
+  .tt .opcao-aut:hover { background:var(--fundo2); }
+  .tt .leitura input:disabled, .tt .leitura select:disabled, .tt .leitura textarea:disabled { background:var(--fundo2); }
+  .tt .selo#seloTeste { background:var(--laranja); color:#fff; }
 </style>
 </head>
 <body>
@@ -116,6 +207,7 @@
   <h1>Pedido de Peça — Unity</h1>
   <span class="selo oculto" id="seloTeste">QUADRO DE TESTE</span>
   <span class="usuario" id="usuario"></span>
+  <button type="button" id="btnFechar" class="secundario oculto" onclick="avisarPai({ vd: 'fechar' })">Fechar</button>
 </header>
 
 <main>
@@ -245,11 +337,11 @@
     <div id="erroComprador" class="aviso erro oculto"></div>
     <div class="aviso info" id="infoComprador"></div>
     <div class="abas">
-      <button type="button" class="aba marcada" id="abaCot" onclick="mostrarAba('cot')">💰 Cotação</button>
-      <button type="button" class="aba oculto" id="abaAut" onclick="mostrarAba('aut')">✅ Autorizar</button>
-      <button type="button" class="aba" id="abaCompra" onclick="mostrarAba('compra')">🛒 Compra</button>
-      <button type="button" class="aba oculto" id="abaRec" onclick="mostrarAba('rec')">📦 Recebimento</button>
-      <button type="button" class="aba oculto" id="abaForn" onclick="mostrarAba('forn')">🚚 Fornecimento</button>
+      <button type="button" class="aba marcada" id="abaCot" onclick="mostrarAba('cot')"><span class="emo">💰</span> <span class="rotulo">Cotação</span></button>
+      <button type="button" class="aba oculto" id="abaAut" onclick="mostrarAba('aut')"><span class="emo">✅</span> <span class="rotulo">Autorizar</span></button>
+      <button type="button" class="aba" id="abaCompra" onclick="mostrarAba('compra')"><span class="emo">🛒</span> <span class="rotulo">Compra</span></button>
+      <button type="button" class="aba oculto" id="abaRec" onclick="mostrarAba('rec')"><span class="emo">📦</span> <span class="rotulo">Recebimento</span></button>
+      <button type="button" class="aba oculto" id="abaForn" onclick="mostrarAba('forn')"><span class="emo">🚚</span> <span class="rotulo">Fornecimento</span></button>
     </div>
     <div id="totaisCard" class="oculto"></div>
 
@@ -440,7 +532,7 @@ function iniciar() {
     var m = (loc.hash || '').match(/token=([0-9a-zA-Z]+)/);
     if (m) guardar('vd_token', m[1]);
     PU = !!(loc.parameter && loc.parameter.pu);
-    if (PU) { document.body.classList.add('pu'); $('linkCard').classList.add('oculto'); $('linkNovo').textContent = 'Fechar'; $('linkNovo').removeAttribute('target'); $('linkNovo').onclick = function () { avisarPai({ vd: 'fechar' }); return false; }; }
+    if (PU) { document.body.classList.add('pu'); mostrar('btnFechar', document.documentElement.classList.contains('tt')); $('linkCard').classList.add('oculto'); $('linkNovo').textContent = 'Fechar'; $('linkNovo').removeAttribute('target'); $('linkNovo').onclick = function () { avisarPai({ vd: 'fechar' }); return false; }; }
     var card = (loc.parameter && loc.parameter.card) || '';
     SO_TIPOS = !!(loc.parameter && loc.parameter.so === 'tipos');
     var modo = (loc.parameter && loc.parameter.modo) || '';
