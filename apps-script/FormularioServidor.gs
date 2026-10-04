@@ -1170,7 +1170,8 @@ function vd_comprasDaDescricao_(desc) {
 
 /**
  * p = {shortLink, dados:{modelo,ano,motor,chassi,placa}, pecas:[...], obs,
- *      novo:{carro,cor,seguradora,sinistro,unidade}, fileIds:[], orcamento:{origem, fo:[]}}
+ *      novo:{carro,cor,seguradora,sinistro,unidade}, fileIds:[], orcamento:{origem, fo:[]},
+ *      rotina:true (só diretoria, card novo: aceita peça sem tipo/código; com peça da oficina nasce em FALTA DADOS PARA COTAR), aviso:'texto p/ equipe'}
  */
 function vdf_salvar(token, p) {
   var me = vdf_usuario_(token);
@@ -1294,6 +1295,11 @@ function vdf_salvar(token, p) {
   var an = vd_analisar_(bloco, d.placa, posCot ? { base: baseSigs, tipo: tipo } : { tipo: tipo });
   var faltas = an.faltas.slice();
   if (!String(n.carro || '').trim()) faltas.unshift('carro (nome curto para o título)');
+  // ROTINA (diretoria): card aberto a partir do Cilia/portal pela Rotina Unity. Peça sem tipo/código é aceita;
+  // com peça da oficina o card nasce em FALTA DADOS PARA COTAR para o consultor completar; só FO -> o robô leva a FALTA CHEGAR.
+  var rotina = !!p.rotina && vdf_ehAutorizador_(me) && !p.shortLink;
+  var faltasRotina = [];
+  if (rotina) { faltasRotina = faltas.filter(function (f) { return /falta o tipo de pe|falta o c[óo]digo|fora do padr/i.test(f); }); faltas = faltas.filter(function (f) { return faltasRotina.indexOf(f) < 0; }); }
   if (faltas.length) return { ok: false, faltas: faltas };
 
   var titulo = String(n.carro || '').trim() ? vd_titulo_(d.placa, n.carro, extra.cor, extra.seguradora) : '';
@@ -1309,8 +1315,16 @@ function vdf_salvar(token, p) {
     vd_gravarDesc_(card.id, upd.desc, token, upd.name ? { name: upd.name } : null);
     if (upd.name) card.name = upd.name;
   } else {
-    var corpo = { idList: ctx.listas[VD.LISTA_COTACAO], name: titulo, desc: bloco + '\n\n' + VD.MARCADOR, pos: 'top' };
+    var corpo = { idList: ctx.listas[rotina && pecas.length ? VD.LISTA_FALTA : VD.LISTA_COTACAO] || ctx.listas[VD.LISTA_COTACAO], name: titulo, desc: bloco + '\n\n' + VD.MARCADOR, pos: 'top' };
     card = vd_api_('/cards', { method: 'post', payload: corpo }, token);
+    if (rotina) {
+      try {
+        var avisoR = String(p.aviso || '').trim();
+        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🤖 **Card aberto pela Rotina Unity** a partir de ' + (extra.origemOrc || 'portal/Cilia') + ' — a equipe ainda não tinha feito o pedido.' +
+          (pecas.length ? '\nPeças da oficina sem tipo/código: complete pelo ✏️ **EDITAR/INCLUIR PEÇA** — o card sai de FALTA DADOS sozinho.' : '\nSó fornecimento da seguradora: ver checklist FORNECIMENTO.') +
+          (faltasRotina.length ? '\n' + faltasRotina.slice(0, 8).map(function (f) { return '- ' + f; }).join('\n') : '') + (avisoR ? '\n' + avisoR : '') } }, token);
+      } catch (e) {}
+    }
     try { vd_gravarDesc_(card.id, corpo.desc, token); } catch (e) { try { tr_guardar_(card.id, corpo.desc); } catch (e2) {} }
     try {
       vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink, name: VD_LINK.EDITAR, setCover: false } }, token);
