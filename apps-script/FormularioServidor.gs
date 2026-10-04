@@ -1171,7 +1171,8 @@ function vd_comprasDaDescricao_(desc) {
 /**
  * p = {shortLink, dados:{modelo,ano,motor,chassi,placa}, pecas:[...], obs,
  *      novo:{carro,cor,seguradora,sinistro,unidade}, fileIds:[], orcamento:{origem, fo:[]},
- *      rotina:true (só diretoria, card novo: aceita peça sem tipo/código; com peça da oficina nasce em FALTA DADOS PARA COTAR), aviso:'texto p/ equipe'}
+ *      rotina:true (só diretoria, card novo: aceita peça sem tipo/código; com peça da oficina nasce em FALTA DADOS PARA COTAR), aviso:'texto p/ equipe',
+ *      criarMesmoAssim:true (card novo com placa que já tem card aberto: sem isso devolve {ok:false, duplicado:[{shortLink,nome,lista}]})}
  */
 function vdf_salvar(token, p) {
   var me = vdf_usuario_(token);
@@ -1304,6 +1305,12 @@ function vdf_salvar(token, p) {
 
   var titulo = String(n.carro || '').trim() ? vd_titulo_(d.placa, n.carro, extra.cor, extra.seguradora) : '';
   var novasPecas = posCot ? an.novas : [];
+  // card NOVO com placa que já tem card aberto no quadro: só cria com confirmação explícita (criarMesmoAssim)
+  if (!p.shortLink && !p.criarMesmoAssim) {
+    var jaTem = [];
+    try { jaTem = vdf_buscarPlaca(token, d.placa); } catch (e) { jaTem = []; }
+    if (jaTem.length) return { ok: false, duplicado: jaTem, placa: d.placa, faltas: ['Já existe card aberto com a placa ' + d.placa + ': ' + jaTem.map(function (c) { return c.nome + ' (' + c.lista + ')'; }).join('; ') + '. Atualize esse card ou confirme que quer criar outro.'] };
+  }
 
   if (card) {
     var div = vd_dividir_(card.desc);

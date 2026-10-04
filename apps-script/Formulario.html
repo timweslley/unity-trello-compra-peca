@@ -1673,6 +1673,24 @@ function coletar() {
   };
 }
 
+/* placa já tem card aberto: a equipe precisa confirmar que quer outro card (evita pedido duplicado) */
+function confirmarDuplicado(r, payload) {
+  var h = '<b>⚠️ Já existe card aberto com a placa ' + esc(r.placa || payload.dados.placa) + '.</b> Tem certeza que quer criar OUTRO card?'
+    + '<div class="dica" style="margin-top:4px">Se a peça é do mesmo serviço, atualize o card que já existe — pedido duplicado atrapalha compras e faturamento.</div><div class="escolha">';
+  (r.duplicado || []).forEach(function (c) {
+    h += '<button type="button" class="principal" onclick="carregarCard(\'' + esc(c.shortLink) + '\')">Atualizar o card <b>' + esc(c.nome) + '</b> — ' + esc(c.lista) + '</button>';
+  });
+  h += '<button type="button" class="secundario" onclick="criarMesmoAssim()">Sim, é outro serviço: criar um card novo</button>'
+    + '<button type="button" class="secundario" onclick="mostrar(\'erroGeral\', false)">Cancelar</button></div>';
+  $('erroGeral').innerHTML = h; mostrar('erroGeral', true);
+  window.__payloadDup = payload;
+  $('erroGeral').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function criarMesmoAssim() {
+  var p = window.__payloadDup; if (!p) return;
+  p.criarMesmoAssim = true; mostrar('erroGeral', false);
+  enviarPayload(p);
+}
 function mostrarErros(lista) {
   $('erroGeral').innerHTML = '<b>Falta preencher:</b><ul>' + lista.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>';
   mostrar('erroGeral', true);
@@ -1684,9 +1702,13 @@ function enviar(ev) {
   mostrar('erroGeral', false);
   var c = coletar();
   if (c.faltas.length) return mostrarErros(c.faltas);
+  enviarPayload(c.payload);
+}
+function enviarPayload(payload) {
   $('btnEnviar').disabled = true; mostrar('enviando', true);
-  chamar('vdf_salvar', TOKEN, c.payload).then(function (r) {
+  chamar('vdf_salvar', TOKEN, payload).then(function (r) {
     $('btnEnviar').disabled = false; mostrar('enviando', false);
+    if (!r.ok && r.duplicado && r.duplicado.length) return confirmarDuplicado(r, payload);
     if (!r.ok) return mostrarErros(r.faltas);
     guardar('vd_card_pend', null);
     $('msgSucesso').innerHTML = (r.novo ? '✅ Card criado: ' : '✅ Card atualizado: ') + '<b>' + esc(r.nome) + '</b>'
