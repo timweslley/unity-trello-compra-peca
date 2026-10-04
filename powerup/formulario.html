@@ -1392,7 +1392,22 @@ function aoMudarPlaca() {
 
 /* ---------- chassi ---------- */
 
+var __chassiBuscado = '';
+function buscarPorChassi() {
+  var ch = $('chassi').value.toUpperCase().replace(/[\s.\-]/g, '');
+  if (CARD_EDICAO || ch.length !== 17 || ch === __chassiBuscado || $('cardsPlaca').innerHTML) return;
+  __chassiBuscado = ch;
+  chamar('vdf_buscarPlaca', TOKEN, normPlaca($('placa').value), ch).then(function (lista) {
+    lista = lista.filter(function (c) { return c.porChassi; });
+    if (!lista.length) return;
+    var h = '<div class="aviso info">⚠️ Já existe card aberto com este <b>chassi</b> (placa diferente — pode ser placa antiga × Mercosul ou placa digitada errada). Quer atualizar um deles?<div class="escolha">';
+    lista.forEach(function (c) { h += '<button type="button" class="secundario" onclick="carregarCard(\'' + esc(c.shortLink) + '\')">Atualizar: <b>' + esc(c.nome) + '</b> — ' + esc(c.lista) + '</button>'; });
+    h += '<button type="button" class="secundario" onclick="$(\'cardsPlaca\').innerHTML=\'\'">Não, criar um card novo</button></div></div>';
+    $('cardsPlaca').innerHTML = h;
+  }).catch(function () {});
+}
 function conferirChassi() {
+  buscarPorChassi();
   var c = $('chassi').value.toUpperCase().replace(/[\s.\-]/g, '');
   var dica = $('dicaChassi');
   if (!c) { dica.textContent = ''; return; }
@@ -1745,10 +1760,10 @@ function coletar() {
 
 /* placa já tem card aberto: a equipe precisa confirmar que quer outro card (evita pedido duplicado) */
 function confirmarDuplicado(r, payload) {
-  var h = '<b>⚠️ Já existe card aberto com a placa ' + esc(r.placa || payload.dados.placa) + '.</b> Tem certeza que quer criar OUTRO card?'
+  var h = '<b>⚠️ Já existe card aberto para este carro (placa ' + esc(r.placa || payload.dados.placa) + (payload.dados.chassi ? ' / chassi' : '') + ').</b> Tem certeza que quer criar OUTRO card?'
     + '<div class="dica" style="margin-top:4px">Se a peça é do mesmo serviço, atualize o card que já existe — pedido duplicado atrapalha compras e faturamento.</div><div class="escolha">';
   (r.duplicado || []).forEach(function (c) {
-    h += '<button type="button" class="principal" onclick="carregarCard(\'' + esc(c.shortLink) + '\')">Atualizar o card <b>' + esc(c.nome) + '</b> — ' + esc(c.lista) + '</button>';
+    h += '<button type="button" class="principal" onclick="carregarCard(\'' + esc(c.shortLink) + '\')">Atualizar o card <b>' + esc(c.nome) + '</b> — ' + esc(c.lista) + (c.porChassi ? ' (mesmo chassi, placa diferente)' : '') + '</button>';
   });
   h += '<button type="button" class="secundario" onclick="criarMesmoAssim()">Sim, é outro serviço: criar um card novo</button>'
     + '<button type="button" class="secundario" onclick="mostrar(\'erroGeral\', false)">Cancelar</button></div>';

@@ -221,18 +221,30 @@ function vd_titulo_(placa, carro, cor, seguradora) {
 
 /* ---------- busca e carga de card ---------- */
 
-function vdf_buscarPlaca(token, placa) {
+/** Cards ABERTOS do quadro com a mesma placa (antiga ou Mercosul) ou, se informado, o mesmo chassi na descrição. */
+function vdf_buscarPlaca(token, placa, chassi) {
   vdf_usuario_(token);
-  if (!vd_placaValida_(placa)) return [];
+  chassi = vd_normChassi_(chassi || '');
+  if (!vd_chassiValido_(chassi)) chassi = '';
+  if (!vd_placaValida_(placa) && !chassi) return [];
   var listas = vd_api_('/boards/' + vd_board_() + '/lists', { query: { fields: 'name' } });
   var nomeLista = {};
   listas.forEach(function (l) { nomeLista[l.id] = l.name; });
   var cards = vd_api_('/boards/' + vd_board_() + '/cards', { query: { fields: 'name,idList,shortLink,desc' } });
   return cards.filter(function (c) {
     if (vdf_cardProtegido_(c.name)) return false;
-    var p = vd_placaDoTexto_(c.name) || vd_analisar_(c.desc, c.name).dados.placa;
-    return vd_mesmaPlaca_(p, placa);
-  }).map(function (c) { return { shortLink: c.shortLink, nome: c.name, lista: nomeLista[c.idList] || '' }; });
+    var an = null;
+    var p = vd_placaDoTexto_(c.name);
+    if (!p) { an = vd_analisar_(c.desc, c.name); p = an.dados.placa; }
+    if (vd_placaValida_(placa) && vd_mesmaPlaca_(p, placa)) return true;
+    if (!chassi) return false;
+    if (!an) an = vd_analisar_(c.desc, c.name);
+    var ch = an.dados.chassi || (String(vd_limpar_(c.desc || '')).toUpperCase().match(/\b[A-HJ-NPR-Z0-9]{17}\b/) || [''])[0];
+    return !!ch && vd_normChassi_(ch) === chassi;
+  }).map(function (c) {
+    var pc = vd_placaDoTexto_(c.name) || '';
+    return { shortLink: c.shortLink, nome: c.name, lista: nomeLista[c.idList] || '', porChassi: !(vd_placaValida_(placa) && vd_mesmaPlaca_(pc || vd_analisar_(c.desc, c.name).dados.placa, placa)) };
+  });
 }
 
 /** Compra só com a etiqueta ORDEM AUTORIZADA no card (ordem de serviço liberada). */
@@ -1308,8 +1320,8 @@ function vdf_salvar(token, p) {
   // card NOVO com placa que já tem card aberto no quadro: só cria com confirmação explícita (criarMesmoAssim)
   if (!p.shortLink && !p.criarMesmoAssim) {
     var jaTem = [];
-    try { jaTem = vdf_buscarPlaca(token, d.placa); } catch (e) { jaTem = []; }
-    if (jaTem.length) return { ok: false, duplicado: jaTem, placa: d.placa, faltas: ['Já existe card aberto com a placa ' + d.placa + ': ' + jaTem.map(function (c) { return c.nome + ' (' + c.lista + ')'; }).join('; ') + '. Atualize esse card ou confirme que quer criar outro.'] };
+    try { jaTem = vdf_buscarPlaca(token, d.placa, d.chassi); } catch (e) { jaTem = []; }
+    if (jaTem.length) return { ok: false, duplicado: jaTem, placa: d.placa, faltas: ['Já existe card aberto com esta placa/chassi: ' + jaTem.map(function (c) { return c.nome + ' (' + c.lista + (c.porChassi ? ', mesmo chassi' : '') + ')'; }).join('; ') + '. Atualize esse card ou confirme que quer criar outro.'] };
   }
 
   if (card) {
