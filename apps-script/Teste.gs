@@ -370,6 +370,8 @@ function tst_principal() {
     if (!sl) return;
     cid = vd_api_('/cards/' + sl, { query: { fields: 'id' } }).id;
     var c = vdf_carregarCard(tk, sl);
+    espera('Pedido novo com a mesma placa é barrado (duplicado)', function () { var r2 = vdf_salvar(tk, { shortLink: '', dados: { placa: TSTP.PLACA, modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '' }, pecas: [{ pneu: false, codigo: '5U0807221', descricao: 'PARACHOQUE DIANT', tipos: ['ORIGINAL'], qtd: '1' }], obs: '', fileIds: [], capaId: '', orcamento: null, novo: { tipo: 'PARTICULAR', carro: 'GOL', cor: 'BRANCO', seguradora: '', sinistro: '', unidade: uTol || '' } }); return [!r2.ok && (r2.duplicado || []).length > 0, (r2.faltas || [])[0]]; });
+    espera('Placa antiga (TST9999) acha o card Mercosul pelo chassi/placa', function () { var l = vdf_buscarPlaca(tk, 'TST9999', '9BWAG45U0LT009999'); return [l.length > 0, l.map(function (x) { return x.nome + (x.porChassi ? ' (chassi)' : ''); }).join(', ')]; });
     espera('Nº da ordem e unidade gravados no card', function () { return [c.ordem === '999999' && c.unidadeId === uTol, 'ordem ' + c.ordem + ' · unidade ' + (c.unidadeId === uTol ? 'TOLEDO' : c.unidadeId)]; });
     passo('Edição: troca ordem (888888) e unidade (RONDON)', function () { return vdf_salvar(tk, { shortLink: sl, dados: { placa: TSTP.PLACA, modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '9BWAG45U0LT009999', ordem: '888888' },
       pecas: c.pecas.map(function (x) { return { pneu: x.pneu, codigo: x.codigo, descricao: x.descricao, tipos: x.tipos, medida: x.medida, categoria: x.categoria, marca: x.marca, qtd: x.qtd, particular: x.particular, partPor: x.partPor }; }),
