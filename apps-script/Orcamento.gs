@@ -39,10 +39,17 @@ function vd_tipoOrcamento_(t) {
 function vd_pneuDaDescricao_(desc) {
   var d = String(desc || '');
   if (!/\bPNEU/.test(d)) return null;
-  var m = d.match(/(\d{3})\s*\/\s*(\d{2})\s*Z?R\s*(\d{2})/);
+  // "195/65R15", "195/ 55 R15" e também "185 70 R14" (Soma/Porto escreve sem a barra)
+  var m = d.match(/(\d{3})\s*[\/ ]\s*(\d{2})\s*Z?R\s*(\d{2})/);
   var medida = m ? m[1] + '/' + m[2] + 'R' + m[3] : '';
-  var marca = d.replace(/\bPNEUS?\b/, '').replace(/\d{3}\s*\/\s*\d{2}\s*Z?R\s*\d{2}.*/, '').replace(/[^A-Z0-9 ]/g, ' ').trim().split(' ')[0] || '';
-  return { pneu: true, medida: medida, marca: marca, categoria: '' };
+  var categoria = /IMPORTAD/.test(d) ? 'IMPORTADO' : (/1\s*[ªA]?\s*LINHA|PRIMEIRA LINHA/.test(d) ? '1ª LINHA' : '');
+  var marca = '';
+  if (!categoria) {
+    var resto = d.replace(/\bPNEUS?\b/, '').replace(/\d{3}\s*[\/ ]\s*\d{2}\s*Z?R\s*\d{2}.*/, '').replace(/[^A-Z0-9 ]/g, ' ').trim().split(/\s+/);
+    // pula siglas (D.D., DD, DT) e palavras genéricas: a marca é a 1ª palavra "de verdade"
+    marca = resto.filter(function (w) { return w.length >= 3 && !/^(DD|DT|DE|DO|DA|NACIONAL|RADIAL|ARO|NOVO|NOVA|TROCA|JOGO|KIT)$/.test(w); })[0] || '';
+  }
+  return { pneu: true, medida: medida, marca: marca, categoria: categoria };
 }
 
 function vd_limparDescricao_(d) {
@@ -84,6 +91,7 @@ function vd_lerOrcamento_(texto) {
   // cor
   if ((m = U.match(/\bCOR:? ([A-Z]{3,15})\b/)) && !/^(SINISTRO|NAO|AUTORIZADO|ENDERECO)$/.test(m[1])) r.cor = m[1];
   else if ((m = U.match(/FABRICACAO: ([A-Z]{3,15}) (?:19|20)\d\d/))) r.cor = m[1];
+  else if ((m = U.match(/IMPREGNACAO:? ([A-Z]{3,15})\b/))) r.cor = m[1];   // Soma/Porto chama a cor de "Impregnação"
   // sinistro
   if ((m = U.match(/SINISTRO:? (\d[\d.\-\/]{6,})/))) r.sinistro = m[1];
 
@@ -119,12 +127,16 @@ function vd_lerOrcamento_(texto) {
   // ---------- Websoma / Porto ----------
   if (/PECAS - TROCA/.test(U)) {
     r.origem = 'WEBSOMA';
-    var fimWs = [/PECAS - /, /MONTAGEM - /, /SERVICOS DE TERCEIROS/, /RESUMO/];
+    // Dois layouts: Websoma clássico ("PECAS - TROCA (FORNECIDAS PELA SEGURADORA)") e o ORÇAMENTO DETALHADO do
+    // Soma/Porto/Azul (05/10/2026): "PECAS - TROCA (COMPRA PELA OFICINA)", "LISTA DAS PECAS FORNECIDAS PELA SEGURADORA"
+    // e "STATUS DE ENTREGA DAS PECAS FORNECIDAS PELA SEGURADORA (SOMA PECAS)" — esta última traz fornecedor e prazo
+    // (pv_enriquecerFo_ lê) e NÃO pode entrar como peça.
+    var fimWs = [/PECAS - /, /MONTAGEM - /, /SERVICOS DE TERCEIROS/, /RESUMO/, /LISTA DAS PECAS FORNECIDAS/, /STATUS DE ENTREGA/, /TOTAL PECAS/];
     var reWs = /(\d{5} \d{5}|[A-Z]{0,4}\d[A-Z0-9]{2,18}) (\(.+?\)(?: - VAL\. [\d\/ ]*)?|.+?)(?: \*)? (?:(REPOSICAO|GENUINO|ORIGINAL|PARALELO|USADO) )?(\d{1,3}) [\d.,]+ [\d.,]+ [\d.,]+/g;
-    var secs = U.split(/(?=PECAS - TROCA)/).filter(function (x) { return /^PECAS - TROCA/.test(x); });
+    var secs = U.split(/(?=PECAS - TROCA|LISTA DAS PECAS FORNECIDAS PELA SEGURADORA)/).filter(function (x) { return /^(PECAS - TROCA|LISTA DAS PECAS FORNECIDAS)/.test(x); });
     secs.forEach(function (sec) {
-      var ehFO = /^PECAS - TROCA \(FORNECIDAS PELA SEGURADORA\)/.test(sec);
-      var corpo = vd_secao_(sec, /PECAS - TROCA/, fimWs).replace(/^.*?PINTURA /, '');
+      var ehFO = /^PECAS - TROCA \(FORNECIDAS PELA SEGURADORA\)|^LISTA DAS PECAS FORNECIDAS PELA SEGURADORA/.test(sec);
+      var corpo = vd_secao_(sec, /PECAS - TROCA|LISTA DAS PECAS FORNECIDAS/, fimWs).replace(/^.*?PINTURA /, '');
       while ((m = reWs.exec(corpo))) add(ehFO ? r.fo : r.oficina, m[1], m[2], m[4], m[3]);
     });
     return r;

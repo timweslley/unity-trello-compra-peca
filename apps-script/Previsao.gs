@@ -237,7 +237,14 @@ function pv_fornecedor_(janela, lista) {
       if (new RegExp('(^|[^A-Z0-9])' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^A-Z0-9]|$)').test(U)) melhor = f.nome;
     });
   });
-  return melhor;
+  if (melhor) return melhor;
+  // tabela "STATUS DE ENTREGA" do Soma/Porto (05/10/2026): "... 25/09/2026 02/10/2026 ACCIOLY PR (43)33728810" —
+  // o nome vem logo depois da última data (e antes do telefone); fornecedor novo entra no cadastro
+  var mt = U.match(/\d{1,2}\/\d{1,2}\/\d{2,4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?\s+([A-Z][A-Z .&\/\-]{2,40}?)\s*(?=\(\d{2}\)|\d{2}\s?\d{4,}|\s{2,}|$)/);
+  if (mt && /[A-Z]{3}/.test(mt[1]) && !/^(PREV|DATA|ENTREGA|PEDIDO|PRAZO|FORNECEDOR|TOTAL)\b/.test(mt[1].trim())) {
+    try { return fo_resolver_(mt[1].trim(), lista).nome || mt[1].trim(); } catch (e) { return mt[1].trim(); }
+  }
+  return '';
 }
 
 /**
@@ -250,24 +257,29 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   lista = lista || (function () { try { return fo_lista_(); } catch (e) { return []; } })();
   var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   var out = [];
+  var recente = function (t) { return pv_datas_(t).filter(function (d) { return d >= new Date(hoje.getTime() - 60 * 864e5); }); };
   (alvos || []).forEach(function (a) {
     var k = cp_norm_(a.codigo || a.codigoOrc);
     if (k.length < 5) return;
+    // o código pode aparecer mais de uma vez (Soma: na lista de FO e de novo na tabela STATUS DE ENTREGA, que é a
+    // que tem fornecedor e prazo): olha todas as ocorrências e fica com a que tem data; senão a que tem fornecedor
+    var achado = null;
     for (var i = 0; i < norm.length; i++) {
       if (norm[i].indexOf(k) < 0) continue;
-      // a própria linha; se faltar data ou fornecedor, as 2 seguintes (OCR quebra colunas) até aparecer outra peça
+      // a própria linha; se faltar data ou fornecedor, as seguintes (OCR quebra colunas: até 12 linhas) até aparecer outra peça
       var janela = linhas[i];
-      for (var j = i + 1; j < Math.min(i + 3, linhas.length); j++) {
+      for (var j = i + 1; j < Math.min(i + 13, linhas.length); j++) {
         if (/\b(?=[A-Z0-9]*\d{5,})[A-Z0-9]{6,}\b/.test(vd_semAcento_(linhas[j]))) break;
         janela += '  ' + linhas[j];
       }
-      var recente = function (t) { return pv_datas_(t).filter(function (d) { return d >= new Date(hoje.getTime() - 60 * 864e5); }); };
       var ds = recente(linhas[i]); if (!ds.length) ds = recente(janela);
       var prev = ds.length ? new Date(Math.max.apply(null, ds)) : null;
       var forn = pv_fornecedor_(linhas[i], lista) || pv_fornecedor_(janela, lista);
-      out.push({ alvo: a, fornecedor: forn, previsao: prev ? prev.toISOString() : '', linha: linhas[i].trim().slice(0, 120) });
-      return;
+      var cand = { alvo: a, fornecedor: forn, previsao: prev ? prev.toISOString() : '', linha: linhas[i].trim().slice(0, 120) };
+      if (!achado || (!achado.previsao && cand.previsao) || (!achado.previsao && !achado.fornecedor && cand.fornecedor)) achado = cand;
+      if (achado.previsao && achado.fornecedor) break;
     }
+    if (achado) out.push(achado);
   });
   return out;
 }
