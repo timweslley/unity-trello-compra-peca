@@ -1444,6 +1444,24 @@ function vd_trocarLinksFormulario() {
   return trocados;
 }
 
+/* Correção única (05/10/2026): entre 02/10 e 05/10 o caminho incremental do núcleo lia os cards com cru e gravava em
+ * VD_PK2_ a assinatura das linhas da VITRINE. Com a leitura certa (completa), essas bases acusariam todas as linhas
+ * como "peça nova". Regrava a base de todos os cards das colunas pós-cotação a partir da descrição completa. */
+function vd_pkRebasear_(posCot, ctx) {
+  var props = PropertiesService.getScriptProperties(), k = 'VD_PK2_REBASE';
+  if (props.getProperty(k) === '2026-10-05') return;
+  var cards = vd_cardsDasListas_(posCot, false), n = 0;
+  cards.forEach(function (c) {
+    if (vd_legado_(c.id)) return;
+    var sigs = vd_linhasConsultor_(vd_dividir_(c.desc).bloco).map(vd_sigItem_);
+    vd_pkSet_(c.id, sigs);
+    props.deleteProperty('VD_NOVAS_' + c.id);
+    n++;
+  });
+  props.setProperty(k, '2026-10-05');
+  console.log('rebase VD_PK2: ' + n + ' card(s) das colunas pós-cotação regravados a partir da descrição completa');
+}
+
 /** Execução principal (acionador de 1 em 1 min). */
 function vd_executarNucleo_() {
   if (!vd_ligado_()) return [];
@@ -1456,6 +1474,7 @@ function vd_executarNucleo_() {
   // A cada 30 min (e na 1ª vez) faz a varredura completa das colunas, por segurança.
   var posCot = vd_listasPosCotacao_(ctx), idCot = [ctx.listas[VD.LISTA_COTACAO], ctx.listas[VD.LISTA_FALTA]].filter(String);
   var marca = vd_marca_('NU_ACT'), inicio = new Date().toISOString();
+  try { vd_pkRebasear_(posCot, ctx); } catch (e) { console.log('rebase: ' + e); }   // uma vez: bases gravadas da vitrine (02–05/10) voltam a ser da completa
   var completa = !marca || new Date().getMinutes() % 30 === 0 || !ctx.modoAtivo;
   var listaPos = null, listaCot = null;
   if (!completa) {
@@ -1467,7 +1486,9 @@ function vd_executarNucleo_() {
       ids.forEach(function (id) {
         if (Date.now() > ctx.prazo) return;
         var c;
-        try { c = vd_api_('/cards/' + id, { cru: true, query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels,closed', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } }); } catch (e) { return; }
+        // SEM cru: a desc precisa ser a COMPLETA (a vitrine do Trello não tem o bloco PEÇAS). Com cru (02/10 a 05/10) o robô
+        // comparava a vitrine com a base e acusava "PEÇA NOVA fora do padrão" em card que só ganhou cotação (RAM9I31, TST9Z99).
+        try { c = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels,closed', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } }); } catch (e) { return; }
         if (!c || c.closed) return;
         if (posCot.indexOf(c.idList) >= 0) listaPos.push(c);
         else if (idCot.indexOf(c.idList) >= 0) listaCot.push(c);
