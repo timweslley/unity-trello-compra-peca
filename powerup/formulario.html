@@ -1064,7 +1064,7 @@ function novaCot(item, pre) {
     + '<div><label>Valor (R$)</label><input type="text" class="q-valor" inputmode="decimal" placeholder="1.647,00"></div>'
     + '<div><label>Prazo (dias úteis)</label><input type="number" class="q-dias" min="0" placeholder="3"></div>'
     + '<div><button type="button" class="perigo" onclick="var it=this.closest(\'.item\');this.closest(\'.cot\').remove();atualizarPecaCot(it)">tirar</button></div>'
-    + '<div class="q-link-caixa"><label>Link do anúncio (opcional — Mercado Livre, site do fornecedor)</label><input type="url" class="q-link" inputmode="url" placeholder="https://produto.mercadolivre.com.br/…"></div>';
+    + '<div class="q-link-caixa"><label>Link do anúncio (opcional — Mercado Livre, site do fornecedor)</label><input type="text" class="q-link" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://produto.mercadolivre.com.br/…"></div>';
   item.querySelector('.cot-novas').appendChild(row);
   if (pre) {
     row.querySelector('.q-forn').value = pre.fornecedor || '';
