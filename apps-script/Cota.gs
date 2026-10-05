@@ -11,7 +11,7 @@
  *  - qt_verHoje(): mostra o consumo de hoje e de ontem no registro (rodar na mão).
  *  - sd_diario inclui o consumo de ontem e avisa quando passa de QT.ALERTA.
  */
-var QT = { LIMITE: 100000, ALERTA: 60000, PAUSA_MS: 30 * 60000, AVISO_MS: 12 * 3600 * 1000, GUARDAR_DIAS: 7 };
+var QT = { LIMITE: 100000, ALERTA: 60000, PAUSA_MS: 10 * 60000, AVISO_MS: 12 * 3600 * 1000, GUARDAR_DIAS: 7 };
 var QT_N = 0;            // chamadas nesta execução
 var QT_PARTES = {};      // chamadas por parte nesta execução
 var QT_PARTE_ATUAL = '';
