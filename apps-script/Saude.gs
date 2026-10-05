@@ -186,3 +186,21 @@ function diag_ocr() {
   try { var m = Drive.About.get({ fields: 'user,storageQuota' }); Logger.log('5 about: ' + JSON.stringify(m).slice(0, 300)); }
   catch (e) { Logger.log('5 about: ERRO ' + det(e)); }
 }
+/** Diagnóstico 2: a conversão falha só com PDF? Gera um PDF (Docs -> PDF) e passa pelo vd_ocr_; depois um PDF real de um card (anexo). */
+function diag_ocr_pdf() {
+  var det = function (e) { return String(e) + (e && e.details ? ' | ' + JSON.stringify(e.details).slice(0, 500) : ''); };
+  var d = DocumentApp.create('vd_tmp_pdf_origem'); d.getBody().appendParagraph('PLACA ABC1D23 CHASSI 9BWZZZ377VT004251 teste OCR ' + new Date()); d.saveAndClose();
+  var pdf = DriveApp.getFileById(d.getId()).getAs('application/pdf'); pdf.setName('vd_tmp_teste.pdf');
+  try { Logger.log('A PDF gerado -> OCR: OK «' + vd_ocr_(pdf, 'teste.pdf').slice(0, 80) + '»'); } catch (e) { Logger.log('A PDF gerado -> OCR: ERRO ' + det(e)); }
+  try { DriveApp.getFileById(d.getId()).setTrashed(true); } catch (e) {}
+  // PDF real: 1º anexo PDF do card RAM9I31 (rHDIzKZH)
+  try {
+    var ans = vd_api_('/cards/rHDIzKZH/attachments', { query: { fields: 'name,url,mimeType,bytes' } });
+    var a = ans.filter(function (x) { return /pdf$/i.test(x.name || ''); })[0];
+    if (!a) { Logger.log('B sem PDF no card'); return; }
+    var r = qt_fetch_(a.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
+    Logger.log('B download ' + a.name + ': HTTP ' + r.getResponseCode() + ' · ' + r.getBlob().getBytes().length + ' bytes · ' + r.getBlob().getContentType());
+    var blob = r.getBlob().setName(a.name).setContentType('application/pdf');
+    try { Logger.log('B PDF real -> OCR: OK «' + vd_ocr_(blob, a.name).slice(0, 80) + '»'); } catch (e) { Logger.log('B PDF real -> OCR: ERRO ' + det(e)); }
+  } catch (e) { Logger.log('B: ' + det(e)); }
+}
