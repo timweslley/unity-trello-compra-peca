@@ -170,3 +170,19 @@ function migrar_instalarAcionadores() {
     (prob.length ? '\nPENDÊNCIAS:\n- ' + prob.join('\n- ') : '\nTudo acessível.') +
     '\nFalta: (1) na conta antiga, apagar os acionadores dela em script.google.com/home/triggers; (2) nesta conta, Implantar > Gerenciar implantações > editar > Nova versão > Implantar.');
 }
+
+/** Diagnóstico (05/10/2026): conversão para Google Docs pelo Drive falha com "Internal Error" na conta sistema@. Rodar no editor. */
+function diag_ocr() {
+  var blob = Utilities.newBlob('OCR teste 123 ' + new Date(), 'text/plain', 'vd_tmp_teste.txt');
+  var det = function (e) { return String(e) + (e && e.details ? ' | ' + JSON.stringify(e.details).slice(0, 400) : ''); };
+  try { var a = Drive.Files.create({ name: 'vd_tmp_teste', mimeType: 'application/vnd.google-apps.document' }, blob, {}); Logger.log('1 create+converter: OK ' + a.id); DriveApp.getFileById(a.id).setTrashed(true); }
+  catch (e) { Logger.log('1 create+converter: ERRO ' + det(e)); }
+  try { var b = Drive.Files.create({ name: 'vd_tmp_teste.txt' }, blob, {}); Logger.log('2 create sem converter: OK ' + b.id); DriveApp.getFileById(b.id).setTrashed(true); }
+  catch (e) { Logger.log('2 create sem converter: ERRO ' + det(e)); }
+  try { var f = DriveApp.createFile(blob); var c = Drive.Files.copy({ name: 'vd_tmp_copia', mimeType: 'application/vnd.google-apps.document' }, f.getId(), {}); Logger.log('3 copy+converter: OK ' + c.id); DriveApp.getFileById(c.id).setTrashed(true); f.setTrashed(true); }
+  catch (e) { Logger.log('3 copy+converter: ERRO ' + det(e)); }
+  try { var d = DocumentApp.create('vd_tmp_doc'); Logger.log('4 DocumentApp.create: OK ' + d.getId()); DriveApp.getFileById(d.getId()).setTrashed(true); }
+  catch (e) { Logger.log('4 DocumentApp.create: ERRO ' + det(e)); }
+  try { var m = Drive.About.get({ fields: 'user,storageQuota' }); Logger.log('5 about: ' + JSON.stringify(m).slice(0, 300)); }
+  catch (e) { Logger.log('5 about: ERRO ' + det(e)); }
+}
