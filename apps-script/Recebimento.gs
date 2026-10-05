@@ -136,15 +136,23 @@ function rc_reavaliarColuna_(cardOuId, token, usuario) {
     if (autsA.length && autsA.every(function (a) { return pagas.some(function (n) { return vd_casaItem_(n, a.chave); }); })) alvo = VDF_LISTA_CHEGAR;
   }
   else if ((lista === RC.LISTA_FIM || lista === 'ENTREGUES') && pend.length) alvo = VDF_LISTA_CHEGAR;
-  else if (lista === VD.LISTA_COTACAO && itens.length && itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista); })) {
+  // sem peça da oficina para comprar (só FO, ou tudo marcado 🚫 não comprar) em qualquer coluna antes da compra:
+  // não tem o que cotar/autorizar -> FALTA CHEGAR (FO pendente) ou ENCERRADO (nada a receber). 05/10/2026 (QPG1B84)
+  var soFo = '';
+  if (!alvo && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
+      itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista); }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido
     var an = vd_analisar_(card.desc, card.name);
-    if (!an.pecas.length) alvo = pend.length ? VDF_LISTA_CHEGAR : RC.LISTA_FIM;
+    if (!an.pecas.length && (itens.length || (an.naoComprar || []).length)) {
+      alvo = pend.length ? VDF_LISTA_CHEGAR : RC.LISTA_FIM;
+      soFo = 'sem peça para a oficina comprar' + ((an.naoComprar || []).length ? ' (' + an.naoComprar.length + ' marcada(s) 🚫 não comprar)' : '') +
+        (pend.length ? ' · ' + pend.length + ' peça(s) da seguradora para chegar' : (itens.length ? ' · fornecimento todo recebido' : ' · nada a receber'));
+    }
   }
   if (!alvo || !ctx.listas[alvo]) return '';
   var movido = vdf_moverPara_(card, ctx, alvo, token, usuario || 'robô');
   if (movido && lista !== VDF_LISTA_CHEGAR) {
     try {
-      vd_comentar_(card, '↪️ Card → **' + movido + '** (' + (alvo === VDF_LISTA_CHEGAR ? pend.length + ' peça(s) para chegar' : 'tudo recebido') + ').');
+      vd_comentar_(card, '↪️ Card → **' + movido + '** (' + (soFo || (alvo === VDF_LISTA_CHEGAR ? pend.length + ' peça(s) para chegar' : 'tudo recebido')) + ').');
     } catch (e) {}
   }
   return movido;

@@ -450,18 +450,20 @@ function vdf_pastaTemp_() {
 
 /* ---------- checklist FORNECIMENTO (peças FO) ---------- */
 
-/** nomeLista: 'FORNECIMENTO' (padrão) ou 'FORNECIMENTO COMPLEMENTO'. Não repete peça que já está em qualquer FORNECIMENTO. */
+/** nomeLista: 'FORNECIMENTO' (padrão) ou 'FORNECIMENTO COMPLEMENTO'. Não repete peça que já está em qualquer FORNECIMENTO:
+ *  peça que já tem item (mesmo código) só tem a descrição/previsão atualizada no item que existe (05/10/2026, Weslley:
+ *  "já tinha registro de fornecimento — atualizar apenas as descrições"). Devolve quantos itens NOVOS entraram. */
 function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
   if (!fo || !fo.length) return 0;
   nomeLista = nomeLista || 'FORNECIMENTO';
-  var lists = vd_api_('/cards/' + cardId + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name' } }, token);
+  var lists = vd_api_('/cards/' + cardId + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name,due,state' } }, token);
   var todas = lists.filter(function (c) { return /FORNECIMENTO/i.test(c.name); });
   var cl = nomeLista === 'FORNECIMENTO'
     ? todas.filter(function (c) { return !/COMPLEMENTO/i.test(c.name); })[0]
     : todas.filter(function (c) { return String(c.name || '').trim().toUpperCase() === nomeLista; })[0];
   if (!cl) cl = vd_api_('/checklists', { method: 'post', payload: { idCard: cardId, name: nomeLista, pos: 'bottom' } }, token);
   var existentes = [];
-  todas.forEach(function (c) { (c.checkItems || []).forEach(function (i) { existentes.push(vd_semAcento_(i.name)); }); });
+  todas.forEach(function (c) { (c.checkItems || []).forEach(function (i) { existentes.push({ item: i, norm: vd_semAcento_(i.name) }); }); });
   var n = 0;
   fo.forEach(function (p) {
     var cod = String(p.codigo || p.codigoOrc || '').trim();
@@ -471,7 +473,21 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
     // orçamento que já traz fornecedor/prazo da FO (ex.: grupo Porto): entra no item
     var nome = (cod ? cod + ' ' : '') + desc + (p.qtd && +p.qtd > 1 ? ' (x' + p.qtd + ')' : '') + (p.fornecedor ? ' - ' + String(p.fornecedor).toUpperCase() : '');
     var chave = vd_semAcento_(cod || desc);
-    if (existentes.some(function (e) { return vd_casaItem_(e, chave); })) return;
+    var ja = existentes.filter(function (e) { return vd_casaItem_(e.norm, chave); })[0];
+    if (ja) {
+      // item já existe: só atualiza a descrição (e a previsão, se o item ainda não tem) — nunca duplica
+      try {
+        var atual = String(ja.item.name || '').trim(), novo = nome;
+        // fornecedor que alguém já anotou no item ("... - AVENIDA") fica, se o orçamento não trouxe outro
+        var sufixo = atual.match(/\s-\s[^-]+$/);
+        if (!p.fornecedor && sufixo && !/\s-\s[^-]+$/.test(novo)) novo += sufixo[0];
+        var upd = {};
+        if (novo && novo !== atual) upd.name = novo;
+        if (p.previsao && !ja.item.due) upd.due = p.previsao;
+        if (Object.keys(upd).length) vd_api_('/cards/' + cardId + '/checkItem/' + ja.item.id, { method: 'put', payload: upd }, token);
+      } catch (e) { console.log('FO item existente: ' + e); }
+      return;
+    }
     var corpoFo = { name: nome, pos: 'bottom' };
     if (p.previsao) corpoFo.due = p.previsao;
     vd_api_('/checklists/' + cl.id + '/checkItems', { method: 'post', payload: corpoFo }, token);
