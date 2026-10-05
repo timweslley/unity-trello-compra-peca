@@ -55,8 +55,16 @@ jobs:
           retention-days: 90
       - name: Subir código
         run: clasp push -f
+      # 05/10/2026: o web app passou a rodar na conta sistema@unitycs.com.br (cota de UrlFetch é por conta).
+      # Publicar a versão com o login do Weslley faria o formulário voltar a rodar na conta dele, então a nova
+      # versão só é publicada quando o segredo CLASPRC_JSON for o login da conta sistema@ (DEPLOY_PELA_CI=sim).
       - name: Nova versão na implantação do formulário
+        if: ${{ vars.DEPLOY_PELA_CI == 'sim' }}
         run: |
           d="git $(git rev-parse --short HEAD): $(git log -1 --format=%s | cut -c1-80)"
           clasp deploy -i "$DEPLOY_ID" -d "$d"
           clasp deployments
+      - name: Aviso
+        if: ${{ vars.DEPLOY_PELA_CI != 'sim' }}
+        run: echo "::warning::Código publicado (acionadores já usam). O web app (formulário) só recebe a versão nova quando a conta sistema@ republicar em Implantar > Gerenciar implantações, ou quando DEPLOY_PELA_CI=sim com o login dela."
+

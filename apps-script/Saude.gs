@@ -145,3 +145,28 @@ function sd_verErros() {
   Logger.log('TR_ACT = ' + vd_marca_('TR_ACT') + ' · CP_ACT = ' + vd_marca_('CP_ACT'));
   try { Logger.log('trava de descrição: ' + tr_executar_()); } catch (e) { Logger.log('trava de descrição ERRO: ' + e.stack); }
 }
+
+/* ---------- migração do robô para outra conta (05/10/2026: cota de UrlFetch é por conta) ----------
+ * Rodar UMA vez, logado na conta nova (ex.: sistema@unitycs.com.br), com o projeto compartilhado como editor:
+ * autoriza os escopos e instala os 5 acionadores em nome dessa conta. Depois, na conta antiga, apagar os
+ * acionadores dela (Meus acionadores) e republicar o web app pela conta nova (Implantar > Gerenciar implantações
+ * > editar > Nova versão), para o formulário também rodar na cota da conta nova. */
+function migrar_instalarAcionadores() {
+  var eu = Session.getEffectiveUser().getEmail();
+  var meus = ScriptApp.getProjectTriggers();   // só os acionadores DESTA conta
+  var tem = {}; meus.forEach(function (t) { tem[t.getHandlerFunction()] = true; });
+  var feitos = [];
+  if (!tem.verificarAlteracoesDescricao) { ScriptApp.newTrigger('verificarAlteracoesDescricao').timeBased().everyMinutes(1).create(); feitos.push('log de descrição (1 min)'); }
+  if (!tem.validarDadosPedido) { ScriptApp.newTrigger('validarDadosPedido').timeBased().everyMinutes(1).create(); feitos.push('validarDadosPedido (1 min)'); }
+  if (!tem.rotinaDiaria) { ScriptApp.newTrigger('rotinaDiaria').timeBased().everyDays(1).atHour(7).create(); feitos.push('rotina diária (7h)'); }
+  if (!tem.relatorioDiario) { ScriptApp.newTrigger('relatorioDiario').timeBased().everyDays(1).atHour(7).nearMinute(15).create(); feitos.push('relatório diário (7h15)'); }
+  if (!tem.sd_diario) { ScriptApp.newTrigger('sd_diario').timeBased().everyDays(1).atHour(7).nearMinute(50).inTimezone('America/Sao_Paulo').create(); feitos.push('conferência diária (7h50)'); }
+  // confere o que a conta nova precisa enxergar
+  var prob = [];
+  try { vd_planilhaBackup_().getParent().getName(); } catch (e) { prob.push('planilha "Validação Trello — backup de descrições" não acessível: compartilhar com ' + eu); }
+  try { vd_api_('/members/me', { query: { fields: 'username' } }); } catch (e) { prob.push('Trello não respondeu (cota ou token): ' + e.message); }
+  qt_despausar();
+  Logger.log('Conta: ' + eu + '\nAcionadores criados: ' + (feitos.join(', ') || 'nenhum (já existiam)') + '\nTotal nesta conta: ' + ScriptApp.getProjectTriggers().length +
+    (prob.length ? '\nPENDÊNCIAS:\n- ' + prob.join('\n- ') : '\nTudo acessível.') +
+    '\nFalta: (1) na conta antiga, apagar os acionadores dela em script.google.com/home/triggers; (2) nesta conta, Implantar > Gerenciar implantações > editar > Nova versão > Implantar.');
+}
