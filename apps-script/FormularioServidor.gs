@@ -624,6 +624,19 @@ function vdf_lerRemocao_(l, chaves) {
   return { tipo: /^REM/i.test(m[1]) ? 'REMOVIDA' : 'INDISPONIVEL', forn: m[2].trim().toUpperCase(), chave: k ? k.chave : '', valor: vd_valorNum_(m[4]), motivo: (m[5] || '').trim() };
 }
 
+/** Link do anúncio informado na cotação: '' se vazio, a URL se válida (http/https), null se inválido. */
+function vdf_linkCot_(s) {
+  s = String(s || '').trim();
+  if (!s) return '';
+  if (!/^https?:\/\/\S+$/i.test(s) || /[()\s<>]/.test(s)) return null;
+  return s.length > 500 ? null : s;
+}
+/** Tira o link do fim da linha de cotação ("- [🔗 link](url)" ou "- url") e devolve {linha, link}. */
+function vdf_tirarLinkCot_(l) {
+  var m = l.match(/^(.*?)\s+-\s+(?:\[[^\]]*\]\()?(https?:\/\/[^\s)]+)\)?\s*$/i);
+  return m ? { linha: m[1], link: m[2] } : { linha: l, link: '' };
+}
+
 function vd_cotacoesDaDescricao_(desc, pecas) {
   var out = { cotacoes: [], nt: [], obs: [], semCot: [] };
   var resto = vd_dividir_(desc).resto;
@@ -678,7 +691,8 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
       return;
     }
     if (!forn || !temValor) return;
-    var m = l.match(/^(.+?)\s+-\s+(?:(.+?)\s+-\s+)?R?\$?\s*([\d.]+(?:,\d{1,2})?)(?:\s+-\s+(?:(\d+)\s*DIAS?(?:\s+[ÚU]T(?:EIS|IL))?|(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)|(.*?)))?\s*$/i);
+    var tl = vdf_tirarLinkCot_(l);   // "- [🔗 link](url)" no fim: link do anúncio (Mercado Livre etc.)
+    var m = tl.linha.match(/^(.+?)\s+-\s+(?:(.+?)\s+-\s+)?R?\$?\s*([\d.]+(?:,\d{1,2})?)(?:\s+-\s+(?:(\d+)\s*DIAS?(?:\s+[ÚU]T(?:EIS|IL))?|(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)|(.*?)))?\s*$/i);
     if (!m) return;
     var alvo = vd_semAcento_(m[1]).replace(/\s+/g, ' ').trim();
     var peca = null;
@@ -692,7 +706,7 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     var tipo = '', marca = tm;
     var mt = tm.match(/^(GENU[IÍ]NO|ORIGINAL|PARALEL[OA]|USAD[OA])\b\s*(.*)$/i);
     if (mt) { tipo = vd_tipoNorm_(mt[1]); marca = mt[2].trim(); }
-    out.cotacoes.push({ chave: peca.chave, fornecedor: forn, obs: obs, tipo: tipo, marca: marca, valor: vd_valorNum_(m[3]), dias: m[4] !== undefined ? +m[4] : '', data: m[5] || '' });
+    out.cotacoes.push({ chave: peca.chave, fornecedor: forn, obs: obs, tipo: tipo, marca: marca, valor: vd_valorNum_(m[3]), dias: m[4] !== undefined ? +m[4] : '', data: m[5] || '', link: tl.link });
   });
   return out;
 }
@@ -744,13 +758,14 @@ function vdf_salvarCotacao(token, p) {
   var foNome = function (x) { try { return fo_resolver_(x, foLista).nome || String(x || '').trim().toUpperCase(); } catch (e) { return String(x || '').trim().toUpperCase(); } };
   var cots = (p.cotacoes || []).map(function (c, i) {
     var peca = porChave[c.chave];
-    var r = { peca: peca, fornecedor: foNome(c.fornecedor), tipo: vd_tipoNorm_(c.tipo || '') || '', marca: String(c.marca || '').trim().toUpperCase(), valor: vd_valorNum_(c.valor), dias: String(c.dias == null ? '' : c.dias).trim() };
+    var r = { peca: peca, fornecedor: foNome(c.fornecedor), tipo: vd_tipoNorm_(c.tipo || '') || '', marca: String(c.marca || '').trim().toUpperCase(), valor: vd_valorNum_(c.valor), dias: String(c.dias == null ? '' : c.dias).trim(), link: vdf_linkCot_(c.link) };
     var rot = 'cotação ' + (i + 1) + (peca ? ' (' + vd_nomePeca_(peca) + ')' : '');
     if (!peca) faltas.push(rot + ': peça não encontrada no pedido');
     if (!r.fornecedor) faltas.push(rot + ': falta o fornecedor');
     if (isNaN(r.valor) || r.valor <= 0) faltas.push(rot + ': valor inválido');
     if (r.dias !== '' && !/^\d+$/.test(r.dias)) faltas.push(rot + ': prazo em dias úteis (número)');
     if (r.tipo && r.tipo.charAt(0) === '?') faltas.push(rot + ': tipo inválido');
+    if (r.link === null) faltas.push(rot + ': link inválido — cole o endereço completo, começando com http (ou deixe vazio)');
     return r;
   });
   var nt = (p.nt || []).map(foNome).filter(String);
@@ -776,7 +791,8 @@ function vdf_salvarCotacao(token, p) {
   cots.forEach(function (c) {
     if (!grupos[c.fornecedor]) { grupos[c.fornecedor] = []; ordem.push(c.fornecedor); }
     var nomeP = c.peca.pneu ? 'PNEU ' + String(c.peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(c.peca);
-    grupos[c.fornecedor].push(nomeP + (c.tipo || c.marca ? ' - ' + [c.tipo, c.marca].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(c.valor) + (c.dias !== '' ? ' - ' + c.dias + (c.dias === '1' ? ' dia útil' : ' dias úteis') : ''));
+    grupos[c.fornecedor].push(nomeP + (c.tipo || c.marca ? ' - ' + [c.tipo, c.marca].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(c.valor) + (c.dias !== '' ? ' - ' + c.dias + (c.dias === '1' ? ' dia útil' : ' dias úteis') : '')
+      + (c.link ? ' - [🔗 link](' + c.link + ')' : ''));   // link do anúncio (Mercado Livre etc.): vira link clicável na descrição
   });
   var L = ['**COTAÇÃO ' + agora + ' - ' + me.fullName + '**'];
   rem.forEach(function (r) { L.push('REMOVIDA: ' + r.fornecedor + ' - ' + (r.peca.pneu ? 'PNEU ' + String(r.peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(r.peca)) + ' - ' + vd_valorBR_(r.valor)); });
@@ -1414,6 +1430,17 @@ function vdf_salvar(token, p) {
       } catch (e) {}
       try { ev_registrar_('COMPLEMENTO', card, me.username, compOf.map(ev_peca_).concat(compFo.map(function (x) { var e = ev_peca_(x); e.fornecedor = 'SEGURADORA (FO)'; return e; })), { detalhe: compOf.length + ' oficina · ' + nFoComp + ' FO · ' + (comp.origem || '') }); } catch (e) {}
     }
+  } else if (card && pecas.some(function (x) { return x.complemento; })) {
+    // marcado à mão no formulário (sem PDF): só as peças que NÃO eram complemento antes
+    try {
+      var eramComp = {};
+      vd_analisar_(card.desc, card.name).pecas.forEach(function (x) { if (x.complemento) eramComp[vd_chavePeca_(x)] = 1; });
+      var novasComp = pecas.filter(function (x) { return x.complemento && !eramComp[vd_chavePeca_(x)]; });
+      if (novasComp.length) {
+        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '➕ **COMPLEMENTO** marcado por ' + me.fullName + ' — fora do orçamento autorizado, vai no orçamento complementar da seguradora: ' + novasComp.map(cp_nome_).join('; ') + '\n_(na compra entra em PAGAS COMPLEMENTO)_' } }, token);
+        ev_registrar_('COMPLEMENTO', card, me.username, novasComp.map(ev_peca_), { detalhe: novasComp.length + ' oficina · marcado à mão' });
+      }
+    } catch (e) { console.log('complemento à mão: ' + e); }
   }
 
   // confere na hora

@@ -25,7 +25,10 @@ function chamar(fn) {
   var paralelo = leitura || ridOk;
   /* espera antes de disparar a próxima tentativa */
   var espera = paralelo ? (longa ? 25000 : (leitura ? 6000 : 15000)) : (longa ? 75000 : 45000);
-  var limiteTotal = longa ? 150000 : 90000, maxTent = 3;
+  /* 05/10/2026: gravação de card com peça nova levou 23 s no servidor DEPOIS de o Google segurar o pedido
+   * ~2 min — o formulário desistiu em 90 s ("não confirmou") e o card atualizou em seguida. Gravação agora
+   * espera até 4 min, avisando o tempo; repetir é seguro (rid: o servidor não grava duas vezes). */
+  var limiteTotal = longa ? 150000 : (leitura ? 90000 : 240000), maxTent = 3, t0 = Date.now();
   var corpo = { fn: fn, args: args };
   if (!leitura) corpo.rid = novoRid();
   corpo = JSON.stringify(corpo);
@@ -48,7 +51,7 @@ function chamar(fn) {
       if (disparadas < maxTent) { if (paralelo || falhas >= disparadas) disparar(); return; }
       if (falhas >= disparadas) {
         erroFinal(leitura ? 'Sem conexão com o servidor. Tente de novo.'
-          : 'O servidor não confirmou a gravação. Confira o card antes de repetir.');
+          : 'O servidor não confirmou a gravação. Confira o card antes de repetir — repetir é seguro, o sistema não grava duas vezes.');
       }
     }
     function disparar() {
@@ -79,8 +82,17 @@ function chamar(fn) {
     }
     relogios.push(setTimeout(function () {
       erroFinal(leitura ? 'Sem conexão com o servidor. Tente de novo.'
-        : 'O servidor não confirmou a gravação. Confira o card antes de repetir.');
+        : 'O servidor do Google não respondeu em 4 minutos. O pedido PODE ter sido gravado: abra o card e confira. Se não estiver lá, repita — é seguro, o sistema não grava duas vezes.');
     }, limiteTotal));
+    if (!leitura) {
+      /* gravação demorando: mostra o tempo para a pessoa não achar que travou */
+      var relAviso = setInterval(function () {
+        if (fim) { clearInterval(relAviso); return; }
+        var seg = Math.round((Date.now() - t0) / 1000);
+        if (seg >= 40) avisoLento('O servidor do Google está demorando (' + Math.floor(seg / 60) + ' min ' + (seg % 60) + ' s). Aguardando até 4 min — não feche; o pedido não é gravado duas vezes.');
+      }, 5000);
+      relogios.push(relAviso);
+    }
     disparar();
   });
 }

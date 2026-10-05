@@ -77,6 +77,8 @@
   /* etiquetas (como as do Trello) */
   .selo-comp, .selo-part { display:inline-block; font-size:11px; font-weight:800; border-radius:4px; padding:2px 8px; margin-left:4px; vertical-align:middle; text-transform:uppercase; letter-spacing:.3px; }
   .selo-comp { color:#fff; background:var(--verde); }
+  .chip.chip-comp { font-size:12px; padding:3px 8px; margin-left:6px; border-color:var(--verde); }
+  .chip.chip-comp.marcado { background:var(--verde); color:#fff; border-color:var(--verde); }
   .selo-part { color:#533f04; background:var(--amarelo); }
   .selo { display:inline-block; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; margin-left:4px; white-space:nowrap; text-transform:uppercase; }
   .selo.preco { background:var(--verde); color:#fff; }
@@ -103,6 +105,7 @@
   .aba.marcada { background:#fff; color:var(--azul); box-shadow:var(--sombra); }
   .cot { display:grid; grid-template-columns:2fr 1.2fr 1fr 1fr .8fr auto; gap:6px; align-items:end; margin-top:8px; }
   .cot label { font-size:11px; }
+  .cot .q-link-caixa { grid-column:1 / -1; }
   @media (max-width:640px) { .cot { grid-template-columns:1fr 1fr; } }
   .cot-lida { font-size:13px; color:var(--texto); padding:5px 0; border-bottom:1px solid var(--borda); }
   .cot-lida b { color:var(--azul); }
@@ -523,7 +526,10 @@ function chamar(fn) {
   var paralelo = leitura || ridOk;
   /* espera antes de disparar a próxima tentativa */
   var espera = paralelo ? (longa ? 25000 : (leitura ? 6000 : 15000)) : (longa ? 75000 : 45000);
-  var limiteTotal = longa ? 150000 : 90000, maxTent = 3;
+  /* 05/10/2026: gravação de card com peça nova levou 23 s no servidor DEPOIS de o Google segurar o pedido
+   * ~2 min — o formulário desistiu em 90 s ("não confirmou") e o card atualizou em seguida. Gravação agora
+   * espera até 4 min, avisando o tempo; repetir é seguro (rid: o servidor não grava duas vezes). */
+  var limiteTotal = longa ? 150000 : (leitura ? 90000 : 240000), maxTent = 3, t0 = Date.now();
   var corpo = { fn: fn, args: args };
   if (!leitura) corpo.rid = novoRid();
   corpo = JSON.stringify(corpo);
@@ -546,7 +552,7 @@ function chamar(fn) {
       if (disparadas < maxTent) { if (paralelo || falhas >= disparadas) disparar(); return; }
       if (falhas >= disparadas) {
         erroFinal(leitura ? 'Sem conexão com o servidor. Tente de novo.'
-          : 'O servidor não confirmou a gravação. Confira o card antes de repetir.');
+          : 'O servidor não confirmou a gravação. Confira o card antes de repetir — repetir é seguro, o sistema não grava duas vezes.');
       }
     }
     function disparar() {
@@ -577,8 +583,17 @@ function chamar(fn) {
     }
     relogios.push(setTimeout(function () {
       erroFinal(leitura ? 'Sem conexão com o servidor. Tente de novo.'
-        : 'O servidor não confirmou a gravação. Confira o card antes de repetir.');
+        : 'O servidor do Google não respondeu em 4 minutos. O pedido PODE ter sido gravado: abra o card e confira. Se não estiver lá, repita — é seguro, o sistema não grava duas vezes.');
     }, limiteTotal));
+    if (!leitura) {
+      /* gravação demorando: mostra o tempo para a pessoa não achar que travou */
+      var relAviso = setInterval(function () {
+        if (fim) { clearInterval(relAviso); return; }
+        var seg = Math.round((Date.now() - t0) / 1000);
+        if (seg >= 40) avisoLento('O servidor do Google está demorando (' + Math.floor(seg / 60) + ' min ' + (seg % 60) + ' s). Aguardando até 4 min — não feche; o pedido não é gravado duas vezes.');
+      }, 5000);
+      relogios.push(relAviso);
+    }
     disparar();
   });
 }
@@ -697,6 +712,8 @@ function fmtValor(v) {
 function rotuloCot(q) {
   return q.fornecedor + ' — ' + ([q.tipo, q.marca].filter(String).join(' ') || '—') + ' — ' + fmtValor(q.valor) + (q.dias !== '' && q.dias !== undefined ? ' — ' + q.dias + (+q.dias === 1 ? ' dia útil' : ' dias úteis') : (q.data ? ' — ' + q.data : ''));
 }
+/** Link do anúncio da cotação (Mercado Livre etc.), clicável; '' se não tem. */
+function linkCot(q) { return q && q.link && /^https?:\/\//i.test(q.link) ? ' <a href="' + esc(q.link) + '" target="_blank" rel="noopener" title="' + esc(q.link) + '">🔗 anúncio</a>' : ''; }
 function normForn(s) { return semAc(s).replace(/[^A-Z0-9]+/g, ' ').trim(); }
 /** Nome digitado -> nome oficial do cadastro (nome ou apelido igual, sem acento/pontuação); senão o digitado. */
 function nomeForn(v) {
@@ -850,7 +867,7 @@ function montarAutorizacao(c) {
       var marcada = ja ? minhas.findIndex(function (q) { return mesmaCot(q, ja); }) : 0;
       var selo = selosPeca(minhas);
       h += minhas.map(function (q, j) {
-        return '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value="' + j + '"' + (j === marcada ? ' checked' : '') + ' onchange="totalAut()"> ' + esc(rotuloCot(q)) + selo(q) + '</label>';
+        return '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value="' + j + '"' + (j === marcada ? ' checked' : '') + ' onchange="totalAut()"> ' + esc(rotuloCot(q)) + selo(q) + linkCot(q) + '</label>';
       }).join('') + '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value=""' + (marcada < 0 ? ' checked' : '') + ' onchange="totalAut()"> não autorizar</label>';
       div.dataset.cots = JSON.stringify(minhas);
     }
@@ -998,7 +1015,7 @@ function montarCotacao(c) {
     var autP = autDe(c, p.chave);
     // cotação já no card: editar / remover enquanto a peça não foi autorizada
     if (jaLidas.length) h += '<div style="margin-bottom:6px">' + jaLidas.map(function (q, j) {
-      return '<div class="cot-lida" data-j="' + j + '">já no card: <b class="cl-txt">' + esc(rotuloCot(q)) + '</b>' + seloL(q)
+      return '<div class="cot-lida" data-j="' + j + '">já no card: <b class="cl-txt">' + esc(rotuloCot(q)) + '</b>' + seloL(q) + linkCot(q)
         + (autP ? (mesmaCot(q, autP) ? ' <span class="dica">✅ autorizada</span>' : '')
                 : ' <button type="button" class="mini" onclick="editarCot(this, ' + j + ')">✏️ editar</button> <button type="button" class="mini" onclick="removerCot(this)">🗑️ remover</button>') + '</div>';
     }).join('') + '</div>';
@@ -1046,7 +1063,8 @@ function novaCot(item, pre) {
               + '<div><label>Marca (opcional)</label><input type="text" class="q-marca maiusc" placeholder="GM / DTS"></div>')
     + '<div><label>Valor (R$)</label><input type="text" class="q-valor" inputmode="decimal" placeholder="1.647,00"></div>'
     + '<div><label>Prazo (dias úteis)</label><input type="number" class="q-dias" min="0" placeholder="3"></div>'
-    + '<div><button type="button" class="perigo" onclick="var it=this.closest(\'.item\');this.closest(\'.cot\').remove();atualizarPecaCot(it)">tirar</button></div>';
+    + '<div><button type="button" class="perigo" onclick="var it=this.closest(\'.item\');this.closest(\'.cot\').remove();atualizarPecaCot(it)">tirar</button></div>'
+    + '<div class="q-link-caixa"><label>Link do anúncio (opcional — Mercado Livre, site do fornecedor)</label><input type="url" class="q-link" inputmode="url" placeholder="https://produto.mercadolivre.com.br/…"></div>';
   item.querySelector('.cot-novas').appendChild(row);
   if (pre) {
     row.querySelector('.q-forn').value = pre.fornecedor || '';
@@ -1054,6 +1072,7 @@ function novaCot(item, pre) {
     row.querySelector('.q-marca').value = pre.marca || '';
     row.querySelector('.q-valor').value = pre.valor ? String(pre.valor).replace('.', ',') : '';
     row.querySelector('.q-dias').value = pre.dias !== '' && pre.dias != null ? pre.dias : '';
+    row.querySelector('.q-link').value = pre.link || '';
   }
   row.querySelector('.q-forn').focus();
   atualizarPecaCot(item);
@@ -1062,12 +1081,13 @@ function coletarCotacoes() {
   var out = [], faltas = [];
   Array.prototype.forEach.call($('cotItens').children, function (item, i) {
     Array.prototype.forEach.call(item.querySelectorAll('.cot'), function (row, j) {
-      var q = { chave: item.dataset.chave, fornecedor: row.querySelector('.q-forn').value.trim(), tipo: row.querySelector('.q-tipo').value, marca: row.querySelector('.q-marca').value.trim(), valor: row.querySelector('.q-valor').value.trim(), dias: row.querySelector('.q-dias').value.trim() };
+      var q = { chave: item.dataset.chave, fornecedor: row.querySelector('.q-forn').value.trim(), tipo: row.querySelector('.q-tipo').value, marca: row.querySelector('.q-marca').value.trim(), valor: row.querySelector('.q-valor').value.trim(), dias: row.querySelector('.q-dias').value.trim(), link: row.querySelector('.q-link').value.trim() };
       var rot = 'Peça ' + (i + 1) + ', cotação ' + (j + 1);
       if (!q.fornecedor && !q.valor) return;   // linha vazia
       if (!q.fornecedor) faltas.push(rot + ': falta o fornecedor');
       if (!fmtValor(q.valor)) faltas.push(rot + ': valor inválido');
       if (item.dataset.pneu === '1' && !q.marca) faltas.push(rot + ': falta a marca do pneu');
+      if (q.link && !/^https?:\/\/\S+$/i.test(q.link)) faltas.push(rot + ': link inválido — cole o endereço completo, começando com http');
       out.push(q);
     });
   });
@@ -1630,7 +1650,11 @@ function novoItem(tipo, dados) {
   var travada = dados.travada && !(CARD && CARD.diretoria);
   if (dados.travada) div.dataset.travada = dados.travada;
   var caixa = dados.particular !== undefined ? caixaDe(!!dados.particular) : caixaDe(pedidoPart());
-  var h = '<div class="item-topo"><strong class="num"></strong>' + (div.dataset.comp ? '<span class="selo-comp">➕ COMPLEMENTO' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</span>' : '')
+  // card da seguradora que já existe: a peça pode ser marcada à mão como COMPLEMENTO (vai no orçamento complementar)
+  var podeComp = !!CARD_EDICAO && caixa.id !== 'itensPart' && tipoPedido() !== 'PARTICULAR';
+  var h = '<div class="item-topo"><strong class="num"></strong>'
+    + (podeComp ? '<label class="chip chip-comp' + (div.dataset.comp ? ' marcado' : '') + '" title="Peça fora do orçamento autorizado: entra no orçamento complementar da seguradora (linha | COMPLEMENTO dd/mm; compra vai para PAGAS COMPLEMENTO)"><input type="checkbox" class="f-comp"' + (div.dataset.comp ? ' checked' : '') + ' onchange="marcarComp(\'' + id + '\', this.checked)"> ➕ Complemento' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</label>'
+               : (div.dataset.comp ? '<span class="selo-comp">➕ COMPLEMENTO' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</span>' : ''))
     + '<select onchange="trocarTipo(\'' + id + '\', this.value)"><option value="peca"' + (tipo === 'peca' ? ' selected' : '') + '>Peça</option><option value="pneu"' + (tipo === 'pneu' ? ' selected' : '') + '>Pneu</option></select>'
     + '<button type="button" class="perigo" onclick="removerItem(\'' + id + '\')">remover</button></div>';
   if (tipo === 'pneu') {
@@ -1671,6 +1695,11 @@ function novoItem(tipo, dados) {
   numerar();
 }
 
+function marcarComp(id, sim) {
+  var div = $(id); if (!div) return;
+  if (sim) { div.dataset.comp = '1'; if (!div.dataset.compData) div.dataset.compData = ''; } else { delete div.dataset.comp; delete div.dataset.compData; }
+  var ch = div.querySelector('.chip-comp'); if (ch) ch.classList.toggle('marcado', !!sim);
+}
 function trocarTipo(id, tipo) {
   var velho = $(id), caixa = velho.parentNode;
   novoItem(tipo, { particular: caixa.id === 'itensPart', partPor: velho.dataset.partPor, complemento: velho.dataset.comp === '1', compData: velho.dataset.compData });

@@ -1927,6 +1927,7 @@ function vd_vitrine_(desc, nome, pagas) {
   if (dev) L.push('', '↩️ **Devolvida para cotação**' + (dev.quem ? ' por ' + vd_md_(dev.quem) : '') + (dev.geral ? ': ' + vd_md_(dev.geral) : ''));
 
   var prazoTxt = function (q) { return q.dias !== '' && q.dias != null ? q.dias + (+q.dias === 1 ? ' dia útil' : ' dias úteis') : (q.data ? 'até ' + q.data : ''); };
+  var linkTxt = function (q) { return q && q.link ? ' · [🔗 anúncio](' + q.link + ')' : ''; };   // link do anúncio informado na cotação (Mercado Livre etc.)
   var fornTxt = function (f) { return String(f || '').replace(/[\s\-–:]+$/, ''); };
   var tipoTxt = function (q) { return [q.tipo ? vd_tit_(q.tipo) : '', q.marca || ''].filter(String).join(' '); };
 
@@ -1966,10 +1967,10 @@ function vd_vitrine_(desc, nome, pagas) {
       sub.push('🛒 ' + vd_md_([cp.fornecedor, cp.valor ? 'R$ ' + cp.valor : '', cp.previsao ? 'previsão ' + cp.previsao : ''].filter(String).join(' · ')));
     } else if (aut) {
       var qa = minhas.filter(function (q) { return q.fornecedor === aut.fornecedor && Math.abs(q.valor - aut.valor) < 0.005; })[0] || {};
-      sub.push('✅ ' + vd_md_([fornTxt(aut.fornecedor), tipoTxt(qa), vd_valorBR_(aut.valor), prazoTxt(qa)].filter(String).join(' · ')));
+      sub.push('✅ ' + vd_md_([fornTxt(aut.fornecedor), tipoTxt(qa), vd_valorBR_(aut.valor), prazoTxt(qa)].filter(String).join(' · ')) + linkTxt(qa));
     } else {
       if (!p.pneu && (p.tipos || []).length) cab += ' _(' + p.tipos.map(vd_tit_).join('/') + ')_';
-      if (minhas.length) minhas.forEach(function (q) { sub.push(vd_md_([fornTxt(q.fornecedor), tipoTxt(q), vd_valorBR_(q.valor), prazoTxt(q)].filter(String).join(' · '))); });
+      if (minhas.length) minhas.forEach(function (q) { sub.push(vd_md_([fornTxt(q.fornecedor), tipoTxt(q), vd_valorBR_(q.valor), prazoTxt(q)].filter(String).join(' · ')) + linkTxt(q)); });
       else {
         var sc = (cot.semCot || []).filter(function (s) { return s.chave === k; }).pop();
         sub.push(sc ? '⛔ não cotada: ' + vd_md_(sc.texto) : '⏳ aguardando cotação');
