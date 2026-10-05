@@ -14,11 +14,33 @@ on:
     branches: [main]
     paths: ['apps-script/**', 'tools/**']
   workflow_dispatch:
+  schedule:
+    - cron: '20 11 * * 1'   # segunda 08:20 (Brasília): só confere se o login do clasp ainda vale (o GitHub avisa por e-mail se falhar)
 concurrency: apps-script
 env:
   DEPLOY_ID: AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew
+  # Mensagem única para quando o login da conta sistema@ cair (token revogado, senha trocada, 6 meses sem uso)
+  AVISO_LOGIN: "O login do clasp (segredo CLASPRC_JSON) expirou ou foi revogado — nada foi publicado. Refazer no PC, logado no Google como sistema@unitycs.com.br: PowerShell > npx.cmd @google/clasp@2.4.2 login > abrir %USERPROFILE%\\.clasprc.json e colar o conteúdo em GitHub > Settings > Secrets and variables > Actions > CLASPRC_JSON. Depois rodar este workflow de novo (Run workflow)."
 jobs:
+  # Toda segunda (e no botão Run workflow): confere o login sem publicar nada. Falhou = e-mail do GitHub com o passo a passo.
+  conferir-login:
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm i -g @google/clasp@2.4.2
+      - name: Login do clasp ainda vale?
+        env:
+          CLASPRC: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC" ]; then echo "::error::Falta o segredo CLASPRC_JSON no repositório"; exit 1; fi
+          printf '%s' "$CLASPRC" > ~/.clasprc.json
+          printf '{"scriptId":"1sV_VMM5fUPxBmaExaWHAYdaw4Xda9-ebtKr2BD2iwabG4hxLodE50W6c"}' > .clasp.json
+          if clasp deployments > /tmp/dep 2>&1; then echo "Login OK — $(grep -c AKfy /tmp/dep) implantação(ões) visível(is)."; else cat /tmp/dep; echo "::error::$AVISO_LOGIN"; exit 1; fi
   publicar:
+    if: ${{ github.event_name != 'schedule' }}
     runs-on: ubuntu-24.04   # 05/10/2026: ubuntu-latest ficou 15 min na fila e foi cancelado ("not acquired by Runner"); pool fixo
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +61,9 @@ jobs:
         run: |
           if [ -z "$CLASPRC" ]; then echo "::error::Falta o segredo CLASPRC_JSON no repositório"; exit 1; fi
           printf '%s' "$CLASPRC" > ~/.clasprc.json
+          # confere o login ANTES de mexer em qualquer coisa: se caiu, para aqui com o passo a passo (nada é publicado pela metade)
+          if ! clasp deployments > /tmp/dep 2>&1; then cat /tmp/dep; echo "::error::$AVISO_LOGIN"; exit 1; fi
+          echo "Login OK — $(grep -c AKfy /tmp/dep) implantação(ões) visível(is)."
       - name: Baixar o código atual (ponto de restauração)
         run: |
           SID=$(python3 -c "import json;print(json.load(open('.clasp.json'))['scriptId'])")
