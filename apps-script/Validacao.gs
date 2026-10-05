@@ -561,8 +561,10 @@ function vd_lerAnexoTrello_(a, opt) {
   var r = null;
   if (cache) {
     r = JSON.parse(cache);
+    // erro guardado (ex.: Drive fora do ar na hora): não vale como leitura — tenta de novo
+    if (r.erro) r = null;
     // leitura antiga (sem as peças do orçamento): lê de novo só se o anexo era orçamento
-    if (r.orcamento && !r.orc && !r.orcGrande) r = null;
+    else if (r.orcamento && !r.orc && !r.orcGrande) r = null;
     // cache antigo sem a dica de tipo do orçamento: lê de novo uma vez
     else if (r && r.orc && r.orc.o.some(function (x) { return x[0] !== 'P' && x.length < 4; })) r = null;
     // formulário precisa das peças e o cache não as tem
@@ -585,7 +587,9 @@ function vd_lerAnexoTrello_(a, opt) {
         r.orc = { o: vd_orcCompacto_(orc.oficina), f: vd_orcCompacto_(orc.fo) }; orcFull = orc;
       }
     } catch (e) {
-      r = { erro: String(e).slice(0, 100), chassis: [], placas: [] };
+      // 05/10/2026: o erro ficava guardado no cache e "ler de novo" devolvia o erro antigo mesmo com o Drive já normal
+      console.log('leitura do anexo ' + a.name + ': ' + e);
+      return { erro: String(e).slice(0, 100), chassis: [], placas: [] };
     }
     var js = JSON.stringify(r);
     if (js.length > 8500 && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
