@@ -319,9 +319,11 @@ function vdf_montarCard_(c, lista, me) {
     shortLink: c.shortLink, url: c.shortUrl, nome: c.name, lista: lista, posCotacao: vdf_ehPosCotacao_(lista),
     dados: an.dados, obs: obs,
     pecas: (function () {
-      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', complemento: !!p.complemento, compData: p.compData || '', travada: vdf_travaPeca_(p, autorizadas, c), podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; });
+      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', complemento: !!p.complemento, compData: p.compData || '', travada: vdf_travaPeca_(p, autorizadas, c), podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; })
+        // peças "não comprar": o formulário de edição mostra (chip marcado); cotação/autorização/compra não (sem chave)
+        .concat((an.naoComprar || []).map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: false, partPor: '', complemento: !!p.complemento, compData: p.compData || '', naoComprar: true, naoMotivo: p.naoMotivo || '', travada: '', podeAut: false, chave: '', nome: vd_nomePeca_(p) }; }));
     })(),
-    padrao: an.pecas.length > 0,
+    padrao: an.pecas.length > 0 || (an.naoComprar || []).length > 0,
     cotacoes: (function () { try { return vd_cotacoesDaDescricao_(c.desc, an.pecas); } catch (e) { return { cotacoes: [], nt: [] }; } })(),
     doOrcamento: an.doOrcamento,
     tipo: an.dados.tipo || (/PARTICULAR/i.test((c.labels || []).map(function (l) { return l.name; }).join(' ')) ? 'PARTICULAR' : 'SEGURADORA'),
@@ -1229,6 +1231,8 @@ function vdf_salvar(token, p) {
   // peça de orçamento complementar (só peça da seguradora): marca "COMPLEMENTO dd/mm"
   (p.pecas || []).forEach(function (x, i) {
     if (x.complemento && !x.particular) { pecas[i].complemento = true; pecas[i].compData = String(x.compData || '').match(/^\d{1,2}\/\d{1,2}$/) ? x.compData : cp_hoje_(); }
+    // "não comprar" (05/10/2026): peça do orçamento que a oficina não vai comprar — fica só de registro no card
+    if (x.naoComprar) { pecas[i].naoComprar = true; pecas[i].naoMotivo = String(x.naoMotivo || '').replace(/\s*\n\s*/g, ' ').trim().slice(0, 80); }
   });
   // peça particular dentro do pedido de seguradora: guarda quem lançou (é quem autoriza)
   if (vd_tipoNormPedido_(n.tipo) !== 'PARTICULAR') {
@@ -1308,7 +1312,12 @@ function vdf_salvar(token, p) {
 
   var comp = card && p.complemento ? p.complemento : null;
   var compFo = comp ? (comp.fo || []) : [];
-  if (!pecas.length && !fo.length && !compFo.length) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora).'] };
+  // card que já tem FORNECIMENTO no checklist pode ficar sem peça da oficina (só FO -> robô leva a FALTA CHEGAR)
+  var temFoNoCard = false;
+  if (card && !pecas.length && !fo.length && !compFo.length) {
+    try { temFoNoCard = /^FORNECIMENTO/i.test(vd_limpar_(vd_dividir_(card.desc).bloco).split('\n').filter(function (l) { return /^FORNECIMENTO\b/i.test(l.trim()); }).join('\n')); } catch (e) {}
+  }
+  if (!pecas.length && !fo.length && !compFo.length && !temFoNoCard) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora). Se a peça não vai ser comprada, marque 🚫 Não comprar em vez de remover.'] };
   var temOrcNoCard = !!(card && vd_analisar_(card.desc, card.name).doOrcamento);
   var soAcrescentaParticular = !!card && (p.pecas || []).some(function (x) { return x.particular; });
   if (!particular && !posCot && !(orc && orc.origem) && !temOrcNoCard && !soAcrescentaParticular && !comp) {

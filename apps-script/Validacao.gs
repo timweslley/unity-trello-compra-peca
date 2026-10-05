@@ -328,29 +328,34 @@ function vd_analisar_(desc, nomeCard, opts) {
 
   var lp = vd_linhasPecas_(bloco);
   var base = opts.base || [];
-  var pecas = [], novas = [];
+  var pecas = [], novas = [], naoComprar = [];
   lp.linhas.forEach(function (l) {
     var p = vd_analisarPeca_(l, pecas.length + 1, { codigoOpcional: particular });
     if (particular) p.particular = true;
     p.sig = vd_sigItem_(l);
+    // "NÃO COMPRAR": fica só de registro — fora de cotação, autorização, compra, totais e coluna (como se não existisse)
+    if (p.naoComprar) { naoComprar.push(p); return; }
     pecas.push(p);
     if (base.indexOf(p.sig) < 0) novas.push(p);
   });
-  if (!modoNova && !pecas.length && !lp.semOficina) {
+  if (!modoNova && !pecas.length && !naoComprar.length && !lp.semOficina) {
     faltas.push('lista de peças no padrão (use o formulário ou escreva "PEÇAS:" e uma peça por linha: CÓDIGO | DESCRIÇÃO | TIPO)');
   }
   (modoNova ? novas : pecas).forEach(function (p) { p.faltas.forEach(function (f) { faltas.push(f); }); });
 
-  return { dados: d, pecas: pecas, novas: novas, faltas: faltas, div: div, doOrcamento: doOrcamento };
+  return { dados: d, pecas: pecas, novas: novas, naoComprar: naoComprar, faltas: faltas, div: div, doOrcamento: doOrcamento };
 }
 
 function vd_analisarPeca_(linha, n, opts) {
   opts = opts || {};
   var partes = linha.split('|').map(function (s) { return s.trim(); });
-  var qtd = '', part = false, partPor = '', comp = false, compData = '';
+  var qtd = '', part = false, partPor = '', comp = false, compData = '', nao = false, naoMotivo = '';
   partes = partes.filter(function (s) {
     var m = s.match(/^QTD\.?\s*:?\s*(\d+)$/i);
     if (m) { qtd = m[1]; return false; }
+    // peça do orçamento que NÃO vai ser comprada (consultor decidiu: recuperar, cliente já tem...): fica só de registro
+    var mn = s.match(/^N[ÃA]O COMPRAR(?:\s*[:\-–]\s*(.*))?$/i);
+    if (mn) { nao = true; naoMotivo = (mn[1] || '').trim(); return false; }
     // peça de orçamento complementar: "COMPLEMENTO dd/mm"
     var mc = s.match(/^COMPLEMENTO(?:\s+(\d{1,2}\/\d{1,2}))?$/i);
     if (mc) { comp = true; compData = mc[1] || ''; return false; }
@@ -360,6 +365,7 @@ function vd_analisarPeca_(linha, n, opts) {
     return true;
   });
   if (part) opts = { codigoOpcional: true };
+  if (nao) opts = { codigoOpcional: true };   // não vai ser comprada: não cobra código nem tipo
   var faltas = [];
   var rot;
   if (/^PNEUS?$/i.test(partes[0] || '')) {
@@ -367,14 +373,15 @@ function vd_analisarPeca_(linha, n, opts) {
     rot = 'item ' + n + ' (PNEU ' + (medida || '?') + ')';
     if (!medida) faltas.push(rot + ': falta a medida');
     else if (!vd_medidaPneu_(medida)) faltas.push(rot + ': medida fora do padrão (ex.: 195/65R15)');
-    if (!catMarca) faltas.push(rot + ': falta categoria (IMPORTADO / 1ª LINHA) ou marca');
-    return { pneu: true, medida: medida, categoria: vd_categPneu_(catMarca), marca: vd_categPneu_(catMarca) ? '' : catMarca, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, faltas: faltas, texto: linha };
+    if (!catMarca && !nao) faltas.push(rot + ': falta categoria (IMPORTADO / 1ª LINHA) ou marca');
+    if (nao) faltas = [];
+    return { pneu: true, medida: medida, categoria: vd_categPneu_(catMarca), marca: vd_categPneu_(catMarca) ? '' : catMarca, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, naoComprar: nao, naoMotivo: naoMotivo, faltas: faltas, texto: linha };
   }
   var codigo = partes[0] || '', descr = partes[1] || '', tiposTxt = partes.slice(2).join('/');
   rot = 'item ' + n + ' (' + (descr || codigo || linha).slice(0, 40) + ')';
   if (partes.length < 2) {
     faltas.push(rot + ': fora do padrão CÓDIGO | DESCRIÇÃO | TIPO');
-    return { pneu: false, codigo: '', descricao: linha, tipos: [], qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, faltas: faltas, texto: linha };
+    return { pneu: false, codigo: '', descricao: linha, tipos: [], qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, naoComprar: nao, naoMotivo: naoMotivo, faltas: faltas, texto: linha };
   }
   var semCodigo = !codigo || !/\d/.test(codigo) || codigo.replace(/[^A-Z0-9]/gi, '').length < 4 || /^S\s*\/?\s*C$/i.test(codigo);
   if (semCodigo && !opts.codigoOpcional) faltas.push(rot + ': falta o código da peça (buscar no Cilia)');
@@ -387,13 +394,15 @@ function vd_analisarPeca_(linha, n, opts) {
   if (invalidos.length) faltas.push(rot + ': tipo não reconhecido "' + invalidos.map(function (t) { return t.slice(1); }).join(', ') + '" (use GENUÍNO, ORIGINAL, PARALELO ou USADO)');
   else if (!tipos.length) faltas.push(rot + ': falta o tipo de peça (GENUÍNO, ORIGINAL, PARALELO ou USADO)');
   if (tipos.length > 2) faltas.push(rot + ': no máximo 2 tipos por peça');
-  return { pneu: false, codigo: codigo, descricao: descr, tipos: tipos, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, faltas: faltas, texto: linha };
+  if (nao) faltas = [];
+  return { pneu: false, codigo: codigo, descricao: descr, tipos: tipos, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, naoComprar: nao, naoMotivo: naoMotivo, faltas: faltas, texto: linha };
 }
 
 /* ============================ MONTAR DESCRIÇÃO ============================ */
 
 function vd_linhaPeca_(p, i) {
-  var q = (p.qtd && +p.qtd > 1 ? ' | QTD ' + p.qtd : '') + (p.complemento && !p.particular ? ' | COMPLEMENTO' + (p.compData ? ' ' + p.compData : '') : '') + (p.particular ? ' | PARTICULAR' + (p.partPor ? ' @' + p.partPor : '') : '');
+  var q = (p.qtd && +p.qtd > 1 ? ' | QTD ' + p.qtd : '') + (p.complemento && !p.particular ? ' | COMPLEMENTO' + (p.compData ? ' ' + p.compData : '') : '') + (p.particular ? ' | PARTICULAR' + (p.partPor ? ' @' + p.partPor : '') : '')
+    + (p.naoComprar ? ' | NÃO COMPRAR' + (p.naoMotivo ? ': ' + String(p.naoMotivo).replace(/\|/g, '/').trim() : '') : '');
   if (p.pneu) return (i + 1) + '. PNEU | ' + p.medida + ' | ' + (p.categoria || p.marca) + q;
   return (i + 1) + '. ' + p.codigo + ' | ' + p.descricao + ' | ' + (p.tipos || []).join('/') + q;
 }
@@ -1326,6 +1335,9 @@ function vd_conferirPosCotacao_(card, ctx) {
     return res;
   }
 
+  // linha "NÃO COMPRAR" (registro, fora do fluxo) não é peça nova
+  novas = novas.filter(function (l) { return !/\|\s*N[ÃA]O COMPRAR\b/i.test(l); });
+  if (!novas.length) { vd_pkSet_(card.id, sigs); res.acao = res.pagas ? 'pagas' : 'sem peça nova'; return res; }
   var faltas = [];
   var nomes = novas.map(function (l, i) {
     if (l.indexOf('|') < 0 && !/^PNEUS?\b/i.test(l)) {
@@ -1989,7 +2001,7 @@ function vd_vitrine_(desc, nome, pagas) {
   var tipoTxt = function (q) { return [q.tipo ? vd_tit_(q.tipo) : '', q.marca || ''].filter(String).join(' '); };
 
   L.push('');
-  if (!an.pecas.length) L.push('_Sem peças pela oficina._');
+  if (!an.pecas.length) L.push((an.naoComprar || []).length ? '_Nenhuma peça para comprar pela oficina._' : '_Sem peças pela oficina._');
   // peças da seguradora primeiro, depois as particulares (cada grupo com título quando há os dois)
   var misto = d.tipo !== 'PARTICULAR' && an.pecas.some(function (x) { return x.particular; }) && an.pecas.some(function (x) { return !x.particular; });
   var ordem = an.pecas.map(function (x, i) { return { p: x, n: i }; });
@@ -2047,6 +2059,11 @@ function vd_vitrine_(desc, nome, pagas) {
     L.push(cab);
     sub.forEach(function (s) { L.push('    - ' + s); });
   });
+  // peças do orçamento que NÃO vão ser compradas (decisão do consultor): só registro
+  (an.naoComprar || []).forEach(function (p, j) {
+    var tit = p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + ((p.marca || p.categoria) ? ' ' + (p.marca || p.categoria) : '') : String(p.descricao || '').toUpperCase();
+    L.push((an.pecas.length + j + 1) + '. ~~' + vd_md_(tit) + '~~' + (!p.pneu && p.codigo ? ' · ' + vd_md_(p.codigo) : '') + ' · 🚫 não comprar' + (p.naoMotivo ? ' — _' + vd_md_(p.naoMotivo) + '_' : ''));
+  });
 
   var mFo = bloco.match(/FORNECIMENTO \(SEGURADORA\)\s*:?\s*(\d+)/i);
   if (mFo) L.push('', '📦 Fornecimento da seguradora: ' + mFo[1] + ' peça(s) — checklist FORNECIMENTO');
@@ -2055,7 +2072,7 @@ function vd_vitrine_(desc, nome, pagas) {
 
   // legenda: só dos ícones que aparecem neste card
   var txt = L.join('\n');
-  var leg = [['👤', 'peça particular (cliente paga — autoriza o consultor)'], ['➕', 'peça de orçamento complementar'], ['✅', 'autorizada'], ['🛒', 'comprada (✔ marcada no PAGAS)'], ['⏳', 'aguardando cotação'], ['⛔', 'não cotada'], ['📝', 'observação'], ['↩️', 'devolvida para cotação'], ['📦', 'peças da seguradora']]
+  var leg = [['👤', 'peça particular (cliente paga — autoriza o consultor)'], ['➕', 'peça de orçamento complementar'], ['✅', 'autorizada'], ['🛒', 'comprada (✔ marcada no PAGAS)'], ['⏳', 'aguardando cotação'], ['⛔', 'não cotada'], ['🚫', 'não comprar (decisão do consultor)'], ['📝', 'observação'], ['↩️', 'devolvida para cotação'], ['📦', 'peças da seguradora']]
     .filter(function (x) { return txt.indexOf(x[0]) >= 0; }).map(function (x) { return x[0] + ' ' + x[1]; });
   if (an.pecas.length) leg.push('linhas sem ícone = cotações, da mais barata para a mais cara');
   if (leg.length) txt += '\n\n_' + leg.join(' · ') + ' · histórico nos comentários_';

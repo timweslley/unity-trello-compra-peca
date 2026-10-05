@@ -76,6 +76,10 @@
   .selo-comp, .selo-part { display:inline-block; font-size:11px; font-weight:800; border-radius:4px; padding:2px 8px; margin-left:4px; vertical-align:middle; text-transform:uppercase; letter-spacing:.3px; }
   .selo-comp { color:#fff; background:var(--verde); }
   .chip.chip-comp { font-size:12px; padding:3px 8px; margin-left:6px; border-color:var(--verde); }
+  .chip.chip-nao { font-size:12px; padding:3px 8px; margin-left:6px; border-color:var(--vermelho); }
+  .chip.chip-nao.marcado { background:var(--vermelho); color:#fff; border-color:var(--vermelho); }
+  .item.nao-comprar .grade { opacity:.55; }
+  .item .nao-motivo { margin-top:8px; }
   .chip.chip-comp.marcado { background:var(--verde); color:#fff; border-color:var(--verde); }
   .selo-part { color:#533f04; background:var(--amarelo); }
   .selo { display:inline-block; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px; margin-left:4px; white-space:nowrap; text-transform:uppercase; }
@@ -1567,6 +1571,7 @@ function novoItem(tipo, dados) {
   var div = document.createElement('div');
   div.className = 'item'; div.id = id; div.dataset.tipo = tipo; div.dataset.partPor = dados.partPor || '';
   if (dados.complemento && !dados.particular) { div.dataset.comp = '1'; div.dataset.compData = dados.compData || ''; }
+  if (dados.naoComprar) { div.dataset.nao = '1'; div.dataset.naoMotivo = dados.naoMotivo || ''; }
   var travada = dados.travada && !(CARD && CARD.diretoria);
   if (dados.travada) div.dataset.travada = dados.travada;
   var caixa = dados.particular !== undefined ? caixaDe(!!dados.particular) : caixaDe(pedidoPart());
@@ -1575,6 +1580,7 @@ function novoItem(tipo, dados) {
   var h = '<div class="item-topo"><strong class="num"></strong>'
     + (podeComp ? '<label class="chip chip-comp' + (div.dataset.comp ? ' marcado' : '') + '" title="Peça fora do orçamento autorizado: entra no orçamento complementar da seguradora (linha | COMPLEMENTO dd/mm; compra vai para PAGAS COMPLEMENTO)"><input type="checkbox" class="f-comp"' + (div.dataset.comp ? ' checked' : '') + ' onchange="marcarComp(\'' + id + '\', this.checked)"> ➕ Complemento' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</label>'
                : (div.dataset.comp ? '<span class="selo-comp">➕ COMPLEMENTO' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</span>' : ''))
+    + '<label class="chip chip-nao' + (div.dataset.nao ? ' marcado' : '') + '" title="Peça do orçamento que a oficina NÃO vai comprar (recuperar, cliente já tem...). Fica no card só de registro: sai da cotação, da autorização, da compra e dos totais."><input type="checkbox" class="f-nao"' + (div.dataset.nao ? ' checked' : '') + ' onchange="marcarNao(\'' + id + '\', this.checked)"> 🚫 Não comprar</label>'
     + '<select onchange="trocarTipo(\'' + id + '\', this.value)"><option value="peca"' + (tipo === 'peca' ? ' selected' : '') + '>Peça</option><option value="pneu"' + (tipo === 'pneu' ? ' selected' : '') + '>Pneu</option></select>'
     + '<button type="button" class="perigo" onclick="removerItem(\'' + id + '\')">remover</button></div>';
   if (tipo === 'pneu') {
@@ -1602,8 +1608,10 @@ function novoItem(tipo, dados) {
     if (dados.descricaoOrc !== undefined && !dados.codigo) h += '<div class="dica ruim">O orçamento não traz código de fábrica desta peça — busque no Cilia.</div>';
     h += '</div></div>';
   }
+  h += '<div class="nao-motivo' + (div.dataset.nao ? '' : ' oculto') + '"><label>Motivo de não comprar <span style="font-size:12px">(vai para o card)</span></label><input type="text" class="f-nao-motivo maiusc" placeholder="Ex.: recuperar a peça; cliente já tem; não precisa" value="' + esc(div.dataset.naoMotivo || '') + '"></div>';
   div.innerHTML = h;
   caixa.appendChild(div);
+  if (div.dataset.nao) div.classList.add('nao-comprar');
   if (tipo === 'peca') limitarTipos(id); else pintarChips(id);
   if (dados.travada) {
     div.querySelector('.item-topo strong').insertAdjacentHTML('afterend', '<span class="selo-trava">🔒 ' + esc(dados.travada) + '</span>');
@@ -1615,6 +1623,13 @@ function novoItem(tipo, dados) {
   numerar();
 }
 
+function marcarNao(id, sim) {
+  var div = $(id); if (!div) return;
+  if (sim) div.dataset.nao = '1'; else { delete div.dataset.nao; }
+  var ch = div.querySelector('.chip-nao'); if (ch) ch.classList.toggle('marcado', !!sim);
+  var m = div.querySelector('.nao-motivo'); if (m) m.classList.toggle('oculto', !sim);
+  div.classList.toggle('nao-comprar', !!sim);
+}
 function marcarComp(id, sim) {
   var div = $(id); if (!div) return;
   if (sim) { div.dataset.comp = '1'; if (!div.dataset.compData) div.dataset.compData = ''; } else { delete div.dataset.comp; delete div.dataset.compData; }
@@ -1622,7 +1637,7 @@ function marcarComp(id, sim) {
 }
 function trocarTipo(id, tipo) {
   var velho = $(id), caixa = velho.parentNode;
-  novoItem(tipo, { particular: caixa.id === 'itensPart', partPor: velho.dataset.partPor, complemento: velho.dataset.comp === '1', compData: velho.dataset.compData });
+  novoItem(tipo, { particular: caixa.id === 'itensPart', partPor: velho.dataset.partPor, complemento: velho.dataset.comp === '1', compData: velho.dataset.compData, naoComprar: velho.dataset.nao === '1', naoMotivo: (velho.querySelector('.f-nao-motivo') || {}).value || '' });
   var criado = caixa.lastChild;
   caixa.insertBefore(criado, velho);
   velho.remove();
@@ -1663,21 +1678,23 @@ function coletar() {
       var medida = el.querySelector('.f-medida').value.trim();
       var sel = el.querySelector('input[type=radio]:checked');
       var marca = el.querySelector('.f-marca').value.trim();
-      var p = { pneu: true, medida: medida, qtd: qtd, categoria: '', marca: '', particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '' };
+      var nao = el.dataset.nao === '1', naoMotivo = ((el.querySelector('.f-nao-motivo') || {}).value || '').trim();
+      var p = { pneu: true, medida: medida, qtd: qtd, categoria: '', marca: '', particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: nao, naoMotivo: naoMotivo };
       if (!medida) faltas.push(n + ' (pneu): falta a medida');
       if (sel && sel.value !== 'MARCA') p.categoria = sel.value;
       else if (marca) p.marca = marca;
-      else faltas.push(n + ' (pneu): marque a categoria ou escreva a marca');
+      else if (!nao) faltas.push(n + ' (pneu): marque a categoria ou escreva a marca');
       pecas.push(p);
     } else {
       var cod = el.querySelector('.f-codigo').value.trim();
       var desc = el.querySelector('.f-desc').value.trim();
       var tipos = Array.prototype.filter.call(el.querySelectorAll('.f-tipo'), function (c) { return c.checked; }).map(function (c) { return c.value; });
       var r = n + (desc ? ' (' + desc + ')' : '');
-      if (!cod && tipoPedido() !== 'PARTICULAR' && !ehPart) faltas.push(r + ': falta o código (buscar no Cilia)');
+      var naoP = el.dataset.nao === '1', naoMotivoP = ((el.querySelector('.f-nao-motivo') || {}).value || '').trim();
+      if (!cod && tipoPedido() !== 'PARTICULAR' && !ehPart && !naoP) faltas.push(r + ': falta o código (buscar no Cilia)');
       if (!desc) faltas.push(r + ': falta a descrição');
-      if (!tipos.length) faltas.push(r + ': marque o tipo de peça');
-      pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd, particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '' });
+      if (!tipos.length && !naoP) faltas.push(r + ': marque o tipo de peça');
+      pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd, particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: naoP, naoMotivo: naoMotivoP });
     }
   });
   var d = {
