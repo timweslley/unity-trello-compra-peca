@@ -54,6 +54,7 @@ function qt_conferirPausa_() {
 function qt_marcarEstouro_(e) {
   var p = PropertiesService.getScriptProperties();
   p.setProperty('QT_ESTOURO', String(Date.now()));
+  if (!p.getProperty('QT_PAUSA_DESDE')) p.setProperty('QT_PAUSA_DESDE', String(Date.now()));   // início da indisponibilidade (contingência)
   console.log('COTA ESTOURADA: ' + String((e && e.message) || e) + ' — pausa de ' + (QT.PAUSA_MS / 60000) + ' min');
   var av = +(p.getProperty('QT_AVISADO') || 0);
   if (Date.now() - av < QT.AVISO_MS) return;
@@ -116,3 +117,17 @@ function qt_verHoje() {
 function qt_despausar() { PropertiesService.getScriptProperties().deleteProperty('QT_ESTOURO'); Logger.log('pausa removida'); }
 
 function qt_resumoPausa_() { var ate = qt_pausadaAte_(); return 'cota estourada, pausado até ' + (ate ? Utilities.formatDate(new Date(ate), 'America/Sao_Paulo', 'HH:mm') : '?'); }
+
+/* ---------- contingência: o que a equipe fez à mão durante a pausa não é desfeito ----------
+ * Sem formulário, a equipe pode mexer no card direto (descrição, checklist, coluna). Ao retomar, as travas
+ * pulam o período da pausa (marcadores de histórico avançam para agora) em vez de desfazer tudo de uma vez.
+ * Faturamento, exclusão e complemento continuam processando o histórico (são ações desejadas). */
+function qt_retomarSePreciso_() {
+  var p = PropertiesService.getScriptProperties(), desde = p.getProperty('QT_PAUSA_DESDE');
+  if (!desde || qt_pausada_()) return false;
+  var agora = new Date().toISOString();
+  ['TR_ACT', 'CK_DESDE', 'ST_ULTIMA'].forEach(function (m) { try { vd_marcaSet_(m, agora); } catch (e) {} });
+  p.deleteProperty('QT_PAUSA_DESDE');
+  console.log('cota liberou: travas retomam a partir de agora; o que foi feito à mão desde ' + new Date(+desde).toLocaleString('pt-BR') + ' fica como está');
+  return true;
+}

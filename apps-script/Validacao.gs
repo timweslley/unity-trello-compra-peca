@@ -1503,6 +1503,7 @@ function validarDadosPedido() {
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return;
   try {
+    try { qt_retomarSePreciso_(); } catch (e) {}   // voltou de uma pausa por cota: não desfaz o que a equipe fez à mão nesse período
     // migração única: acionadores de 1 em 1 minuto (log de descrição + validação)
     var pp = PropertiesService.getScriptProperties();
     if (pp.getProperty('VD_ACIONADORES_1MIN') !== 'SIM') {
