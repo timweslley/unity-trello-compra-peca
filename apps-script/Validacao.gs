@@ -463,11 +463,24 @@ function vd_ocr_(blob, nome) {
       Utilities.sleep(2000 * (t + 1));
     }
   }
-  if (!arq) throw ultimo;
+  var bruto = null;
+  if (!arq) {
+    // caminho 2: sobe o arquivo como está e pede a conversão por cópia (outro endpoint do Drive)
+    console.log('OCR: create falhou 3x (' + String((ultimo && ultimo.message) || ultimo) + '); tentando por cópia');
+    try {
+      bruto = DriveApp.createFile(blob.setName('vd_tmp_src_' + (nome || 'anexo')));
+      arq = Drive.Files.copy({ name: 'vd_tmp_' + (nome || 'anexo'), mimeType: 'application/vnd.google-apps.document' }, bruto.getId(), { ocrLanguage: 'pt' });
+    } catch (e2) {
+      console.log('OCR: cópia também falhou: ' + String((e2 && e2.message) || e2));
+      try { if (bruto) bruto.setTrashed(true); } catch (e3) {}
+      throw ultimo;
+    }
+  }
   try {
     return DocumentApp.openById(arq.id).getBody().getText();
   } finally {
     try { DriveApp.getFileById(arq.id).setTrashed(true); } catch (e) {}
+    try { if (bruto) bruto.setTrashed(true); } catch (e) {}
   }
 }
 
