@@ -1449,17 +1449,18 @@ function vd_trocarLinksFormulario() {
  * como "peça nova". Regrava a base de todos os cards das colunas pós-cotação a partir da descrição completa. */
 function vd_pkRebasear_(posCot, ctx) {
   var props = PropertiesService.getScriptProperties(), k = 'VD_PK2_REBASE';
-  if (props.getProperty(k) === '2026-10-05') return;
-  var cards = vd_cardsDasListas_(posCot, false), n = 0;
+  if (props.getProperty(k) === '2026-10-05b') return;
+  var cards = vd_cardsDasListas_(posCot, false), n = 0, leg = 0, semCmp = 0, mapa = vd_completasTodas_();
   cards.forEach(function (c) {
-    if (vd_legado_(c.id)) return;
+    if (!mapa[c.id]) semCmp++;
+    if (vd_legado_(c.id)) { leg++; return; }
     var sigs = vd_linhasConsultor_(vd_dividir_(c.desc).bloco).map(vd_sigItem_);
     vd_pkSet_(c.id, sigs);
     props.deleteProperty('VD_NOVAS_' + c.id);
     n++;
   });
-  props.setProperty(k, '2026-10-05');
-  console.log('rebase VD_PK2: ' + n + ' card(s) das colunas pós-cotação regravados a partir da descrição completa');
+  props.setProperty(k, '2026-10-05b');
+  console.log('rebase VD_PK2: ' + n + ' card(s) das colunas pós-cotação regravados a partir da descrição completa · ' + cards.length + ' cards em ' + posCot.length + ' colunas · ' + leg + ' legado(s) · ' + semCmp + ' sem completa na TRAVA · completas na TRAVA: ' + Object.keys(mapa).length + ' · virada ' + new Date(vd_viradaMs_()).toLocaleString('pt-BR'));
 }
 
 /** Execução principal (acionador de 1 em 1 min). */
