@@ -58,6 +58,10 @@ jobs:
       # 05/10/2026: o web app passou a rodar na conta sistema@unitycs.com.br (cota de UrlFetch é por conta).
       # Publicar a versão com o login do Weslley faria o formulário voltar a rodar na conta dele, então a nova
       # versão só é publicada quando o segredo CLASPRC_JSON for o login da conta sistema@ (DEPLOY_PELA_CI=sim).
+      # Desde 05/10 14:15 é assim: CLASPRC_JSON = `clasp login` feito como sistema@ e DEPLOY_PELA_CI=sim (versão 101
+      # foi a 1ª pela CI). A conta sistema@ precisa da "Google Apps Script API" ativada em script.google.com/home/usersettings.
+      # Se o login expirar/for revogado: no PC, `npx.cmd @google/clasp@2.4.2 login` logado como sistema@ e colar
+      # o %USERPROFILE%\.clasprc.json no segredo.
       - name: Nova versão na implantação do formulário
         if: ${{ vars.DEPLOY_PELA_CI == 'sim' }}
         run: |
