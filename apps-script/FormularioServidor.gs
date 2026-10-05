@@ -319,9 +319,9 @@ function vdf_montarCard_(c, lista, me) {
     shortLink: c.shortLink, url: c.shortUrl, nome: c.name, lista: lista, posCotacao: vdf_ehPosCotacao_(lista),
     dados: an.dados, obs: obs,
     pecas: (function () {
-      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', complemento: !!p.complemento, compData: p.compData || '', travada: vdf_travaPeca_(p, autorizadas, c), podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; })
+      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', complemento: !!p.complemento, compData: p.compData || '', valorOrc: vd_valorOrcTxt_(p.valorOrc), travada: vdf_travaPeca_(p, autorizadas, c), podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; })
         // peças "não comprar": o formulário de edição mostra (chip marcado); cotação/autorização/compra não (sem chave)
-        .concat((an.naoComprar || []).map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: false, partPor: '', complemento: !!p.complemento, compData: p.compData || '', naoComprar: true, naoMotivo: p.naoMotivo || '', travada: '', podeAut: false, chave: '', nome: vd_nomePeca_(p) }; }));
+        .concat((an.naoComprar || []).map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: false, partPor: '', complemento: !!p.complemento, compData: p.compData || '', naoComprar: true, naoMotivo: p.naoMotivo || '', valorOrc: vd_valorOrcTxt_(p.valorOrc), travada: '', podeAut: false, chave: '', nome: vd_nomePeca_(p) }; }));
     })(),
     padrao: an.pecas.length > 0 || (an.naoComprar || []).length > 0,
     cotacoes: (function () { try { return vd_cotacoesDaDescricao_(c.desc, an.pecas); } catch (e) { return { cotacoes: [], nt: [] }; } })(),
@@ -1249,6 +1249,8 @@ function vdf_salvar(token, p) {
     if (x.complemento && !x.particular) { pecas[i].complemento = true; pecas[i].compData = String(x.compData || '').match(/^\d{1,2}\/\d{1,2}$/) ? x.compData : cp_hoje_(); }
     // "não comprar" (05/10/2026): peça do orçamento que a oficina não vai comprar — fica só de registro no card
     if (x.naoComprar) { pecas[i].naoComprar = true; pecas[i].naoMotivo = String(x.naoMotivo || '').replace(/\s*\n\s*/g, ' ').trim().slice(0, 80); }
+    // valor líquido da peça no orçamento (lido do PDF ou digitado): informativo, livre para editar, não trava (05/10/2026)
+    pecas[i].valorOrc = vd_valorOrcTxt_(x.valorOrc);
   });
   // peça particular dentro do pedido de seguradora: guarda quem lançou (é quem autoriza)
   if (vd_tipoNormPedido_(n.tipo) !== 'PARTICULAR') {

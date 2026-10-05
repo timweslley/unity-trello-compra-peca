@@ -66,6 +66,15 @@ function vd_limparDescricao_(d) {
     .slice(0, 70);
 }
 
+/** "1.234,56" -> 1234.56 */
+function vd_numOrc_(s) { var n = parseFloat(String(s || '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? NaN : n; }
+/** unitário líquido = unitário bruto - desconto (%) */
+function vd_liquidoOrc_(unit, descPct) {
+  var u = vd_numOrc_(unit), d = vd_numOrc_(descPct);
+  if (isNaN(u)) return NaN;
+  return isNaN(d) || d <= 0 || d >= 100 ? u : u * (1 - d / 100);
+}
+
 /** Recorta o texto entre um início e o primeiro dos finais. */
 function vd_secao_(U, inicio, finais) {
   var i = U.search(inicio);
@@ -95,7 +104,9 @@ function vd_lerOrcamento_(texto) {
   // sinistro
   if ((m = U.match(/SINISTRO:? (\d[\d.\-\/]{6,})/))) r.sinistro = m[1];
 
-  var add = function (lista, codigo, desc, qtd, tipo) {
+  // valor líquido unitário da peça no orçamento (o que a seguradora paga) — 05/10/2026, Weslley: aparece ao lado da peça
+  // na cotação/autorização e serve de base para a comparação com a cotação (economia < 20% vermelho, 20–30 amarelo, > 30 verde)
+  var add = function (lista, codigo, desc, qtd, tipo, valor) {
     codigo = String(codigo || '').replace(/\s+/g, ' ').trim();
     desc = vd_limparDescricao_(desc);
     var pneu = vd_pneuDaDescricao_(desc);
@@ -107,19 +118,20 @@ function vd_lerOrcamento_(texto) {
     item.dica = vd_tipoOrcamento_(tipo);
     item.descricaoOrc = desc;
     item.codigoOrc = codigo;
+    if (valor != null && !isNaN(valor) && valor > 0) item.valorOrc = Math.round(valor * 100) / 100;
     lista.push(item);
   };
 
   // ---------- HDI ----------
   if (/PECAS FORNECIDAS PELA (HDI|OFICINA)/.test(U)) {
     r.origem = 'HDI';
-    var reHdi = /([A-Z0-9]{3,20})\*? (?:\(A\) )?(.+?) (\d{1,3}) (?:\d{1,3}(?:\.\d{3})*,\d{2}) (?:\d{1,3}(?:\.\d{3})*,\d{2}) (?:\d{1,3},\d{2}|\?)/g;
+    var reHdi = /([A-Z0-9]{3,20})\*? (?:\(A\) )?(.+?) (\d{1,3}) (\d{1,3}(?:\.\d{3})*,\d{2}) (\d{1,3}(?:\.\d{3})*,\d{2}) (\d{1,3},\d{2}|\?)/g;   // qtd, unit, total, desconto %
     var fimHdi = [/PECAS FORNECIDAS PELA/, /OPERACOES/, /RESUMO/, /SERVICOS ADICIONAIS/];
     var secO = vd_secao_(U, /PECAS FORNECIDAS PELA OFICINA/, fimHdi);
     var secF = vd_secao_(U, /PECAS FORNECIDAS PELA HDI/, fimHdi);
     [[secO, r.oficina], [secF, r.fo]].forEach(function (par) {
       var sec = par[0].replace(/^.*?DESCONTO \(%\)/, '');
-      while ((m = reHdi.exec(sec))) add(par[1], m[1], m[2], m[3], '');
+      while ((m = reHdi.exec(sec))) add(par[1], m[1], m[2], m[3], '', vd_liquidoOrc_(m[4], m[6]));
     });
     return r;
   }
@@ -132,12 +144,17 @@ function vd_lerOrcamento_(texto) {
     // e "STATUS DE ENTREGA DAS PECAS FORNECIDAS PELA SEGURADORA (SOMA PECAS)" — esta última traz fornecedor e prazo
     // (pv_enriquecerFo_ lê) e NÃO pode entrar como peça.
     var fimWs = [/PECAS - /, /MONTAGEM - /, /SERVICOS DE TERCEIROS/, /RESUMO/, /LISTA DAS PECAS FORNECIDAS/, /STATUS DE ENTREGA/, /TOTAL PECAS/];
-    var reWs = /(\d{5} \d{5}|[A-Z]{0,4}\d[A-Z0-9]{2,18}) (\(.+?\)(?: - VAL\. [\d\/ ]*)?|.+?)(?: \*)? (?:(REPOSICAO|GENUINO|ORIGINAL|PARALELO|USADO) )?(\d{1,3}) [\d.,]+ [\d.,]+ [\d.,]+/g;
+    var reWs = /(\d{5} \d{5}|[A-Z]{0,4}\d[A-Z0-9]{2,18}) (\(.+?\)(?: - VAL\. [\d\/ ]*)?|.+?)(?: \*)? (?:(REPOSICAO|GENUINO|ORIGINAL|PARALELO|USADO) )?(\d{1,3}) ([\d.,]+) ([\d.,]+) ([\d.,]+)/g;   // qde, vlr bruto, desc %, vlr líquido
     var secs = U.split(/(?=PECAS - TROCA|LISTA DAS PECAS FORNECIDAS PELA SEGURADORA)/).filter(function (x) { return /^(PECAS - TROCA|LISTA DAS PECAS FORNECIDAS)/.test(x); });
     secs.forEach(function (sec) {
       var ehFO = /^PECAS - TROCA \(FORNECIDAS PELA SEGURADORA\)|^LISTA DAS PECAS FORNECIDAS PELA SEGURADORA/.test(sec);
       var corpo = vd_secao_(sec, /PECAS - TROCA|LISTA DAS PECAS FORNECIDAS/, fimWs).replace(/^.*?PINTURA /, '');
-      while ((m = reWs.exec(corpo))) add(ehFO ? r.fo : r.oficina, m[1], m[2], m[4], m[3]);
+      while ((m = reWs.exec(corpo))) {
+        // colunas: Vlr (bruto) · Desc. (%) · Vlr (líquido). Se o 3º número bate com bruto - desconto, é o líquido; senão calcula.
+        var bruto = vd_numOrc_(m[5]), liq = vd_numOrc_(m[7]), calc = vd_liquidoOrc_(m[5], m[6]);
+        var valorWs = (!isNaN(liq) && !isNaN(calc) && Math.abs(liq - calc) < 0.05) ? liq : (isNaN(calc) ? bruto : calc);
+        add(ehFO ? r.fo : r.oficina, m[1], m[2], m[4], m[3], valorWs);
+      }
     });
     return r;
   }
@@ -145,10 +162,11 @@ function vd_lerOrcamento_(texto) {
   // ---------- Cilia ----------
   if (/FORNECIMENTO/.test(U) && /\bT (?:-|\d+,\d{2})/.test(U)) {
     r.origem = 'CILIA';
-    var reCi = /\bT (?:-|\d+,\d{2})(?: P \d+,\d{2})? (\d{1,3}) ([A-Z0-9]{4,20}) (?:\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?(.+?) ?(OFICINA|SEGURADORA) (?:R\$|-)/g;
+    var reCi = /\bT (?:-|\d+,\d{2})(?: P \d+,\d{2})? (\d{1,3}) ([A-Z0-9]{4,20}) (?:\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?(.+?) ?(OFICINA|SEGURADORA) (?:R\$(?: ?(\d{1,3}(?:\.\d{3})*,\d{2})(?: ?(?:R\$ ?)?(\d{1,3}(?:\.\d{3})*,\d{2}))?(?: ?(\d{1,3},\d{2}) ?%)?)?|-)/g;
     while ((m = reCi.exec(U))) {
       var tipo = m[3] || m[4] || '';
-      add(m[6] === 'SEGURADORA' ? r.fo : r.oficina, m[2], m[5], m[1], tipo);
+      // Cilia: "OFICINA R$ unit [R$ total] [desc %]" — o valor unitário líquido; formato confirmado no 1º PDF real (05/10/2026)
+      add(m[6] === 'SEGURADORA' ? r.fo : r.oficina, m[2], m[5], m[1], tipo, m[7] ? vd_liquidoOrc_(m[7], m[9]) : NaN);
     }
     return r;
   }

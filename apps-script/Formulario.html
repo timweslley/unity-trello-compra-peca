@@ -42,7 +42,8 @@
   textarea { min-height:60px; resize:vertical; }
   .grade { display:grid; grid-template-columns:repeat(2, 1fr); gap:12px; }
   .grade .inteiro { grid-column:1 / -1; }
-  @media (max-width:560px) { .grade { grid-template-columns:1fr; } }
+  .item .grade { grid-template-columns:2fr 1fr 1.2fr; }   /* código/medida · quantidade · valor no orçamento */
+  @media (max-width:560px) { .grade, .item .grade { grid-template-columns:1fr; } }
   .dica { font-size:12px; color:var(--suave); margin-top:4px; }
   .dica.ruim { color:var(--vermelho); font-weight:700; text-transform:uppercase; letter-spacing:.2px; }
   .dica.boa { color:var(--verde); font-weight:600; }
@@ -111,6 +112,14 @@
   .cot { display:grid; grid-template-columns:2fr 1.2fr 1fr 1fr .8fr auto; gap:6px; align-items:end; margin-top:8px; }
   .cot label { font-size:11px; }
   .cot .q-link-caixa { grid-column:1 / -1; }
+  /* valor da peça no orçamento e economia da cotação (05/10/2026) */
+  .selo-orc { display:inline-block; font-size:12px; font-weight:600; color:var(--suave); background:var(--lista); border-radius:4px; padding:2px 7px; margin-left:6px; white-space:nowrap; }
+  .selo-eco { display:inline-block; font-size:12px; font-weight:700; border-radius:4px; padding:2px 7px; margin-left:6px; white-space:nowrap; color:#fff; }
+  .selo-eco.bom { background:var(--verde); }
+  .selo-eco.medio { background:var(--amarelo); color:#533f04; }
+  .selo-eco.ruim { background:var(--vermelho); }
+  .cot .q-eco { margin-top:4px; min-height:0; }
+  .cot .q-eco .selo-eco { margin-left:0; }
   @media (max-width:640px) { .cot { grid-template-columns:1fr 1fr; } }
   .cot-lida { font-size:13px; color:var(--texto); padding:5px 0; border-bottom:1px solid var(--borda); }
   .cot-lida b { color:var(--azul); }
@@ -766,6 +775,30 @@ function selosPeca(lista) {
   };
 }
 
+/* ---------- valor da peça no orçamento × cotação (05/10/2026, Weslley) ----------
+   Economia = (orçamento líquido − cotação) / orçamento. Faixas: < 20% (ou mais caro) vermelho · 20–30% amarelo · > 30% verde. */
+function numValor(v) { return typeof v === 'number' ? v : parseFloat(String(v || '').replace(/R\$|\s/g, '').replace(/\./g, '').replace(',', '.')); }
+function ecoOrc(valorOrc, valorCot) {
+  var o = numValor(valorOrc), c = numValor(valorCot);
+  if (isNaN(o) || isNaN(c) || o <= 0 || c < 0) return null;
+  var pct = (o - c) / o * 100;
+  return { pct: pct, nivel: pct < 20 ? 'ruim' : (pct <= 30 ? 'medio' : 'bom') };
+}
+function seloOrc(p) { return p && p.valorOrc ? ' <span class="selo-orc" title="Valor líquido desta peça no orçamento da seguradora">📄 orç. ' + esc(fmtValor(p.valorOrc)) + '</span>' : ''; }
+function seloEco(valorOrc, valorCot) {
+  var e = ecoOrc(valorOrc, valorCot);
+  if (!e) return '';
+  var dif = numValor(valorOrc) - numValor(valorCot);
+  var txt = e.pct >= 0 ? '−' + Math.abs(e.pct).toFixed(0) + '% (' + fmtValor(Math.abs(dif)) + ' abaixo do orç.)' : '+' + Math.abs(e.pct).toFixed(0) + '% (' + fmtValor(Math.abs(dif)) + ' acima do orç.)';
+  return '<span class="selo-eco ' + e.nivel + '" title="Economia sobre o valor líquido do orçamento: verde acima de 30%, amarelo 20–30%, vermelho abaixo de 20% ou mais caro">' + txt + '</span>';
+}
+function pecaDaChave(chave) { return pecasOficina(CARD).filter(function (p) { return p.chave === chave; })[0] || {}; }
+function atualizarEco(input) {
+  var row = input.closest('.cot'), item = input.closest('.item');
+  var alvo = row.querySelector('.q-eco'); if (!alvo) return;
+  alvo.innerHTML = seloEco(pecaDaChave(item.dataset.chave).valorOrc, input.value);
+}
+
 /* ---------- autorização (diretoria; no particular, o consultor do pedido) ---------- */
 function autDe(c, chave) { return ((c && c.autorizadas) || []).filter(function (x) { return x.chave === chave; })[0]; }
 function mesmaCot(q, a) { return a && q.fornecedor === a.fornecedor && Math.abs(q.valor - a.valor) < 0.005; }
@@ -778,7 +811,7 @@ function montarAutorizacao(c) {
     var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave;
     var minhas = lidas.filter(function (q) { return q.chave === p.chave; }).sort(function (a, b) { return a.valor - b.valor; });
     var ja = autDe(c, p.chave);
-    var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong></div>';
+    var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + seloOrc(p) + '</strong></div>';
     ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
     if (p.podeAut === false) {
       h += (ja ? '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + ')' : '') + '</div>' : '')
@@ -792,7 +825,7 @@ function montarAutorizacao(c) {
       var marcada = ja ? minhas.findIndex(function (q) { return mesmaCot(q, ja); }) : 0;
       var selo = selosPeca(minhas);
       h += minhas.map(function (q, j) {
-        return '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value="' + j + '"' + (j === marcada ? ' checked' : '') + ' onchange="totalAut()"> ' + esc(rotuloCot(q)) + selo(q) + linkCot(q) + '</label>';
+        return '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value="' + j + '"' + (j === marcada ? ' checked' : '') + ' onchange="totalAut()"> ' + esc(rotuloCot(q)) + selo(q) + seloEco(p.valorOrc, q.valor) + linkCot(q) + '</label>';
       }).join('') + '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value=""' + (marcada < 0 ? ' checked' : '') + ' onchange="totalAut()"> não autorizar</label>';
       div.dataset.cots = JSON.stringify(minhas);
     }
@@ -934,13 +967,13 @@ function montarCotacao(c) {
     grupoAntes(box, c, lista, i);
     var div = document.createElement('div'); div.className = 'item'; div.dataset.chave = p.chave; div.dataset.pneu = p.pneu ? '1' : '';
     var jaLidas = lidas.filter(function (q) { return q.chave === p.chave; });
-    var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + '</strong>'
+    var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + seloOrc(p) + '</strong>'
       + '<button type="button" class="secundario" onclick="novaCot(this.closest(\'.item\'))">+ cotação</button></div>';
     var seloL = selosPeca(jaLidas);
     var autP = autDe(c, p.chave);
     // cotação já no card: editar / remover enquanto a peça não foi autorizada
     if (jaLidas.length) h += '<div style="margin-bottom:6px">' + jaLidas.map(function (q, j) {
-      return '<div class="cot-lida" data-j="' + j + '">já no card: <b class="cl-txt">' + esc(rotuloCot(q)) + '</b>' + seloL(q) + linkCot(q)
+      return '<div class="cot-lida" data-j="' + j + '">já no card: <b class="cl-txt">' + esc(rotuloCot(q)) + '</b>' + seloL(q) + seloEco(p.valorOrc, q.valor) + linkCot(q)
         + (autP ? (mesmaCot(q, autP) ? ' <span class="dica">✅ autorizada</span>' : '')
                 : ' <button type="button" class="mini" onclick="editarCot(this, ' + j + ')">✏️ editar</button> <button type="button" class="mini" onclick="removerCot(this)">🗑️ remover</button>') + '</div>';
     }).join('') + '</div>';
@@ -986,7 +1019,7 @@ function novaCot(item, pre) {
     + (pneu ? '<div><label>Marca do pneu</label><input type="text" class="q-marca maiusc" placeholder="PIRELLI"></div><input type="hidden" class="q-tipo" value="">'
             : '<div><label>Tipo</label><select class="q-tipo">' + tipos.map(function (t, i) { return '<option value="' + esc(t) + '"' + (tipos.length === 1 ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div>'
               + '<div><label>Marca (opcional)</label><input type="text" class="q-marca maiusc" placeholder="GM / DTS"></div>')
-    + '<div><label>Valor (R$)</label><input type="text" class="q-valor" inputmode="decimal" placeholder="1.647,00"></div>'
+    + '<div><label>Valor (R$)' + (peca.valorOrc ? ' <span style="font-size:12px">· orç. ' + esc(fmtValor(peca.valorOrc)) + '</span>' : '') + '</label><input type="text" class="q-valor" inputmode="decimal" placeholder="1.647,00" oninput="atualizarEco(this)"><div class="q-eco"></div></div>'
     + '<div><label>Prazo (dias úteis)</label><input type="number" class="q-dias" min="0" placeholder="3"></div>'
     + '<div><button type="button" class="perigo" onclick="var it=this.closest(\'.item\');this.closest(\'.cot\').remove();atualizarPecaCot(it)">tirar</button></div>'
     + '<div class="q-link-caixa"><label>Link do anúncio (opcional — Mercado Livre, site do fornecedor)</label><input type="text" class="q-link" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://produto.mercadolivre.com.br/…"></div>';
@@ -996,6 +1029,7 @@ function novaCot(item, pre) {
     if (pre.tipo && row.querySelector('select.q-tipo')) row.querySelector('select.q-tipo').value = pre.tipo;
     row.querySelector('.q-marca').value = pre.marca || '';
     row.querySelector('.q-valor').value = pre.valor ? String(pre.valor).replace('.', ',') : '';
+    atualizarEco(row.querySelector('.q-valor'));
     row.querySelector('.q-dias').value = pre.dias !== '' && pre.dias != null ? pre.dias : '';
     row.querySelector('.q-link').value = pre.link || '';
   }
@@ -1590,6 +1624,7 @@ function novoItem(tipo, dados) {
     h += '<div class="grade">'
       + '<div><label>Medida <span class="obr">*</span></label><input type="text" class="f-medida maiusc" placeholder="195/65R15" value="' + esc(dados.medida) + '"></div>'
       + '<div><label>Quantidade</label><input type="number" min="1" class="f-qtd" value="' + esc(dados.qtd || 1) + '"></div>'
+      + campoValorOrc(dados)
       + '<div class="inteiro"><label>Categoria ou marca <span class="obr">*</span></label><div class="chips">';
     CFG.categPneu.forEach(function (c) {
       h += '<label class="chip"><input type="radio" name="cat' + id + '" value="' + esc(c) + '"' + (dados.categoria === c ? ' checked' : '') + ' onchange="pintarChips(\'' + id + '\')"> ' + esc(c) + '</label>';
@@ -1600,6 +1635,7 @@ function novoItem(tipo, dados) {
     h += '<div class="grade">'
       + '<div><label>Código da peça ' + (caixa.id === 'itensPart' || tipoPedido() === 'PARTICULAR' ? '<span style="font-size:12px">(opcional)</span>' : '<span class="obr">*</span>') + '</label><input type="text" class="f-codigo maiusc" placeholder="Buscar no Cilia" value="' + esc(dados.codigo) + '"></div>'
       + '<div><label>Quantidade</label><input type="number" min="1" class="f-qtd" value="' + esc(dados.qtd || 1) + '"></div>'
+      + campoValorOrc(dados)
       + '<div class="inteiro"><label>Descrição <span class="obr">*</span></label><input type="text" class="f-desc maiusc" placeholder="FAROL ESQUERDO" value="' + esc(dados.descricao) + '"></div>'
       + '<div class="inteiro"><label>Tipo de peça <span class="obr">*</span> <span style="font-size:12px">(marque 1 ou 2)</span></label><div class="chips">';
     CFG.tipos.forEach(function (t) {
@@ -1626,6 +1662,15 @@ function novoItem(tipo, dados) {
   numerar();
 }
 
+/** Valor líquido unitário da peça no orçamento da seguradora (lido do PDF ou digitado). Informativo: não trava e pode ser
+ *  editado por quem abrir o pedido (05/10/2026, Weslley). Base da comparação com as cotações. */
+function campoValorOrc(dados) {
+  var v = dados.valorOrc;
+  var txt = v === undefined || v === null || v === '' ? '' : fmtValor(v);
+  return '<div><label>Valor no orçamento <span style="font-size:12px">(líquido, opcional)</span></label><input type="text" class="f-valor-orc" inputmode="decimal" placeholder="R$ 0,00" value="' + esc(txt) + '" onblur="this.value=this.value.trim()?(fmtValor(this.value)||this.value):\'\'"></div>';
+}
+function lerValorOrc(el) { var i = el.querySelector('.f-valor-orc'); return i ? i.value.trim() : ''; }
+
 function marcarNao(id, sim) {
   var div = $(id); if (!div) return;
   if (sim) div.dataset.nao = '1'; else { delete div.dataset.nao; }
@@ -1640,7 +1685,7 @@ function marcarComp(id, sim) {
 }
 function trocarTipo(id, tipo) {
   var velho = $(id), caixa = velho.parentNode;
-  novoItem(tipo, { particular: caixa.id === 'itensPart', partPor: velho.dataset.partPor, complemento: velho.dataset.comp === '1', compData: velho.dataset.compData, naoComprar: velho.dataset.nao === '1', naoMotivo: (velho.querySelector('.f-nao-motivo') || {}).value || '' });
+  novoItem(tipo, { particular: caixa.id === 'itensPart', partPor: velho.dataset.partPor, complemento: velho.dataset.comp === '1', compData: velho.dataset.compData, naoComprar: velho.dataset.nao === '1', naoMotivo: (velho.querySelector('.f-nao-motivo') || {}).value || '', valorOrc: lerValorOrc(velho) });
   var criado = caixa.lastChild;
   caixa.insertBefore(criado, velho);
   velho.remove();
@@ -1682,7 +1727,7 @@ function coletar() {
       var sel = el.querySelector('input[type=radio]:checked');
       var marca = el.querySelector('.f-marca').value.trim();
       var nao = el.dataset.nao === '1', naoMotivo = ((el.querySelector('.f-nao-motivo') || {}).value || '').trim();
-      var p = { pneu: true, medida: medida, qtd: qtd, categoria: '', marca: '', particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: nao, naoMotivo: naoMotivo };
+      var p = { pneu: true, medida: medida, qtd: qtd, categoria: '', marca: '', particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: nao, naoMotivo: naoMotivo, valorOrc: lerValorOrc(el) };
       if (!medida) faltas.push(n + ' (pneu): falta a medida');
       if (sel && sel.value !== 'MARCA') p.categoria = sel.value;
       else if (marca) p.marca = marca;
@@ -1697,7 +1742,7 @@ function coletar() {
       if (!cod && tipoPedido() !== 'PARTICULAR' && !ehPart && !naoP) faltas.push(r + ': falta o código (buscar no Cilia)');
       if (!desc) faltas.push(r + ': falta a descrição');
       if (!tipos.length && !naoP) faltas.push(r + ': marque o tipo de peça');
-      pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd, particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: naoP, naoMotivo: naoMotivoP });
+      pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd, particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: naoP, naoMotivo: naoMotivoP, valorOrc: lerValorOrc(el) });
     }
   });
   var d = {

@@ -148,7 +148,7 @@ function cp_inserirNoBloco_(bloco, novas, nFo) {
   var data = cp_hoje_();
   var novasTxt = novas.map(function (p) {
     var q = { pneu: !!p.pneu, codigo: String(p.codigo || '').replace(/\s+/g, '').toUpperCase(), descricao: String(p.descricao || '').toUpperCase(), tipos: p.tipos || [],
-      medida: p.medida || '', categoria: p.categoria || '', marca: p.marca || '', qtd: p.qtd || '', complemento: true, compData: p.compData || data };
+      medida: p.medida || '', categoria: p.categoria || '', marca: p.marca || '', qtd: p.qtd || '', complemento: true, compData: p.compData || data, valorOrc: p.valorOrc || '' };
     return vd_linhaPeca_(q, 0).replace(/^\d+\.\s*/, '');
   });
   var idxPecas = [], semOf = -1, fim = -1;
