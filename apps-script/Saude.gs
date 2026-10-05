@@ -152,7 +152,7 @@ function sd_verErros() {
  * acionadores dela (Meus acionadores) e republicar o web app pela conta nova (Implantar > Gerenciar implantações
  * > editar > Nova versão), para o formulário também rodar na cota da conta nova. */
 function migrar_instalarAcionadores() {
-  var eu = Session.getEffectiveUser().getEmail();
+  var eu = 'esta conta';
   var meus = ScriptApp.getProjectTriggers();   // só os acionadores DESTA conta
   var tem = {}; meus.forEach(function (t) { tem[t.getHandlerFunction()] = true; });
   var feitos = [];
@@ -163,10 +163,10 @@ function migrar_instalarAcionadores() {
   if (!tem.sd_diario) { ScriptApp.newTrigger('sd_diario').timeBased().everyDays(1).atHour(7).nearMinute(50).inTimezone('America/Sao_Paulo').create(); feitos.push('conferência diária (7h50)'); }
   // confere o que a conta nova precisa enxergar
   var prob = [];
-  try { vd_planilhaBackup_().getParent().getName(); } catch (e) { prob.push('planilha "Validação Trello — backup de descrições" não acessível: compartilhar com ' + eu); }
+  try { vd_planilhaBackup_().getParent().getName(); } catch (e) { prob.push('planilha "Validação Trello — backup de descrições" não acessível: compartilhar com esta conta'); }
   try { vd_api_('/members/me', { query: { fields: 'username' } }); } catch (e) { prob.push('Trello não respondeu (cota ou token): ' + e.message); }
   qt_despausar();
-  Logger.log('Conta: ' + eu + '\nAcionadores criados: ' + (feitos.join(', ') || 'nenhum (já existiam)') + '\nTotal nesta conta: ' + ScriptApp.getProjectTriggers().length +
+  Logger.log('Acionadores criados: ' + (feitos.join(', ') || 'nenhum (já existiam)') + '\nTotal nesta conta: ' + ScriptApp.getProjectTriggers().length +
     (prob.length ? '\nPENDÊNCIAS:\n- ' + prob.join('\n- ') : '\nTudo acessível.') +
     '\nFalta: (1) na conta antiga, apagar os acionadores dela em script.google.com/home/triggers; (2) nesta conta, Implantar > Gerenciar implantações > editar > Nova versão > Implantar.');
 }
