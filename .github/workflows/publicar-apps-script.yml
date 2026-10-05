@@ -15,7 +15,7 @@ env:
   DEPLOY_ID: AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew
 jobs:
   publicar:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # 05/10/2026: ubuntu-latest ficou 15 min na fila e foi cancelado ("not acquired by Runner"); pool fixo
     steps:
       - uses: actions/checkout@v4
       - name: Formulário estático em dia
