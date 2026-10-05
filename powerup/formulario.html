@@ -636,9 +636,15 @@ function iniciar() {
 
 function sair() { guardar('vd_token', null); guardar('vd_card_pend', null); guardar('vd_modo_pend', null); location.reload(); }
 
+/* Falhou a abertura (vdf_abrir): NÃO mostra o formulário — sem a resposta do servidor ele fica sem a lista de
+ * unidades e o envio não passa. Mostra o erro no lugar do "Carregando…" com um botão para tentar de novo
+ * (05/10/2026: na pausa por cota, a equipe viu o formulário sem unidade para escolher). */
 function erroFatal(msg) {
-  mostrar('telaCarregando', false); mostrar('form', true);
-  $('erroGeral').textContent = msg; mostrar('erroGeral', true);
+  var t = $('telaCarregando');
+  t.innerHTML = '<div class="aviso erro" style="text-align:left;margin:0 auto 14px;max-width:640px"></div>' +
+    '<button type="button" class="botao principal" onclick="location.reload()">Tentar de novo</button>';
+  t.firstChild.textContent = 'Não deu para abrir o formulário: ' + msg;
+  mostrar('telaCarregando', true); mostrar('form', false);
 }
 
 function abrirFormulario() {
