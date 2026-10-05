@@ -553,6 +553,9 @@ function vd_anexoLegivel_(a) {
  * Numa leitura nova, r.orcFull traz o orçamento completo (não vai para o cache).
  * Devolve null se o Trello não entregou o arquivo.
  */
+/* Versão do leitor de anexos: quando o leitor de orçamento muda (ex.: 05/10/2026, layout Soma), as leituras
+ * guardadas com a versão antiga são lidas de novo — senão "ler de novo" e o robô do complemento devolvem a leitura velha. */
+var VD_ANX_V = 2;
 function vd_lerAnexoTrello_(a, opt) {
   opt = opt || {};
   var props = PropertiesService.getScriptProperties();
@@ -561,8 +564,8 @@ function vd_lerAnexoTrello_(a, opt) {
   var r = null;
   if (cache) {
     r = JSON.parse(cache);
-    // erro guardado (ex.: Drive fora do ar na hora): não vale como leitura — tenta de novo
-    if (r.erro) r = null;
+    // erro guardado (ex.: Drive fora do ar na hora) ou leitura de versão antiga do leitor: lê de novo
+    if (r.erro || r.v !== VD_ANX_V) r = null;
     // leitura antiga (sem as peças do orçamento): lê de novo só se o anexo era orçamento
     else if (r.orcamento && !r.orc && !r.orcGrande) r = null;
     // cache antigo sem a dica de tipo do orçamento: lê de novo uma vez
@@ -591,9 +594,10 @@ function vd_lerAnexoTrello_(a, opt) {
       console.log('leitura do anexo ' + a.name + ': ' + e);
       return { erro: String(e).slice(0, 100), chassis: [], placas: [] };
     }
+    r.v = VD_ANX_V;
     var js = JSON.stringify(r);
     if (js.length > 8500 && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
-    props.setProperty(chave, js.length > 8500 ? JSON.stringify({ chassis: r.chassis, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor }) : js);
+    props.setProperty(chave, js.length > 8500 ? JSON.stringify({ v: VD_ANX_V, chassis: r.chassis, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor }) : js);
     if (orcFull) r.orcFull = orcFull;
   }
   return r;
