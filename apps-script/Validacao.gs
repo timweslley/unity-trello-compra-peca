@@ -1449,8 +1449,10 @@ function vd_trocarLinksFormulario() {
  * como "peça nova". Regrava a base de todos os cards das colunas pós-cotação a partir da descrição completa. */
 function vd_pkRebasear_(posCot, ctx) {
   var props = PropertiesService.getScriptProperties(), k = 'VD_PK2_REBASE';
-  if (props.getProperty(k) === '2026-10-05b') return;
-  var cards = vd_cardsDasListas_(posCot, false), n = 0, leg = 0, semCmp = 0, mapa = vd_completasTodas_();
+  if (props.getProperty(k) === '2026-10-05c') return;
+  // rodada c: também EM COTAÇÃO / FALTA DADOS (o RAM9I31 estava lá na rodada b e ficou com a base da vitrine)
+  var listas = posCot.concat([ctx.listas[VD.LISTA_COTACAO], ctx.listas[VD.LISTA_FALTA]].filter(String));
+  var cards = vd_cardsDasListas_(listas, false), n = 0, leg = 0, semCmp = 0, mapa = vd_completasTodas_();
   cards.forEach(function (c) {
     if (!mapa[c.id]) semCmp++;
     if (vd_legado_(c.id)) { leg++; return; }
@@ -1459,8 +1461,8 @@ function vd_pkRebasear_(posCot, ctx) {
     props.deleteProperty('VD_NOVAS_' + c.id);
     n++;
   });
-  props.setProperty(k, '2026-10-05b');
-  console.log('rebase VD_PK2: ' + n + ' card(s) das colunas pós-cotação regravados a partir da descrição completa · ' + cards.length + ' cards em ' + posCot.length + ' colunas · ' + leg + ' legado(s) · ' + semCmp + ' sem completa na TRAVA · completas na TRAVA: ' + Object.keys(mapa).length + ' · virada ' + new Date(vd_viradaMs_()).toLocaleString('pt-BR'));
+  props.setProperty(k, '2026-10-05c');
+  console.log('rebase VD_PK2: ' + n + ' card(s) das colunas pós-cotação regravados a partir da descrição completa · ' + cards.length + ' cards em ' + listas.length + ' colunas · ' + leg + ' legado(s) · ' + semCmp + ' sem completa na TRAVA · completas na TRAVA: ' + Object.keys(mapa).length + ' · virada ' + new Date(vd_viradaMs_()).toLocaleString('pt-BR'));
 }
 
 /** Execução principal (acionador de 1 em 1 min). */
