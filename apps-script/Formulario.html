@@ -4,11 +4,14 @@
 <base target="_top">
 <meta charset="utf-8">
 <script>
-/* tema "trello" (em avaliação): ?tema=trello liga e guarda; ?tema=padrao desliga. Aplicado antes do CSS para não piscar. */
+/* tema "trello" (em avaliação): ?tema=trello liga e guarda; ?tema=padrao desliga. Aplicado antes do CSS para não piscar.
+   05/10/2026: chave trocada de vd_tema para vd_tema2 — o Power-Up roda dentro do Trello e o Chrome guarda o localStorage
+   do iframe separado do da aba normal, então não dava para desligar o tema por fora; trocar a chave zera todo mundo. */
 (function () { try {
   var q = location.search || '', ls = window.localStorage;
-  if (/[?&]tema=padrao\b/.test(q)) ls.removeItem('vd_tema'); else if (/[?&]tema=trello\b/.test(q)) ls.setItem('vd_tema', 'trello');
-  if (ls.getItem('vd_tema') === 'trello') document.documentElement.className += ' tt';
+  try { ls.removeItem('vd_tema'); } catch (e0) {}
+  if (/[?&]tema=padrao\b/.test(q)) ls.removeItem('vd_tema2'); else if (/[?&]tema=trello\b/.test(q)) ls.setItem('vd_tema2', 'trello');
+  if (ls.getItem('vd_tema2') === 'trello') document.documentElement.className += ' tt';
 } catch (e) {} })();
 </script>
 <style>
