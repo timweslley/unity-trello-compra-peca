@@ -49,7 +49,7 @@ function api_(caminho, params, metodo, payload) {
     contentType: 'application/json'
   };
   if (payload) opt.payload = JSON.stringify(payload);
-  var r = UrlFetchApp.fetch(url, opt);
+  var r = qt_fetch_(url, opt);
   var code = r.getResponseCode();
   if (code < 200 || code >= 300) {
     throw new Error('Trello ' + code + ': ' + r.getContentText().slice(0, 300));
@@ -463,13 +463,20 @@ var LIMITE_FALHAS = 2;
 function comAlarme_(nome, fn) {
   var p = props_();
   var chave = 'FALHAS_' + nome;
+  if (nome !== 'validarDadosPedido' && qt_pausada_()) { console.log(nome + ' pulado: ' + qt_resumoPausa_()); return; }   // cota estourada
   try {
+    qt_parte_(nome);
     fn();
     if (p.getProperty(chave)) p.deleteProperty(chave);
   } catch (e) {
+    if (qt_ehErroDeCota_(e)) { console.log(nome + ': ' + String((e && e.message) || e).slice(0, 120)); return; }   // o aviso de cota já cobre
     var n = Number(p.getProperty(chave) || 0) + 1;
     p.setProperty(chave, String(n));
-    if (n === LIMITE_FALHAS || n % 200 === 0) {
+    // 1 e-mail na 2ª falha seguida (no máximo um a cada 6 h por rotina) e de novo a cada 200
+    var kAv = 'FALHAS_AV_' + nome, av = +(p.getProperty(kAv) || 0);
+    var avisar = (n >= LIMITE_FALHAS && Date.now() - av > 6 * 3600 * 1000) || n % 200 === 0;
+    if (avisar) {
+      p.setProperty(kAv, String(Date.now()));
       MailApp.sendEmail(EMAIL_ALERTA,
         'ALERTA: automação do Trello com falha (' + nome + ')',
         'A rotina "' + nome + '" do projeto Log de Descricao Trello falhou ' + n +
@@ -479,7 +486,7 @@ function comAlarme_(nome, fn) {
         'Ver execuções: https://script.google.com/home/projects/1sV_VMM5fUPxBmaExaWHAYdaw4Xda9-ebtKr2BD2iwabG4hxLodE50W6c/executions');
     }
     throw e;
-  }
+  } finally { qt_parte_(''); try { qt_registrar_(nome); } catch (x) {} }
 }
 
 function verificarAlteracoesDescricao() {

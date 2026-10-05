@@ -84,7 +84,7 @@ function vd_api_(caminho, opts, tokenUsuario) {
   // escrita em checklist: licença ANTES (o ciclo da trava pode ler entre a escrita e a resposta) e de novo depois
   var ehCk = params.method !== 'get' && !opts.semLicenca && /checkItem|checklists/i.test(caminho);
   if (ehCk) { try { ck_licenca_(caminho.split('?')[0], opts.payload); } catch (e) {} }
-  var r = UrlFetchApp.fetch(url, params);
+  var r = qt_fetch_(url, params);
   var code = r.getResponseCode();
   if (code >= 300) {
     var e = new Error('Trello ' + code + ' em ' + caminho.split('?')[0] + ': ' + r.getContentText().slice(0, 200));
@@ -102,9 +102,13 @@ function vd_api_(caminho, opts, tokenUsuario) {
 }
 
 function vd_listas_(board) {
+  // cache de 10 min: todo módulo do ciclo pedia as listas de novo (12+ chamadas por minuto só nisso)
+  var cache = null, k = 'vd_listas_' + board;
+  try { cache = CacheService.getScriptCache(); var c = cache.get(k); if (c) return JSON.parse(c); } catch (e) {}
   var ls = vd_api_('/boards/' + board + '/lists', { query: { fields: 'name' } });
   var m = {};
   ls.forEach(function (l) { m[vd_nomeColuna_(l.name)] = l.id; });
+  try { if (cache) cache.put(k, JSON.stringify(m), 600); } catch (e) {}
   return m;
 }
 /** Nome canônico da coluna (o quadro principal usa "FALTA DADOS PARA COTAÇÃO", o TESTE "...COTAR"). */
@@ -545,7 +549,7 @@ function vd_lerAnexoTrello_(a, opt) {
   if (!r) {
     var orcFull = null;
     try {
-      var resp = UrlFetchApp.fetch(a.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
+      var resp = qt_fetch_(a.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
       if (resp.getResponseCode() >= 300) return null;
       var texto = vd_ocr_(resp.getBlob(), a.name);
       r = vd_extrair_(texto);
@@ -1495,6 +1499,7 @@ function vd_executarNucleo_() {
 
 /** Função do acionador. Usa o alarme de falhas das rotinas antigas, se existir. */
 function validarDadosPedido() {
+  if (qt_pausada_()) { console.log('ciclo pulado: ' + qt_resumoPausa_()); return; }   // cota estourada: não gasta chamada nem tempo
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return;
   try {
@@ -1509,7 +1514,10 @@ function validarDadosPedido() {
       sd_parte_('trava de checklist', ck_executar_);   // e checklist mexido à mão
       sd_parte_('exclusão', exc_executar_);
       sd_parte_('faturamento', fat_executar_);           // comentário "faturado" arquiva (substitui o Butler)            // card excluído por quem não é admin volta
-      var t0n = Date.now(), out = vd_executarNucleo_(); if (Date.now() - t0n > 1500) SD_TEMPOS.push('núcleo ' + ((Date.now() - t0n) / 1000).toFixed(1) + 's');
+      var t0n = Date.now(), out = [];
+      qt_parte_('núcleo');
+      try { out = vd_executarNucleo_(); } finally { qt_parte_(''); }
+      if (Date.now() - t0n > 1500) SD_TEMPOS.push('núcleo ' + ((Date.now() - t0n) / 1000).toFixed(1) + 's');
       sd_parte_('complemento', cp_executar_);          // orçamento complementar anexado no card
       if (new Date().getMinutes() % 5 === 0) sd_parte_('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
       sd_parte_('prazos por etapa', sla_executar_);
@@ -1517,6 +1525,7 @@ function validarDadosPedido() {
       sd_parte_('links', function () { return vd_garantirLinks_(); });
       sd_parte_('alarme diário', sd_instalarSeFaltar_);
       sd_batida_();
+      if (QT_N > 60) SD_TEMPOS.push('chamadas ' + QT_N + ' (' + Object.keys(QT_PARTES).map(function (k) { return k + ' ' + QT_PARTES[k]; }).join(', ') + ')');
       if (SD_TEMPOS.length) {
         console.log('tempos: ' + SD_TEMPOS.join(' · '));
         try {
@@ -1529,7 +1538,7 @@ function validarDadosPedido() {
     };
     if (typeof comAlarme_ === 'function') return comAlarme_('validarDadosPedido', rodar);
     return rodar();
-  } finally { lock.releaseLock(); }
+  } finally { lock.releaseLock(); try { qt_registrar_('ciclo'); } catch (e) {} }
 }
 
 /** Roda uma vez agora e mostra o resultado no registro (para testes). */

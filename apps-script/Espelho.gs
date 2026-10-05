@@ -231,7 +231,7 @@ function es_copiarAnexo_(at, idO, idT) {
   if (!at.id) return false;
   var info = vd_api_('/cards/' + idO + '/attachments/' + at.id, { cru: true, query: { fields: 'name,url,isUpload,mimeType' } });
   if (!info.isUpload) { es_api_('/cards/' + idT + '/attachments', { method: 'post', payload: { url: info.url, name: info.name } }); return true; }
-  var r = UrlFetchApp.fetch(info.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
+  var r = qt_fetch_(info.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
   if (r.getResponseCode() >= 300) throw new Error('download do anexo ' + info.name + ': ' + r.getResponseCode());
   var blob = r.getBlob().setName(info.name);
   es_api_('/cards/' + idT + '/attachments', { method: 'post', multipart: { file: blob, name: info.name } });

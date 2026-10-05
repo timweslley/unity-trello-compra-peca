@@ -252,8 +252,13 @@ function exc_executar_() {
   var board = vd_board_();
   var acoes = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: 'deleteCard', since: desde, limit: 50, memberCreator_fields: 'username,fullName' } }) || [];
   if (!acoes.length) return 0;
-  var admins = (vd_api_('/boards/' + board + '/memberships', { cru: true, query: { member: 'false' } }) || [])
-    .filter(function (m) { return m.memberType === 'admin'; }).map(function (m) { return m.idMember; });
+  var admins = null, kAdm = 'exc_admins_' + board;
+  try { admins = JSON.parse(CacheService.getScriptCache().get(kAdm) || 'null'); } catch (e) {}
+  if (!admins) {
+    admins = (vd_api_('/boards/' + board + '/memberships', { cru: true, query: { member: 'false' } }) || [])
+      .filter(function (m) { return m.memberType === 'admin'; }).map(function (m) { return m.idMember; });
+    try { CacheService.getScriptCache().put(kAdm, JSON.stringify(admins), 3600); } catch (e) {}
+  }
   var n = 0;
   acoes.forEach(function (a) {
     if (!a.data || !a.data.card || !a.data.list) return;

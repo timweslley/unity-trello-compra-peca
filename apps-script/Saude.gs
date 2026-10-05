@@ -14,11 +14,13 @@ var SD = { EMAIL: 'weslley.santos@unitycs.com.br', FALHAS: 5, REPETE_MS: 6 * 360
 var SD_TEMPOS = [];
 function sd_parte_(nome, fn) {
   var p = PropertiesService.getScriptProperties(), k = 'SD_F_' + nome, t0 = Date.now();
+  qt_parte_(nome);
   try {
     var r = fn();
     if (p.getProperty(k)) p.deleteProperty(k);
     return r;
   } catch (e) {
+    if (qt_ehErroDeCota_(e)) { console.log(nome + ': ' + String((e && e.message) || e).slice(0, 120)); return; }   // cota: não é falha do módulo
     var est = {}; try { est = JSON.parse(p.getProperty(k) || '{}'); } catch (x) {}
     est.n = (est.n || 0) + 1; est.erro = String((e && e.message) || e).slice(0, 300);
     if (est.n >= SD.FALHAS && Date.now() - (est.avisado || 0) > SD.REPETE_MS) {
@@ -34,6 +36,7 @@ function sd_parte_(nome, fn) {
   } finally {
     var dt = Date.now() - t0;
     if (dt > 1500) SD_TEMPOS.push(nome + ' ' + (dt / 1000).toFixed(1) + 's');
+    qt_parte_('');
   }
 }
 
@@ -53,7 +56,10 @@ function sd_diario() {
   var acs = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
   ['validarDadosPedido', 'verificarAlteracoesDescricao'].forEach(function (f) { if (acs.indexOf(f) < 0) prob.push('acionador "' + f + '" sumiu'); });
   var ciclo = +(p.getProperty('SD_ULTIMO_CICLO') || 0);
-  if (Date.now() - ciclo > 30 * 60000) prob.push('o ciclo de 1 min do quadro TESTE não roda desde ' + (ciclo ? new Date(ciclo).toLocaleString('pt-BR') : 'nunca'));
+  if (qt_pausada_()) prob.push('robô PAUSADO pela cota diária de chamadas do Google (estourou ' + new Date(+p.getProperty('QT_ESTOURO')).toLocaleString('pt-BR') + ')');
+  else if (Date.now() - ciclo > 30 * 60000) prob.push('o ciclo de 1 min do quadro não roda desde ' + (ciclo ? new Date(ciclo).toLocaleString('pt-BR') : 'nunca'));
+  var ontem = qt_doDia_(1);
+  if ((ontem.total || 0) > QT.ALERTA) prob.push('consumo de chamadas externas ontem perto do limite: ' + qt_resumo_(1));
   var ult = p.getProperty('ULTIMA_VERIFICACAO');
   if (!ult || Date.now() - new Date(ult).getTime() > 30 * 60000) prob.push('o log de descrição do QUADRO PRINCIPAL está parado desde ' + ult);
   if (p.getProperty('LOG_RECUPERANDO')) prob.push('LOG_RECUPERANDO ficou marcado (log do quadro principal travado)');
@@ -68,7 +74,9 @@ function sd_diario() {
   try { var tamP = sd_propriedades(); if (tamP > 380 * 1024) prob.push('Propriedades do script em ' + Math.round(tamP / 1024) + ' KB (limite ~500 KB)'); } catch (e) {}
   Logger.log(prob.length ? prob.join('\n') : 'tudo ok');
   if (prob.length) MailApp.sendEmail(SD.EMAIL, 'ALERTA Trello: conferência diária achou ' + prob.length + ' problema(s)', prob.map(function (x) { return '- ' + x; }).join('\n') +
+    '\n\nChamadas externas (limite ~' + QT.LIMITE.toLocaleString('pt-BR') + '/dia):\n' + qt_resumo_(1) + '\n' + qt_resumo_(2) +
     '\n\nExecuções: https://script.google.com/home/projects/' + ScriptApp.getScriptId() + '/executions');
+  try { qt_registrar_('conferência diária'); } catch (e) {}
   return prob;
 }
 

@@ -32,6 +32,8 @@ function doPost(e) {
     var req = JSON.parse((e && e.postData && e.postData.contents) || '{}');
     var fn = String(req.fn || '');
     if (VDF_API.indexOf(fn) < 0) throw new Error('Função não permitida: ' + fn);
+    if (qt_pausada_()) throw new Error('⏸️ O Google limitou as chamadas do sistema por hoje (cota diária). Nada se perdeu — tente de novo em ' + Utilities.formatDate(new Date(qt_pausadaAte_()), 'America/Sao_Paulo', 'HH:mm') + '; o sistema volta sozinho.');
+    qt_parte_('formulário ' + fn);
     /* rid = número do pedido que grava. Às vezes o Google trava uma chamada ~2 min
      * (DEADLINE_EXCEEDED ao carregar o projeto) e o formulário tenta de novo com o mesmo rid:
      * se a primeira chegou a rodar, devolve o mesmo resultado em vez de gravar duas vezes. */
@@ -49,6 +51,7 @@ function doPost(e) {
   } catch (err) {
     out = { ok: false, erro: String((err && err.message) || err) };
   }
+  try { qt_registrar_('formulário'); } catch (e2) {}
   var txt = JSON.stringify(out);
   if (rid && cache) {
     try { if (out.ok && txt.length < 90000) cache.put(rid, txt, 600); else cache.remove(rid); } catch (e2) {}
@@ -152,7 +155,7 @@ function vdf_abrir(token, shortLink) {
     req('/boards/' + b + '/lists?fields=name&filter=all')
   ];
   if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due&attachments=true&attachment_fields=name,mimeType,isUpload,bytes,url&customFieldItems=true'));
-  var rs = UrlFetchApp.fetchAll(reqs);
+  var rs = qt_fetchAll_(reqs);
   if (rs[0].getResponseCode() >= 300) throw new Error('LOGIN: seu acesso ao Trello expirou. Entre de novo.');
   for (var i = 1; i < rs.length; i++) {
     if (rs[i].getResponseCode() >= 300) throw new Error('Trello ' + rs[i].getResponseCode() + ': ' + rs[i].getContentText().slice(0, 120));
