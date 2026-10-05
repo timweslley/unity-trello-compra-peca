@@ -72,20 +72,54 @@ function cp_jaTem_(conh, p) {
   });
 }
 
-/** Separa o que é novo no orçamento: {oficina:[], fo:[], jaTinha:n}. */
+/* Peça marcada "➕ COMPLEMENTO" à mão (o orçamentista pede a peça ANTES de a seguradora mandar o
+ * complementar — regra de 05/10/2026): quando o PDF chega, a peça dele NÃO pode entrar de novo.
+ * Código igual já casa (cp_jaTem_). Sem código igual, casa pela descrição parecida: mesma peça-base
+ * (1ª palavra, ex.: RADIADOR) e pelo menos metade das palavras em comum — uma peça do card por peça do PDF. */
+var CP_PAL_FRACA = /^(DE|DO|DA|DOS|DAS|COM|SEM|PARA|MOTOR|MANUAL|AUTOMATICO|AUTOMATICA|COMPLETO|COMPLETA|KIT|JOGO|UNIDADE|PCS|PECA)$/;
+// posição: lado (D/E), frente/trás (F/T), cima/baixo (S/I) — card e PDF com posição diferente no mesmo eixo = peças diferentes
+var CP_POSICAO = { DIR: 'D', DIREITO: 'D', DIREITA: 'D', LD: 'D', ESQ: 'E', ESQUERDO: 'E', ESQUERDA: 'E', LE: 'E', DIANT: 'F', DIANTEIRO: 'F', DIANTEIRA: 'F', FRENTE: 'F', TRAS: 'T', TRASEIRO: 'T', TRASEIRA: 'T', SUP: 'S', SUPERIOR: 'S', INF: 'I', INFERIOR: 'I' };
+var CP_EIXO = { D: 1, E: 1, F: 2, T: 2, S: 3, I: 3 };
+function cp_palavras_(s) { return vd_semAcento_(s).replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 2; }); }
+function cp_posicoes_(pal) { var o = {}; pal.forEach(function (w) { var c = CP_POSICAO[w]; if (c) o[CP_EIXO[c]] = c; }); return o; }
+function cp_fortes_(pal) { return pal.filter(function (w) { return w.length >= 3 && !CP_PAL_FRACA.test(w) && !CP_POSICAO[w]; }); }
+function cp_casaManual_(conh, p, usadas) {
+  if (p.pneu) return null;
+  var pal = cp_palavras_(p.descricao || p.descricaoOrc), fortes = cp_fortes_(pal), pos = cp_posicoes_(pal);
+  if (!fortes.length) return null;
+  var melhor = null, nota = -1;
+  (conh.an.pecas || []).forEach(function (c, i) {
+    if (!c.complemento || c.pneu || usadas[i]) return;
+    var cPal = cp_palavras_(c.descricao), cFortes = cp_fortes_(cPal), cPos = cp_posicoes_(cPal);
+    if (!cFortes.length || cFortes[0] !== fortes[0]) return;   // peça-base diferente (RADIADOR x CONDENSADOR)
+    var eixoDiferente = Object.keys(pos).some(function (e) { return cPos[e] && cPos[e] !== pos[e]; });
+    if (eixoDiferente) return;   // FAROL ESQUERDO x FAROL DIREITO
+    var comum = fortes.filter(function (w) { return cFortes.indexOf(w) >= 0; }).length;
+    var uniao = fortes.length + cFortes.length - comum;
+    var n = comum / uniao;   // 1 = mesmas palavras fortes
+    if (n >= 0.5 && n > nota) { nota = n; melhor = i; }
+  });
+  if (melhor === null) return null;
+  usadas[melhor] = 1;
+  return conh.an.pecas[melhor];
+}
+
+/** Separa o que é novo no orçamento: {oficina:[], fo:[], jaTinha:n, pareadas:[{card, orc, fo}]}. */
 function cp_comparar_(card, orc, excluirAnexo) {
   var conh = cp_conhecidas_(card, excluirAnexo);
-  var out = { oficina: [], fo: [], jaTinha: 0 }, vistos = {};
-  var junta = function (lista, destino) {
+  var out = { oficina: [], fo: [], jaTinha: 0, pareadas: [] }, vistos = {}, usadas = {};
+  var junta = function (lista, destino, ehFo) {
     (lista || []).forEach(function (p) {
       var k = cp_chaves_(p).join('|');
       if (vistos[k]) return; vistos[k] = 1;
       if (cp_jaTem_(conh, p)) { out.jaTinha++; return; }
+      var m = cp_casaManual_(conh, p, usadas);
+      if (m) { out.jaTinha++; out.pareadas.push({ card: cp_nome_(m), orc: cp_nome_(p), fo: !!ehFo }); return; }
       destino.push(p);
     });
   };
-  junta(orc.oficina, out.oficina);
-  junta(orc.fo, out.fo);
+  junta(orc.oficina, out.oficina, false);
+  junta(orc.fo, out.fo, true);
   return out;
 }
 
@@ -172,15 +206,19 @@ function cp_inserirNoBloco_(bloco, novas, nFo) {
 /** Nome curto da peça para comentário. */
 function cp_nome_(p) {
   return p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + (p.marca ? ' ' + p.marca : '')
-    : ((String(p.codigo || p.codigoOrc || '').replace(/\s+/g, '') + ' ').trim() + ' ' + String(p.descricao || '')).trim() + (p.qtd && +p.qtd > 1 ? ' (x' + p.qtd + ')' : '');
+    : ((String(p.codigo || p.codigoOrc || '').replace(/\s+/g, '') + ' ').trim() + ' ' + String(p.descricao || p.descricaoOrc || '')).trim() + (p.qtd && +p.qtd > 1 ? ' (x' + p.qtd + ')' : '');
 }
 
 /** Texto do comentário do complemento. */
-function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTipos) {
+function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTipos, pareadas) {
   var semTipo = novas.some(function (p) { return !(p.tipos || []).length; });
   var t = '📄 **ORÇAMENTO COMPLEMENTAR**' + (origem ? ' (' + origem + ')' : '') + (quem ? ' — ' + quem : ' — robô') + (jaTinha ? ' · ' + jaTinha + ' já estavam no card' : '');
   if (novas.length) t += '\n➕ **Oficina:** ' + novas.map(cp_nome_).join('; ') + (semTipo ? ' — _marcar o tipo_' : '');
   if (foNovas.length) t += '\n📦 **FO (' + CP.FO + '):** ' + foNovas.map(cp_nome_).join('; ');
+  // peça pedida antes (marcada ➕ COMPLEMENTO à mão) que o PDF confirmou: não entra de novo
+  (pareadas || []).forEach(function (x) {
+    t += '\n🔁 **Já pedida:** ' + x.card + ' = ' + x.orc + ' no complementar' + (x.fo ? ' — ⚠️ a seguradora vai FORNECER esta peça (no card está como peça da oficina): conferir' : '') + ' — não repetida';
+  });
   if (urlTipos && semTipo) t += '\n✏️ ' + urlTipos;
   return t;
 }
@@ -192,7 +230,7 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name', attachments: 'true', attachment_fields: 'name' } });
   var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, idAnexo || '');
-  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha };
+  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas };
 }
 
 /** Anexos que o formulário subiu num complemento: o robô não precisa ler de novo. */
@@ -279,7 +317,7 @@ function cp_aplicar_(card, cmp, o) {
   vd_gravarDesc_(card.id, bloco + (div.temMarcador ? '\n\n' + div.resto : '\n\n' + VD.MARCADOR), o.token);
   var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
   var url = o.ctx && o.ctx.urlForm ? o.ctx.urlForm + '?card=' + card.shortLink + '&so=tipos' : '';
-  try { vd_comentar_(card, (quem && cmp.oficina.length ? '@' + quem + ' ' : '') + cp_textoComentario_('', o.origem, o.anexo, cmp.oficina, cmp.fo, cmp.jaTinha, url)); } catch (e) {}
+  try { vd_comentar_(card, (quem && cmp.oficina.length ? '@' + quem + ' ' : '') + cp_textoComentario_('', o.origem, o.anexo, cmp.oficina, cmp.fo, cmp.jaTinha, url, cmp.pareadas)); } catch (e) {}
   try {
     ev_registrar_('COMPLEMENTO', card, o.quem || 'robô', cmp.oficina.map(ev_peca_).concat(cmp.fo.map(function (p) { var e = ev_peca_(p); e.fornecedor = 'SEGURADORA (FO)'; return e; })),
       { detalhe: cmp.oficina.length + ' oficina · ' + cmp.fo.length + ' FO · ' + (o.origem || '') });

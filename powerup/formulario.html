@@ -1611,10 +1611,11 @@ function importarComplemento(o, anexoId) {
     });
     var novas = (r.oficina || []).filter(function (p) { return !chavesItem(p).some(function (k) { return naTela.indexOf(k) >= 0; }); });
     novas.forEach(function (p) { p.complemento = true; p.particular = false; novoItem(p.pneu ? 'pneu' : 'peca', p); });
-    COMP = { origem: o.origem, fo: r.fo || [] };
+    COMP = { origem: o.origem, fo: r.fo || [], pareadas: r.pareadas || [] };
+    var pare = (r.pareadas || []).length ? '<br>🔁 Já pedida antes (marcada ➕ Complemento) e confirmada neste orçamento — não repetida: ' + r.pareadas.map(function (x) { return '<b>' + esc(x.card) + '</b> = ' + esc(x.orc) + (x.fo ? ' <span class="ruim">⚠️ no PDF a seguradora FORNECE esta peça — conferir</span>' : ''); }).join('; ') : '';
     if (!novas.length && !COMP.fo.length) {
-      COMP = null;
-      aviso.innerHTML = '📄 Orçamento ' + esc(o.origem) + ' lido: <b>nenhuma peça nova</b> — tudo o que está nele já está no card' + (r.jaTinha ? ' (' + r.jaTinha + ' peça(s))' : '') + '.';
+      if (!COMP.pareadas.length) COMP = null;
+      aviso.innerHTML = '📄 Orçamento ' + esc(o.origem) + ' lido: <b>nenhuma peça nova</b> — tudo o que está nele já está no card' + (r.jaTinha ? ' (' + r.jaTinha + ' peça(s))' : '') + '.' + pare + (COMP ? '<br>Clique em <b>Enviar</b> para registrar no card.' : '');
       return;
     }
     var h = '➕ <b>Orçamento complementar</b> (' + esc(o.origem) + '): ';
@@ -1625,6 +1626,7 @@ function importarComplemento(o, anexoId) {
         + COMP.fo.map(function (p) { return '<li>' + esc((p.codigo ? p.codigo + ' ' : '') + (p.pneu ? 'PNEU ' + p.medida + ' ' + p.marca : p.descricao) + (+p.qtd > 1 ? ' (x' + p.qtd + ')' : '')) + '</li>'; }).join('') + '</ul>';
     }
     if (r.jaTinha) h += '<br>' + r.jaTinha + ' peça(s) do orçamento já estavam no card e não foram repetidas.';
+    h += pare;
     if (POS && novas.length) h += '<br>ℹ️ Com peça nova, o card volta para EM COTAÇÃO para cotar só as peças novas.';
     h += '<br>Clique em <b>Enviar</b> para gravar.';
     aviso.innerHTML = h;
