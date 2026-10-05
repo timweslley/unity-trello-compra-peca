@@ -830,8 +830,11 @@ function vdf_salvarCotacao(token, p) {
   try { movido = vdf_moverPara_(card, ctx, cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token, me.username); } catch (e) {}
   try { vdf_etiquetaParcial_(card, cob.faltam.length > 0, token); } catch (e) {}
   try {
-    var quem = vd_criador_(card.id);
-    var mencoes = [quem].concat(an.pecas.map(function (x) { return x.partPor; })).filter(function (u, i, a) { return u && u !== me.username && a.indexOf(u) === i; });
+    // menciona o setor de compras (quem cuida do card daqui em diante), não o consultor (05/10/2026, Weslley);
+    // o consultor só é mencionado quando é ele quem autoriza (pedido particular / peças particulares dele)
+    var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).toLowerCase().split(/[,;\s]+/).filter(function (u) { return u && u !== String(me.username).toLowerCase(); })[0] || '';   // 1º da lista (comprasunity), como no AUTORIZADO
+    var quem = particular ? vd_criador_(card.id) : '';
+    var mencoes = [compr, quem].concat(an.pecas.map(function (x) { return x.partPor; })).filter(function (u, i, a) { return u && u !== String(me.username).toLowerCase() && a.indexOf(u) === i; });
     var nPc = Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length;
     var txt = mencoes.map(function (u) { return '@' + u + ' '; }).join('') + '💰 **COTAÇÃO** — ' + me.fullName + ' · ' + cots.length + ' cotação(ões) em ' + nPc + ' peça(s)' + (nt.length ? ' · ' + nt.length + ' NT' : '') + (movido ? ' → **' + movido + '**' : '');
     if (cob.faltam.length) txt += '\n⏳ **PARCIAL** — falta cotar ou justificar: ' + cob.faltam.join(', ');
