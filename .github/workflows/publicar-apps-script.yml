@@ -4,6 +4,10 @@
 # como ponto de restauração (artefato "apps-script-antes-...") e aborta se o projeto tiver
 # arquivos que não estão no repositório.
 # Requer o segredo CLASPRC_JSON (conteúdo do .clasprc.json gerado por `clasp login`).
+# PLANO B (GitHub Actions na fila/indisponível — aconteceu em 05/10/2026, 3 runs cancelados "not acquired by Runner"):
+#   no PC, logado no clasp como sistema@: baixar o ZIP do repositório (main), extrair, abrir PowerShell na pasta e
+#   npx.cmd @google/clasp@2.4.2 push -f
+#   npx.cmd @google/clasp@2.4.2 deploy -i <DEPLOY_ID abaixo> -d "manual <commit>"
 name: Publicar Apps Script
 on:
   push:
