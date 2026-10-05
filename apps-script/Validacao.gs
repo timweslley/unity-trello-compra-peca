@@ -447,11 +447,23 @@ function vd_definirCampo_(desc, rotuloRegex, rotulo, valor) {
 
 /** OCR de um blob (PDF/imagem) usando o Google Drive. Devolve texto. */
 function vd_ocr_(blob, nome) {
-  var arq = Drive.Files.create(
-    { name: 'vd_tmp_' + (nome || 'anexo'), mimeType: 'application/vnd.google-apps.document' },
-    blob,
-    { ocrLanguage: 'pt' }
-  );
+  // O Drive às vezes devolve "Internal Error" na conversão (05/10/2026, orçamento Soma de 3 páginas): tenta 3x,
+  // a última sem ocrLanguage. Só desiste depois disso.
+  var arq, ultimo;
+  for (var t = 0; t < 3 && !arq; t++) {
+    try {
+      arq = Drive.Files.create(
+        { name: 'vd_tmp_' + (nome || 'anexo'), mimeType: 'application/vnd.google-apps.document' },
+        blob,
+        t < 2 ? { ocrLanguage: 'pt' } : {}
+      );
+    } catch (e) {
+      ultimo = e;
+      if (!/internal|backend|rate|limit|timeout|try again|503|500/i.test(String((e && e.message) || e))) throw e;
+      Utilities.sleep(2000 * (t + 1));
+    }
+  }
+  if (!arq) throw ultimo;
   try {
     return DocumentApp.openById(arq.id).getBody().getText();
   } finally {
