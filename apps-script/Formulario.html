@@ -427,6 +427,7 @@
           <label>📎 Ler print ou PDF do fornecimento (portal da seguradora, "Status do Pedido" do Cilia ou orçamento com fornecedor/prazo)</label>
           <input type="file" id="fornArq" accept="application/pdf,image/*" onchange="lerFornecimento(this)">
           <div class="dica" style="margin-top:6px">Ao escolher o arquivo a leitura começa sozinha (10–40 s). Depois confira os campos preenchidos e clique em <b>Salvar fornecimento</b> no fim da página — o arquivo vai anexado no card.</div>
+          <div id="fornAnexos" class="dica" style="margin-top:6px"></div>
           <div id="fornLeitura" class="dica"></div>
         </div>
         <div id="fornItens"></div>
@@ -1172,6 +1173,9 @@ function enviarPrev(btn) {
 function baseFo(nome) { return String(nome || '').replace(/\s+[-—]\s+(EM COTA[ÇC][ÃA]O.*|B\.?O\.?\b.*)$/i, ''); }
 function montarFornecimento(c, itens) {
   var box = $('fornItens'); box.innerHTML = '';
+  // anexos que já estão no card (PDF/foto): lê sem subir de novo (05/10/2026)
+  var fa = $('fornAnexos'), ans = (c && c.anexos) || [];
+  if (fa) fa.innerHTML = ans.length ? '📎 <b>Já no card</b> (lê sem anexar de novo): ' + ans.map(function (a) { return esc(a.nome) + ' <a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false">ler</a>'; }).join(' · ') : '';
   if (!itens.length) { box.innerHTML = '<div class="dica">Este card não tem peça fornecida pela seguradora.</div>'; return; }
   var grupo = '';
   itens.forEach(function (it) {
@@ -1196,6 +1200,18 @@ function lerFornecimento(inp) {
   lerArquivo(f).then(function (b64) { return chamar('vdf_lerFornecimento', TOKEN, CARD_EDICAO, b64, f.type || 'application/octet-stream', f.name); }).then(function (r) {
     inp.value = '';
     if (r.fileId) FORN_ARQS.push(r.fileId);
+    aplicarLeituraForn(r, av, true);
+  }).catch(function (e) { av.className = 'alerta'; av.textContent = e.message; });
+}
+function lerFornecimentoAnexo(id) {
+  var a = ((CARD && CARD.anexos) || []).filter(function (x) { return x.id === id; })[0], av = $('fornLeitura');
+  if (!a || !CARD_EDICAO) return;
+  av.className = 'dica'; av.textContent = '⏳ Lendo "' + a.nome + '", que já está no card… (10–40 s)';
+  chamar('vdf_lerFornecimentoAnexo', TOKEN, CARD_EDICAO, id).then(function (r) { aplicarLeituraForn(r, av, false); })
+    .catch(function (e) { av.className = 'alerta'; av.textContent = e.message; });
+}
+function aplicarLeituraForn(r, av, anexa) {
+  {
     if (r.erro) { av.className = 'alerta'; av.textContent = r.erro; return; }
     var n = 0;
     (r.achados || []).forEach(function (a) {
@@ -1204,11 +1220,11 @@ function lerFornecimento(inp) {
       if (a.previsao) { it.querySelector('.f-prev').value = a.previsao; }
       if (a.fornecedor || a.previsao) { n++; it.style.boxShadow = '0 0 0 2px var(--verde)'; }
     });
-    var h = '<div class="aviso ' + (n ? 'ok' : 'info') + '" style="margin-top:8px">' + (n ? '✓ ' + n + ' peça(s) preenchida(s) pelo documento — confira e clique em <b>Salvar fornecimento</b> (o arquivo vai anexado no card).' : 'Li o documento, mas não achei fornecedor/prazo das peças deste card.') + '</div>';
+    var h = '<div class="aviso ' + (n ? 'ok' : 'info') + '" style="margin-top:8px">' + (n ? '✓ ' + n + ' peça(s) preenchida(s) pelo documento — confira e clique em <b>Salvar fornecimento</b>' + (anexa ? ' (o arquivo vai anexado no card).' : '.') : 'Li o documento, mas não achei fornecedor/prazo das peças deste card.') + '</div>';
     if ((r.faltando || []).length) h += '<div class="alerta">⚠️ NÃO APARECEM NO DOCUMENTO: ' + esc(r.faltando.join('; ')) + '</div>';
     if ((r.extras || []).length) h += '<div class="alerta">⚠️ O DOCUMENTO TEM ' + r.extras.length + ' PEÇA(S) A MAIS QUE O CARD: ' + esc(r.extras.join('; ')) + ' — O ORÇAMENTO ATUALIZADO (COMPLEMENTO) NÃO FOI ANEXADO. Anexe pelo ✏️ EDITAR/INCLUIR PEÇA.</div>';
     av.className = ''; av.innerHTML = h;
-  }).catch(function (e) { av.className = 'alerta'; av.textContent = e.message; });
+  }
 }
 function fornMotivo(inp) { var it = inp.closest('.item'); if (it.dataset.due && inp.value !== it.dataset.due) it.querySelector('.f-motivo').focus(); }
 function enviarFornecimento() {

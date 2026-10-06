@@ -360,6 +360,30 @@ function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   var arq = vdf_pastaTemp_().createFile(blob);
   var texto;
   try { texto = vd_ocr_(blob, nome); } catch (e) { return { fileId: arq.getId(), erro: 'Não consegui ler o arquivo (' + String(e.message || e).slice(0, 80) + ').' }; }
+  var out = pv_lerFornecimentoTexto_(card, texto);
+  out.fileId = arq.getId();
+  return out;
+}
+
+/** Aba 🚚 FORNECIMENTO: lê um anexo que JÁ está no card (05/10/2026, Weslley: "já está anexo, não se exige nova importação").
+ *  Mesmo retorno de vdf_lerFornecimento, com anexoId no lugar de fileId (nada é anexado de novo). */
+function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
+  vdf_usuario_(token);
+  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } });
+  var a = (card.attachments || []).filter(function (x) { return x.id === idAnexo; })[0];
+  if (!a) throw new Error('Esse anexo não está mais no card.');
+  if (!vd_anexoLegivel_(a)) throw new Error('Esse anexo não dá para ler (só PDF ou foto até 15 MB).');
+  var resp = qt_fetch_(a.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
+  if (resp.getResponseCode() >= 300) throw new Error('O Trello não entregou o arquivo "' + a.name + '". Tente de novo.');
+  var texto;
+  try { texto = vd_ocr_(resp.getBlob(), a.name); } catch (e) { return { anexoId: a.id, erro: 'Não consegui ler "' + a.name + '" (' + String(e.message || e).slice(0, 80) + ').' }; }
+  var out = pv_lerFornecimentoTexto_(card, texto);
+  out.anexoId = a.id;
+  return out;
+}
+
+/** Núcleo: texto do documento × itens FO do card -> {achados, faltando, extras, orcamento, lidos}. */
+function pv_lerFornecimentoTexto_(card, texto) {
   var itensFo = [];
   (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(i); }); });
   var foLista = []; try { foLista = fo_lista_(); } catch (e) {}
@@ -385,7 +409,7 @@ function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
     });
   }
   return {
-    fileId: arq.getId(), orcamento: !!orc.origem, lidos: achados.length,
+    orcamento: !!orc.origem, lidos: achados.length,
     achados: achados.map(function (r) { return { id: r.alvo.id, nome: r.alvo.nome, fornecedor: r.fornecedor, previsao: r.previsao ? Utilities.formatDate(new Date(r.previsao), 'America/Sao_Paulo', 'yyyy-MM-dd') : '' }; }),
     faltando: faltando, extras: extras.slice(0, 20)
   };
