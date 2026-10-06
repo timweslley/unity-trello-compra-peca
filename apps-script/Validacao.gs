@@ -124,8 +124,8 @@ function vd_acoesQuadro_(board, q) {
   try {
     if (vd_prop_('VD_ACOES_COMPARTILHADAS', 'SIM') === 'NAO') return direto();
     if (!VD_ACOES || VD_ACOES.board !== board) {
-      // janela: 20 min, ou desde a marca mais antiga dos módulos (quadro parado à noite: as marcas ficam para trás), até 6 h
-      var desdeMs = Date.now() - 20 * 60000, piso = Date.now() - 6 * 3600000;
+      // janela: 20 min, ou desde a marca mais antiga dos módulos (quadro parado à noite: as marcas ficam para trás), até 2 h
+      var desdeMs = Date.now() - 20 * 60000, piso = Date.now() - 2 * 3600000;   // janela maior que 2 h pesa o ciclo (1,5–5 s medidos em 06/10): marca mais velha vai direto
       ['TR_ACT', 'ST_ULTIMA', 'EXC_ULTIMA', 'FAT_ULTIMA', 'CP_ACT', 'NU_ACT', 'CK_DESDE'].forEach(function (n) {
         var v = vd_marca_(n), t = Date.parse(v);
         if (isNaN(t) && /^[0-9a-f]{24}$/i.test(String(v || ''))) t = parseInt(String(v).slice(0, 8), 16) * 1000 - 1000;   // id de ação: data embutida
