@@ -109,6 +109,9 @@ function vd_lerOrcamento_(texto) {
   var add = function (lista, codigo, desc, qtd, tipo, valor) {
     codigo = String(codigo || '').replace(/\s+/g, ' ').trim();
     desc = vd_limparDescricao_(desc);
+    // OCR do Cilia às vezes gruda o código na descrição ("100260230EMBLEMA DA GRADE"): separa (RHV1E04, 05/10/2026)
+    var mg = desc.match(/^(\d{6,})([A-Z].*)$/);
+    if (mg && (!codigo || vd_codigoInterno_(codigo.replace(/\s/g, '')))) { codigo = mg[1]; desc = mg[2].trim(); }
     var pneu = vd_pneuDaDescricao_(desc);
     if (!desc || vd_ehServico_(desc)) return;
     // código interno (000000x / SOMA00x) = peça sem código de fábrica: consultor completa pelo Cilia

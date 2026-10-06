@@ -108,6 +108,7 @@ function vdf_alterarPrevisao(token, p) {
 /** "CÓDIGO DESCRIÇÃO" de um item do FORNECIMENTO (tira fornecedor e situação do fim). */
 function pv_baseFo_(nome, lista) {
   var b = String(nome || '').replace(/\s+[-—]\s+(EM COTA[ÇC][ÃA]O.*|B\.?O\.?\b.*)$/i, '').trim();
+  b = b.replace(/^(\d{5,})(?=[A-Z])/i, '$1 ');   // código grudado na descrição (OCR do Cilia, 05/10/2026: "100260230EMBLEMA ...")
   var m = b.match(/^(.*\S)\s+-\s+([^-]+)$/);
   if (m) {
     var ult = m[2].trim();
@@ -247,6 +248,47 @@ function pv_fornecedor_(janela, lista) {
   return '';
 }
 
+/** Nome do fornecedor como a equipe escreve: com "/" fica só o que vem depois (antes é mediadora: INPART, PRISMATEC,
+ *  PLANETUN…); depois, o 1º trecho antes de " - " (MARAJO - FIAT - PR -> MARAJO; DUNA FIAT -> DUNA se o cadastro conhecer). */
+function pv_fornecedorCurto_(txt, lista) {
+  var t = vd_semAcento_(txt).replace(/\s+/g, ' ').trim();
+  if (t.indexOf('/') >= 0) t = t.split('/').pop().trim();
+  var seg = t.split(/\s+-\s+/)[0].trim().replace(/[^A-Z0-9 .&]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!seg) return '';
+  var r = fo_resolver_(seg, lista);
+  if (!r.novo) return r.nome;
+  var semMarca = seg.replace(/\s+(FIAT|VW|VOLKSWAGEN|GM|CHEVROLET|FORD|JEEP|RENAULT|HYUNDAI|TOYOTA|HONDA|NISSAN|PEUGEOT|CITROEN|BYD|MITSUBISHI|KIA|PR|SC|RS|SP|MG)$/, '');
+  if (semMarca !== seg) { var r2 = fo_resolver_(semMarca, lista); if (!r2.novo) return r2.nome; }
+  return r.nome;
+}
+
+/**
+ * "Status do Pedido" do Cilia (05/10/2026, RHV1E04): uma peça por bloco —
+ *   CÓDIGO   PEÇA   QTD   <2ª linha do fornecedor>   PREVISÃO (dd/mm/aa)
+ * com a 1ª linha do fornecedor ("MEDIADORA - PRISMATEC /") logo ACIMA da linha da peça. Devolve {codigo: {fornecedor, previsao}}.
+ */
+function pv_lerStatusCilia_(texto, lista) {
+  var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
+  if (!/STATUS DAS PECAS|PREVISAO DE ENTREGA/.test(U)) return null;
+  var linhas = U.split('\n'), out = {}, re = /^\s*(\d{5,})\s+(.+?)\s+(\d{1,3})\s+(.*?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s*$/;   // colunas com 1+ espaços (o OCR do Drive pode juntar)
+  var cab = /^(CODIGO|PECA|QTD|FORNECEDOR|PREVISAO|STATUS|EM COTACAO|AGUARDANDO|ENTREGUE|ULTIMA|RASTREAM|\d{1,2}\/\d{1,2}\/\d{2}\s*-)/;
+  for (var i = 0; i < linhas.length; i++) {
+    var m = linhas[i].match(re);
+    if (!m) continue;
+    var forn = m[4].trim(), acima = '';
+    for (var j = i - 1; j >= Math.max(0, i - 2); j--) {
+      var l = linhas[j].trim();
+      if (!l) continue;
+      if (/[A-Z]{3}/.test(l) && !cab.test(l) && !/\d{5,}/.test(l)) { acima = l; }
+      break;
+    }
+    if (acima) forn = (acima + ' ' + forn).replace(/\s+/g, ' ').trim();
+    var d = pv_datas_(m[5]);
+    out[cp_norm_(m[1])] = { fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '', previsao: d.length ? d[0].toISOString() : '', linha: linhas[i].trim().slice(0, 120) };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /**
  * Procura no texto as peças alvo (por código) e, perto de cada uma, fornecedor e previsão.
  * alvos = [{codigo, descricao, ...}] -> [{alvo, fornecedor, previsao(ISO), linha}]
@@ -255,6 +297,18 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
   lista = lista || (function () { try { return fo_lista_(); } catch (e) { return []; } })();
+  // layout "Status do Pedido" do Cilia: fornecedor em duas linhas e data na linha da peça — leitor próprio
+  var cilia = null; try { cilia = pv_lerStatusCilia_(texto, lista); } catch (e) { console.log('status cilia: ' + e); }
+  if (cilia) {
+    var outC = [];
+    (alvos || []).forEach(function (a) {
+      var k = cp_norm_(a.codigo || a.codigoOrc); if (k.length < 5) return;
+      var kd = (k.match(/^\d{5,}/) || [k])[0];   // código grudado na descrição ("100260230EMBLEMA"): só os dígitos
+      var r = cilia[k] || cilia[kd];
+      if (r) outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha });
+    });
+    if (outC.length) return outC;
+  }
   var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   var out = [];
   var recente = function (t) { return pv_datas_(t).filter(function (d) { return d >= new Date(hoje.getTime() - 60 * 864e5); }); };
