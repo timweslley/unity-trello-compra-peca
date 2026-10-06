@@ -13,5 +13,5 @@ window.PU_CFG = {
    * libera chamadas em paralelo também nas gravações. */
   SERVIDOR_RID: true,
   /* visual novo (tema "trello") em avaliação: só estes usuários veem; vazio = ninguém */
-  TEMA_TRELLO_USUARIOS: ['timweslley']
+  TEMA_TRELLO_USUARIOS: []   // 05/10/2026: visual arquivado — ninguém vê o tema; para testar de novo, pôr o usuário aqui
 };
