@@ -1608,9 +1608,10 @@ function importarComplemento(o, anexoId) {
       if (u.valorOrc) { var vi = el.querySelector('.f-valor-orc'); if (vi) { vi.value = fmtValor(u.valorOrc) || u.valorOrc; muda.push('orç. ' + fmtValor(u.valorOrc)); } }
       if (muda.length) { el.style.boxShadow = '0 0 0 2px var(--amarelo)'; atualizadas.push((el.querySelector('.f-desc') || {}).value + ': ' + muda.join(', ')); }
     });
-    COMP = { origem: o.origem, fo: r.fo || [], pareadas: r.pareadas || [], atualizar: r.atualizar || [] };
+    COMP = { origem: o.origem, fo: r.fo || [], pareadas: r.pareadas || [], atualizar: r.atualizar || [], paraOficina: r.paraOficina || [] };
     var pare = (r.pareadas || []).length ? '<br>🔁 Já pedida antes (marcada ➕ Complemento) e confirmada neste orçamento — não repetida: ' + r.pareadas.map(function (x) { return '<b>' + esc(x.card) + '</b> = ' + esc(x.orc) + (x.fo ? ' <span class="ruim">⚠️ no PDF a seguradora FORNECE esta peça — conferir</span>' : ''); }).join('; ') : '';
     var atuTxt = atualizadas.length ? '<br>🔄 Atualizadas pelo orçamento novo: ' + atualizadas.map(esc).join('; ') : '';
+    if (COMP.paraOficina.length) atuTxt += '<br>🔁 <b>Passou de fornecida para oficina</b> (entra como peça nova da oficina e sai do checklist FORNECIMENTO): ' + COMP.paraOficina.map(function (x) { return esc(x.peca); }).join('; ');
     if (!novas.length && !COMP.fo.length) {
       if (!COMP.pareadas.length && !atualizadas.length) COMP = null;
       aviso.innerHTML = '📄 Orçamento ' + esc(o.origem) + ' lido: <b>nenhuma peça nova</b> — tudo o que está nele já está no card' + (r.jaTinha ? ' (' + r.jaTinha + ' peça(s))' : '') + '.' + pare + atuTxt + (COMP ? '<br>Clique em <b>Enviar</b> para registrar no card.' : '');
@@ -1712,6 +1713,7 @@ function lerValorOrc(el) { var i = el.querySelector('.f-valor-orc'); return i ? 
 
 function marcarNao(id, sim) {
   var div = $(id); if (!div) return;
+  if (sim && div.dataset.comp === '1') { marcarComp(id, false); var cc = div.querySelector('.chip-comp input'); if (cc) cc.checked = false; }   // não comprar x complemento: um ou outro
   if (sim) div.dataset.nao = '1'; else { delete div.dataset.nao; }
   var ch = div.querySelector('.chip-nao'); if (ch) ch.classList.toggle('marcado', !!sim);
   var m = div.querySelector('.nao-motivo'); if (m) m.classList.toggle('oculto', !sim);
@@ -1719,6 +1721,7 @@ function marcarNao(id, sim) {
 }
 function marcarComp(id, sim) {
   var div = $(id); if (!div) return;
+  if (sim && div.dataset.nao === '1') { marcarNao(id, false); var cn = div.querySelector('.f-nao'); if (cn) cn.checked = false; }   // marcar complemento é pedir a compra: tira o 🚫 não comprar
   if (sim) { div.dataset.comp = '1'; if (!div.dataset.compData) div.dataset.compData = ''; } else { delete div.dataset.comp; delete div.dataset.compData; }
   var ch = div.querySelector('.chip-comp'); if (ch) ch.classList.toggle('marcado', !!sim);
 }

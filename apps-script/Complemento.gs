@@ -49,9 +49,13 @@ function cp_conhecidas_(card, excluirAnexo) {
   var chaves = {}, textos = [];
   var an = vd_analisar_(card.desc || '', card.name || '');
   an.pecas.forEach(function (p) { cp_chaves_(p).forEach(function (k) { chaves[k] = 1; }); });
+  var foItens = [];
   (card.checklists || []).forEach(function (k) {
     if (!/^(PAGAS|FORNECIMENTO)/i.test(String(k.name || '').trim())) return;
-    (k.checkItems || []).forEach(function (i) { textos.push(cp_norm_(i.name)); });
+    (k.checkItems || []).forEach(function (i) {
+      textos.push(cp_norm_(i.name));
+      if (/^FORNECIMENTO/i.test(String(k.name || '').trim())) foItens.push({ id: i.id, idChecklist: k.id, name: i.name, state: i.state, lista: String(k.name).trim().toUpperCase() });
+    });
   });
   // orçamentos anteriores (só os que já estão no cache): peça que o consultor tirou de propósito não volta
   (card.attachments || []).forEach(function (a) {
@@ -60,7 +64,7 @@ function cp_conhecidas_(card, excluirAnexo) {
     if (!o) return;
     o.oficina.concat(o.fo).forEach(function (p) { cp_chaves_(p).forEach(function (k) { chaves[k] = 1; }); });
   });
-  return { chaves: chaves, textos: textos, an: an };
+  return { chaves: chaves, textos: textos, an: an, foItens: foItens };
 }
 
 function cp_jaTem_(conh, p) {
@@ -116,7 +120,7 @@ function cp_comparar_(card, orc, excluirAnexo) {
   var conh = cp_conhecidas_(card, excluirAnexo);
   // atualizar: peça que o card já tem e o orçamento novo traz diferente — código novo (Weslley, 05/10/2026: "pode haver
   // mudança de código da peça, atualizar também") e/ou valor líquido novo. {chave, codigo, valorOrc, descricao}
-  var out = { oficina: [], fo: [], jaTinha: 0, pareadas: [], atualizar: [] }, vistos = {}, usadas = {};
+  var out = { oficina: [], fo: [], jaTinha: 0, pareadas: [], atualizar: [], paraOficina: [] }, vistos = {}, usadas = {};
   var pecasCard = conh.an.pecas || [];
   var porCodigo = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.codigo); if (k.length >= 4) porCodigo[k] = i; });
   var porDesc = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.descricao); if (k.length >= 4 && !c.pneu) porDesc[k] = i; });
@@ -146,6 +150,12 @@ function cp_comparar_(card, orc, excluirAnexo) {
           return;
         }
       }
+      // peça que ERA fornecida pela seguradora (checklist FORNECIMENTO, ainda não entregue) e o orçamento novo traz como
+      // peça da OFICINA (Weslley, 06/10/2026, QPG1B84): entra na lista da oficina (complemento) e sai do checklist FO
+      if (!ehFo && !p.pneu) {
+        var itFo = cp_foParaOficina_(conh, p);
+        if (itFo) { out.paraOficina.push({ item: itFo, peca: p }); destino.push(p); return; }
+      }
       if (cp_jaTem_(conh, p)) {
         // FO: já está no checklist pelo código. Com código diferente e descrição conhecida, segue para o checklist,
         // que atualiza o item existente (código/descrição) em vez de repetir — vdf_checklistFornecimento_
@@ -160,6 +170,28 @@ function cp_comparar_(card, orc, excluirAnexo) {
   junta(orc.oficina, out.oficina, false);
   junta(orc.fo, out.fo, true);
   return out;
+}
+
+/**
+ * Item do checklist FORNECIMENTO (não entregue) que é a mesma peça de `p` (código igual ou descrição parecida),
+ * desde que a peça NÃO esteja na lista da oficina nem marcada 🚫 não comprar (aí o consultor já decidiu). null se não há.
+ */
+function cp_foParaOficina_(conh, p) {
+  var kc = cp_norm_(p.codigo || p.codigoOrc), desc = p.descricao || p.descricaoOrc || '';
+  var naLista = (conh.an.pecas || []).concat(conh.an.naoComprar || []).some(function (c) {
+    return (kc.length >= 4 && cp_norm_(c.codigo) === kc) || (!c.pneu && cp_similar_(desc, c.descricao) > 0);
+  });
+  if (naLista) return null;
+  var cands = (conh.foItens || []).filter(function (i) { return i.state !== 'complete'; });
+  var porCod = kc.length >= 4 ? cands.filter(function (i) { return cp_norm_(i.name).indexOf(kc) >= 0; })[0] : null;
+  if (porCod) return porCod;
+  var melhor = null, nota = 0;
+  cands.forEach(function (i) {
+    var base = String(i.name).replace(/^[A-Z0-9][A-Z0-9.\-\/]{3,}\s+/i, '').split(/\s+[-—]\s+/)[0];
+    var n = cp_similar_(desc, base);
+    if (n > nota) { nota = n; melhor = i; }
+  });
+  return melhor;
 }
 
 /** Troca o código antigo pelo novo no texto abaixo do marcador (cotações, autorizações, compras), palavra inteira. */
@@ -277,7 +309,7 @@ function cp_nome_(p) {
 }
 
 /** Texto do comentário do complemento. */
-function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTipos, pareadas, atualizadas) {
+function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTipos, pareadas, atualizadas, paraOficina) {
   var semTipo = novas.some(function (p) { return !(p.tipos || []).length; });
   var t = '📄 **ORÇAMENTO COMPLEMENTAR**' + (origem ? ' (' + origem + ')' : '') + (quem ? ' — ' + quem : ' — robô') + (jaTinha ? ' · ' + jaTinha + ' já estavam no card' : '');
   if (novas.length) t += '\n➕ **Oficina:** ' + novas.map(cp_nome_).join('; ') + (semTipo ? ' — _marcar o tipo_' : '');
@@ -285,6 +317,9 @@ function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTi
   // peça pedida antes (marcada ➕ COMPLEMENTO à mão) que o PDF confirmou: não entra de novo
   (pareadas || []).forEach(function (x) {
     t += '\n🔁 **Já pedida:** ' + x.card + ' = ' + x.orc + ' no complementar' + (x.fo ? ' — ⚠️ a seguradora vai FORNECER esta peça (no card está como peça da oficina): conferir' : '') + ' — não repetida';
+  });
+  (paraOficina || []).forEach(function (x) {
+    t += '\n🔁 **Passou para a oficina:** ' + cp_nome_(x.peca) + ' — era fornecida pela seguradora (' + String(x.item.name).split(/\s+[-—]\s+/)[0] + '), saiu do checklist ' + (x.item.lista || 'FORNECIMENTO') + ' · verificar compra do item';
   });
   (atualizadas || []).forEach(function (u) {
     t += '\n🔄 **Atualizada:** ' + (u.codigoAntigo || u.chave) + (u.codigo ? ' → código ' + u.codigo : '') + (u.valorOrc ? ' · orç. ' + u.valorOrc : '');
@@ -300,7 +335,7 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name', attachments: 'true', attachment_fields: 'name' } });
   var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, idAnexo || '');
-  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [] };
+  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };
 }
 
 /** Anexos que o formulário subiu num complemento: o robô não precisa ler de novo. */
@@ -391,10 +426,14 @@ function cp_aplicar_(card, cmp, o) {
   if ((cmp.atualizar || []).some(function (u) { return u.codigo; })) { try { vd_pkSet_(card.id, vd_linhasConsultor_(blocoAtu).map(vd_sigItem_)); } catch (e) {} }
   var bloco = cp_inserirNoBloco_(blocoAtu, cmp.oficina, nFoTotal);
   vd_backup_(card, 'orçamento complementar (' + (o.origem || '') + ')');
+  // peça que passou de FO para oficina: sai do checklist FORNECIMENTO (a linha da oficina já entrou acima)
+  (cmp.paraOficina || []).forEach(function (x) {
+    try { vd_api_('/cards/' + card.id + '/checkItem/' + x.item.id, { method: 'delete' }, o.token); } catch (e) { console.log('complemento/FO→oficina: ' + e); }
+  });
   vd_gravarDesc_(card.id, bloco + (div.temMarcador ? '\n\n' + resto : '\n\n' + VD.MARCADOR), o.token);
   var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
   var url = o.ctx && o.ctx.urlForm ? o.ctx.urlForm + '?card=' + card.shortLink + '&so=tipos' : '';
-  try { vd_comentar_(card, (quem && cmp.oficina.length ? '@' + quem + ' ' : '') + cp_textoComentario_('', o.origem, o.anexo, cmp.oficina, cmp.fo, cmp.jaTinha, url, cmp.pareadas, cmp.atualizar)); } catch (e) {}
+  try { vd_comentar_(card, (quem && cmp.oficina.length ? '@' + quem + ' ' : '') + cp_textoComentario_('', o.origem, o.anexo, cmp.oficina, cmp.fo, cmp.jaTinha, url, cmp.pareadas, cmp.atualizar, cmp.paraOficina)); } catch (e) {}
   try {
     ev_registrar_('COMPLEMENTO', card, o.quem || 'robô', cmp.oficina.map(ev_peca_).concat(cmp.fo.map(function (p) { var e = ev_peca_(p); e.fornecedor = 'SEGURADORA (FO)'; return e; })),
       { detalhe: cmp.oficina.length + ' oficina · ' + cmp.fo.length + ' FO · ' + (o.origem || '') });

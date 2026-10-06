@@ -1284,7 +1284,8 @@ function vdf_salvar(token, p) {
   (p.pecas || []).forEach(function (x, i) {
     if (x.complemento && !x.particular) { pecas[i].complemento = true; pecas[i].compData = String(x.compData || '').match(/^\d{1,2}\/\d{1,2}$/) ? x.compData : cp_hoje_(); }
     // "não comprar" (05/10/2026): peça do orçamento que a oficina não vai comprar — fica só de registro no card
-    if (x.naoComprar) { pecas[i].naoComprar = true; pecas[i].naoMotivo = String(x.naoMotivo || '').replace(/\s*\n\s*/g, ' ').trim().slice(0, 80); }
+    // 🚫 não comprar e ➕ complemento não convivem: marcar complemento é pedir a compra (QPG1B84, 06/10/2026)
+    if (x.naoComprar && !(x.complemento && !x.particular)) { pecas[i].naoComprar = true; pecas[i].naoMotivo = String(x.naoMotivo || '').replace(/\s*\n\s*/g, ' ').trim().slice(0, 80); }
     // valor líquido da peça no orçamento (lido do PDF ou digitado): informativo, livre para editar, não trava (05/10/2026)
     pecas[i].valorOrc = vd_valorOrcTxt_(x.valorOrc);
   });
@@ -1510,9 +1511,12 @@ function vdf_salvar(token, p) {
   var compOf = pecas.filter(function (x) { return x.complemento && x.compData === cp_hoje_() && (!posCot || an.novas.some(function (nv) { return vd_chavePeca_(nv) === vd_chavePeca_(x); })); });
   if (comp) {
     try { cp_marcarVistos_(idsSubidos); } catch (e) {}
-    if (compOf.length || nFoComp || (comp.pareadas || []).length) {
+    // peça que passou de FO para oficina (06/10/2026): sai do checklist FORNECIMENTO (a linha da oficina já está no bloco)
+    var paraOf = (comp.paraOficina || []).filter(function (x) { return x && x.itemId; });
+    paraOf.forEach(function (x) { try { vd_api_('/cards/' + card.id + '/checkItem/' + x.itemId, { method: 'delete' }, token); } catch (e) { console.log('FO→oficina: ' + e); } });
+    if (compOf.length || nFoComp || (comp.pareadas || []).length || paraOf.length) {
       try {
-        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: cp_textoComentario_(me.fullName, comp.origem || '', '', compOf, compFo.slice(0, nFoComp ? compFo.length : 0), 0, '', comp.pareadas || []) } }, token);
+        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: cp_textoComentario_(me.fullName, comp.origem || '', '', compOf, compFo.slice(0, nFoComp ? compFo.length : 0), 0, '', comp.pareadas || [], [], paraOf.map(function (x) { return { item: { name: x.nome || '', lista: x.lista || '' }, peca: { descricao: x.peca || '' } }; })) } }, token);
       } catch (e) {}
       try { ev_registrar_('COMPLEMENTO', card, me.username, compOf.map(ev_peca_).concat(compFo.map(function (x) { var e = ev_peca_(x); e.fornecedor = 'SEGURADORA (FO)'; return e; })), { detalhe: compOf.length + ' oficina · ' + nFoComp + ' FO · ' + (comp.origem || '') }); } catch (e) {}
     }
