@@ -209,8 +209,19 @@ function vdf_atualizarFornecimento(token, p) {
       evs.push({ peca: base, previsao: d, detalhe: 'FO NOVA (portal)' });
     });
   }
+  var anexosCard = (p.fileIds || []).length ? ax_anexos_(card.id, token) : [];
   (p.fileIds || []).forEach(function (fid) {
-    try { var f = vdf_arquivoTemp_(fid); vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: f.getBlob(), name: '🚚 FO — ' + f.getName() } }, token); f.setTrashed(true); } catch (e) {}
+    try {
+      var f = vdf_arquivoTemp_(fid);
+      var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: f.getBlob(), name: '🚚 FO — ' + f.getName() } }, token);
+      // nome padronizado "🚚 FO · PLACA · Status do Pedido Cilia · dd/MM" (v2, v3… quando entra outro) — 05/10/2026
+      if (at && at.id) {
+        var nm = f.getName(), doc = /status/i.test(nm) ? 'Status do Pedido Cilia' : /hdi/i.test(nm) ? 'HDI' : /soma/i.test(nm) ? 'Websoma' : '';
+        at.name = ax_batizar_(card.id, at.id, ax_nome_(AX.FO, ax_placa_(card), [doc]), anexosCard, token);
+        anexosCard.push({ id: at.id, name: at.name, date: new Date().toISOString() });
+      }
+      f.setTrashed(true);
+    } catch (e) { console.log('anexo FO: ' + e); }
   });
   pv_dueCard_(card.id, token);
   try { fo_registrarUso_(forns, me.username); } catch (e) {}

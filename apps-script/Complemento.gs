@@ -359,10 +359,13 @@ function cp_executar_() {
 /** Lê UM anexo novo; se for orçamento da mesma placa com peças novas, aplica o complemento. */
 function cp_doAnexo_(c, a, ctx) {
   var r = vd_lerAnexoTrello_(a, { orcCompleto: true });
-  if (!r || r.erro || !r.orcamento) return false;
+  if (!r || r.erro) return false;
   var card = vd_api_('/cards/' + c.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name', attachments: 'true', attachment_fields: 'name' } });
   var an = vd_analisar_(card.desc || '', card.name);
   var lp = vd_linhasPecas_(an.div.bloco);
+  // nome padronizado para o anexo subido à mão (05/10/2026): orçamento (complementar se o card já tem peças) ou Status do Pedido
+  ax_batizarLido_(card, a, r, !!(lp.linhas.length || (card.attachments || []).some(function (x) { return String(x.name || '').indexOf(AX.ORC + AX.SEP) === 0; })));
+  if (!r.orcamento) return false;
   if (!lp.linhas.length && !lp.semOficina) return false;   // card sem lista: a importação normal cuida
   var placa = an.dados.placa;
   if (!placa || !(r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) return false;

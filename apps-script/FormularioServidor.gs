@@ -154,7 +154,7 @@ function vdf_abrir(token, shortLink) {
     req('/boards/' + b + '/labels?fields=name,color&limit=100'),
     req('/boards/' + b + '/lists?fields=name&filter=all')
   ];
-  if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due&attachments=true&attachment_fields=name,mimeType,isUpload,bytes,url&customFieldItems=true'));
+  if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due&attachments=true&attachment_fields=name,fileName,mimeType,isUpload,bytes,url&customFieldItems=true'));
   var rs = qt_fetchAll_(reqs);
   if (rs[0].getResponseCode() >= 300) throw new Error('LOGIN: seu acesso ao Trello expirou. Entre de novo.');
   for (var i = 1; i < rs.length; i++) {
@@ -300,7 +300,7 @@ function vdf_gravarUnidade_(card, idOpcao) {
 function vdf_carregarCard(token, shortLink) {
   var me = vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
-  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url', customFieldItems: 'true' } });
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url', customFieldItems: 'true' } });
   if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
   var lista = vd_api_('/lists/' + c.idList, { query: { fields: 'name' } }).name;
   return vdf_montarCard_(c, lista, me);
@@ -379,7 +379,7 @@ function vdf_partesTitulo_(nome, dados) {
 function vdf_anexosDoCard_(attachments) {
   var props = PropertiesService.getScriptProperties();
   return (attachments || []).filter(vd_anexoLegivel_).map(function (a) {
-    return { id: a.id, nome: a.name, bytes: a.bytes || 0, pdf: /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || ''), lido: !!props.getProperty('VD_ANX3_' + a.id) };
+    return { id: a.id, nome: a.name, arquivo: a.fileName || a.name, bytes: a.bytes || 0, pdf: /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || ''), lido: !!props.getProperty('VD_ANX3_' + a.id) };
   });
 }
 
@@ -387,7 +387,7 @@ function vdf_anexosDoCard_(attachments) {
 function vdf_lerAnexoCard(token, shortLink, idAnexo, placa) {
   vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
-  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } });
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url' } });
   if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
   var a = (c.attachments || []).filter(function (x) { return x.id === idAnexo; })[0];
   if (!a) throw new Error('Esse anexo não está mais no card.');
@@ -1458,13 +1458,17 @@ function vdf_salvar(token, p) {
   // anexos que já estão no card (mesmo nome e tamanho) não sobem de novo
   var jaNoCard = [];
   if (p.shortLink && (p.fileIds || []).length) {
-    try { jaNoCard = vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,bytes' } }, token); } catch (e) {}
+    try { jaNoCard = vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,fileName,bytes,date,isUpload' } }, token); } catch (e) {}
   }
+  // o que o formulário sabe de cada arquivo (tipo: 'orc' | 'orc+' | 'capa' | ''; origem: Cilia/HDI/Websoma) — nome padronizado (05/10/2026)
+  var infoArq = {};
+  (p.arquivos || []).forEach(function (x) { if (x && x.fileId) infoArq[x.fileId] = x; });
   (p.fileIds || []).forEach(function (fid) {
     try {
       var f = vdf_arquivoTemp_(fid);
       var ehCapa = p.capaId && fid === p.capaId;
-      if (!ehCapa && jaNoCard.some(function (a) { return a.name === f.getName() && +a.bytes === f.getSize(); })) {
+      // o nome do anexo no Trello pode ter sido padronizado: compara pelo nome ORIGINAL do arquivo (fileName) e tamanho
+      if (!ehCapa && jaNoCard.some(function (a) { return (a.fileName || a.name) === f.getName() && +a.bytes === f.getSize(); })) {
         repetidos.push(f.getName()); f.setTrashed(true); return;
       }
       var mp = { file: f.getBlob(), name: f.getName() };
@@ -1472,6 +1476,15 @@ function vdf_salvar(token, p) {
       var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: mp }, token);
       if (at && at.id) idsSubidos.push(at.id);
       if (ehCapa && at && at.id) { try { vd_api_('/cards/' + card.id, { method: 'put', payload: { idAttachmentCover: at.id } }, token); capaOk = true; } catch (e2) {} }
+      if (at && at.id) {
+        try {
+          var inf = infoArq[fid] || {}, ehImg = /^image\//i.test(f.getMimeType() || '') || /\.(jpe?g|png|webp|gif)$/i.test(f.getName());
+          var nomeAx = ehCapa ? ax_nome_(AX.FOTO, d.placa, ['capa'])
+            : inf.tipo === 'orc' || inf.tipo === 'orc+' ? ax_nome_(inf.tipo === 'orc+' ? AX.ORC_MAIS : AX.ORC, d.placa, [extra.seguradora !== 'PARTICULAR' ? extra.seguradora : '', ax_origem_(inf.origem || extra.origemOrc)])
+            : ehImg ? ax_nome_(AX.FOTO, d.placa, []) : '';
+          if (nomeAx) { at.name = ax_batizar_(card.id, at.id, nomeAx, jaNoCard, token, { semVersao: ehCapa || ehImg }); jaNoCard.push({ id: at.id, name: at.name, date: new Date().toISOString() }); }
+        } catch (e3) { console.log('nome do anexo: ' + e3); }
+      }
       f.setTrashed(true);
       anexados++;
     } catch (e) {}
@@ -1503,7 +1516,7 @@ function vdf_salvar(token, p) {
   // confere na hora
   var acao = '';
   try {
-    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } });
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url' } });
     var props = PropertiesService.getScriptProperties();
     if (posCot) {
       if (novasPecas.length) {

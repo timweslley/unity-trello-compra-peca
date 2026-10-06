@@ -614,6 +614,8 @@ function vd_lerAnexoTrello_(a, opt) {
       r = vd_extrair_(texto);
       var orc = vd_lerOrcamento_(texto);
       r.cor = orc.cor; r.seguradora = orc.seguradora; r.sinistro = orc.sinistro; r.orcamento = orc.origem;
+      // tipo do documento para o nome padronizado do anexo (05/10/2026): "Status do Pedido" do Cilia = fornecimento
+      if (!orc.origem && /STATUS DO PEDIDO|PREVISAO DE ENTREGA/.test(vd_normTexto_(texto))) r.doc = 'FO';
       if (orc.origem) {
         try { if (pv_enriquecerFo_(texto, orc.fo)) r.foi = orc.fo.filter(function (x) { return x.fornecedor || x.previsao; }).map(function (x) { return [x.codigo || '', x.fornecedor || '', x.previsao || '']; }); } catch (e) {}
         r.orc = { o: vd_orcCompacto_(orc.oficina), f: vd_orcCompacto_(orc.fo) }; orcFull = orc;
@@ -655,7 +657,7 @@ function vd_placaDosAnexos_(card, prazo) {
 }
 
 /** Lê os anexos do card (com cache) e devolve os dados achados que batem com a placa. */
-function vd_lerAnexosCard_(card, placa, prazo) {
+function vd_lerAnexosCard_(card, placa, prazo, batizar) {
   var anexos = (card.attachments || []).filter(vd_anexoLegivel_).slice(0, VD.MAX_ANEXOS_CARD);
 
   var achados = [];
@@ -663,6 +665,8 @@ function vd_lerAnexosCard_(card, placa, prazo) {
     if (Date.now() > prazo) break;
     var r = vd_lerAnexoTrello_(anexos[i]);
     if (!r) continue;
+    // orçamento/Status do Pedido subido à mão: ganha o nome padronizado ("📄 ORÇ · PLACA · …", 05/10/2026)
+    if (batizar && card.id && !anexos[i]._batizado) { anexos[i]._batizado = true; ax_batizarLido_(card, anexos[i], r, false); }
     r.anexo = anexos[i].name;
     achados.push(r);
   }
@@ -1165,7 +1169,7 @@ function vd_conferirCard_(card, ctx) {
 
   // dados do carro pelos anexos (não mexe em card que voltou só por peça nova)
   if (!base && d.placa && (card.attachments || []).length && Date.now() < ctx.prazo) {
-    lido = vd_lerAnexosCard_(card, d.placa, ctx.prazo);
+    lido = vd_lerAnexosCard_(card, d.placa, ctx.prazo, ctx.modoAtivo);
     var novaDesc = card.desc || '';
     var origem = [];
     var poe = function (cond, valor, rotRe, rot, nomeCampo) {

@@ -1538,7 +1538,7 @@ function subirCapa() {
 
 var ANEXOS_LIDOS = {};   // id do anexo do card -> true (já lido nesta tela)
 function anexoDoCard(f) {
-  return CARD && CARD_EDICAO && (CARD.anexos || []).filter(function (a) { return a.nome === f.name && +a.bytes === f.size; })[0];
+  return CARD && CARD_EDICAO && (CARD.anexos || []).filter(function (a) { return (a.arquivo || a.nome) === f.name && +a.bytes === f.size; })[0];
 }
 function mostrarAnexosCard(c) {
   var ans = (c && c.anexos) || [];
@@ -1596,7 +1596,9 @@ function lerDocumentoUm(f, dica) {
   dica.textContent = 'Lendo "' + f.name + '"… (pode levar alguns segundos)'; dica.className = 'dica';
   return lerArquivo(f).then(function (b64) {
     return chamar('vdf_lerDocumento', TOKEN, b64, f.type || 'application/octet-stream', f.name, normPlaca($('placa').value)).then(function (r) {
-      FILE_IDS.push(r.fileId); ANEXOS.push({ nome: f.name, fileId: r.fileId }); listarAnexos();
+      // tipo do arquivo para o nome padronizado no card (05/10/2026): orçamento, complementar ou outro
+      var tipoArq = r.orcamento ? (CARD_EDICAO && CARD && (CARD.pecas || []).length ? 'orc+' : 'orc') : '';
+      FILE_IDS.push(r.fileId); ANEXOS.push({ nome: f.name, fileId: r.fileId, tipo: tipoArq, origem: r.orcamento ? r.orcamento.origem : '' }); listarAnexos();
       aplicarLeitura(r, dica, ' O arquivo será anexado ao card.');
     });
   }).catch(function (e) { dica.textContent = e.message; dica.className = 'dica ruim'; });
@@ -1890,6 +1892,7 @@ function coletar() {
     faltas: faltas,
     payload: {
       shortLink: CARD_EDICAO || '', dados: d, pecas: pecas, obs: $('obs').value, fileIds: FILE_IDS, capaId: CAPA_ID,
+      arquivos: ANEXOS.map(function (a) { return { fileId: a.fileId, tipo: a.capa ? 'capa' : (a.tipo || ''), origem: a.origem || '' }; }),
       novo: { tipo: modoMisto() ? 'SEGURADORA' : tipoPedido(), carro: $('carro').value, cor: $('cor').value, seguradora: $('seguradora').value, sinistro: $('sinistro').value, unidade: $('unidade').value },
       orcamento: ORC,
       complemento: COMP

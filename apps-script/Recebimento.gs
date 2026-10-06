@@ -83,13 +83,26 @@ function vdf_salvarRecebimento(token, p) {
 
   // anexos: nome diz a quais peças se referem
   var nAnexos = 0, nomesAnexos = [];
+  var anexosCard = anexos.length ? ax_anexos_(card.id, token) : [], placaCard = ax_placa_(card);
+  var foLista = []; try { foLista = fo_lista_(); } catch (e) {}
   anexos.forEach(function (a) {
     try {
       var f = vdf_arquivoTemp_(a.fileId);
       var refs = (a.ids || []).map(function (id) { return porId[id] ? String(porId[id].nome).split(/\s+-\s+/)[0] : ''; }).filter(String);
-      var tipo = /pdf|xml/i.test(f.getMimeType() || '') || /\.(pdf|xml)$/i.test(f.getName()) ? 'NF' : 'Foto';
-      var nome = '📦 ' + tipo + (refs.length ? ' — ' + refs.join(', ').slice(0, 120) : '') + ' — ' + f.getName();
-      vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: f.getBlob(), name: nome } }, token);
+      // fornecedor das peças marcadas (sufixo " - FORNECEDOR" do item), para o nome do anexo
+      var forns = [];
+      (a.ids || []).forEach(function (id) {
+        if (!porId[id]) return;
+        var nm = String(porId[id].nome), fo = nm.slice(pv_baseFo_(nm, foLista).length).replace(/^\s+-\s+/, '').split(/\s+[-—]\s+/)[0].trim();
+        if (fo && !/\d{4,}/.test(fo) && forns.indexOf(fo) < 0) forns.push(fo);
+      });
+      var ehNf = /pdf|xml/i.test(f.getMimeType() || '') || /\.(pdf|xml)$/i.test(f.getName());
+      // nome padronizado (05/10/2026): "📦 NF 12345 · PLACA · MARAJO · dd/MM" / "📸 · PLACA · recebimento · dd/MM"
+      var nome = ehNf
+        ? ax_nome_(AX.NF + (function () { var n = ax_numeroNf_(f); return n ? ' ' + n : ''; })(), placaCard, [forns.join(', ') || refs.slice(0, 2).join(', ')])
+        : ax_nome_(AX.FOTO, placaCard, ['recebimento', forns.join(', ') || refs.slice(0, 2).join(', ')]);
+      var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: f.getBlob(), name: nome } }, token);
+      if (at && at.id) { nome = ax_batizar_(card.id, at.id, nome, anexosCard, token, { semVersao: !ehNf, nomeAtual: nome }); anexosCard.push({ id: at.id, name: nome, date: new Date().toISOString() }); }
       f.setTrashed(true);
       nAnexos++; nomesAnexos.push(nome);
     } catch (e) { console.log('recebimento/anexo: ' + e); }
