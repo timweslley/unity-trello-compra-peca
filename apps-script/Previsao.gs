@@ -149,7 +149,7 @@ function vdf_atualizarFornecimento(token, p) {
   var foLista = []; try { foLista = fo_lista_(); } catch (e) {}
   var itensFo = [];
   (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { i._lista = String(k.name).trim().toUpperCase(); itensFo.push(i); }); });
-  var faltas = [], ops = [], linhas = [], evs = [], forns = [];
+  var faltas = [], ops = [], linhas = [], evs = [], forns = [], avisos = [];
   var nomeNovo = function (base, x) {
     var forn = x.fornecedor ? fo_resolver_(x.fornecedor, foLista).nome : '';
     if (forn) forns.push(forn);
@@ -176,9 +176,13 @@ function vdf_atualizarFornecimento(token, p) {
     if (x.previsao) {
       var nova = pv_data_(x.previsao), velha = it.due || '';
       if (!nova) return faltas.push(pv_curto_(it.name) + ': data inválida');
-      if (!pv_mesmoDia_(nova, velha)) {
+      if (it.state === 'complete' && velha) {
+        // peça já recebida com data: a previsão fica como está (fornecedor/código ainda atualizam) — 06/10/2026
+        if (!pv_mesmoDia_(nova, velha)) avisos.push(pv_curto_(it.name) + ': já recebida — previsão ' + vd_dataCurta_(velha) + ' mantida (o documento traz ' + vd_dataCurta_(nova) + ')');
+      } else if (!pv_mesmoDia_(nova, velha)) {
         var motivo = String(x.motivo || '').trim() || (rotina ? 'portal da seguradora' : '');
-        if (velha && !motivo) return faltas.push(pv_curto_(it.name) + ': escreva o motivo da mudança de previsão');
+        var adiou = !!velha && pv_diaNum_(nova) > pv_diaNum_(velha);   // só previsão que fica para DEPOIS pede motivo
+        if (adiou && !motivo) return faltas.push(pv_curto_(it.name) + ': a previsão ficou para depois (' + vd_dataCurta_(velha) + ' → ' + vd_dataCurta_(nova) + ') — escreva o motivo');
         mud.due = nova;
         txt.push('prev. ' + (velha ? vd_dataCurta_(velha) + ' → ' : '') + '**' + vd_dataCurta_(nova) + '**' + (velha && motivo ? ' (' + motivo + ')' : ''));
       }
@@ -193,7 +197,7 @@ function vdf_atualizarFornecimento(token, p) {
   var jaTem = itensFo.map(function (i) { return cp_norm_(i.name); });
   novos = novos.filter(function (x) { var k = cp_norm_(x.codigo) || cp_norm_(x.descricao); return k && !jaTem.some(function (n) { return n.indexOf(k) >= 0; }); });
   if (faltas.length) return { ok: false, faltas: faltas };
-  if (!ops.length && !novos.length && !(p.fileIds || []).length) return { ok: true, nada: true, url: card.shortUrl, nome: card.name, n: 0 };
+  if (!ops.length && !novos.length && !(p.fileIds || []).length) return { ok: true, nada: true, url: card.shortUrl, nome: card.name, n: 0, avisos: avisos };
 
   ops.forEach(function (o) { vd_api_('/cards/' + card.id + '/checkItem/' + o.it.id, { method: 'put', payload: o.mud }, token); });
   if (novos.length) {
@@ -231,8 +235,11 @@ function vdf_atualizarFornecimento(token, p) {
   var movidoF = '';
   try { movidoF = rc_reavaliarColuna_(card.id, token, me.username); } catch (e) { console.log('fornecimento/coluna: ' + e); }   // FO entregue fecha; FO nova reabre
   try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, url: card.shortUrl, nome: card.name, n: ops.length + novos.length, lista: movidoF || undefined };
+  return { ok: true, url: card.shortUrl, nome: card.name, n: ops.length + novos.length, lista: movidoF || undefined, avisos: avisos };
 }
+
+/** Dia como número aaaammdd (fuso de São Paulo), para saber se uma previsão ficou para antes ou para depois. */
+function pv_diaNum_(d) { try { return +Utilities.formatDate(new Date(d), 'America/Sao_Paulo', 'yyyyMMdd'); } catch (e) { return 0; } }
 
 
 /* ---------- leitura de documento de fornecimento (print/PDF do portal ou orçamento com fornecedor e prazo) ---------- */

@@ -50,7 +50,8 @@ function chamar(fn) {
       if (fim) return;
       if (disparadas < maxTent) { if (paralelo || falhas >= disparadas) disparar(); return; }
       if (falhas >= disparadas) {
-        erroFinal(leitura ? 'Sem conexão com o servidor. Tente de novo.'
+        erroFinal(longa ? 'O servidor do Google falhou ao ler o documento (3 tentativas). Espere um instante e tente de novo.'
+          : leitura ? 'Sem conexão com o servidor. Tente de novo.'
           : 'O servidor não confirmou a gravação. Confira o card antes de repetir — repetir é seguro, o sistema não grava duas vezes.');
       }
     }
@@ -81,7 +82,8 @@ function chamar(fn) {
       }, espera));
     }
     relogios.push(setTimeout(function () {
-      erroFinal(leitura ? 'Sem conexão com o servidor. Tente de novo.'
+      erroFinal(longa && leitura ? 'O servidor do Google não terminou de ler o documento em 2,5 min. Tente de novo em instantes.'
+        : leitura ? 'Sem conexão com o servidor. Tente de novo.'
         : 'O servidor do Google não respondeu em 4 minutos. O pedido PODE ter sido gravado: abra o card e confira. Se não estiver lá, repita — é seguro, o sistema não grava duas vezes.');
     }, limiteTotal));
     if (!leitura) {
