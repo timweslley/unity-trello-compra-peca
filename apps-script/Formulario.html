@@ -836,6 +836,7 @@ function montarAutorizacao(c) {
     var minhas = lidas.filter(function (q) { return q.chave === p.chave; }).sort(function (a, b) { return a.valor - b.valor; });
     var ja = autDe(c, p.chave);
     var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + seloOrc(p) + '</strong></div>';
+    h += obsPedido(p);
     ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
     if (p.podeAut === false) {
       h += (ja ? '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + ')' : '') + '</div>' : '')
@@ -1002,6 +1003,7 @@ function montarCotacao(c) {
                 : ' <button type="button" class="mini" onclick="editarCot(this, ' + j + ')">✏️ editar</button> <button type="button" class="mini" onclick="removerCot(this)">🗑️ remover</button>') + '</div>';
     }).join('') + '</div>';
     div.dataset.lidas = JSON.stringify(jaLidas);
+    h += obsPedido(p);
     var obsLidas = ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; });
     if (obsLidas.length) h += '<div class="dica" style="margin-bottom:6px">Obs. já no card: ' + obsLidas.map(function (o) { return esc(o.texto); }).join(' · ') + '</div>';
     var semLidas = ((c.cotacoes && c.cotacoes.semCot) || []).filter(function (o) { return o.chave === p.chave; });
@@ -1119,6 +1121,7 @@ function montarCompra(c) {
     var ja = pagas.filter(function (it) { return semAc(it.nome).indexOf(p.chave) >= 0; })[0];
     var minhas = lidas.filter(function (q) { return q.chave === p.chave; });
     var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + '</strong></div>';
+    h += obsPedido(p);
     ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
     if (ja) {
       h += '<div class="comprado">✔ já comprado: ' + esc(ja.nome) + (ja.due ? ' — previsão ' + esc(ja.due) : '') + (ja.ok ? ' (recebido)' : '') + '</div>';
@@ -1736,6 +1739,8 @@ function novoItem(tipo, dados) {
     if (dados.descricaoOrc !== undefined && !dados.codigo) h += '<div class="dica ruim">O orçamento não traz código de fábrica desta peça — busque no Cilia.</div>';
     h += '</div></div>';
   }
+  // observação do consultor sobre a peça (06/10/2026): vai na linha da peça do card e aparece para o comprador
+  h += '<div class="inteiro" style="margin-top:8px"><label>Observação da peça <span style="font-size:12px">(opcional — o comprador vê)</span></label><input type="text" class="f-obs" maxlength="120" placeholder="Ex.: fotos em anexo; só o lado direito; pedir foto antes de comprar" value="' + esc(dados.obs || '') + '"></div>';
   h += '<div class="nao-motivo' + (div.dataset.nao ? '' : ' oculto') + '"><label>Motivo de não comprar <span style="font-size:12px">(vai para o card)</span></label><input type="text" class="f-nao-motivo maiusc" placeholder="Ex.: recuperar a peça; cliente já tem; não precisa" value="' + esc(div.dataset.naoMotivo || '') + '"></div>';
   div.innerHTML = h;
   caixa.appendChild(div);
@@ -1758,6 +1763,9 @@ function campoValorOrc(dados) {
   var txt = v === undefined || v === null || v === '' ? '' : fmtValor(v);
   return '<div><label>Valor no orçamento <span style="font-size:12px">(líquido, opcional)</span></label><input type="text" class="f-valor-orc" inputmode="decimal" placeholder="R$ 0,00" value="' + esc(txt) + '" onblur="this.value=this.value.trim()?(fmtValor(this.value)||this.value):\'\'"></div>';
 }
+/** Observação do consultor na linha da peça ("| OBS: …"): o comprador vê em Cotação, Autorizar e Compra. */
+function obsPedido(p) { return p && p.obs ? '<div class="dica" style="margin:4px 0 6px"><b>🗒️ Obs. do pedido:</b> ' + esc(p.obs) + '</div>' : ''; }
+function lerObsPeca(el) { var i = el.querySelector('.f-obs'); return i ? i.value.trim() : ''; }
 function lerValorOrc(el) { var i = el.querySelector('.f-valor-orc'); return i ? i.value.trim() : ''; }
 
 function marcarNao(id, sim) {
@@ -1776,7 +1784,7 @@ function marcarComp(id, sim) {
 }
 function trocarTipo(id, tipo) {
   var velho = $(id), caixa = velho.parentNode;
-  novoItem(tipo, { particular: caixa.id === 'itensPart', partPor: velho.dataset.partPor, complemento: velho.dataset.comp === '1', compData: velho.dataset.compData, naoComprar: velho.dataset.nao === '1', naoMotivo: (velho.querySelector('.f-nao-motivo') || {}).value || '', valorOrc: lerValorOrc(velho) });
+  novoItem(tipo, { particular: caixa.id === 'itensPart', partPor: velho.dataset.partPor, complemento: velho.dataset.comp === '1', compData: velho.dataset.compData, naoComprar: velho.dataset.nao === '1', naoMotivo: (velho.querySelector('.f-nao-motivo') || {}).value || '', valorOrc: lerValorOrc(velho), obs: (velho.querySelector('.f-obs') || {}).value || '' });
   var criado = caixa.lastChild;
   caixa.insertBefore(criado, velho);
   velho.remove();
@@ -1818,7 +1826,7 @@ function coletar() {
       var sel = el.querySelector('input[type=radio]:checked');
       var marca = el.querySelector('.f-marca').value.trim();
       var nao = el.dataset.nao === '1', naoMotivo = ((el.querySelector('.f-nao-motivo') || {}).value || '').trim();
-      var p = { pneu: true, medida: medida, qtd: qtd, categoria: '', marca: '', particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: nao, naoMotivo: naoMotivo, valorOrc: lerValorOrc(el) };
+      var p = { pneu: true, medida: medida, qtd: qtd, categoria: '', marca: '', particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: nao, naoMotivo: naoMotivo, valorOrc: lerValorOrc(el), obs: lerObsPeca(el) };
       if (!medida) faltas.push(n + ' (pneu): falta a medida');
       if (sel && sel.value !== 'MARCA') p.categoria = sel.value;
       else if (marca) p.marca = marca;
@@ -1833,7 +1841,7 @@ function coletar() {
       if (!cod && tipoPedido() !== 'PARTICULAR' && !ehPart && !naoP) faltas.push(r + ': falta o código (buscar no Cilia)');
       if (!desc) faltas.push(r + ': falta a descrição');
       if (!tipos.length && !naoP) faltas.push(r + ': marque o tipo de peça');
-      pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd, particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: naoP, naoMotivo: naoMotivoP, valorOrc: lerValorOrc(el) });
+      pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd, particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: naoP, naoMotivo: naoMotivoP, valorOrc: lerValorOrc(el), obs: lerObsPeca(el) });
     }
   });
   var d = {

@@ -283,8 +283,8 @@ var VD_ROT_EXTRA = {
 
 /** Assinatura de uma linha de peça (para saber se é peça nova). */
 function vd_sigItem_(linha) {
-  // "| ORÇ R$ x" (valor da peça no orçamento) não entra na assinatura: é informativo, não trava nem conta como peça nova
-  return vd_semAcento_(vd_limpar_(linha)).replace(/\s*\|\s*ORC\.?\s*R?\$?\s*[\d.,]+/gi, '').replace(/^\s*(?:\d+\s*[.)\-]|[-•*])\s*/, '').replace(/\s*\|\s*/g, '|').replace(/\s+/g, ' ').trim();
+  // "| ORÇ R$ x" (valor da peça no orçamento) e "| OBS: texto" (observação do consultor) não entram na assinatura: informativos, não travam nem contam como peça nova
+  return vd_semAcento_(vd_limpar_(linha)).replace(/\s*\|\s*ORC\.?\s*R?\$?\s*[\d.,]+/gi, '').replace(/\s*\|\s*OBS\.?\s*[:\-]\s*[^|]*/gi, '').replace(/^\s*(?:\d+\s*[.)\-]|[-•*])\s*/, '').replace(/\s*\|\s*/g, '|').replace(/\s+/g, ' ').trim();
 }
 
 /** Impressão curta da assinatura (10 caracteres): VD_PK2_ guarda só isto — com ~650 cards no quadro principal
@@ -402,10 +402,13 @@ function vd_analisar_(desc, nomeCard, opts) {
 function vd_analisarPeca_(linha, n, opts) {
   opts = opts || {};
   var partes = linha.split('|').map(function (s) { return s.trim(); });
-  var qtd = '', part = false, partPor = '', comp = false, compData = '', nao = false, naoMotivo = '', valorOrc = '';
+  var qtd = '', part = false, partPor = '', comp = false, compData = '', nao = false, naoMotivo = '', valorOrc = '', obs = '';
   partes = partes.filter(function (s) {
     var m = s.match(/^QTD\.?\s*:?\s*(\d+)$/i);
     if (m) { qtd = m[1]; return false; }
+    // observação do consultor sobre a peça (06/10/2026): "OBS: fotos em anexo" — informativa, vai para o comprador
+    var mo = s.match(/^OBS\.?\s*[:\-–]\s*(.+)$/i);
+    if (mo) { obs = mo[1].trim(); return false; }
     // valor líquido unitário da peça no orçamento da seguradora: "ORÇ R$ 1.234,56" (informativo; base da comparação com a cotação)
     var mv = s.match(/^OR[ÇC]\.?\s*:?\s*R?\$?\s*([\d.]+,\d{2}|\d+(?:\.\d{1,2})?)$/i);
     if (mv) { valorOrc = mv[1]; return false; }
@@ -431,13 +434,13 @@ function vd_analisarPeca_(linha, n, opts) {
     else if (!vd_medidaPneu_(medida)) faltas.push(rot + ': medida fora do padrão (ex.: 195/65R15)');
     if (!catMarca && !nao) faltas.push(rot + ': falta categoria (IMPORTADO / 1ª LINHA) ou marca');
     if (nao) faltas = [];
-    return { pneu: true, medida: medida, categoria: vd_categPneu_(catMarca), marca: vd_categPneu_(catMarca) ? '' : catMarca, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, faltas: faltas, texto: linha };
+    return { pneu: true, medida: medida, categoria: vd_categPneu_(catMarca), marca: vd_categPneu_(catMarca) ? '' : catMarca, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, faltas: faltas, texto: linha };
   }
   var codigo = partes[0] || '', descr = partes[1] || '', tiposTxt = partes.slice(2).join('/');
   rot = 'item ' + n + ' (' + (descr || codigo || linha).slice(0, 40) + ')';
   if (partes.length < 2) {
     faltas.push(rot + ': fora do padrão CÓDIGO | DESCRIÇÃO | TIPO');
-    return { pneu: false, codigo: '', descricao: linha, tipos: [], qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, faltas: faltas, texto: linha };
+    return { pneu: false, codigo: '', descricao: linha, tipos: [], qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, faltas: faltas, texto: linha };
   }
   var semCodigo = !codigo || !/\d/.test(codigo) || codigo.replace(/[^A-Z0-9]/gi, '').length < 4 || /^S\s*\/?\s*C$/i.test(codigo);
   if (semCodigo && !opts.codigoOpcional) faltas.push(rot + ': falta o código da peça (buscar no Cilia)');
@@ -451,7 +454,7 @@ function vd_analisarPeca_(linha, n, opts) {
   else if (!tipos.length) faltas.push(rot + ': falta o tipo de peça (GENUÍNO, ORIGINAL, PARALELO ou USADO)');
   if (tipos.length > 2) faltas.push(rot + ': no máximo 2 tipos por peça');
   if (nao) faltas = [];
-  return { pneu: false, codigo: codigo, descricao: descr, tipos: tipos, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, faltas: faltas, texto: linha };
+  return { pneu: false, codigo: codigo, descricao: descr, tipos: tipos, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, faltas: faltas, texto: linha };
 }
 
 /* ============================ MONTAR DESCRIÇÃO ============================ */
@@ -459,7 +462,8 @@ function vd_analisarPeca_(linha, n, opts) {
 function vd_linhaPeca_(p, i) {
   var q = (p.qtd && +p.qtd > 1 ? ' | QTD ' + p.qtd : '') + (p.complemento && !p.particular ? ' | COMPLEMENTO' + (p.compData ? ' ' + p.compData : '') : '') + (p.particular ? ' | PARTICULAR' + (p.partPor ? ' @' + p.partPor : '') : '')
     + (p.naoComprar ? ' | NÃO COMPRAR' + (p.naoMotivo ? ': ' + String(p.naoMotivo).replace(/\|/g, '/').trim() : '') : '')
-    + (vd_valorOrcTxt_(p.valorOrc) ? ' | ORÇ ' + vd_valorOrcTxt_(p.valorOrc) : '');
+    + (vd_valorOrcTxt_(p.valorOrc) ? ' | ORÇ ' + vd_valorOrcTxt_(p.valorOrc) : '')
+    + (p.obs ? ' | OBS: ' + String(p.obs).replace(/\|/g, '/').replace(/\s*\n\s*/g, ' ').trim() : '');
   if (p.pneu) return (i + 1) + '. PNEU | ' + p.medida + ' | ' + (p.categoria || p.marca) + q;
   return (i + 1) + '. ' + p.codigo + ' | ' + p.descricao + ' | ' + (p.tipos || []).join('/') + q;
 }
