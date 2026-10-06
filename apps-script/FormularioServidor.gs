@@ -336,6 +336,7 @@ function vdf_montarCard_(c, lista, me) {
     origemOrc: (vd_limpar_(an.div.bloco).match(/OR[ÇC]AMENTO IMPORTADO \(([^)]*)\)/i) || [])[1] || '',
     titulo: vdf_partesTitulo_(c.name, an.dados),
     anexos: vdf_anexosDoCard_(c.attachments),
+    todosAnexos: vdf_todosAnexos_(c.attachments, vd_prop_('VD_URL_FORM', VD.URL_FORM)),
     autorizadas: autorizadas,
     devolucao: (function () { try { return vd_ultimaDevolucao_(c.desc); } catch (e) { return null; } })(),
     podeAutorizar: vdf_podeAutorizar_(me, c, an),
@@ -385,7 +386,20 @@ function vdf_partesTitulo_(nome, dados) {
 function vdf_anexosDoCard_(attachments) {
   var props = PropertiesService.getScriptProperties();
   return (attachments || []).filter(vd_anexoLegivel_).map(function (a) {
-    return { id: a.id, nome: a.name, arquivo: a.fileName || a.name, bytes: a.bytes || 0, pdf: /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || ''), lido: !!props.getProperty('VD_ANX3_' + a.id) };
+    return { id: a.id, nome: a.name, arquivo: a.fileName || a.name, bytes: a.bytes || 0, pdf: /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || ''), lido: !!props.getProperty('VD_ANX3_' + a.id), url: a.url || '' };
+  });
+}
+/** TODOS os anexos do card para abrir o original sem voltar ao Trello (06/10/2026): uploads de qualquer tipo e links,
+ *  menos os links fixos do formulário. {id, nome, url, tipo: 'pdf'|'img'|'arq'|'link'} */
+function vdf_todosAnexos_(attachments, urlForm) {
+  return (attachments || []).filter(function (a) {
+    if (VD_LINK.RX_EDITAR.test(a.name || '') || VD_LINK.RX_COMPRA.test(a.name || '')) return false;
+    if (!a.isUpload && urlForm && String(a.url || '').indexOf(urlForm) === 0) return false;
+    return !!a.url;
+  }).map(function (a) {
+    var m = a.mimeType || '', n = a.name || '';
+    var tipo = !a.isUpload ? 'link' : (/pdf/i.test(m) || /\.pdf$/i.test(n) ? 'pdf' : (/^image\//i.test(m) || /\.(jpe?g|png|webp|gif)$/i.test(n) ? 'img' : 'arq'));
+    return { id: a.id, nome: n, url: a.url, tipo: tipo, data: a.date || '' };
   });
 }
 

@@ -775,6 +775,7 @@ function telaComprador(c) {
     + (c.tipo === 'PARTICULAR' ? ' · pedido <b>particular</b>' : ' · pedido de <b>seguradora</b>')
     + (c.ordem ? ' · ordem nº <b>' + esc(c.ordem) + '</b>' : ' · <b>sem nº de ordem</b>')
     + '.<br><a href="' + esc(c.url) + '" target="_blank">Abrir o card</a> · <a href="#" onclick="guardar(\'vd_modo_pend\',null);location.href=CFG.urlApp+\'?card=\'+CARD_EDICAO;return false">Editar o pedido (consultor)</a>';
+  $('infoComprador').innerHTML += linksAnexos(c);
   if (c.devolucao) $('infoComprador').innerHTML += '<div class="aviso devolvida" style="margin-top:8px">↩️ <b>Cotação devolvida</b> por ' + esc(c.devolucao.quem) + ' em ' + esc(c.devolucao.quando) + (c.devolucao.geral ? ': <b>' + esc(c.devolucao.geral) + '</b>' : '') + '<br>Veja as observações em cada peça, complete e envie a cotação de novo.</div>';
   if (!pecas.length) { $('erroComprador').textContent = 'Este card não tem peça pela oficina na descrição (só fornecimento da seguradora ou descrição fora do padrão).'; mostrar('erroComprador', true); }
   desenharTotais(c);
@@ -1278,9 +1279,9 @@ function montarFornecimento(c, itens) {
   var box = $('fornItens'); box.innerHTML = '';
   // anexos que já estão no card (PDF/foto): lê sem subir de novo (05/10/2026)
   var fa = $('fornAnexos'), ans = (c && c.anexos) || [];
-  if (fa) fa.innerHTML = ans.length ? '📎 <b>Já no card</b> (lê sem anexar de novo): ' + ans.map(function (a) { return esc(a.nome) + ' <a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false">ler</a>'; }).join(' · ') : '';
+  if (fa) fa.innerHTML = ans.length ? '📎 <b>Já no card</b> (lê sem anexar de novo): ' + ans.map(function (a) { return (a.url ? '<a href="' + esc(a.url) + '" target="_blank" rel="noopener" title="Abrir o original">' + esc(a.nome) + '</a>' : esc(a.nome)) + ' <a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false">ler</a>'; }).join(' · ') : '';
   var ft = $('fornAnexosTopo');
-  if (ft) ft.innerHTML = ans.length ? '<b>Já no card:</b> ' + ans.map(function (a) { return '<a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false" style="font-weight:600">' + esc(a.nome.length > 44 ? a.nome.slice(0, 42) + '…' : a.nome) + ' → ler</a>'; }).join(' &nbsp;·&nbsp; ') : '';
+  if (ft) ft.innerHTML = ans.length ? '<b>Já no card:</b> ' + ans.map(function (a) { return (a.url ? '<a href="' + esc(a.url) + '" target="_blank" rel="noopener" title="Abrir o original">' + esc(a.nome.length > 44 ? a.nome.slice(0, 42) + '…' : a.nome) + '</a>' : esc(a.nome)) + ' <a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false" style="font-weight:600">→ ler</a>'; }).join(' &nbsp;·&nbsp; ') : '';
   if (!itens.length) { box.innerHTML = '<div class="dica">Este card não tem peça fornecida pela seguradora.</div>'; return; }
   var grupo = '';
   itens.forEach(function (it) {
@@ -1565,12 +1566,24 @@ var ANEXOS_LIDOS = {};   // id do anexo do card -> true (já lido nesta tela)
 function anexoDoCard(f) {
   return CARD && CARD_EDICAO && (CARD.anexos || []).filter(function (a) { return (a.arquivo || a.nome) === f.name && +a.bytes === f.size; })[0];
 }
+/* links para abrir os anexos originais do card sem voltar ao Trello (06/10/2026) */
+function linksAnexos(c) {
+  var ans = (c && c.todosAnexos) || [];
+  if (!ans.length) return '';
+  var ico = { pdf: '📄', img: '📸', link: '🔗', arq: '📎' };
+  return '<div class="anexos-orig" style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;margin-top:6px;font-size:13px"><b>📎 Anexos:</b> ' + ans.map(function (a) {
+    var nome = a.nome.length > 46 ? a.nome.slice(0, 44) + '…' : a.nome;
+    return '<a href="' + esc(a.url) + '" target="_blank" rel="noopener" title="' + esc(a.nome) + '" style="font-weight:600;white-space:nowrap">' + (/^[📄📸🚚📦🔗]/.test(nome) ? '' : ico[a.tipo] + ' ') + esc(nome) + '</a>';
+  }).join(' <span style="color:var(--texto2,#626F86)">·</span> ') + '</div>';
+}
 function mostrarAnexosCard(c) {
   var ans = (c && c.anexos) || [];
   if (!ans.length || MODO_COMPRAS) { mostrar('anexosCard', false); return; }
   $('anexosCard').innerHTML = '📎 <b>Já no card</b> (não precisa anexar de novo): ' + ans.map(function (a) {
-    return esc(a.nome) + ' <a href="#" onclick="lerAnexoCard(\'' + a.id + '\');return false">' + (ANEXOS_LIDOS[a.id] ? 'ler de novo' : 'ler') + '</a>';
+    return (a.url ? '<a href="' + esc(a.url) + '" target="_blank" rel="noopener" title="Abrir o original">' + esc(a.nome) + '</a>' : esc(a.nome)) + ' <a href="#" onclick="lerAnexoCard(\'' + a.id + '\');return false">' + (ANEXOS_LIDOS[a.id] ? 'ler de novo' : 'ler') + '</a>';
   }).join(' · ');
+  var outros = ((c && c.todosAnexos) || []).filter(function (a) { return a.tipo === 'link' || a.tipo === 'arq'; });
+  if (outros.length) $('anexosCard').innerHTML += linksAnexos({ todosAnexos: outros }).replace('📎 Anexos:', '🔗 Links e outros anexos:');
   mostrar('anexosCard', true);
   // card sem peças e sem orçamento importado: lê sozinho o primeiro PDF que já está no card
   var pdf = ans.filter(function (a) { return a.pdf; })[0];
