@@ -153,7 +153,9 @@ function cf_valores_(c) {
   var consultor = '';
   try { consultor = vd_criador_(c.id); } catch (e) {}
   return {
-    'Unidade': cf_unidadeDoCard_(c) ? undefined : (ev_unidadeEtiqueta_(c) || undefined), 'Seguradora': seg,   // o campo é a fonte; só preenche de etiqueta (card antigo) quando está vazio 'Tipo': an.pecas.length || an.dados.tipo ? tipo : '',
+    'Unidade': cf_unidadeDoCard_(c) ? undefined : (ev_unidadeEtiqueta_(c) || undefined),   // o campo é a fonte; só preenche de etiqueta (card antigo) quando está vazio
+    'Seguradora': seg,
+    'Tipo': an.pecas.length || an.dados.tipo ? tipo : '',   // 06/10/2026: a chave estava dentro de um comentário e o campo nunca era preenchido
     'Placa': an.dados.placa || vd_placaDoTexto_(c.name || '') || '', 'Consultor': consultor ? '@' + consultor : '',
     'Total seguradora': T ? num(T.seg.valor) : undefined,
     'Total particular': T ? num(T.part.valor) : undefined,
