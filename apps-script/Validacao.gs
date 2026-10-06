@@ -1415,7 +1415,7 @@ function vd_cardsDasListas_(ids, comAnexos) {
   var cards = [];
   ids.forEach(function (idL) {
     var q = { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels' };
-    if (comAnexos) { q.attachments = 'true'; q.attachment_fields = 'name,mimeType,isUpload,bytes,url'; }
+    if (comAnexos) { q.attachments = 'true'; q.attachment_fields = 'name,mimeType,isUpload,bytes,url,date'; }
     cards = cards.concat(vd_api_('/lists/' + idL + '/cards', { query: q }));
   });
   return cards;
@@ -1560,7 +1560,7 @@ function vd_executarNucleo_() {
         var c;
         // SEM cru: a desc precisa ser a COMPLETA (a vitrine do Trello não tem o bloco PEÇAS). Com cru (02/10 a 05/10) o robô
         // comparava a vitrine com a base e acusava "PEÇA NOVA fora do padrão" em card que só ganhou cotação (RAM9I31, TST9Z99).
-        try { c = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels,closed', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } }); } catch (e) { return; }
+        try { c = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels,closed', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } }); } catch (e) { return; }
         if (!c || c.closed) return;
         if (posCot.indexOf(c.idList) >= 0) listaPos.push(c);
         else if (idCot.indexOf(c.idList) >= 0) listaCot.push(c);

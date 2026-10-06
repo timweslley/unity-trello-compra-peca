@@ -13,7 +13,7 @@
 var AX = { ORC: '📄 ORÇ', ORC_MAIS: '📄 ORÇ+', FO: '🚚 FO', NF: '📦 NF', FOTO: '📸', SEP: ' · ' };
 var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?) · |📸 )/;
 
-function ax_hoje_() { return Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM'); }
+function ax_hoje_(d) { var dt = d ? new Date(d) : new Date(); if (isNaN(dt.getTime())) dt = new Date(); return Utilities.formatDate(dt, 'America/Sao_Paulo', 'dd/MM'); }
 
 /** "CILIA" → "Cilia", "WEBSOMA" → "Websoma", "HDI" → "HDI". */
 function ax_origem_(o) {
@@ -31,10 +31,10 @@ function ax_placa_(card) {
 /** Já está no padrão (não mexe de novo). */
 function ax_padronizado_(nome) { return AX_RE_PADRAO.test(String(nome || '')); }
 
-/** Monta o nome: tipo · placa · partes… · dd/MM. */
-function ax_nome_(tipo, placa, partes) {
+/** Monta o nome: tipo · placa · partes… · dd/MM (data = a do upload; anexo antigo usa a própria data). */
+function ax_nome_(tipo, placa, partes, data) {
   var p = [tipo].concat(placa ? [placa] : []).concat((partes || []).map(function (s) { return String(s || '').trim(); }).filter(String));
-  p.push(ax_hoje_());
+  p.push(ax_hoje_(data));
   var nome = p.join(AX.SEP);
   return /[A-Z]/i.test(tipo) ? nome : nome.replace(AX.SEP, ' ');   // "📸 RHV1E04 · capa · 05/10" (tipo só com o ícone)
 }
@@ -86,9 +86,9 @@ function ax_batizarLido_(card, a, r, complementar) {
     var placa = ax_placa_(card);
     if (!placa) return '';
     var nome = '';
-    if (r.doc === 'FO') nome = ax_nome_(AX.FO, placa, ['Status do Pedido Cilia']);
+    if (r.doc === 'FO') nome = ax_nome_(AX.FO, placa, ['Status do Pedido Cilia'], a.date);
     else if (r.orcamento && (r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) {
-      nome = ax_nome_(complementar ? AX.ORC_MAIS : AX.ORC, placa, [r.seguradora || '', ax_origem_(r.orcamento)]);
+      nome = ax_nome_(complementar ? AX.ORC_MAIS : AX.ORC, placa, [r.seguradora || '', ax_origem_(r.orcamento)], a.date);
     }
     if (!nome) return '';
     var fim = ax_batizar_(card.id, a.id, nome, ax_anexos_(card.id), null, { nomeAtual: a.name });
@@ -130,7 +130,7 @@ function vdf_padronizarAnexos(token, shortLink) {
     var r = vd_anexoLegivel_(a) ? vd_lerAnexoTrello_(a) : null;
     if (r && !r.erro && !r.doc && !r.orcamento && /\bFO\b|status/i.test(de)) r.doc = 'FO';   // leitura antiga (cache sem o tipo) de um "Status do Pedido"
     var para = r ? ax_batizarLido_(card, a, r, temOrc) : '';
-    if (!para && /^image\//i.test(a.mimeType || '')) { para = ax_batizar_(card.id, a.id, ax_nome_(AX.FOTO, ax_placa_(card), []), [], token, { semVersao: true }); a.name = para; }
+    if (!para && /^image\//i.test(a.mimeType || '')) { para = ax_batizar_(card.id, a.id, ax_nome_(AX.FOTO, ax_placa_(card), [], a.date), [], token, { semVersao: true }); a.name = para; }
     if (para) { out.renomeados.push({ de: de, para: para }); if (para.indexOf(AX.ORC + AX.SEP) === 0) temOrc = true; }
     else out.pulados.push(de);
   });
