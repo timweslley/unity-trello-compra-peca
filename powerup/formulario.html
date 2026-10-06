@@ -371,6 +371,13 @@
       <button type="button" class="aba oculto" id="abaRec" onclick="mostrarAba('rec')"><span class="emo">📦</span> <span class="rotulo">Recebimento</span></button>
       <button type="button" class="aba oculto" id="abaForn" onclick="mostrarAba('forn')"><span class="emo">🚚</span> <span class="rotulo">Fornecimento</span></button>
     </div>
+    <!-- atalho do fornecimento em todas as abas (Weslley, 06/10/2026): o Status do Pedido do Cilia pode entrar de qualquer aba -->
+    <div id="fornAtalho" class="dica oculto" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:6px 10px;margin:6px 0 2px;border:1px dashed var(--borda,#8590A2);border-radius:6px">
+      <span>🚚 <b>Fornecimento da seguradora:</b></span>
+      <label for="fornArqTopo" style="cursor:pointer;color:var(--azul,#0C66E4);font-weight:600">📎 Ler Status do Pedido / print do portal</label>
+      <input type="file" id="fornArqTopo" accept="application/pdf,image/*" onchange="lerFornecimento(this)" style="display:none">
+      <span id="fornAnexosTopo"></span>
+    </div>
     <div id="totaisCard" class="oculto"></div>
 
     <div id="painelCot">
@@ -778,7 +785,7 @@ function telaComprador(c) {
   // quem não tem permissão vê a aba, mas só para consulta
   if (!c.podeAutorizar) somenteLeitura('painelAut', 'Só quem autoriza pode mexer aqui: diretoria (peças da seguradora) ou o consultor que lançou a peça particular.');
   var foItens = (c.recebiveis || []).filter(function (i) { return /^FORNECIMENTO/.test(i.lista); });
-  mostrar('abaForn', foItens.length > 0); montarFornecimento(c, foItens);
+  mostrar('abaForn', foItens.length > 0); mostrar('fornAtalho', foItens.length > 0); montarFornecimento(c, foItens);
   if (!COMPRADOR) {
     somenteLeitura('painelCot', 'Só o setor de compras (ou a diretoria) lança cotação.');
     somenteLeitura('painelCompra', 'Só o setor de compras (ou a diretoria) registra compra.');
@@ -1258,6 +1265,8 @@ function montarFornecimento(c, itens) {
   // anexos que já estão no card (PDF/foto): lê sem subir de novo (05/10/2026)
   var fa = $('fornAnexos'), ans = (c && c.anexos) || [];
   if (fa) fa.innerHTML = ans.length ? '📎 <b>Já no card</b> (lê sem anexar de novo): ' + ans.map(function (a) { return esc(a.nome) + ' <a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false">ler</a>'; }).join(' · ') : '';
+  var ft = $('fornAnexosTopo');
+  if (ft) ft.innerHTML = ans.length ? '· já no card: ' + ans.map(function (a) { return esc(a.nome.length > 40 ? a.nome.slice(0, 38) + '…' : a.nome) + ' <a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false">ler</a>'; }).join(' · ') : '';
   if (!itens.length) { box.innerHTML = '<div class="dica">Este card não tem peça fornecida pela seguradora.</div>'; return; }
   var grupo = '';
   itens.forEach(function (it) {
@@ -1277,6 +1286,7 @@ function montarFornecimento(c, itens) {
 var FORN_ARQS = [];
 function lerFornecimento(inp) {
   var f = inp.files && inp.files[0], av = $('fornLeitura'); if (!f) return;
+  mostrarAba('forn');   // o arquivo pode ser escolhido de qualquer aba: o resultado aparece na aba Fornecimento
   if (f.size > 15 * 1024 * 1024) { av.textContent = 'Arquivo muito grande (máx. 15 MB).'; return; }
   av.className = 'dica'; av.textContent = '⏳ Lendo "' + f.name + '"… (alguns segundos)';
   lerArquivo(f).then(function (b64) { return chamar('vdf_lerFornecimento', TOKEN, CARD_EDICAO, b64, f.type || 'application/octet-stream', f.name); }).then(function (r) {
@@ -1288,6 +1298,7 @@ function lerFornecimento(inp) {
 function lerFornecimentoAnexo(id) {
   var a = ((CARD && CARD.anexos) || []).filter(function (x) { return x.id === id; })[0], av = $('fornLeitura');
   if (!a || !CARD_EDICAO) return;
+  mostrarAba('forn');
   av.className = 'dica'; av.textContent = '⏳ Lendo "' + a.nome + '", que já está no card… (10–40 s)';
   chamar('vdf_lerFornecimentoAnexo', TOKEN, CARD_EDICAO, id).then(function (r) { aplicarLeituraForn(r, av, false); })
     .catch(function (e) { av.className = 'alerta'; av.textContent = e.message; });

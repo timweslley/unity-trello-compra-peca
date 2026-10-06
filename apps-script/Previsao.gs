@@ -238,9 +238,10 @@ function vdf_atualizarFornecimento(token, p) {
 /* ---------- leitura de documento de fornecimento (print/PDF do portal ou orçamento com fornecedor e prazo) ---------- */
 
 /** Datas dd/mm/aaaa (ou dd/mm/aa) num texto -> [Date]. */
-function pv_datas_(t) {
-  var out = [], m, re = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b/g;
+function pv_datas_(t, semHora) {
+  var out = [], m, re = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b(\s*-?\s*\d{1,2}:\d{2})?/g;
   while ((m = re.exec(t))) {
+    if (semHora && m[4]) continue;   // "23/09/26 - 08:35:21" é carimbo de status, não previsão
     var a = +m[3]; if (a < 100) a += 2000;
     var d = new Date(a, +m[2] - 1, +m[1], 12);
     if (!isNaN(d.getTime()) && a >= 2020 && a <= 2035) out.push(d);
@@ -252,7 +253,7 @@ function pv_datas_(t) {
 function pv_fornecedor_(janela, lista) {
   var U = vd_semAcento_(janela);
   var m = U.match(/FORNECEDOR\s*[:\-]?\s*([A-Z0-9][A-Z0-9 .&\/\-]{2,40}?)(?=\s{2,}|\s+\d{1,2}\/\d|\s+PREV|\s+DATA|\s+R\$|$)/);
-  if (m && !/^(DA|DO|NAO|N\/A|-)$/.test(m[1].trim())) return fo_resolver_(m[1].trim(), lista).nome;
+  if (m && !/^(DA|DO|NAO|N\/A|-)$/.test(m[1].trim()) && !/^(EM COTACAO|AGUARDANDO|ENTREG|PREVIS|CANCELAD)/.test(m[1].trim())) return fo_resolver_(m[1].trim(), lista).nome;
   var melhor = '';
   (lista || []).forEach(function (f) {
     [f.nome].concat(f.apelidos || []).forEach(function (n) {
@@ -286,56 +287,100 @@ function pv_fornecedorCurto_(txt, lista) {
 }
 
 /**
- * "Status do Pedido" do Cilia (05/10/2026, RHV1E04): uma peça por bloco —
- *   CÓDIGO   PEÇA   QTD   <2ª linha do fornecedor>   PREVISÃO (dd/mm/aa)
- * com a 1ª linha do fornecedor ("MEDIADORA - PRISMATEC /") logo ACIMA da linha da peça. Devolve {codigo: {fornecedor, previsao}}.
+ * "Status do Pedido" do Cilia — leitor por tokens (06/10/2026, AUP2482), porque o texto chega de três jeitos:
+ *   a) colunas numa linha:  CÓDIGO  PEÇA  QTD  FORNECEDOR  PREVISÃO     (PDF com texto, OCR que preserva colunas)
+ *   b) linhas soltas em blocos a partir de "CÓDIGO" (OCR do Google, RHV1E04)
+ *   c) linhas soltas com os fornecedores TODOS depois das peças (PDF cortado à direita, AUP2482)
+ * Regras: código = 6–20 letras/dígitos com 4+ dígitos (VW: 5U1857508N9B9); fornecedor = linha "MEDIADORA / FORNECEDOR" ou a
+ * que vem logo depois de "FORNECEDOR" (nunca EM COTAÇÃO / AGUARDANDO… — isso é status); previsão = data SEM hora (as datas
+ * com " - hh:mm" são carimbos de status). Quando o bloco da peça não traz fornecedor/previsão, casa pela ordem (n peças = n
+ * fornecedores) ou, se o documento só tem um fornecedor, usa ele. Devolve {codigo: {codigo, descricao, fornecedor, previsao, entregue}}.
  */
 function pv_lerStatusCilia_(texto, lista) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
-  if (!/STATUS DAS PECAS|PREVISAO DE ENTREGA/.test(U)) return null;
-  var linhas = U.split('\n'), out = {}, re = /^\s*(\d{5,})\s+(.+?)\s+(\d{1,3})\s+(.*?)\s+(\d{1,2}\/\d{1,2}\/\d{2,4})\s*$/;   // colunas com 1+ espaços (o OCR do Drive pode juntar)
-  var cab = /^(CODIGO|PECA|QTD|FORNECEDOR|PREVISAO|STATUS|EM COTACAO|AGUARDANDO|ENTREGUE|ULTIMA|RASTREAM|\d{1,2}\/\d{1,2}\/\d{2}\s*-)/;
+  if (!/STATUS DAS PECAS|PREVISAO DE ENTREGA|STATUS DO PEDIDO/.test(U)) return null;
+  var linhas = U.split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
+  var STATUS = /^(EM COTACAO|AGUARDANDO (APROVACAO|ENTREGA)|ENTREG|CANCELAD|RECUSAD)/;
+  var LABEL = /^(CODIGO|PECA|QTD|FORNECEDOR|PREVIS|STATUS|ULTIMA|RASTREAM|PARECER|SEGURADORA|SINISTRO|ORCAMENTO|OFICINA|CIDADE|E)$|^\d{1,2}\/\d{1,2}\/\d{2,4}\s*-\s*\d/;
+  var ehCodigo = function (t) { return /^[A-Z0-9]{6,20}$/.test(t) && (t.match(/\d/g) || []).length >= 4 && !/^\d{11,}$/.test(t) && !/^\d{1,2}\/\d/.test(t); };
+  var ehData = function (t) { return /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(t); };
+  var limpaForn = function (t) { return t.replace(/PREVISAO DE ENTREGA.*$/, '').replace(/\s+\d{1,2}\/\d{1,2}\/\d{2,4}.*$/, '').trim(); };
+  var ehForn = function (t) {
+    if (!/[A-Z]{3}/.test(t) || STATUS.test(t) || LABEL.test(t) || ehCodigo(t.replace(/\s/g, ''))) return false;
+    if (/HTTPS?:|WWW\.|\.COM\b|\.BR\b|^PREVISAO|:/.test(t)) return false;   // link do portal, rótulo, parecer ("CONTATO COM FORNECEDOR: …")
+    var t2 = t.replace(/PREVISAO DE ENTREGA.*$/, '').trim();
+    if (/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(t2) || t2.split(' ').length > 8 || t2.split(' ').some(function (w) { return ehCodigo(w.replace(/[,.;]/g, '')); })) return false;   // texto de parecer
+    return t2.indexOf('/') >= 0 && /[A-Z]{2}.*\/.*[A-Z]{2}/.test(t2);
+  };
+  var pecas = [], forns = [], prevs = [], entregas = [];   // cada um: {i (linha), ...}
+  var reCol = /^([A-Z0-9]{6,20}) (.+?) (\d{1,3}) ([A-Z][A-Z0-9 .&\/\-]*?)(?: (\d{1,2}\/\d{1,2}\/\d{2,4}))?$/;
   for (var i = 0; i < linhas.length; i++) {
-    var m = linhas[i].match(re);
-    if (!m) continue;
-    var forn = m[4].trim(), acima = '';
-    for (var j = i - 1; j >= Math.max(0, i - 2); j--) {
-      var l = linhas[j].trim();
-      if (!l) continue;
-      if (/[A-Z]{3}/.test(l) && !cab.test(l) && !/\d{5,}/.test(l)) { acima = l; }
-      break;
+    var l = linhas[i];
+    // a) linha em colunas
+    var mc = l.match(reCol);
+    if (mc && ehCodigo(mc[1]) && !STATUS.test(mc[4]) && !LABEL.test(mc[4])) {
+      var forn = mc[4].trim(), acima = linhas[i - 1] || '';
+      // "MEDIADORA - PRISMATEC / DUNA" na linha de cima e "FIAT ..." na linha da peça (layout em colunas do Cilia)
+      if (acima.indexOf('/') >= 0 && /[A-Z]{3}/.test(acima) && !STATUS.test(acima) && !LABEL.test(acima) && !ehCodigo(acima.split(' ')[0]) && !/HTTPS?:|\d{1,2}\/\d{1,2}\/\d{2,4}/.test(acima)) forn = (acima + ' ' + forn).replace(/\s+/g, ' ');
+      pecas.push({ i: i, codigo: mc[1], descricao: mc[2].trim(), forn: forn, prev: mc[5] || '' });
+      continue;
     }
-    if (acima) forn = (acima + ' ' + forn).replace(/\s+/g, ' ').trim();
-    var d = pv_datas_(m[5]);
-    out[cp_norm_(m[1])] = { codigo: m[1], descricao: m[2].trim(), fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '', previsao: d.length ? d[0].toISOString() : '', linha: linhas[i].trim().slice(0, 120) };
-  }
-  if (Object.keys(out).length) return out;
-  // OCR do Google Drive (05/10/2026, RHV1E04): as colunas viram linhas soltas, em ordem variável, um bloco por peça a partir
-  // de "CÓDIGO": "MOLDURA ... DIRQTD" / "FORNECEDOR" / "100256651" / "PEÇA" / "1" / "MEDIADORA - PRISMATEC / MARAJO - FIAT - PR" /
-  // "PREVISÃO DE ENTREGA 07/10/26" (ou "... PRPREVISÃO DE ENTREGA 1" + "07/10/26" na linha seguinte) / "Em Cotação ... Entregue"
-  var ini = [];
-  linhas.forEach(function (l, i) { if (/^\s*CODIGO\s*$/.test(l)) ini.push(i); });
-  if (!ini.length) return null;
-  ini.forEach(function (a, k) {
-    var fim = k + 1 < ini.length ? ini[k + 1] : linhas.length, bl = [];
-    for (var i = a + 1; i < fim; i++) { var l = linhas[i].trim(); if (!l) continue; if (/^EM COTACAO\b/.test(l)) break; bl.push(l); }
-    var codigo = '', desc = '', forn = '', prev = '';
-    bl.forEach(function (l) {
-      var mq = l.match(/^(.+?)\s*QTD\s*$/); if (mq && !desc) { desc = mq[1].trim(); return; }
-      if (/^\d{5,}$/.test(l) && !codigo) { codigo = l; return; }
-      if (l.indexOf('/') >= 0 && /[A-Z]{3}/.test(l) && !/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(l) && !forn) {
-        var t = l.replace(/PREVISAO DE ENTREGA.*$/, '').trim();
-        var md = l.match(/PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/); if (md && !prev) prev = md[1];
-        forn = t; return;
+    // b/c) tokens soltos
+    if (ehCodigo(l)) {
+      var desc = '';
+      for (var k = i + 1; k < Math.min(i + 6, linhas.length); k++) {
+        var c = linhas[k].replace(/\s*QTD$/, '').trim();
+        if (!c || LABEL.test(c) || STATUS.test(c) || ehCodigo(c) || ehData(c) || /^\d{1,3}$/.test(c) || ehForn(c) || /^PREVISAO|HTTPS?:/.test(c)) continue;
+        if (/[A-Z]{3}/.test(c)) { desc = c; break; }
       }
-      var mp = l.match(/^PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/); if (mp && !prev) { prev = mp[1]; return; }
-      if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(l) && !prev) { prev = l; return; }
-    });
-    if (!codigo) return;
-    var d = prev ? pv_datas_(prev) : [];
-    out[cp_norm_(codigo)] = { codigo: codigo, descricao: desc, fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '', previsao: d.length ? d[0].toISOString() : '', linha: (codigo + ' ' + desc).slice(0, 120) };
+      pecas.push({ i: i, codigo: l, descricao: desc, forn: '', prev: '' });
+      continue;
+    }
+    var mq = l.match(/^(.+?)\s*QTD$/);   // "FAROL DIREITOQTD" (Google) — descrição antes do código no bloco
+    if (mq && /[A-Z]{3}/.test(mq[1]) && !ehCodigo(mq[1])) { pecas.push({ i: i, codigo: '', descricao: mq[1].trim(), forn: '', prev: '', semCodigo: true }); continue; }
+    if (ehForn(l)) {
+      var md = l.match(/PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/);
+      forns.push({ i: i, nome: limpaForn(l) });
+      if (md) prevs.push({ i: i, data: md[1] });
+      continue;
+    }
+    if (/^FORNECEDOR$/.test(l)) {   // nome na linha seguinte (quando não tem "/")
+      var prox = linhas[i + 1] || '';
+      if (/[A-Z]{3}/.test(prox) && !STATUS.test(prox) && !LABEL.test(prox) && !ehCodigo(prox) && !ehForn(prox)) forns.push({ i: i, nome: limpaForn(prox) });
+      continue;
+    }
+    var mp = l.match(/^PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/); if (mp) { prevs.push({ i: i, data: mp[1] }); continue; }
+    if (ehData(l)) { prevs.push({ i: i, data: l }); continue; }
+    var me = l.match(/^ENTREG(?:UE)?(?: EM)?\s*(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)?/) || (/^\d{1,2}\/\d{1,2}\/?$/.test(l) && /^ENTREG/i.test(linhas[i - 1] || '') ? [l, l] : null);
+    if (me) { entregas.push({ i: i, data: me[1] || '' }); continue; }
+  }
+  // bloco "descrição + QTD" sem código na mesma linha (Google): o código é o próximo token de código
+  pecas = pecas.filter(function (p, k) {
+    if (!p.semCodigo) return true;
+    var prox = pecas[k + 1];
+    if (prox && !prox.semCodigo && prox.i - p.i <= 6) { prox.descricao = p.descricao; return false; }   // a descrição "…QTD" vale mais que o palpite
+    return false;
   });
-  return Object.keys(out).length ? out : null;
+  if (!pecas.length) return null;
+  // valor dominante (o documento costuma ter um fornecedor só; a linha de parecer que escapou não muda a maioria)
+  var comum = function (arr, campo) { var s = {}, melhor = '', n = 0; arr.forEach(function (x) { s[x[campo]] = (s[x[campo]] || 0) + 1; if (s[x[campo]] > n) { n = s[x[campo]]; melhor = x[campo]; } }); return n >= 2 && n >= arr.length * 0.6 ? melhor : (arr.length === 1 ? melhor : ''); };
+  var fornUnico = comum(forns, 'nome'), prevUnica = comum(prevs, 'data');
+  var out = {};
+  pecas.forEach(function (p, k) {
+    var ini = p.i, fim = k + 1 < pecas.length ? pecas[k + 1].i : linhas.length;
+    var noBloco = function (arr) { return arr.filter(function (x) { return x.i > ini && x.i < fim; })[0] || null; };
+    var forn = p.forn || (noBloco(forns) || {}).nome || (forns.length === pecas.length ? forns[k].nome : fornUnico) || '';
+    var prev = p.prev || (noBloco(prevs) || {}).data || (prevs.length === pecas.length ? prevs[k].data : prevUnica) || '';
+    var ent = noBloco(entregas) || (entregas.length === pecas.length ? entregas[k] : null);
+    var d = prev ? pv_datas_(prev) : [];
+    var dEnt = ent && ent.data ? pv_datas_(/\/\d{2,4}$/.test(ent.data) ? ent.data : ent.data.replace(/\/?$/, '/' + new Date().getFullYear())) : [];
+    out[cp_norm_(p.codigo)] = {
+      codigo: p.codigo, descricao: p.descricao, fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '',
+      previsao: d.length ? d[0].toISOString() : '', entregue: !!ent, entregueEm: dEnt.length ? dEnt[0].toISOString() : '',
+      linha: (p.codigo + ' ' + p.descricao).slice(0, 120)
+    };
+  });
+  return out;
 }
 
 /**
@@ -354,7 +399,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
       var k = cp_norm_(a.codigo || a.codigoOrc); if (k.length < 5) { semCodigo.push(a); return; }
       var kd = (k.match(/^\d{5,}/) || [k])[0];   // código grudado na descrição ("100260230EMBLEMA"): só os dígitos
       var r = cilia[k] || cilia[kd];
-      if (r) { usadasC[cilia[k] ? k : kd] = 1; outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha }); }
+      if (r) { usadasC[cilia[k] ? k : kd] = 1; outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, entregue: r.entregue, entregueEm: r.entregueEm }); }
       else semCodigo.push(a);
     });
     // peça do card cujo código não está no documento: mesma peça pela descrição = código mudou -> devolve o código novo
@@ -368,13 +413,13 @@ function pv_lerFornecimento_(texto, alvos, lista) {
       if (!melhor) return;
       usadasC[melhor] = 1;
       var r = cilia[melhor];
-      outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, codigoNovo: r.codigo, descNova: r.descricao });
+      outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, codigoNovo: r.codigo, descNova: r.descricao, entregue: r.entregue, entregueEm: r.entregueEm });
     });
     if (outC.length) return outC;
   }
   var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   var out = [];
-  var recente = function (t) { return pv_datas_(t).filter(function (d) { return d >= new Date(hoje.getTime() - 60 * 864e5); }); };
+  var recente = function (t) { return pv_datas_(t, true).filter(function (d) { return d >= new Date(hoje.getTime() - 60 * 864e5); }); };
   (alvos || []).forEach(function (a) {
     var k = cp_norm_(a.codigo || a.codigoOrc);
     if (k.length < 5) return;
@@ -474,7 +519,7 @@ function pv_lerFornecimentoTexto_(card, texto) {
   }
   return {
     orcamento: !!orc.origem, lidos: achados.length,
-    achados: achados.map(function (r) { return { id: r.alvo.id, nome: r.alvo.nome, fornecedor: r.fornecedor, previsao: r.previsao ? Utilities.formatDate(new Date(r.previsao), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', codigoNovo: r.codigoNovo || '', descNova: r.descNova || '' }; }),
+    achados: achados.map(function (r) { return { id: r.alvo.id, nome: r.alvo.nome, fornecedor: r.fornecedor, previsao: r.previsao ? Utilities.formatDate(new Date(r.previsao), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', codigoNovo: r.codigoNovo || '', descNova: r.descNova || '', entregue: !!r.entregue, entregueEm: r.entregueEm ? Utilities.formatDate(new Date(r.entregueEm), 'America/Sao_Paulo', 'yyyy-MM-dd') : '' }; }),
     faltando: faltando, extras: extras.slice(0, 20)
   };
 }
