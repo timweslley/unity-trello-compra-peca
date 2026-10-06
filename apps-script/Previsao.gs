@@ -293,6 +293,32 @@ function pv_lerStatusCilia_(texto, lista) {
     var d = pv_datas_(m[5]);
     out[cp_norm_(m[1])] = { codigo: m[1], descricao: m[2].trim(), fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '', previsao: d.length ? d[0].toISOString() : '', linha: linhas[i].trim().slice(0, 120) };
   }
+  if (Object.keys(out).length) return out;
+  // OCR do Google Drive (05/10/2026, RHV1E04): as colunas viram linhas soltas, em ordem variável, um bloco por peça a partir
+  // de "CÓDIGO": "MOLDURA ... DIRQTD" / "FORNECEDOR" / "100256651" / "PEÇA" / "1" / "MEDIADORA - PRISMATEC / MARAJO - FIAT - PR" /
+  // "PREVISÃO DE ENTREGA 07/10/26" (ou "... PRPREVISÃO DE ENTREGA 1" + "07/10/26" na linha seguinte) / "Em Cotação ... Entregue"
+  var ini = [];
+  linhas.forEach(function (l, i) { if (/^\s*CODIGO\s*$/.test(l)) ini.push(i); });
+  if (!ini.length) return null;
+  ini.forEach(function (a, k) {
+    var fim = k + 1 < ini.length ? ini[k + 1] : linhas.length, bl = [];
+    for (var i = a + 1; i < fim; i++) { var l = linhas[i].trim(); if (!l) continue; if (/^EM COTACAO\b/.test(l)) break; bl.push(l); }
+    var codigo = '', desc = '', forn = '', prev = '';
+    bl.forEach(function (l) {
+      var mq = l.match(/^(.+?)\s*QTD\s*$/); if (mq && !desc) { desc = mq[1].trim(); return; }
+      if (/^\d{5,}$/.test(l) && !codigo) { codigo = l; return; }
+      if (l.indexOf('/') >= 0 && /[A-Z]{3}/.test(l) && !/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(l) && !forn) {
+        var t = l.replace(/PREVISAO DE ENTREGA.*$/, '').trim();
+        var md = l.match(/PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/); if (md && !prev) prev = md[1];
+        forn = t; return;
+      }
+      var mp = l.match(/^PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/); if (mp && !prev) { prev = mp[1]; return; }
+      if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(l) && !prev) { prev = l; return; }
+    });
+    if (!codigo) return;
+    var d = prev ? pv_datas_(prev) : [];
+    out[cp_norm_(codigo)] = { codigo: codigo, descricao: desc, fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '', previsao: d.length ? d[0].toISOString() : '', linha: (codigo + ' ' + desc).slice(0, 120) };
+  });
   return Object.keys(out).length ? out : null;
 }
 
