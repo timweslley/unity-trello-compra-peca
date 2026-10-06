@@ -372,11 +372,11 @@
       <button type="button" class="aba oculto" id="abaForn" onclick="mostrarAba('forn')"><span class="emo">🚚</span> <span class="rotulo">Fornecimento</span></button>
     </div>
     <!-- atalho do fornecimento em todas as abas (Weslley, 06/10/2026): o Status do Pedido do Cilia pode entrar de qualquer aba -->
-    <div id="fornAtalho" class="dica oculto" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;padding:6px 10px;margin:6px 0 2px;border:1px dashed var(--borda,#8590A2);border-radius:6px">
-      <span>🚚 <b>Fornecimento da seguradora:</b></span>
-      <label for="fornArqTopo" style="cursor:pointer;color:var(--azul,#0C66E4);font-weight:600">📎 Ler Status do Pedido / print do portal</label>
+    <div id="fornAtalho" class="item oculto" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:8px 0 4px">
+      <strong style="font-size:14px">🚚 Fornecimento da seguradora</strong>
+      <label for="fornArqTopo" class="botao principal" style="padding:8px 14px;font-size:13px">📎 Ler Status do Pedido / print do portal</label>
       <input type="file" id="fornArqTopo" accept="application/pdf,image/*" onchange="lerFornecimento(this)" style="display:none">
-      <span id="fornAnexosTopo"></span>
+      <span id="fornAnexosTopo" style="font-size:13px;color:var(--texto)"></span>
     </div>
     <div id="totaisCard" class="oculto"></div>
 
@@ -1266,7 +1266,7 @@ function montarFornecimento(c, itens) {
   var fa = $('fornAnexos'), ans = (c && c.anexos) || [];
   if (fa) fa.innerHTML = ans.length ? '📎 <b>Já no card</b> (lê sem anexar de novo): ' + ans.map(function (a) { return esc(a.nome) + ' <a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false">ler</a>'; }).join(' · ') : '';
   var ft = $('fornAnexosTopo');
-  if (ft) ft.innerHTML = ans.length ? '· já no card: ' + ans.map(function (a) { return esc(a.nome.length > 40 ? a.nome.slice(0, 38) + '…' : a.nome) + ' <a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false">ler</a>'; }).join(' · ') : '';
+  if (ft) ft.innerHTML = ans.length ? '<b>Já no card:</b> ' + ans.map(function (a) { return '<a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false" style="font-weight:600">' + esc(a.nome.length > 44 ? a.nome.slice(0, 42) + '…' : a.nome) + ' → ler</a>'; }).join(' &nbsp;·&nbsp; ') : '';
   if (!itens.length) { box.innerHTML = '<div class="dica">Este card não tem peça fornecida pela seguradora.</div>'; return; }
   var grupo = '';
   itens.forEach(function (it) {
