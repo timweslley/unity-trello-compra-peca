@@ -697,6 +697,20 @@ function telaComprador(c) {
   if (!pecas.length) { $('erroComprador').textContent = 'Este card não tem peça pela oficina na descrição (só fornecimento da seguradora ou descrição fora do padrão).'; mostrar('erroComprador', true); }
   desenharTotais(c);
   montarCotacao(c); montarAutorizacao(c); montarCompra(c);
+  // peça sem "valor do orçamento" (card anterior a 05/10/2026): busca nos orçamentos anexados e recarrega (06/10/2026)
+  try {
+    var semValor = pecas.some(function (p) { return !p.pneu && !p.valorOrc; }), temPdf = (c.anexos || []).some(function (a) { return a.pdf; });
+    var jaTentou = false; try { jaTentou = !!sessionStorage.getItem('vd_valOrc_' + CARD_EDICAO); } catch (e) {}
+    if (semValor && temPdf && c.tipo !== 'PARTICULAR' && !jaTentou) {
+      try { sessionStorage.setItem('vd_valOrc_' + CARD_EDICAO, '1'); } catch (e) {}
+      var avV = document.createElement('div'); avV.className = 'dica'; avV.style.marginTop = '6px'; avV.textContent = '📄 Buscando no orçamento anexado o valor pago de cada peça (para comparar com as cotações)…';
+      $('infoComprador').appendChild(avV);
+      chamar('vdf_valoresOrcamento', TOKEN, CARD_EDICAO).then(function (r) {
+        if (r && r.preenchidas) { avV.textContent = '✓ Valores do orçamento registrados — atualizando…'; setTimeout(function () { location.reload(); }, 600); }
+        else avV.textContent = r && r.nada ? '' : '📄 Não achei no orçamento anexado o valor das peças que faltam.';
+      }).catch(function () { avV.textContent = ''; });
+    }
+  } catch (e) {}
   mostrar('btnDev', c.podeDevolver !== false);
   mostrar('abaAut', true);
   mostrar('abaRec', true); montarRecebimento(c);

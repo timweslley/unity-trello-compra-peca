@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -421,6 +421,43 @@ function vdf_textoAnexo(token, shortLink, idAnexo) {
   var texto = vd_ocr_(resp.getBlob(), a.name);
   var orc = vd_lerOrcamento_(texto);
   return { nome: a.name, texto: String(texto).slice(0, 30000), normalizado: vd_normTexto_(texto).slice(0, 30000), orcamento: { origem: orc.origem, oficina: orc.oficina, fo: orc.fo } };
+}
+
+/**
+ * Card criado antes de 05/10/2026 (ou lido sem valores): busca nos orçamentos anexados o valor líquido de cada peça
+ * que ainda não tem "ORÇ R$" e grava nas linhas da descrição. Quem autoriza enxerga a economia (06/10/2026, MVU1552).
+ * {ok, preenchidas, nada}
+ */
+function vdf_valoresOrcamento(token, shortLink) {
+  var me = vdf_usuario_(token);
+  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,shortLink', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
+  var an = vd_analisar_(card.desc, card.name);
+  var todas = (an.pecas || []).concat(an.naoComprar || []);
+  var faltam = todas.filter(function (p) { return !p.pneu && !vd_valorOrcTxt_(p.valorOrc); });
+  if (!faltam.length) return { ok: true, preenchidas: 0, nada: true };
+  var ans = (card.attachments || []).filter(vd_anexoLegivel_).filter(function (a) { return /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || ''); })
+    .sort(function (a, b) { var oa = /^📄/.test(a.name) ? 0 : 1, ob = /^📄/.test(b.name) ? 0 : 1; return oa - ob || String(b.date || '').localeCompare(String(a.date || '')); }).slice(0, 3);
+  var feitas = {}, atual = [];
+  for (var i = 0; i < ans.length && Object.keys(feitas).length < faltam.length; i++) {
+    var r = null; try { r = vd_lerAnexoTrello_(ans[i], { orcCompleto: true }); } catch (e) { continue; }
+    if (!r || r.erro || !r.orcamento) continue;
+    var orc = r.orcFull || cp_orcDoCache_(ans[i].id); if (!orc) continue;
+    var itens = (orc.oficina || []).concat(orc.fo || []).filter(function (x) { return !x.pneu && vd_valorOrcTxt_(x.valorOrc); });
+    faltam.forEach(function (p) {
+      var k = vd_chavePeca_(p); if (feitas[k]) return;
+      var kc = cp_norm_(p.codigo);
+      var it = (kc.length >= 4 ? itens.filter(function (x) { return cp_norm_(x.codigo) === kc; })[0] : null)
+        || itens.filter(function (x) { return cp_similar_(p.descricao, x.descricao) > 0; })[0];
+      if (!it) return;
+      feitas[k] = 1; atual.push({ chave: k, codigoAntigo: p.codigo || '', valorOrc: vd_valorOrcTxt_(it.valorOrc) });
+    });
+  }
+  if (!atual.length) return { ok: true, preenchidas: 0 };
+  var div = vd_dividir_(card.desc);
+  var bloco = cp_atualizarNoBloco_(div.bloco, atual);
+  vd_backup_(card, 'valores do orçamento preenchidos (' + me.username + ')');
+  vd_gravarDesc_(card.id, bloco + (div.temMarcador ? '\n\n' + div.resto : ''), token);
+  return { ok: true, preenchidas: atual.length };
 }
 
 /* ---------- leitura de documento enviado no formulário ---------- */

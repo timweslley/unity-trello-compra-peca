@@ -636,7 +636,7 @@ function vd_anexoLegivel_(a) {
  */
 /* Versão do leitor de anexos: quando o leitor de orçamento muda (ex.: 05/10/2026, layout Soma), as leituras
  * guardadas com a versão antiga são lidas de novo — senão "ler de novo" e o robô do complemento devolvem a leitura velha. */
-var VD_ANX_V = 2;
+var VD_ANX_V = 3;   // 3 (06/10/2026): o cache do orçamento passou a guardar o valor líquido de cada peça
 function vd_lerAnexoTrello_(a, opt) {
   opt = opt || {};
   var props = PropertiesService.getScriptProperties();
@@ -803,14 +803,14 @@ function vd_avisosTipo_(pecas, orcamento) {
 /* ---- peças do orçamento em formato curto (cabe no cache de 9 KB) ---- */
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
-    return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica)];
+    return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4
       ? { pneu: true, medida: x[1], marca: x[2], categoria: '', qtd: x[3] }
-      : { pneu: false, codigo: x[0], descricao: vd_limparDescricao_(x[1]), tipos: [], qtd: x[2], dica: x[3] || '' };
+      : { pneu: false, codigo: x[0], descricao: vd_limparDescricao_(x[1]), tipos: [], qtd: x[2], dica: x[3] || '', valorOrc: x[4] || '' };
   });
 }
 
