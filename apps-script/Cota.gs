@@ -131,3 +131,11 @@ function qt_retomarSePreciso_() {
   console.log('cota liberou: travas retomam a partir de agora; o que foi feito à mão desde ' + new Date(+desde).toLocaleString('pt-BR') + ' fica como está');
   return true;
 }
+
+/** Diretoria, pelo formulário: consumo de chamadas externas de hoje, ontem e anteontem, por parte (06/10/2026). */
+function vdf_consumo(token) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
+  var ate = qt_pausadaAte_();
+  return { ok: true, hoje: qt_doDia_(0), ontem: qt_doDia_(1), anteontem: qt_doDia_(2), resumo: [qt_resumo_(0), qt_resumo_(1), qt_resumo_(2)], pausadaAte: ate ? new Date(ate).toISOString() : '', limite: QT.LIMITE };
+}
