@@ -67,7 +67,13 @@ function sd_diario() {
   Object.keys(p.getProperties()).filter(function (k) { return k.indexOf('SD_F_') === 0; }).forEach(function (k) {
     try { var est = JSON.parse(p.getProperty(k)); if (est.n >= SD.FALHAS) prob.push('"' + k.slice(5) + '" falhando (' + est.n + 'x): ' + est.erro); } catch (e) {}
   });
-  Object.keys(p.getProperties()).filter(function (k) { return k.indexOf('FALHAS_') === 0; }).forEach(function (k) { prob.push('"' + k.slice(7) + '" com ' + p.getProperty(k) + ' falha(s) seguida(s)'); });
+  // só falhas das últimas 24 h (06/10/2026: o contador de ontem aparecia no relatório de hoje mesmo com a rotina já normal)
+  var props = p.getProperties();
+  Object.keys(props).filter(function (k) { return /^FALHAS_(?!AV_|T_)/.test(k); }).forEach(function (k) {
+    var nome = k.slice(7), t = +(props['FALHAS_T_' + nome] || 0);
+    if (t && Date.now() - t > 24 * 3600000) return;
+    prob.push('"' + nome + '" com ' + props[k] + ' falha(s) seguida(s)' + (t ? ' (última ' + new Date(t).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) + ')' : ''));
+  });
   try { sd_backupSemanal_(); } catch (e) { prob.push('backup semanal da planilha falhou: ' + e.message); }
   try { pn_atualizar(); } catch (e) { prob.push('painel de indicadores não atualizou: ' + e.message); }
   try { sd_limparPropriedades_(); } catch (e) { prob.push('limpeza das propriedades falhou: ' + e.message); }

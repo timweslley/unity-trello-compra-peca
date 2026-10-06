@@ -467,11 +467,12 @@ function comAlarme_(nome, fn) {
   try {
     qt_parte_(nome);
     fn();
-    if (p.getProperty(chave)) p.deleteProperty(chave);
+    if (p.getProperty(chave)) { p.deleteProperty(chave); p.deleteProperty('FALHAS_T_' + nome); }
   } catch (e) {
     if (qt_ehErroDeCota_(e)) { console.log(nome + ': ' + String((e && e.message) || e).slice(0, 120)); return; }   // o aviso de cota já cobre
     var n = Number(p.getProperty(chave) || 0) + 1;
     p.setProperty(chave, String(n));
+    p.setProperty('FALHAS_T_' + nome, String(Date.now()));   // quando foi a última falha (o relatório diário só cita as das últimas 24 h)
     // 1 e-mail na 2ª falha seguida (no máximo um a cada 6 h por rotina) e de novo a cada 200
     var kAv = 'FALHAS_AV_' + nome, av = +(p.getProperty(kAv) || 0);
     var avisar = (n >= LIMITE_FALHAS && Date.now() - av > 6 * 3600 * 1000) || n % 200 === 0;

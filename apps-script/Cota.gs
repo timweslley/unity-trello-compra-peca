@@ -138,7 +138,7 @@ function vdf_consumo(token) {
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
   var ate = qt_pausadaAte_();
   var p = PropertiesService.getScriptProperties(), falhas = {}, tempos = [];
-  try { Object.keys(p.getProperties()).forEach(function (k) { if (/^FALHAS_(?!AV_)/.test(k)) falhas[k.slice(7)] = +p.getProperty(k); }); } catch (e) {}
+  try { Object.keys(p.getProperties()).forEach(function (k) { if (/^FALHAS_(?!AV_|T_)/.test(k)) falhas[k.slice(7)] = +p.getProperty(k); }); } catch (e) {}
   try { tempos = JSON.parse(p.getProperty('SD_TEMPOS_LOG') || '[]').slice(-8); } catch (e) {}
   return { ok: true, hoje: qt_doDia_(0), ontem: qt_doDia_(1), anteontem: qt_doDia_(2), resumo: [qt_resumo_(0), qt_resumo_(1), qt_resumo_(2)], pausadaAte: ate ? new Date(ate).toISOString() : '', limite: QT.LIMITE, falhas: falhas, tempos: tempos };
 }
