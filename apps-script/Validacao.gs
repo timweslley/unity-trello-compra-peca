@@ -1573,6 +1573,7 @@ function vd_executarNucleo_() {
   // 1) colunas depois de EM COTAÇÃO: só peça nova
   listaPos.forEach(function (c) {
     if (Date.now() > ctx.prazo || !mudou(c)) return;
+    if (ctx.modoAtivo) ax_padronizarCard_(c, null);   // card que mexeu: anexos já lidos ganham o nome padronizado (05/10/2026)
     if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
     var r = vd_conferirPosCotacao_(c, ctx);
     if (r.acao !== 'base registrada' && r.acao !== 'sem peça nova' && r.acao !== 'ignorado') { out.push(r); vd_marcar_(c); }
@@ -1583,6 +1584,7 @@ function vd_executarNucleo_() {
   listaCot.forEach(function (c) {
     if (Date.now() > ctx.prazo) return;
     if (!mudou(c) && ctx.modoAtivo) return;
+    if (ctx.modoAtivo) ax_padronizarCard_(c, null);
     if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
     out.push(vd_conferirCard_(c, ctx));
     if (ctx.modoAtivo) vd_marcar_(c);

@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -154,7 +154,7 @@ function vdf_abrir(token, shortLink) {
     req('/boards/' + b + '/labels?fields=name,color&limit=100'),
     req('/boards/' + b + '/lists?fields=name&filter=all')
   ];
-  if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due&attachments=true&attachment_fields=name,fileName,mimeType,isUpload,bytes,url&customFieldItems=true'));
+  if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due&attachments=true&attachment_fields=name,fileName,mimeType,isUpload,bytes,url,date&customFieldItems=true'));
   var rs = qt_fetchAll_(reqs);
   if (rs[0].getResponseCode() >= 300) throw new Error('LOGIN: seu acesso ao Trello expirou. Entre de novo.');
   for (var i = 1; i < rs.length; i++) {
@@ -180,6 +180,7 @@ function vdf_abrir(token, shortLink) {
     var c = JSON.parse(rs[4].getContentText());
     if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
     var lst = listas.filter(function (l) { return l.id === c.idList; })[0];
+    ax_padronizarCard_(c, token);   // card antigo aberto no formulário: anexos já lidos ganham o nome padronizado (05/10/2026)
     card = vdf_montarCard_(c, lst ? lst.name : '', me);
   }
   return { info: info, card: card };
@@ -300,9 +301,10 @@ function vdf_gravarUnidade_(card, idOpcao) {
 function vdf_carregarCard(token, shortLink) {
   var me = vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
-  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url', customFieldItems: 'true' } });
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url,date', customFieldItems: 'true' } });
   if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
   var lista = vd_api_('/lists/' + c.idList, { query: { fields: 'name' } }).name;
+  ax_padronizarCard_(c, token);   // card antigo aberto no formulário: anexos já lidos ganham o nome padronizado (05/10/2026)
   return vdf_montarCard_(c, lista, me);
 }
 
@@ -387,7 +389,7 @@ function vdf_anexosDoCard_(attachments) {
 function vdf_lerAnexoCard(token, shortLink, idAnexo, placa) {
   vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
-  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url' } });
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url,date' } });
   if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
   var a = (c.attachments || []).filter(function (x) { return x.id === idAnexo; })[0];
   if (!a) throw new Error('Esse anexo não está mais no card.');
@@ -1516,7 +1518,7 @@ function vdf_salvar(token, p) {
   // confere na hora
   var acao = '';
   try {
-    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url' } });
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url,date' } });
     var props = PropertiesService.getScriptProperties();
     if (posCot) {
       if (novasPecas.length) {

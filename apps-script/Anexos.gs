@@ -80,7 +80,7 @@ function ax_anexos_(cardId, token) {
  * r = retorno de vd_lerAnexoTrello_ (r.doc = 'FO' para Status do Pedido; r.orcamento = origem do orçamento).
  * complementar = o card já tinha a lista de peças quando esse anexo entrou.
  */
-function ax_batizarLido_(card, a, r, complementar) {
+function ax_batizarLido_(card, a, r, complementar, token) {
   try {
     if (!card || !a || !r || r.erro || ax_padronizado_(a.name)) return '';
     var placa = ax_placa_(card);
@@ -91,7 +91,7 @@ function ax_batizarLido_(card, a, r, complementar) {
       nome = ax_nome_(complementar ? AX.ORC_MAIS : AX.ORC, placa, [r.seguradora || '', ax_origem_(r.orcamento)], a.date);
     }
     if (!nome) return '';
-    var fim = ax_batizar_(card.id, a.id, nome, ax_anexos_(card.id), null, { nomeAtual: a.name });
+    var fim = ax_batizar_(card.id, a.id, nome, ax_anexos_(card.id, token), token, { nomeAtual: a.name });
     a.name = fim;
     return fim;
   } catch (e) { console.log('ax_batizarLido_: ' + e); return ''; }
@@ -135,4 +135,68 @@ function vdf_padronizarAnexos(token, shortLink) {
     else out.pulados.push(de);
   });
   return out;
+}
+
+/**
+ * Sob demanda (05/10/2026): quando um card antigo mexe ou é aberto no formulário, os anexos que o robô JÁ LEU
+ * (cache) ganham o nome padronizado — sem OCR, só renomeia. Anexo nunca lido fica como está. Devolve quantos renomeou.
+ * card precisa vir com attachments (name, mimeType, isUpload, bytes, url, date).
+ */
+function ax_padronizarCard_(card, token) {
+  try {
+    var ans = (card && card.attachments || []).filter(function (a) { return a.isUpload && !ax_padronizado_(a.name); });
+    if (!ans.length || !ax_placa_(card) || vdf_cardProtegido_(card.name || '')) return 0;
+    var props = PropertiesService.getScriptProperties(), n = 0;
+    var temOrc = (card.attachments || []).some(function (a) { return String(a.name || '').indexOf(AX.ORC + AX.SEP) === 0; });
+    ans.sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); }).forEach(function (a) {
+      var js = props.getProperty('VD_ANX3_' + a.id);
+      if (!js) return;   // nunca lido: não gasta OCR aqui
+      var r; try { r = JSON.parse(js); } catch (e) { return; }
+      if (!r || r.erro) return;
+      if (!r.doc && !r.orcamento && /\bFO\b|status/i.test(a.name)) r.doc = 'FO';
+      var para = ax_batizarLido_(card, a, r, temOrc, token);
+      if (para) { n++; if (para.indexOf(AX.ORC + AX.SEP) === 0) temOrc = true; }
+    });
+    return n;
+  } catch (e) { console.log('ax_padronizarCard_: ' + e); return 0; }
+}
+
+/** Passada única pelo quadro (cards abertos, só anexos já lidos), em lotes de ~4,5 min com gatilho até acabar. */
+function axPadronizarQuadro() {
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('AX_PASSO')) return;   // nada agendado
+  var cards = vd_api_('/boards/' + vd_board_() + '/cards', { query: { fields: 'name,shortLink', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } }) || [];
+  var pos = +(String(props.getProperty('AX_PASSO')).split('|')[0] || 0), feitos = +(String(props.getProperty('AX_PASSO')).split('|')[1] || 0);
+  var ini = Date.now();
+  for (; pos < cards.length && Date.now() - ini < 4.5 * 60 * 1000; pos++) {
+    try { feitos += ax_padronizarCard_(cards[pos], null); } catch (e) {}
+  }
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'axPadronizarQuadro') ScriptApp.deleteTrigger(t); });
+  if (pos >= cards.length) {
+    props.deleteProperty('AX_PASSO');
+    console.log('padronização dos anexos concluída: ' + feitos + ' anexo(s) em ' + cards.length + ' card(s)');
+  } else {
+    props.setProperty('AX_PASSO', pos + '|' + feitos);
+    ScriptApp.newTrigger('axPadronizarQuadro').timeBased().after(2 * 60 * 1000).create();
+  }
+}
+
+/** Diretoria, pelo formulário: agenda a passada pelo quadro. Devolve {ok, cards}. */
+function vdf_padronizarQuadro(token) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria roda a padronização do quadro.'] };
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('AX_PASSO')) return { ok: true, jaRodando: true, passo: props.getProperty('AX_PASSO') };
+  var cards = vd_api_('/boards/' + vd_board_() + '/cards', { query: { fields: 'id' } }) || [];
+  props.setProperty('AX_PASSO', '0|0');
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'axPadronizarQuadro') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('axPadronizarQuadro').timeBased().after(5 * 1000).create();
+  return { ok: true, cards: cards.length };
+}
+
+/** Diretoria: situação da passada ({rodando, passo}). */
+function vdf_padronizarQuadroStatus(token) {
+  vdf_usuario_(token);
+  var p = PropertiesService.getScriptProperties().getProperty('AX_PASSO');
+  return { rodando: !!p, passo: p || '' };
 }
