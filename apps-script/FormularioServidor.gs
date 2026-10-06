@@ -148,12 +148,12 @@ function vdf_abrir(token, shortLink) {
   if (!token) throw new Error('LOGIN: entre com sua conta do Trello.');
   var base = 'https://api.trello.com/1', b = vd_board_();
   function req(url, tk) { return { url: base + url, method: 'get', muteHttpExceptions: true, headers: { Authorization: vd_auth_(tk) } }; }
-  var reqs = [
-    req('/members/me?fields=fullName,username', token),
-    req('/boards/' + b + '?fields=id,name,shortUrl'),
-    req('/boards/' + b + '/labels?fields=name,color&limit=100'),
-    req('/boards/' + b + '/lists?fields=name&filter=all')
-  ];
+  // quadro e listas quase não mudam: cache de 10 min (06/10/2026 — abrir o formulário era a maior fatia do consumo diário)
+  var cacheB = CacheService.getScriptCache(), kB = 'vdf_abrir_base_' + b, baseTxt = null;
+  try { baseTxt = cacheB.get(kB); } catch (e) {}
+  var reqs = [req('/members/me?fields=fullName,username', token)];
+  if (!baseTxt) reqs.push(req('/boards/' + b + '?fields=id,name,shortUrl'), req('/boards/' + b + '/lists?fields=name&filter=all'));
+  var iCard = reqs.length;
   if (shortLink) reqs.push(req('/cards/' + encodeURIComponent(shortLink) + '?fields=name,desc,idBoard,idList,shortLink,shortUrl,idLabels,labels&checklists=all&checkItem_fields=name,state,due&attachments=true&attachment_fields=name,fileName,mimeType,isUpload,bytes,url,date&customFieldItems=true'));
   var rs = qt_fetchAll_(reqs);
   if (rs[0].getResponseCode() >= 300) throw new Error('LOGIN: seu acesso ao Trello expirou. Entre de novo.');
@@ -161,9 +161,13 @@ function vdf_abrir(token, shortLink) {
     if (rs[i].getResponseCode() >= 300) throw new Error('Trello ' + rs[i].getResponseCode() + ': ' + rs[i].getContentText().slice(0, 120));
   }
   var me = JSON.parse(rs[0].getContentText());
-  var board = JSON.parse(rs[1].getContentText());
-  var labels = cf_opcoesUnidade_();   // opções do campo personalizado "Unidade"
-  var listas = JSON.parse(rs[3].getContentText());
+  var board, listas;
+  if (baseTxt) { var bs = JSON.parse(baseTxt); board = bs.board; listas = bs.listas; }
+  else {
+    board = JSON.parse(rs[1].getContentText()); listas = JSON.parse(rs[2].getContentText());
+    try { cacheB.put(kB, JSON.stringify({ board: board, listas: listas }), 600); } catch (e) {}
+  }
+  var labels = cf_opcoesUnidade_();   // opções do campo personalizado "Unidade" (cache próprio)
   // membro do quadro? (mesma regra de vdf_usuario_, com o cache)
   var cache = CacheService.getScriptCache(), chave = 'vdf_membros_' + b, membros = cache.get(chave);
   if (!membros) {
@@ -177,7 +181,7 @@ function vdf_abrir(token, shortLink) {
   };
   var card = null;
   if (shortLink) {
-    var c = JSON.parse(rs[4].getContentText());
+    var c = JSON.parse(rs[iCard].getContentText());
     if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
     var lst = listas.filter(function (l) { return l.id === c.idList; })[0];
     ax_padronizarCard_(c, token);   // card antigo aberto no formulário: anexos já lidos ganham o nome padronizado (05/10/2026)

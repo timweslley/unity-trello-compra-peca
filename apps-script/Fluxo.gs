@@ -43,7 +43,7 @@ function st_executar_() {
   var desde = vd_marca_('ST_ULTIMA');
   if (!desde) { vd_marcaSet_('ST_ULTIMA', agora); return 0; }   // 1ª vez: não olha para trás
   var board = vd_board_();
-  var acoes = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: 'updateCard:idList', since: desde, limit: 100, memberCreator_fields: 'username,fullName' } }) || [];
+  var acoes = vd_acoesQuadro_(board, { filter: 'updateCard:idList', since: desde, limit: 100, memberCreator_fields: 'username,fullName' });
   if (!acoes.length) { vd_marcaSet_('ST_ULTIMA', agora); return 0; }
   var ultimaFeita = desde;   // o marcador só avança sobre o que foi processado de verdade
   var ls = vd_listas_(board), nome = {};
@@ -263,7 +263,7 @@ function exc_executar_() {
   vd_marcaSet_('EXC_ULTIMA', agora);
   if (!desde) return 0;
   var board = vd_board_();
-  var acoes = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: 'deleteCard', since: desde, limit: 50, memberCreator_fields: 'username,fullName' } }) || [];
+  var acoes = vd_acoesQuadro_(board, { filter: 'deleteCard', since: desde, limit: 50, memberCreator_fields: 'username,fullName' });
   if (!acoes.length) return 0;
   var admins = null, kAdm = 'exc_admins_' + board;
   try { admins = JSON.parse(CacheService.getScriptCache().get(kAdm) || 'null'); } catch (e) {}

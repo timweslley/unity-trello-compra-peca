@@ -111,6 +111,47 @@ function vd_listas_(board) {
   try { if (cache) cache.put(k, JSON.stringify(m), 600); } catch (e) {}
   return m;
 }
+var VD_ACOES = null;   // histórico do quadro desta execução: { board, desde (ms), lista (mais nova primeiro), cheio }
+/**
+ * Histórico do quadro compartilhado pelo ciclo (06/10/2026): UMA consulta por execução (tudo dos últimos 20 min, até
+ * 1000 ações) e cada módulo filtra em memória — antes eram 6–7 consultas iguais por minuto (≈ 9 mil chamadas/dia).
+ * q = a mesma query de sempre {filter, since, before, limit, fields, memberCreator_fields}. Cai na consulta direta quando:
+ * VD_ACOES_COMPARTILHADAS = NAO, `since` é id de ação que não está na janela, a janela não cobre o `since`, ou veio cheia.
+ */
+function vd_acoesQuadro_(board, q) {
+  q = q || {};
+  var direto = function () { return vd_api_('/boards/' + board + '/actions', { cru: true, query: q }) || []; };
+  try {
+    if (vd_prop_('VD_ACOES_COMPARTILHADAS', 'SIM') === 'NAO') return direto();
+    if (!VD_ACOES || VD_ACOES.board !== board) {
+      var desdeMs = Date.now() - 20 * 60000;
+      var lista = vd_api_('/boards/' + board + '/actions', { cru: true, query: { since: new Date(desdeMs).toISOString(), limit: 1000, fields: 'data,date,type', memberCreator: 'true', memberCreator_fields: 'username,fullName' } }) || [];
+      VD_ACOES = { board: board, desde: desdeMs, lista: lista, cheio: lista.length >= 1000 };
+    }
+    if (VD_ACOES.cheio) return direto();
+    var base = VD_ACOES.lista, sinceMs = Date.parse(q.since);
+    if (q.since && isNaN(sinceMs)) {   // since por id de ação (trava de checklist): só o que veio depois dele
+      var ix = -1; base.forEach(function (a, i) { if (ix < 0 && a.id === q.since) ix = i; });
+      if (ix < 0) return direto();
+      base = base.slice(0, ix); sinceMs = NaN;
+    } else if (!isNaN(sinceMs) && sinceMs < VD_ACOES.desde) return direto();
+    var tipos = String(q.filter || 'all').split(',').filter(String), beforeMs = q.before ? Date.parse(q.before) : NaN;
+    var out = base.filter(function (a) {
+      var t = Date.parse(a.date);
+      if (!isNaN(sinceMs) && !(t > sinceMs)) return false;
+      if (!isNaN(beforeMs) && !(t < beforeMs)) return false;
+      return tipos[0] === 'all' || tipos.some(function (f) { return vd_acaoBate_(a, f); });
+    });
+    return q.limit ? out.slice(0, q.limit) : out;
+  } catch (e) { console.log('ações compartilhadas: ' + e); return direto(); }
+}
+/** "updateCard:idList" = updateCard em que data.old.idList existe (regra do filtro do Trello). */
+function vd_acaoBate_(a, f) {
+  var p = String(f).split(':'), d = a.data || {};
+  if (a.type !== p[0]) return false;
+  if (p.length < 2) return true;
+  return !!(d.old && Object.prototype.hasOwnProperty.call(d.old, p[1]));
+}
 /** Nome canônico da coluna (o quadro principal usa "FALTA DADOS PARA COTAÇÃO", o TESTE "...COTAR"). */
 function vd_nomeColuna_(n) {
   var s = String(n || '').trim().toUpperCase();
@@ -891,7 +932,7 @@ function tr_executar_() {
   var ate = agora - TR.ESPERA_MS, desde = vd_marca_('TR_ACT');
   if (!desde) { vd_marcaSet_('TR_ACT', new Date(ate).toISOString()); return 0; }
   if (new Date(desde).getTime() >= ate) return 0;
-  var acts = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: 'updateCard:desc', since: desde, before: new Date(ate).toISOString(), limit: 200, fields: 'data,date' } }) || [];
+  var acts = vd_acoesQuadro_(board, { filter: 'updateCard:desc', since: desde, before: new Date(ate).toISOString(), limit: 200, fields: 'data,date' });
   vd_marcaSet_('TR_ACT', new Date(ate).toISOString());
   var ids = [];
   acts.forEach(function (a) { var id = a.data && a.data.card && a.data.card.id; if (id && ids.indexOf(id) < 0) ids.push(id); });
@@ -1062,16 +1103,21 @@ function vd_restaurarDescricao(shortLink) {
 /* ============================ QUEM CRIOU ============================ */
 
 function vd_criador_(cardId) {
+  // quem criou o card não muda: cache de 6 h (06/10/2026 — era 1 chamada a cada abertura do formulário e a cada comentário do robô)
+  var cache = null, k = 'vd_criador_' + cardId;
+  try { cache = CacheService.getScriptCache(); var c = cache.get(k); if (c !== null) return c; } catch (e) {}
+  var quem = '';
   try {
     var acts = vd_api_('/cards/' + cardId + '/actions', {
       query: { filter: 'createCard,copyCard,moveCardToBoard,emailCard,convertToCardFromCheckItem', limit: 50, memberCreator_fields: 'username,fullName' }
     });
     if (acts && acts.length) {
       var a = acts[acts.length - 1];
-      if (a.memberCreator) return a.memberCreator.username;
+      if (a.memberCreator) quem = a.memberCreator.username;
     }
+    try { if (cache && quem) cache.put(k, quem, 21600); } catch (e2) {}
   } catch (e) {}
-  return '';
+  return quem;
 }
 
 /* ============================ NÚCLEO ============================ */
@@ -1565,7 +1611,7 @@ function vd_executarNucleo_() {
   var listaPos = null, listaCot = null;
   if (!completa) {
     try {
-      var acts = vd_api_('/boards/' + ctx.board + '/actions', { cru: true, query: { since: new Date(new Date(marca).getTime() - 5000).toISOString(), limit: 1000, fields: 'data' } }) || [];
+      var acts = vd_acoesQuadro_(ctx.board, { since: new Date(new Date(marca).getTime() - 5000).toISOString(), limit: 1000, fields: 'data' });
       var ids = [];
       acts.forEach(function (a) { var id = a.data && a.data.card && a.data.card.id; if (id && ids.indexOf(id) < 0 && !vd_legado_(id)) ids.push(id); });
       listaPos = []; listaCot = [];

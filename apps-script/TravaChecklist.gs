@@ -124,7 +124,7 @@ function ck_executar_() {
     vd_marcaSet_('CK_DESDE', ult.length ? ult[0].id : new Date().toISOString());
     return 0;
   }
-  var acts = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: CK.TIPOS, since: desde, limit: 200, memberCreator_fields: 'username,fullName' } });
+  var acts = vd_acoesQuadro_(board, { filter: CK.TIPOS, since: desde, limit: 200, memberCreator_fields: 'username,fullName' });
   if (!acts.length) return 0;
   var cache = {};
   try {

@@ -368,7 +368,7 @@ function cp_executar_() {
   var vistos = []; try { vistos = JSON.parse(props.getProperty('CP_VISTOS') || '[]'); } catch (e) {}
   var prazo = Date.now() + 60 * 1000;
   var ctx = vd_contexto_();
-  var acts = vd_api_('/boards/' + ctx.board + '/actions', { cru: true, query: { filter: 'addAttachmentToCard', since: desde, limit: 100, fields: 'data,date', memberCreator: 'true', memberCreator_fields: 'username' } }) || [];
+  var acts = vd_acoesQuadro_(ctx.board, { filter: 'addAttachmentToCard', since: desde, limit: 100, fields: 'data,date', memberCreator: 'true', memberCreator_fields: 'username' });
   if (!acts.length) return 0;
   acts.reverse();   // mais antigo primeiro
   var n = 0, mudou = false, ultima = desde;

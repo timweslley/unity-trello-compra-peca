@@ -31,7 +31,7 @@ function fat_executar_() {
   var desde = vd_marca_('FAT_ULTIMA');
   if (!desde) { vd_marcaSet_('FAT_ULTIMA', new Date().toISOString()); return 0; }   // 1ª vez: só daqui para frente
   var board = vd_board_();
-  var acoes = vd_api_('/boards/' + board + '/actions', { cru: true, query: { filter: 'commentCard', since: desde, limit: 100, memberCreator_fields: 'username,fullName' } }) || [];
+  var acoes = vd_acoesQuadro_(board, { filter: 'commentCard', since: desde, limit: 100, memberCreator_fields: 'username,fullName' });
   if (!acoes.length) return 0;
   vd_marcaSet_('FAT_ULTIMA', new Date(new Date(acoes[0].date).getTime() + 1).toISOString());   // a 1ª é a mais nova
   var ls = vd_listas_(board), nomeL = {};
