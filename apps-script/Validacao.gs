@@ -124,7 +124,13 @@ function vd_acoesQuadro_(board, q) {
   try {
     if (vd_prop_('VD_ACOES_COMPARTILHADAS', 'SIM') === 'NAO') return direto();
     if (!VD_ACOES || VD_ACOES.board !== board) {
-      var desdeMs = Date.now() - 20 * 60000;
+      // janela: 20 min, ou desde a marca mais antiga dos módulos (quadro parado à noite: as marcas ficam para trás), até 6 h
+      var desdeMs = Date.now() - 20 * 60000, piso = Date.now() - 6 * 3600000;
+      ['TR_ACT', 'ST_ULTIMA', 'EXC_ULTIMA', 'FAT_ULTIMA', 'CP_ACT', 'NU_ACT', 'CK_DESDE'].forEach(function (n) {
+        var v = vd_marca_(n), t = Date.parse(v);
+        if (isNaN(t) && /^[0-9a-f]{24}$/i.test(String(v || ''))) t = parseInt(String(v).slice(0, 8), 16) * 1000 - 1000;   // id de ação: data embutida
+        if (!isNaN(t) && t < desdeMs) desdeMs = Math.max(t - 5000, piso);
+      });
       var lista = vd_api_('/boards/' + board + '/actions', { cru: true, query: { since: new Date(desdeMs).toISOString(), limit: 1000, fields: 'data,date,type', memberCreator: 'true', memberCreator_fields: 'username,fullName' } }) || [];
       VD_ACOES = { board: board, desde: desdeMs, lista: lista, cheio: lista.length >= 1000 };
     }
@@ -132,8 +138,13 @@ function vd_acoesQuadro_(board, q) {
     var base = VD_ACOES.lista, sinceMs = Date.parse(q.since);
     if (q.since && isNaN(sinceMs)) {   // since por id de ação (trava de checklist): só o que veio depois dele
       var ix = -1; base.forEach(function (a, i) { if (ix < 0 && a.id === q.since) ix = i; });
-      if (ix < 0) return direto();
-      base = base.slice(0, ix); sinceMs = NaN;
+      if (ix >= 0) { base = base.slice(0, ix); sinceMs = NaN; }
+      else {
+        // id fora da janela: se a data embutida no id é anterior ao início da janela, tudo o que está nela veio depois
+        var tId = /^[0-9a-f]{24}$/i.test(String(q.since)) ? parseInt(String(q.since).slice(0, 8), 16) * 1000 : NaN;
+        if (isNaN(tId) || tId + 1000 >= VD_ACOES.desde) return direto();
+        sinceMs = NaN;
+      }
     } else if (!isNaN(sinceMs) && sinceMs < VD_ACOES.desde) return direto();
     var tipos = String(q.filter || 'all').split(',').filter(String), beforeMs = q.before ? Date.parse(q.before) : NaN;
     var out = base.filter(function (a) {
