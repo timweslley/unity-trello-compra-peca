@@ -1355,6 +1355,20 @@ function vd_conferirPosCotacao_(card, ctx) {
   linhas.forEach(function (l, i) { if (base.indexOf(sigsH[i]) < 0) novas.push(l); });
   if (!novas.length) {
     if (baseTxt !== JSON.stringify(sigsH)) vd_pkSet_(card.id, sigs);
+    // peça da oficina sem cotação num card que já andou (deixou de ser "não comprar", passou de FO para oficina…):
+    // volta para EM COTAÇÃO — só em card que já teve cotação/compra de verdade (06/10/2026, QPG1B84)
+    var semCot = [];
+    try { if (vd_cotacoesDaDescricao_(card.desc, vd_analisar_(card.desc, card.name).pecas).cotacoes.length || vd_comprasDaDescricao_(card.desc).length) semCot = vd_pecasSemCotacao_(card); } catch (e) {}
+    if (semCot.length) {
+      res.acao = 'peça sem cotação → volta para EM COTAÇÃO';
+      if (ctx.modoAtivo) {
+        var nomeL = ''; Object.keys(ctx.listas).forEach(function (k) { if (ctx.listas[k] === card.idList) nomeL = k; });
+        vd_mover_(card, ctx.listas[VD.LISTA_COTACAO], 'top');
+        vd_comentar_(card, '🆕 **PEÇA SEM COTAÇÃO** (estava em ' + nomeL + ') → **EM COTAÇÃO**: ' + semCot.join('; '));
+        props.setProperty('VD_SIG_' + card.id, 'OK');
+      }
+      return res;
+    }
     res.acao = res.pagas ? 'pagas' : 'sem peça nova';
     return res;
   }

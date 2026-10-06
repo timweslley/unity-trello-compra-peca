@@ -82,8 +82,20 @@ function st_executar_() {
     if (vistos[cardId]) return;   // vários movimentos seguidos: trata uma vez, devolvendo para a origem do primeiro
     vistos[cardId] = 1;
     var c;
-    try { c = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name,idList,shortLink,shortUrl,labels' } }); } catch (e) { return; }
+    try { c = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name,desc,idList,shortLink,shortUrl,labels' } }); } catch (e) { return; }
     if (c.idList !== para) return;   // já saiu de lá
+    // volta à mão para EM COTAÇÃO com peça da oficina ainda sem cotação (ex.: peça que deixou de ser "não comprar" ou passou
+    // de FO para oficina — QPG1B84, 06/10/2026): o movimento está certo, fica
+    if (inicio.indexOf(para) >= 0 && ST.TRAVADAS[nDe]) {
+      var semCot = [];
+      try { semCot = vd_pecasSemCotacao_(c); } catch (e) {}
+      if (semCot.length) {
+        var quemM = a.memberCreator ? a.memberCreator.username : '';
+        try { vd_comentar_(c, '✔ Card em **' + nPara + '**' + (quemM ? ' (movido por @' + quemM + ')' : '') + ' — peça(s) aguardando cotação: ' + semCot.join('; ')); } catch (e) {}
+        try { PropertiesService.getScriptProperties().deleteProperty('VD_NOVAS_' + cardId); } catch (e) {}
+        return;
+      }
+    }
     try {
       st_permitir_(cardId, de);
       vd_api_('/cards/' + cardId, { method: 'put', payload: { idList: de, pos: 'top' } });

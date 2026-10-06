@@ -1240,6 +1240,23 @@ function vdf_salvarCompra(token, p) {
 }
 
 /** Linhas "COMPRADO: FORNECEDOR - CÓDIGO DESCRIÇÃO - R$ valor - dd/mm" em qualquer parte da descrição. */
+/** Peças da oficina do card que ainda não têm cotação, "não cotada", autorização nem compra — nomes curtos (06/10/2026). */
+function vd_pecasSemCotacao_(card) {
+  var desc = card.desc || '', an = vd_analisar_(desc, card.name || '');
+  var cot = { cotacoes: [], semCot: [] }, auts = [], compras = [];
+  try { cot = vd_cotacoesDaDescricao_(desc, an.pecas); } catch (e) {}
+  try { auts = vd_autorizacoesDaDescricao_(desc, an.pecas); } catch (e) {}
+  try { compras = vd_comprasDaDescricao_(desc); } catch (e) {}
+  return (an.pecas || []).filter(function (p) {
+    var k = vd_chavePeca_(p);
+    if ((cot.cotacoes || []).some(function (q) { return q.chave === k; })) return false;
+    if ((cot.semCot || []).some(function (q) { return q.chave === k; })) return false;
+    if (auts.some(function (q) { return q.chave === k; })) return false;
+    if (compras.some(function (c) { var ck = vd_semAcento_((c.codigo || '').replace(/\s+/g, '') || c.descricao); return ck && (ck === k || (p.codigo && vd_semAcento_(c.codigo) === vd_semAcento_(p.codigo))); })) return false;
+    return true;
+  }).map(vd_nomePeca_);
+}
+
 function vd_comprasDaDescricao_(desc) {
   var out = [];
   vd_limpar_(desc).split('\n').forEach(function (l) {
