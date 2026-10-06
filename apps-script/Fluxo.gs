@@ -254,7 +254,8 @@ function sla_rodarAgora() { Logger.log('avisos de prazo: ' + sla_executar_(true)
  * quem não é administrador do quadro é RECRIADO na mesma coluna, com o mesmo título e a descrição
  * completa (guardada na aba TRAVA), comentário listando as compras registradas na planilha de eventos
  * (checklists e anexos não voltam) e e-mail de alerta. Para tirar um card do quadro: ARQUIVAR.
- * Desligar: propriedade EXC_PROTEGER = NAO.
+ * Desligar: propriedade EXC_PROTEGER = NAO. Liberar outros usuários por nome: EXC_LIVRES = "usuario1, usuario2" (padrão timweslley).
+ * 06/10/2026: o histórico compartilhado vinha sem idMemberCreator e o robô recriou card excluído pelo próprio Weslley — corrigido.
  */
 function exc_executar_() {
   if (vd_prop_('EXC_PROTEGER', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
@@ -275,8 +276,11 @@ function exc_executar_() {
   var n = 0;
   acoes.forEach(function (a) {
     if (!a.data || !a.data.card || !a.data.list) return;
-    if (admins.indexOf(a.idMemberCreator) >= 0) return;   // administrador pode excluir
-    var velho = a.data.card, quem = a.memberCreator ? a.memberCreator.username : '?';
+    var quemId = a.idMemberCreator || (a.memberCreator && a.memberCreator.id) || '';
+    var quem = a.memberCreator ? a.memberCreator.username : '?';
+    if (!quemId || admins.indexOf(quemId) >= 0) return;   // administrador pode excluir; sem autor identificado, não recria (nunca recriar por falta de dado)
+    if (vd_prop_('EXC_LIVRES', 'timweslley').split(/[,\s]+/).filter(String).indexOf(quem) >= 0) return;   // usuários liberados por nome (propriedade EXC_LIVRES; Weslley sempre pode excluir)
+    var velho = a.data.card;
     try {
       var desc = vd_completa_(velho.id) || tr_ler_(velho.id) || '';
       var nome = String(velho.name || '').trim() || ('CARD RECUPERADO ' + (velho.idShort || ''));

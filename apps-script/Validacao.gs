@@ -131,7 +131,7 @@ function vd_acoesQuadro_(board, q) {
         if (isNaN(t) && /^[0-9a-f]{24}$/i.test(String(v || ''))) t = parseInt(String(v).slice(0, 8), 16) * 1000 - 1000;   // id de ação: data embutida
         if (!isNaN(t) && t < desdeMs) desdeMs = Math.max(t - 5000, piso);
       });
-      var lista = vd_api_('/boards/' + board + '/actions', { cru: true, query: { since: new Date(desdeMs).toISOString(), limit: 1000, fields: 'data,date,type', memberCreator: 'true', memberCreator_fields: 'username,fullName' } }) || [];
+      var lista = vd_api_('/boards/' + board + '/actions', { cru: true, query: { since: new Date(desdeMs).toISOString(), limit: 1000, fields: 'data,date,type,idMemberCreator', memberCreator: 'true', memberCreator_fields: 'username,fullName' } }) || [];   // idMemberCreator: a proteção contra exclusão confere se foi administrador (faltou em 06/10 e recriou card do Weslley)
       VD_ACOES = { board: board, desde: desdeMs, lista: lista, cheio: lista.length >= 1000 };
     }
     if (VD_ACOES.cheio) return direto();
