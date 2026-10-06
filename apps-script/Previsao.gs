@@ -400,6 +400,7 @@ function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   try { texto = vd_ocr_(resp.getBlob(), a.name); } catch (e) { return { anexoId: a.id, erro: 'Não consegui ler "' + a.name + '" (' + String(e.message || e).slice(0, 80) + ').' }; }
   var out = pv_lerFornecimentoTexto_(card, texto);
   out.anexoId = a.id;
+  out.trecho = String(texto || '').slice(0, 4000);   // diagnóstico do OCR (o formulário não mostra)
   return out;
 }
 
