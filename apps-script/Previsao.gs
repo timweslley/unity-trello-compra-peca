@@ -154,10 +154,17 @@ function vdf_atualizarFornecimento(token, p) {
   (p.itens || []).forEach(function (x) {
     var it = pv_achaFo_(itensFo, x);
     if (!it) return faltas.push('FO não encontrada no card: ' + (x.codigo || x.descricao || x.id || '?') + ' (use "novos" para incluir)');
-    var base = pv_baseFo_(it.name, foLista), mud = {}, txt = [];
+    var base = pv_baseFo_(it.name, foLista), baseOrig = base, mud = {}, txt = [];
     var querNome = x.fornecedor !== undefined || x.situacao !== undefined;
+    // o documento novo trouxe outro código (e/ou descrição) para a mesma peça: atualiza no item, sem duplicar (05/10/2026)
+    if (x.codigoNovo) {
+      var codNovo = String(x.codigoNovo).replace(/\s+/g, '').toUpperCase();
+      var descBase = base.replace(/^[A-Z0-9][A-Z0-9.\-\/]{3,}\s+/i, '');
+      base = codNovo + ' ' + (x.descNova ? String(x.descNova).toUpperCase() : descBase);
+      querNome = true; txt.push('código → ' + codNovo);
+    }
     if (querNome) {
-      var antigoForn = (String(it.name).slice(base.length).match(/^\s+-\s+([^-—]+?)(?:\s+[-—]|$)/) || [])[1] || '';
+      var antigoForn = (String(it.name).slice(baseOrig.length).match(/^\s+-\s+([^-—]+?)(?:\s+[-—]|$)/) || [])[1] || '';
       var nm = nomeNovo(base, { fornecedor: x.fornecedor !== undefined ? x.fornecedor : antigoForn, situacao: x.situacao });
       if (nm !== it.name) { mud.name = nm; txt.push(nm.slice(base.length).replace(/^\s+[-—]\s+/, '') || 'sem fornecedor'); }
     }
@@ -284,7 +291,7 @@ function pv_lerStatusCilia_(texto, lista) {
     }
     if (acima) forn = (acima + ' ' + forn).replace(/\s+/g, ' ').trim();
     var d = pv_datas_(m[5]);
-    out[cp_norm_(m[1])] = { fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '', previsao: d.length ? d[0].toISOString() : '', linha: linhas[i].trim().slice(0, 120) };
+    out[cp_norm_(m[1])] = { codigo: m[1], descricao: m[2].trim(), fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '', previsao: d.length ? d[0].toISOString() : '', linha: linhas[i].trim().slice(0, 120) };
   }
   return Object.keys(out).length ? out : null;
 }
@@ -300,12 +307,26 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   // layout "Status do Pedido" do Cilia: fornecedor em duas linhas e data na linha da peça — leitor próprio
   var cilia = null; try { cilia = pv_lerStatusCilia_(texto, lista); } catch (e) { console.log('status cilia: ' + e); }
   if (cilia) {
-    var outC = [];
+    var outC = [], usadasC = {}, semCodigo = [];
     (alvos || []).forEach(function (a) {
-      var k = cp_norm_(a.codigo || a.codigoOrc); if (k.length < 5) return;
+      var k = cp_norm_(a.codigo || a.codigoOrc); if (k.length < 5) { semCodigo.push(a); return; }
       var kd = (k.match(/^\d{5,}/) || [k])[0];   // código grudado na descrição ("100260230EMBLEMA"): só os dígitos
       var r = cilia[k] || cilia[kd];
-      if (r) outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha });
+      if (r) { usadasC[cilia[k] ? k : kd] = 1; outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha }); }
+      else semCodigo.push(a);
+    });
+    // peça do card cujo código não está no documento: mesma peça pela descrição = código mudou -> devolve o código novo
+    semCodigo.forEach(function (a) {
+      var melhor = '', nota = 0;
+      Object.keys(cilia).forEach(function (kk) {
+        if (usadasC[kk]) return;
+        var sim = cp_similar_(a.descricao || a.nome, cilia[kk].descricao);
+        if (sim > nota) { nota = sim; melhor = kk; }
+      });
+      if (!melhor) return;
+      usadasC[melhor] = 1;
+      var r = cilia[melhor];
+      outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, codigoNovo: r.codigo, descNova: r.descricao });
     });
     if (outC.length) return outC;
   }
@@ -410,7 +431,7 @@ function pv_lerFornecimentoTexto_(card, texto) {
   }
   return {
     orcamento: !!orc.origem, lidos: achados.length,
-    achados: achados.map(function (r) { return { id: r.alvo.id, nome: r.alvo.nome, fornecedor: r.fornecedor, previsao: r.previsao ? Utilities.formatDate(new Date(r.previsao), 'America/Sao_Paulo', 'yyyy-MM-dd') : '' }; }),
+    achados: achados.map(function (r) { return { id: r.alvo.id, nome: r.alvo.nome, fornecedor: r.fornecedor, previsao: r.previsao ? Utilities.formatDate(new Date(r.previsao), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', codigoNovo: r.codigoNovo || '', descNova: r.descNova || '' }; }),
     faltando: faltando, extras: extras.slice(0, 20)
   };
 }

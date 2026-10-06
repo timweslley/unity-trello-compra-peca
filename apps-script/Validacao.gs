@@ -266,7 +266,7 @@ function vd_linhasPecas_(bloco) {
   for (var i = 0; i < linhas.length; i++) {
     if (/^\s*PE[ÇC]AS\s*:?\s*$/i.test(linhas[i])) { ini = i + 1; break; }
   }
-  var out = { achouBloco: ini >= 0, linhas: [], semOficina: false };
+  var out = { achouBloco: ini >= 0, linhas: [], idx: [], semOficina: false };   // idx = nº da linha no bloco (para reescrever)
   if (ini < 0) return out;
   for (var j = ini; j < linhas.length; j++) {
     var l = linhas[j].trim();
@@ -274,7 +274,7 @@ function vd_linhasPecas_(bloco) {
     if (/^(OBS|OBSERVA[ÇC][ÃA]O|PEDIDO ENVIADO|↳|FORNECIMENTO|FO\b|DADOS DO CARRO|-{3,}|={3,})/i.test(l)) break;
     if (/^NENHUMA PE[ÇC]A/i.test(l)) { out.semOficina = true; break; }
     l = l.replace(/^\s*(?:\d+\s*[.)\-]|[-•*])\s*/, '');
-    if (l) out.linhas.push(l);
+    if (l) { out.linhas.push(l); out.idx.push(j); }
   }
   return out;
 }

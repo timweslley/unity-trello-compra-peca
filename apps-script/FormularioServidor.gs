@@ -463,9 +463,16 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
     : todas.filter(function (c) { return String(c.name || '').trim().toUpperCase() === nomeLista; })[0];
   if (!cl) cl = vd_api_('/checklists', { method: 'post', payload: { idCard: cardId, name: nomeLista, pos: 'bottom' } }, token);
   var existentes = [];
-  todas.forEach(function (c) { (c.checkItems || []).forEach(function (i) { existentes.push({ item: i, norm: vd_semAcento_(i.name) }); }); });
-  var n = 0;
-  fo.forEach(function (p) {
+  todas.forEach(function (c) { (c.checkItems || []).forEach(function (i) { existentes.push({ item: i, norm: vd_semAcento_(i.name), base: pv_baseFo_(i.name) }); }); });
+  // 1ª passada: quem casa pelo código (esses itens não podem ser "roubados" pelo casamento por descrição)
+  var porCodigo = {};
+  fo.forEach(function (p, k) {
+    var cod0 = String(p.codigo || p.codigoOrc || '').trim().replace(/\*+$/, '').replace(/\s+/g, '');
+    if (!cod0) return;
+    existentes.forEach(function (e, j) { if (porCodigo[j] === undefined && vd_casaItem_(e.norm, vd_semAcento_(cod0))) porCodigo[j] = k; });
+  });
+  var n = 0, usados = {};
+  fo.forEach(function (p, k) {
     var cod = String(p.codigo || p.codigoOrc || '').trim();
     var desc = p.pneu ? ('PNEU ' + (p.medida || '') + ' ' + (p.marca || '')).trim() : String(p.descricao || '').trim();
     // padrão do quadro: CÓDIGO DESCRIÇÃO (o fornecedor e a previsão entram depois pela rotina de fornecimento)
@@ -473,8 +480,21 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
     // orçamento que já traz fornecedor/prazo da FO (ex.: grupo Porto): entra no item
     var nome = (cod ? cod + ' ' : '') + desc + (p.qtd && +p.qtd > 1 ? ' (x' + p.qtd + ')' : '') + (p.fornecedor ? ' - ' + String(p.fornecedor).toUpperCase() : '');
     var chave = vd_semAcento_(cod || desc);
-    var ja = existentes.filter(function (e) { return vd_casaItem_(e.norm, chave); })[0];
+    var ja = existentes.filter(function (e, j) { return !usados[j] && vd_casaItem_(e.norm, chave); })[0];
+    // sem código igual: mesma peça pela descrição (igual ou parecida) = o código mudou no orçamento novo -> atualiza o item,
+    // não repete (Weslley, 05/10/2026: "cuidar pra não duplicar e atualizar; pode haver mudança de código da peça")
+    if (!ja && !p.pneu && desc) {
+      var melhor = -1, nota = 0;
+      existentes.forEach(function (e, j) {
+        if (usados[j] || porCodigo[j] !== undefined) return;
+        var dEx = e.base.replace(/^[A-Z0-9][A-Z0-9.\-\/]{3,}\s+/i, '');
+        var sim = cp_similar_(desc, dEx);
+        if (sim > nota) { nota = sim; melhor = j; }
+      });
+      if (melhor >= 0) ja = existentes[melhor];
+    }
     if (ja) {
+      usados[existentes.indexOf(ja)] = 1;
       // item já existe: só atualiza a descrição (e a previsão, se o item ainda não tem) — nunca duplica
       try {
         var atual = String(ja.item.name || '').trim(), novo = nome;
@@ -1326,6 +1346,12 @@ function vdf_salvar(token, p) {
     }
     if (posCot) baseSigs = vd_analisar_(card.desc, card.name).pecas.map(function (x) { return x.sig; });
     if (posCot) baseTodas = vd_linhasConsultor_(vd_dividir_(card.desc).bloco).map(vd_sigItem_);
+    // orçamento novo trocou o código de peça que já existia (05/10/2026): não é peça nova — a base acompanha o código novo
+    var trocas = ((p.complemento && p.complemento.atualizar) || []).filter(function (u) { return u && u.codigo && u.codigoAntigo; });
+    if (posCot && trocas.length) {
+      var troca = function (sig) { trocas.forEach(function (u) { sig = sig.replace(new RegExp('(^|[^A-Z0-9])' + vd_semAcento_(u.codigoAntigo).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Z0-9])'), '$1' + vd_semAcento_(u.codigo)); }); return sig; };
+      baseSigs = baseSigs.map(troca); baseTodas = baseTodas.map(troca);
+    }
   }
 
   var comp = card && p.complemento ? p.complemento : null;
@@ -1377,6 +1403,7 @@ function vdf_salvar(token, p) {
     var div = vd_dividir_(card.desc);
     var resto = div.temMarcador ? div.resto
       : VD.MARCADOR + (String(card.desc || '').trim() ? '\n_(texto que estava no card antes do formulário)_\n' + card.desc : '');
+    if (typeof trocas !== 'undefined' && trocas.length) { try { resto = cp_trocarCodigos_(resto, trocas); } catch (e) {} }   // cotações/autorizações seguem o código novo
     vd_backup_(card, 'editado pelo formulário por ' + me.username);
     var upd = { desc: bloco + '\n\n' + resto };
     if (titulo && titulo !== card.name) upd.name = titulo;

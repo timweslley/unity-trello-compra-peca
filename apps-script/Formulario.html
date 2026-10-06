@@ -1218,7 +1218,12 @@ function aplicarLeituraForn(r, av, anexa) {
       var it = document.querySelector('#fornItens .item[data-id="' + a.id + '"]'); if (!it) return;
       if (a.fornecedor) { it.querySelector('.f-forn').value = nomeForn(a.fornecedor); }
       if (a.previsao) { it.querySelector('.f-prev').value = a.previsao; }
-      if (a.fornecedor || a.previsao) { n++; it.style.boxShadow = '0 0 0 2px var(--verde)'; }
+      // o documento trouxe outro código para a mesma peça: atualiza ao salvar (não duplica)
+      if (a.codigoNovo) {
+        it.dataset.codigoNovo = a.codigoNovo; it.dataset.descNova = a.descNova || '';
+        var st = it.querySelector('strong'); if (st && !it.querySelector('.selo-codnovo')) st.insertAdjacentHTML('beforeend', ' <span class="selo prazo selo-codnovo">🔄 código novo: ' + esc(a.codigoNovo) + '</span>');
+      }
+      if (a.fornecedor || a.previsao || a.codigoNovo) { n++; it.style.boxShadow = '0 0 0 2px var(--verde)'; }
     });
     var h = '<div class="aviso ' + (n ? 'ok' : 'info') + '" style="margin-top:8px">' + (n ? '✓ ' + n + ' peça(s) preenchida(s) pelo documento — confira e clique em <b>Salvar fornecimento</b>' + (anexa ? ' (o arquivo vai anexado no card).' : '.') : 'Li o documento, mas não achei fornecedor/prazo das peças deste card.') + '</div>';
     if ((r.faltando || []).length) h += '<div class="alerta">⚠️ NÃO APARECEM NO DOCUMENTO: ' + esc(r.faltando.join('; ')) + '</div>';
@@ -1233,6 +1238,7 @@ function enviarFornecimento() {
   Array.prototype.forEach.call(document.querySelectorAll('#fornItens .item'), function (it) {
     var forn = it.querySelector('.f-forn').value.trim(), prev = it.querySelector('.f-prev').value, sit = it.querySelector('.f-sit').value, mot = it.querySelector('.f-motivo').value.trim();
     var x = { id: it.dataset.id }, mudou = false;
+    if (it.dataset.codigoNovo) { x.codigoNovo = it.dataset.codigoNovo; x.descNova = it.dataset.descNova || ''; x.fornecedor = forn; x.situacao = sit; mudou = true; }
     if (forn !== it.dataset.forn || sit !== it.dataset.sit) { x.fornecedor = forn; x.situacao = sit; mudou = true; }
     if (prev && prev !== it.dataset.due) {
       x.previsao = prev; x.motivo = mot; mudou = true;
@@ -1570,6 +1576,7 @@ function importarOrcamento(o) {
 
 /* ---------- orçamento complementar (card que já tem peças) ---------- */
 
+function normCod(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 function chavesItem(p) {
   var n = function (s) { return semAc(s).replace(/[^A-Z0-9]/g, ''); };
   if (p.pneu) return ['PNEU' + n(p.medida)];
@@ -1587,11 +1594,24 @@ function importarComplemento(o, anexoId) {
     });
     var novas = (r.oficina || []).filter(function (p) { return !chavesItem(p).some(function (k) { return naTela.indexOf(k) >= 0; }); });
     novas.forEach(function (p) { p.complemento = true; p.particular = false; novoItem(p.pneu ? 'pneu' : 'peca', p); });
-    COMP = { origem: o.origem, fo: r.fo || [], pareadas: r.pareadas || [] };
+    // peça que já está no card e o orçamento novo traz diferente: código novo e/ou valor novo (05/10/2026) — atualiza na tela, não repete
+    var atualizadas = [];
+    (r.atualizar || []).forEach(function (u) {
+      var el = Array.prototype.filter.call(document.querySelectorAll('#itens .item, #itensPart .item'), function (it) {
+        var cod = it.querySelector('.f-codigo'); return cod && normCod(cod.value) === normCod(u.codigoAntigo) && normCod(u.codigoAntigo);
+      })[0];
+      if (!el) return;
+      var muda = [];
+      if (u.codigo) { el.querySelector('.f-codigo').value = u.codigo; muda.push('código ' + u.codigoAntigo + ' → ' + u.codigo); }
+      if (u.valorOrc) { var vi = el.querySelector('.f-valor-orc'); if (vi) { vi.value = fmtValor(u.valorOrc) || u.valorOrc; muda.push('orç. ' + fmtValor(u.valorOrc)); } }
+      if (muda.length) { el.style.boxShadow = '0 0 0 2px var(--amarelo)'; atualizadas.push((el.querySelector('.f-desc') || {}).value + ': ' + muda.join(', ')); }
+    });
+    COMP = { origem: o.origem, fo: r.fo || [], pareadas: r.pareadas || [], atualizar: r.atualizar || [] };
     var pare = (r.pareadas || []).length ? '<br>🔁 Já pedida antes (marcada ➕ Complemento) e confirmada neste orçamento — não repetida: ' + r.pareadas.map(function (x) { return '<b>' + esc(x.card) + '</b> = ' + esc(x.orc) + (x.fo ? ' <span class="ruim">⚠️ no PDF a seguradora FORNECE esta peça — conferir</span>' : ''); }).join('; ') : '';
+    var atuTxt = atualizadas.length ? '<br>🔄 Atualizadas pelo orçamento novo: ' + atualizadas.map(esc).join('; ') : '';
     if (!novas.length && !COMP.fo.length) {
-      if (!COMP.pareadas.length) COMP = null;
-      aviso.innerHTML = '📄 Orçamento ' + esc(o.origem) + ' lido: <b>nenhuma peça nova</b> — tudo o que está nele já está no card' + (r.jaTinha ? ' (' + r.jaTinha + ' peça(s))' : '') + '.' + pare + (COMP ? '<br>Clique em <b>Enviar</b> para registrar no card.' : '');
+      if (!COMP.pareadas.length && !atualizadas.length) COMP = null;
+      aviso.innerHTML = '📄 Orçamento ' + esc(o.origem) + ' lido: <b>nenhuma peça nova</b> — tudo o que está nele já está no card' + (r.jaTinha ? ' (' + r.jaTinha + ' peça(s))' : '') + '.' + pare + atuTxt + (COMP ? '<br>Clique em <b>Enviar</b> para registrar no card.' : '');
       return;
     }
     var h = '➕ <b>Orçamento complementar</b> (' + esc(o.origem) + '): ';
@@ -1602,7 +1622,7 @@ function importarComplemento(o, anexoId) {
         + COMP.fo.map(function (p) { return '<li>' + esc((p.codigo ? p.codigo + ' ' : '') + (p.pneu ? 'PNEU ' + p.medida + ' ' + p.marca : p.descricao) + (+p.qtd > 1 ? ' (x' + p.qtd + ')' : '')) + '</li>'; }).join('') + '</ul>';
     }
     if (r.jaTinha) h += '<br>' + r.jaTinha + ' peça(s) do orçamento já estavam no card e não foram repetidas.';
-    h += pare;
+    h += pare + atuTxt;
     if (POS && novas.length) h += '<br>ℹ️ Com peça nova, o card volta para EM COTAÇÃO para cotar só as peças novas.';
     h += '<br>Clique em <b>Enviar</b> para gravar.';
     aviso.innerHTML = h;
