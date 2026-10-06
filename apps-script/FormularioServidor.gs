@@ -750,10 +750,17 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     }
     if (!forn || !temValor) return;
     var tl = vdf_tirarLinkCot_(l);   // "- [🔗 link](url)" no fim: link do anúncio (Mercado Livre etc.)
-    var m = tl.linha.match(/^(.+?)\s+-\s+(?:(.+?)\s+-\s+)?R?\$?\s*([\d.]+(?:,\d{1,2})?)(?:\s+-\s+(?:(\d+)\s*DIAS?(?:\s+[ÚU]T(?:EIS|IL))?|(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)|(.*?)))?\s*$/i);
+    // peça sem código cuja descrição tem " - " dentro ("… (MACANETA INTERNA) - FOTOS EM ANEXO", BAD8318 06/10/2026): a linha
+    // começa com a descrição inteira; reconhece antes de separar os campos, senão o traço da descrição vira separador
+    var linha = tl.linha, LN = vd_semAcento_(tl.linha).replace(/\s+/g, ' ').trim(), pre = null;
+    chaves.slice().sort(function (a, b) { return b.desc.length - a.desc.length; }).forEach(function (k) {
+      if (!pre && !k.cod && k.desc && k.desc.indexOf(' - ') >= 0 && LN.indexOf(k.desc + ' - ') === 0) pre = k;
+    });
+    if (pre) linha = 'PECA' + LN.slice(pre.desc.length);
+    var m = linha.match(/^(.+?)\s+-\s+(?:(.+?)\s+-\s+)?R?\$?\s*([\d.]+(?:,\d{1,2})?)(?:\s+-\s+(?:(\d+)\s*DIAS?(?:\s+[ÚU]T(?:EIS|IL))?|(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)|(.*?)))?\s*$/i);
     if (!m) return;
     var alvo = vd_semAcento_(m[1]).replace(/\s+/g, ' ').trim();
-    var peca = null;
+    var peca = pre;
     for (var i = 0; i < chaves.length && !peca; i++) {
       var k = chaves[i];
       if (k.cod && k.cod.length >= 4 && alvo.indexOf(k.cod) >= 0) peca = k;
