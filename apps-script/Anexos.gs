@@ -11,7 +11,7 @@
  * então renomear não muda nada no funcionamento. Trello aceita PUT /cards/{id}/attachments/{id} {name}.
  */
 var AX = { ORC: '📄 ORÇ', ORC_MAIS: '📄 ORÇ+', FO: '🚚 FO', NF: '📦 NF', FOTO: '📸', SEP: ' · ' };
-var AX_RE_PADRAO = /^(📄 ORÇ\+?|🚚 FO|📦 NF|📸)( |$)/;
+var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?) · |📸 )/;
 
 function ax_hoje_() { return Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM'); }
 
@@ -112,4 +112,27 @@ function ax_numeroNf_(f) {
     }
   } catch (e) { console.log('ax_numeroNf_: ' + e); }
   return '';
+}
+
+/**
+ * Padroniza os anexos antigos de UM card (diretoria, pelo formulário): lê cada PDF/foto (com cache) e batiza
+ * pelo conteúdo. Devolve {ok, renomeados:[{de, para}], pulados:[nome]}.
+ */
+function vdf_padronizarAnexos(token, shortLink) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria padroniza os anexos antigos.'] };
+  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,id', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url,date' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  var out = { ok: true, renomeados: [], pulados: [] }, temOrc = false;
+  (card.attachments || []).sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); }).forEach(function (a) {
+    if (!a.isUpload || ax_padronizado_(a.name)) { if (a.isUpload) { out.pulados.push(a.name); if (a.name.indexOf(AX.ORC + AX.SEP) === 0) temOrc = true; } return; }
+    var de = a.name;
+    var r = vd_anexoLegivel_(a) ? vd_lerAnexoTrello_(a) : null;
+    if (r && !r.erro && !r.doc && !r.orcamento && /\bFO\b|status/i.test(de)) r.doc = 'FO';   // leitura antiga (cache sem o tipo) de um "Status do Pedido"
+    var para = r ? ax_batizarLido_(card, a, r, temOrc) : '';
+    if (!para && /^image\//i.test(a.mimeType || '')) { para = ax_batizar_(card.id, a.id, ax_nome_(AX.FOTO, ax_placa_(card), []), [], token, { semVersao: true }); a.name = para; }
+    if (para) { out.renomeados.push({ de: de, para: para }); if (para.indexOf(AX.ORC + AX.SEP) === 0) temOrc = true; }
+    else out.pulados.push(de);
+  });
+  return out;
 }
