@@ -88,7 +88,8 @@ function st_executar_() {
     // de FO para oficina — QPG1B84, 06/10/2026): o movimento está certo, fica
     if (inicio.indexOf(para) >= 0 && ST.TRAVADAS[nDe]) {
       var semCot = [];
-      try { semCot = vd_pecasSemCotacao_(c); } catch (e) {}
+      // sem "cru": precisa da descrição completa (a vitrine não tem o bloco PEÇAS)
+      try { semCot = vd_pecasSemCotacao_(vd_api_('/cards/' + cardId, { query: { fields: 'name,desc' } })); } catch (e) {}
       if (semCot.length) {
         var quemM = a.memberCreator ? a.memberCreator.username : '';
         try { vd_comentar_(c, '✔ Card em **' + nPara + '**' + (quemM ? ' (movido por @' + quemM + ')' : '') + ' — peça(s) aguardando cotação: ' + semCot.join('; ')); } catch (e) {}
