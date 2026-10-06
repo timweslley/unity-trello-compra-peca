@@ -109,11 +109,16 @@ function vdf_alterarPrevisao(token, p) {
 function pv_baseFo_(nome, lista) {
   var b = String(nome || '').replace(/\s+[-—]\s+(EM COTA[ÇC][ÃA]O.*|B\.?O\.?\b.*)$/i, '').trim();
   b = b.replace(/^(\d{5,})(?=[A-Z])/i, '$1 ');   // código grudado na descrição (OCR do Cilia, 05/10/2026: "100260230EMBLEMA ...")
-  var m = b.match(/^(.*\S)\s+-\s+([^-]+)$/);
-  if (m) {
-    var ult = m[2].trim();
-    var conhecido = /^(SEGURADORA|FO)\b/i.test(ult) || !fo_resolver_(ult, lista).novo || VD_SEGURADORAS.some(function (sg) { return sg[0] === vd_semAcento_(ult); });
-    if (conhecido && !/\d{4,}/.test(ult)) b = m[1];
+  // sufixo " - FORNECEDOR": testa do pedaço mais comprido para o mais curto, porque o fornecedor lido do
+  // portal pode ter " - " e "/" dentro ("MEDIADORA - PRISMATEC / DUNA FIAT", 05/10/2026)
+  var partes = b.split(/\s+-\s+/);
+  for (var k = 1; k < partes.length; k++) {
+    var suf = partes.slice(k).join(' - ').trim();
+    if (/\d{4,}/.test(suf)) continue;
+    var conhecido = /^(SEGURADORA|FO|MEDIADORA)\b/i.test(suf) || !fo_resolver_(suf, lista).novo
+      || VD_SEGURADORAS.some(function (sg) { return sg[0] === vd_semAcento_(suf); })
+      || (function () { var c = pv_fornecedorCurto_(suf, lista); return !!c && !fo_resolver_(c, lista).novo; })();
+    if (conhecido) { b = partes.slice(0, k).join(' - ').trim(); break; }
   }
   return b;
 }
