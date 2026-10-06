@@ -424,8 +424,9 @@
         <h2>Fornecimento da seguradora (FO)</h2>
         <div class="dica" style="margin-bottom:10px">Fornecedor e previsão de cada peça que a seguradora fornece. Previsão que já existia e muda: escreva o motivo. A chegada se marca na aba <b>📦 Recebimento</b>.</div>
         <div class="item" style="background:var(--azul2)">
-          <label>📎 Ler print ou PDF do fornecimento (portal da seguradora ou orçamento com fornecedor/prazo)</label>
+          <label>📎 Ler print ou PDF do fornecimento (portal da seguradora, "Status do Pedido" do Cilia ou orçamento com fornecedor/prazo)</label>
           <input type="file" id="fornArq" accept="application/pdf,image/*" onchange="lerFornecimento(this)">
+          <div class="dica" style="margin-top:6px">Ao escolher o arquivo a leitura começa sozinha (10–40 s). Depois confira os campos preenchidos e clique em <b>Salvar fornecimento</b> no fim da página — o arquivo vai anexado no card.</div>
           <div id="fornLeitura" class="dica"></div>
         </div>
         <div id="fornItens"></div>
