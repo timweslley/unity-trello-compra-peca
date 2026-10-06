@@ -28,6 +28,12 @@ function ax_placa_(card) {
   return vd_placaDoTexto_(nome.split(/\s+/)[0]) || vd_placaDoTexto_(nome) || '';
 }
 
+/** Nome de arquivo gerado pelo aparelho/sistema (sem informação): uuid, image.png, IMG_1234, WhatsApp Image, Screenshot… */
+function ax_nomeAutomatico_(nome) {
+  var n = String(nome || '').replace(/\.[a-z0-9]{2,5}$/i, '').trim();
+  return !n || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(n) || /^(image|img|imagem|foto|photo|picture|pic|screenshot|captura|print|scan|pdf_report|document|documento|file|arquivo|whatsapp image|whatsapp|dsc|pxl|vid|video)[\s_\-\d().]*(at[\s_\-\d().]*)?$/i.test(n) || /^[\d_\-\s().]+$/.test(n);
+}
+
 /** Já está no padrão (não mexe de novo). */
 function ax_padronizado_(nome) { return AX_RE_PADRAO.test(String(nome || '')); }
 
@@ -149,6 +155,13 @@ function ax_padronizarCard_(card, token) {
     var props = PropertiesService.getScriptProperties(), n = 0;
     var temOrc = (card.attachments || []).some(function (a) { return String(a.name || '').indexOf(AX.ORC + AX.SEP) === 0; });
     ans.sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); }).forEach(function (a) {
+      // foto com nome automático (uuid, image.png, IMG_1234, WhatsApp Image…, Screenshot…): vira "📸 PLACA · dd/MM";
+      // foto com nome que alguém escreveu fica como está
+      if (/^image\//i.test(a.mimeType || '') && ax_nomeAutomatico_(a.name)) {
+        var nf = ax_nome_(AX.FOTO, ax_placa_(card), [], a.date);
+        if (ax_renomear_(card.id, a.id, nf, token)) { a.name = nf; n++; }
+        return;
+      }
       var js = props.getProperty('VD_ANX3_' + a.id);
       if (!js) return;   // nunca lido: não gasta OCR aqui
       var r; try { r = JSON.parse(js); } catch (e) { return; }
