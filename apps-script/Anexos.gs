@@ -213,3 +213,51 @@ function vdf_padronizarQuadroStatus(token) {
   var p = PropertiesService.getScriptProperties().getProperty('AX_PASSO');
   return { rodando: !!p, passo: p || '' };
 }
+
+/* ---------- anexo repetido subido à mão (06/10/2026) ---------- */
+
+function ax_md5_(blob) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, blob.getBytes()).map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
+}
+function ax_hashAnexo_(a) {
+  try {
+    var r = qt_fetch_(a.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
+    return r.getResponseCode() < 300 ? ax_md5_(r.getBlob()) : '';
+  } catch (e) { console.log('hash do anexo ' + a.id + ': ' + e); return ''; }
+}
+
+/**
+ * Anexo subido à mão igual a outro que já está no card: a suspeita é tamanho igual; a confirmação é baixar os dois e
+ * comparar o conteúdo (MD5). Só então apaga o mais novo e comenta. Devolve true se apagou.
+ */
+function ax_removerRepetido_(cardId, a, quem) {
+  try {
+    if (!a || !a.isUpload || !a.bytes) return false;
+    var lista = vd_api_('/cards/' + cardId + '/attachments', { query: { fields: 'name,fileName,bytes,date,isUpload,url' } }) || [];
+    var cands = lista.filter(function (x) { return x.id !== a.id && x.isUpload && +x.bytes === +a.bytes && String(x.date || '') <= String(a.date || ''); });
+    if (!cands.length) return false;
+    var h = ax_hashAnexo_(a); if (!h) return false;
+    var igual = null;
+    for (var i = 0; i < cands.length && !igual; i++) if (ax_hashAnexo_(cands[i]) === h) igual = cands[i];
+    if (!igual) return false;
+    vd_api_('/cards/' + cardId + '/attachments/' + a.id, { method: 'delete' });
+    // a série ficou com um só "… v1": volta ao nome sem versão
+    var pref = String(igual.name || '').split(AX.SEP).slice(0, 2).join(AX.SEP) + AX.SEP;
+    var serie = lista.filter(function (x) { return x.id !== a.id && String(x.name || '').indexOf(pref) === 0 && ax_padronizado_(x.name); });
+    if (serie.length === 1 && / v1$/.test(serie[0].name)) { var nv = serie[0].name.replace(/ v1$/, ''); if (ax_renomear_(cardId, serie[0].id, nv)) { if (igual.id === serie[0].id) igual.name = nv; } }
+    var card = { id: cardId };
+    vd_comentar_(card, (quem ? '@' + quem + ' ' : '') + '🗑️ Anexo repetido removido: «' + a.name + '» é o mesmo arquivo que já está no card («' + igual.name + '»).');
+    return true;
+  } catch (e) { console.log('ax_removerRepetido_: ' + e); return false; }
+}
+
+/** Diretoria, pelo formulário: confere os anexos de um card e remove os repetidos (conteúdo igual). */
+function vdf_removerRepetidos(token, shortLink) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
+  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,id', attachments: 'true', attachment_fields: 'name,fileName,bytes,date,isUpload,url' } });
+  var ans = (card.attachments || []).filter(function (a) { return a.isUpload; }).sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });   // mais novo primeiro
+  var removidos = [];
+  ans.forEach(function (a) { if (ax_removerRepetido_(card.id, a, '')) removidos.push(a.name); });
+  return { ok: true, removidos: removidos };
+}

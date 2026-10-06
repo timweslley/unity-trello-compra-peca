@@ -368,7 +368,7 @@ function cp_executar_() {
   var vistos = []; try { vistos = JSON.parse(props.getProperty('CP_VISTOS') || '[]'); } catch (e) {}
   var prazo = Date.now() + 60 * 1000;
   var ctx = vd_contexto_();
-  var acts = vd_api_('/boards/' + ctx.board + '/actions', { cru: true, query: { filter: 'addAttachmentToCard', since: desde, limit: 100, fields: 'data,date' } }) || [];
+  var acts = vd_api_('/boards/' + ctx.board + '/actions', { cru: true, query: { filter: 'addAttachmentToCard', since: desde, limit: 100, fields: 'data,date', memberCreator: 'true', memberCreator_fields: 'username' } }) || [];
   if (!acts.length) return 0;
   acts.reverse();   // mais antigo primeiro
   var n = 0, mudou = false, ultima = desde;
@@ -381,6 +381,8 @@ function cp_executar_() {
     if (vd_legado_(c.id)) continue;
     var a;
     try { a = vd_api_('/cards/' + c.id + '/attachments/' + at.id, { cru: true, query: { fields: 'name,mimeType,isUpload,bytes,url,date' } }); } catch (e) { continue; }
+    // mesmo arquivo subido de novo à mão (conteúdo igual, conferido por hash): apaga o repetido e comenta (06/10/2026)
+    if (a.isUpload && ax_removerRepetido_(c.id, a, ac.memberCreator ? ac.memberCreator.username : '')) { vistos.push(a.id); mudou = true; continue; }
     if (!vd_anexoLegivel_(a)) continue;
     if (new Date(a.date).getTime() - cp_criadoEm_(c.id) <= CP.ESPERA_CRIACAO_MS) continue;   // orçamento original do card
     vistos.push(a.id); mudou = true;
