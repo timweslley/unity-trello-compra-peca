@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -403,6 +403,20 @@ function vdf_lerAnexoCard(token, shortLink, idAnexo, placa) {
   var out = vdf_respostaLeitura_(r, orc, placa);
   out.anexoId = a.id; out.jaNoCard = true; out.doCache = !!r.doCache;
   return out;
+}
+
+/** Diretoria: texto (OCR) de um anexo do card, para conferir como o leitor está enxergando o documento (06/10/2026). */
+function vdf_textoAnexo(token, shortLink, idAnexo) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) throw new Error('Só a diretoria.');
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } });
+  var a = (c.attachments || []).filter(function (x) { return x.id === idAnexo; })[0];
+  if (!a) throw new Error('Esse anexo não está mais no card.');
+  var resp = qt_fetch_(a.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
+  if (resp.getResponseCode() >= 300) throw new Error('O Trello não entregou o arquivo.');
+  var texto = vd_ocr_(resp.getBlob(), a.name);
+  var orc = vd_lerOrcamento_(texto);
+  return { nome: a.name, texto: String(texto).slice(0, 30000), normalizado: vd_normTexto_(texto).slice(0, 30000), orcamento: { origem: orc.origem, oficina: orc.oficina, fo: orc.fo } };
 }
 
 /* ---------- leitura de documento enviado no formulário ---------- */

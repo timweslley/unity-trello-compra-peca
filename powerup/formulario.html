@@ -525,7 +525,7 @@ function avisarPai(msg) { try { var w = window; for (var i = 0; i < 4 && w !== w
  * (PU_CFG.SERVIDOR_RID = true, Apps Script v23) — o rid faz a 2ª chamada devolver o resultado da 1ª
  * em vez de gravar de novo. Sem isso, gravação espera 45 s antes de repetir. */
 var CHAMADA_LEITURA = { vdf_abrir: 1, vdf_iniciar: 1, vdf_buscarPlaca: 1, vdf_carregarCard: 1, vdf_lerDocumento: 1, vdf_lerAnexoCard: 1, vdf_lerFornecimento: 1, vdf_lerFornecimentoAnexo: 1 };
-var CHAMADA_LONGA = { vdf_lerDocumento: 1, vdf_lerAnexoCard: 1, vdf_subirArquivo: 1, vdf_lerFornecimento: 1, vdf_lerFornecimentoAnexo: 1, vdf_padronizarAnexos: 1 };
+var CHAMADA_LONGA = { vdf_lerDocumento: 1, vdf_lerAnexoCard: 1, vdf_subirArquivo: 1, vdf_lerFornecimento: 1, vdf_lerFornecimentoAnexo: 1, vdf_padronizarAnexos: 1, vdf_textoAnexo: 1 };
 function novoRid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10); }
 function avisoLento(txt) {
   var d = $('avisoLento');
