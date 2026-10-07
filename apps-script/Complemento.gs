@@ -368,10 +368,21 @@ function cp_executar_() {
   var vistos = []; try { vistos = JSON.parse(props.getProperty('CP_VISTOS') || '[]'); } catch (e) {}
   var prazo = Date.now() + 60 * 1000;
   var ctx = vd_contexto_();
+  // anexos cuja leitura falhou (OCR do Google fora do ar na hora): tenta de novo nos ciclos seguintes, até 3 vezes (07/10/2026)
+  var retry = []; try { retry = JSON.parse(props.getProperty('CP_RETRY') || '[]'); } catch (e) {}
+  var retryNovo = [], n = 0, mudou = false;
+  retry.forEach(function (x) {
+    if (Date.now() > prazo) { retryNovo.push(x); return; }
+    var a; try { a = vd_api_('/cards/' + x.c + '/attachments/' + x.a, { cru: true, query: { fields: 'name,mimeType,isUpload,bytes,url,date' } }); } catch (e) { return; }
+    var res = false; try { res = cp_doAnexo_({ id: x.c, name: x.nome || '' }, a, ctx); } catch (e) { console.log('complemento (retry) ' + x.nome + ': ' + e); }
+    if (res === 'erro' && x.n < 3) retryNovo.push({ c: x.c, a: x.a, nome: x.nome, n: x.n + 1 });
+    else if (res === true) n++;
+  });
+  if (retry.length !== retryNovo.length || retry.length) props.setProperty('CP_RETRY', JSON.stringify(retryNovo.slice(-20)));
   var acts = vd_acoesQuadro_(ctx.board, { filter: 'addAttachmentToCard', since: desde, limit: 100, fields: 'data,date', memberCreator: 'true', memberCreator_fields: 'username' });
-  if (!acts.length) return 0;
+  if (!acts.length) return n;
   acts.reverse();   // mais antigo primeiro
-  var n = 0, mudou = false, ultima = desde;
+  var ultima = desde;
   for (var k = 0; k < acts.length; k++) {
     if (Date.now() > prazo) break;
     var ac = acts[k], d = ac.data || {}, c = d.card || {}, at = d.attachment || {};
@@ -386,17 +397,22 @@ function cp_executar_() {
     if (!vd_anexoLegivel_(a)) continue;
     if (new Date(a.date).getTime() - cp_criadoEm_(c.id) <= CP.ESPERA_CRIACAO_MS) continue;   // orçamento original do card
     vistos.push(a.id); mudou = true;
-    try { if (cp_doAnexo_(c, a, ctx)) n++; } catch (e) { console.log('complemento ' + c.name + ': ' + e); }
+    try {
+      var res2 = cp_doAnexo_(c, a, ctx);
+      if (res2 === true) n++;
+      else if (res2 === 'erro') { retryNovo.push({ c: c.id, a: a.id, nome: c.name || '', n: 1 }); props.setProperty('CP_RETRY', JSON.stringify(retryNovo.slice(-20))); }
+    } catch (e) { console.log('complemento ' + c.name + ': ' + e); }
   }
   vd_marcaSet_('CP_ACT', ultima);
   if (mudou) props.setProperty('CP_VISTOS', JSON.stringify(vistos.slice(-CP.MAX_VISTOS)));
   return n;
 }
 
-/** Lê UM anexo novo; se for orçamento da mesma placa com peças novas, aplica o complemento. */
+/** Lê UM anexo novo; se for orçamento da mesma placa com peças novas, aplica o complemento.
+ *  Devolve true (complemento aplicado), false (nada a fazer) ou 'erro' (não conseguiu ler — tentar de novo depois). */
 function cp_doAnexo_(c, a, ctx) {
   var r = vd_lerAnexoTrello_(a, { orcCompleto: true });
-  if (!r || r.erro) return false;
+  if (!r || r.erro) return r && r.erro ? 'erro' : false;
   var card = vd_api_('/cards/' + c.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name', attachments: 'true', attachment_fields: 'name' } });
   var an = vd_analisar_(card.desc || '', card.name);
   var lp = vd_linhasPecas_(an.div.bloco);

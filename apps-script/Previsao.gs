@@ -697,7 +697,7 @@ function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
  *  Mesmo retorno de vdf_lerFornecimento, com anexoId no lugar de fileId (nada é anexado de novo). */
 function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   vdf_usuario_(token);
-  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url' } });
+  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
   var a = (card.attachments || []).filter(function (x) { return x.id === idAnexo; })[0];
   if (!a) throw new Error('Esse anexo não está mais no card.');
   if (!vd_anexoLegivel_(a)) throw new Error('Esse anexo não dá para ler (só PDF ou foto até 15 MB).');
@@ -708,7 +708,22 @@ function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   var out = pv_lerFornecimentoTexto_(card, texto);
   out.anexoId = a.id;
   out.trecho = String(texto || '').slice(0, 4000);   // diagnóstico do OCR (o formulário não mostra)
+  // anexo subido à mão e lido por aqui ganha o nome padronizado "🚚 FO · PLACA · doc · dd/MM" (07/10/2026, ATX2884)
+  try {
+    var docNome = pv_docFornecimento_(texto);
+    if (docNome && a.isUpload && !ax_padronizado_(a.name) && ax_placa_(card) && out.lidos) {
+      out.renomeado = ax_batizar_(card.id, a.id, ax_nome_(AX.FO, ax_placa_(card), [docNome], a.date), ax_anexos_(card.id, token), token, { nomeAtual: a.name });
+    }
+  } catch (e) { console.log('batizar anexo lido: ' + e); }
   return out;
+}
+
+/** Tipo do documento de fornecimento pelo texto: 'Status do Pedido Cilia' | 'Peças HDI' | ''. */
+function pv_docFornecimento_(texto) {
+  var nt = vd_normTexto_(texto);
+  if (/STATUS DO PEDIDO|PREVISAO DE ENTREGA|STATUS DAS PECAS/.test(nt)) return 'Status do Pedido Cilia';
+  if (/PE[CG]AS DO (SINISTRO|LAUDO)/.test(nt)) return 'Peças HDI';
+  return '';
 }
 
 /** Núcleo: texto do documento × itens FO do card -> {achados, faltando, extras, orcamento, lidos}. */

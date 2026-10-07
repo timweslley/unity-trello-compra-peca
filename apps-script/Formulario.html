@@ -1386,6 +1386,10 @@ function aplicarLeituraForn(r, av, anexa) {
     });
     var h = '<div class="aviso ' + (n ? 'ok' : 'info') + '" style="margin-top:8px">' + (n ? '✓ ' + n + ' peça(s) preenchida(s) pelo documento — confira e clique em <b>Salvar fornecimento</b>' + (anexa ? ' (o arquivo vai anexado no card).' : '.') : 'Li o documento, mas não achei fornecedor/prazo das peças deste card.') + '</div>';
     if (pareceres.length) h += '<div class="aviso info" style="margin-top:6px">📋 <b>Pelos PARECERES do Cilia</b> (mais novos que a tabela): ' + pareceres.join(' · ') + '</div>';
+    if (r.renomeado) {
+      h += '<div class="aviso info" style="margin-top:6px">📎 Anexo renomeado no card para <b>' + esc(r.renomeado) + '</b></div>';
+      ((CARD && CARD.anexos) || []).forEach(function (x) { if (x.id === r.anexoId) x.nome = r.renomeado; });
+    }
     if (mantidas.length) h += '<div class="aviso info" style="margin-top:6px">ℹ️ Já recebida(s), previsão mantida: ' + esc(mantidas.join('; ')) + '</div>';
     if ((r.faltando || []).length) h += '<div class="alerta">⚠️ NÃO APARECEM NO DOCUMENTO: ' + esc(r.faltando.join('; ')) + '</div>';
     if ((r.extras || []).length) h += '<div class="alerta">⚠️ O DOCUMENTO TEM ' + r.extras.length + ' PEÇA(S) A MAIS QUE O CARD: ' + esc(r.extras.join('; ')) + ' — O ORÇAMENTO ATUALIZADO (COMPLEMENTO) NÃO FOI ANEXADO. Anexe pelo ✏️ EDITAR/INCLUIR PEÇA.</div>';

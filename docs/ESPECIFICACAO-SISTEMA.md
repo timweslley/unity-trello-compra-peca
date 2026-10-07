@@ -267,6 +267,9 @@ ainda atualizam; avisa); sem data anterior → grava sem motivo; **motivo obriga
 Nomes padronizados: `📄 ORÇ · PLACA · SEGURADORA · Sistema · dd/MM`, `📄 ORÇ+` (complementar),
 `🚚 FO · PLACA · Status do Pedido Cilia · dd/MM`, `📦 NF nº · PLACA · FORN · dd/MM`, `📸 PLACA · capa|recebimento · dd/MM`;
 repetição do tipo ganha ` v1`, ` v2`…; cópia idêntica (MD5) é apagada; máx. 6 anexos legíveis por card, 15 MB.
+Quem batiza: o robô ao ler anexo novo subido à mão (módulo complemento; leitura que falhou é tentada de novo em até
+3 ciclos, `CP_RETRY`), o formulário ao anexar, e **o "📎 Ler" da aba Fornecimento** quando reconhece o documento
+(Status do Pedido Cilia / Peças HDI) e acha peças do card (07/10/2026, ATX2884).
 Links anexados ao card: `✏️ EDITAR/INCLUIR PEÇA` (`?card=<shortLink>`) e `💰 COTAÇÃO/COMPRA/RECEBIMENTO`
 (`&modo=compras`).
 
