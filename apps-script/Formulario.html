@@ -411,11 +411,18 @@
         <label for="autGeral" style="margin-top:12px">Observação geral (vai para o comprador)</label>
         <textarea id="autGeral" rows="2" placeholder="Ex.: comprar hoje; pedir nota no CNPJ de Toledo — ou o motivo da devolução"></textarea>
       </section>
-      <div class="rodape" style="margin-bottom:30px">
-        <button type="button" class="principal" id="btnAut" onclick="enviarAutorizacao()">✅ Autorizar compra</button>
-        <button type="button" class="secundario" id="btnDev" onclick="enviarDevolucao()">↩️ Devolver para cotação</button>
-        <span class="carregando oculto" id="enviandoAut">Enviando…</span>
-        <div class="dica" style="margin-top:6px">Devolver: o card volta para <b>EM COTAÇÃO</b> com as suas observações (geral e por peça) e qualquer autorização anterior deixa de valer.</div>
+      <div class="item" style="margin:8px 0 30px">
+        <div style="font-size:13px;color:var(--texto);margin-bottom:10px;line-height:1.45">
+          <b>💾 Salvar parcial</b> — guarda no card o que você já autorizou; pode voltar depois (o card fica onde está e o comprador não é avisado).<br>
+          <b>✅ Enviar autorização</b> — fecha a autorização (pode ser sem escolha nova, só para enviar o que foi salvo); o card segue para compra e o comprador é avisado.<br>
+          <b>↩️ Devolver</b> — o card volta para <b>EM COTAÇÃO</b> com as suas observações e qualquer autorização anterior deixa de valer.
+        </div>
+        <div class="rodape" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <button type="button" class="principal" id="btnAutParcial" onclick="enviarAutorizacao(true)" style="background:#fff;color:var(--azul);border:2px solid var(--azul)">💾 Salvar parcial</button>
+          <button type="button" class="principal" id="btnAut" onclick="enviarAutorizacao(false)">✅ Enviar autorização</button>
+          <button type="button" class="secundario" id="btnDev" onclick="enviarDevolucao()">↩️ Devolver para cotação</button>
+          <span class="carregando oculto" id="enviandoAut">Enviando…</span>
+        </div>
       </div>
     </div>
 
@@ -427,9 +434,16 @@
         <div id="compraItens"></div>
         <div class="aviso info" id="compraTotal" style="margin-top:10px"></div>
       </section>
-      <div class="rodape" style="margin-bottom:30px">
-        <button type="button" class="principal" id="btnCompra" onclick="enviarCompra()">Enviar compra</button>
-        <span class="carregando oculto" id="enviandoCompra">Enviando…</span>
+      <div class="item" style="margin:8px 0 30px">
+        <div style="font-size:13px;color:var(--texto);margin-bottom:10px;line-height:1.45">
+          <b>💾 Salvar parcial</b> — registra o que você já comprou (vai para o checklist PAGAS); o card fica em AUTORIZADO COMPRA.<br>
+          <b>✅ Enviar compra</b> — só quando toda peça autorizada estiver comprada (pode ser sem compra nova, só para enviar o que foi salvo); o card segue para FALTA CHEGAR.
+        </div>
+        <div class="rodape" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <button type="button" class="principal" id="btnCompraParcial" onclick="enviarCompra(true)" style="background:#fff;color:var(--azul);border:2px solid var(--azul)">💾 Salvar parcial</button>
+          <button type="button" class="principal" id="btnCompra" onclick="enviarCompra(false)">✅ Enviar compra</button>
+          <span class="carregando oculto" id="enviandoCompra">Enviando…</span>
+        </div>
       </div>
     </div>
 
@@ -993,19 +1007,22 @@ function totalAut() {
   var e = escolhasAut(), t = e.reduce(function (s, x) { return s + (+x.valor || 0); }, 0), n = Array.prototype.filter.call($('autItens').children, function (it) { return !it.dataset.fora; }).length;
   $('autTotal').innerHTML = '<b>' + e.length + '</b> de ' + n + ' peça(s) marcada(s)' + (e.length < n ? ' · ' + (n - e.length) + ' sem autorização' : '') + '<br>Nesta autorização: ' + textoTotais(e);
 }
-function enviarAutorizacao() {
+function enviarAutorizacao(parcial) {
   mostrar('erroComprador', false);
   var e = escolhasAut(), marcas = marcasAut();
-  if (!e.length && !marcas.length) return errosComprador(['Escolha a cotação de pelo menos uma peça (ou marque complemento / não comprar).']);
+  // enviar sem escolha nova vale para fechar o que foi salvo parcialmente (o servidor confere se há autorização no card)
+  if (!e.length && !marcas.length && parcial) return errosComprador(['Escolha a cotação de pelo menos uma peça para salvar.']);
   var semMotivo = marcas.filter(function (m) { return m.naoComprar && !m.motivo; });
   if (semMotivo.length) return errosComprador(['Não comprar: escreva o motivo (vai para o card).']);
-  $('btnAut').disabled = true; mostrar('enviandoAut', true);
-  chamar('vdf_autorizar', TOKEN, { shortLink: CARD_EDICAO, escolhas: e, marcas: marcas, obs: obsAut(), geral: $('autGeral').value.trim() }).then(function (r) {
-    $('btnAut').disabled = false; mostrar('enviandoAut', false);
+  var botoes = [$('btnAut'), $('btnAutParcial')];
+  botoes.forEach(function (b) { if (b) b.disabled = true; }); mostrar('enviandoAut', true);
+  chamar('vdf_autorizar', TOKEN, { shortLink: CARD_EDICAO, escolhas: e, marcas: marcas, obs: obsAut(), geral: $('autGeral').value.trim(), parcial: !!parcial }).then(function (r) {
+    botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoAut', false);
     if (!r.ok) return errosComprador(r.faltas);
+    if (r.parcial) return sucesso('💾 Autorização parcial salva no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s) agora (' + r.jaAut + ' de ' + r.pecas + ' autorizada(s) no card).' + (r.marcas ? '<br>' + r.marcas + ' peça(s) marcada(s) como complemento / não comprar.' : '') + '<br>O card continua em <b>' + esc(r.lista) + '</b>. Quando terminar, clique em <b>Enviar autorização</b>.', r.url, 'Voltar ao card');
     if (!r.n) return sucesso('✏️ Peças marcadas no card <b>' + esc(r.nome) + '</b> (' + r.marcas + ' marcação(ões): complemento / não comprar).' + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
     sucesso('✅ Compra autorizada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s), total ' + esc(fmtValor(r.total)) + '.' + (r.marcas ? '<br>' + r.marcas + ' peça(s) marcada(s) como complemento / não comprar.' : '') + (r.semAut ? '<br>' + r.semAut + ' peça(s) sem autorização.' : '') + (r.aguarda && r.aguarda.length ? '<br>⏳ Ainda falta autorizar: ' + esc(r.aguarda.join('; ')) + '.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
-  }).catch(function (x) { $('btnAut').disabled = false; mostrar('enviandoAut', false); errosComprador([x.message]); });
+  }).catch(function (x) { botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoAut', false); errosComprador([x.message]); });
 }
 
 /* ---------- recebimento (qualquer membro do quadro) ---------- */
@@ -1288,6 +1305,7 @@ function montarCompra(c) {
     + (semNenhuma ? '⚠️ Este card ainda <b>não tem autorização da diretoria</b>. Se registrar a compra agora, ela fica marcada no card como <b>fora da autorização</b>.' : '');
   mostrar('compraAviso', semNenhuma || semOrdem);
   var bc = $('btnCompra'); if (bc) bc.disabled = semOrdem;
+  var bcp = $('btnCompraParcial'); if (bcp) bcp.disabled = semOrdem;
 }
 /* ---------- previsão depois da autorização / compra: só com justificativa ---------- */
 function botaoPrev(tipo, ref, atual, campo) {
@@ -1494,7 +1512,7 @@ function avisoForaAut(sel) {
   mostrar(av, fora); mostrar(just, fora);
   if (fora) just.focus();
 }
-function enviarCompra() {
+function enviarCompra(parcial) {
   mostrar('erroComprador', false);
   var compras = [], semJust = [];
   Array.prototype.forEach.call($('compraItens').children, function (item) {
@@ -1505,14 +1523,16 @@ function enviarCompra() {
     if (foraDaAut(item, q) && !just) semJust.push(item.querySelector('.item-topo strong').textContent + ': compra fora da autorização — escreva o motivo.');
     compras.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, tipo: q.tipo, marca: q.marca, valor: q.valor, dias: q.dias, just: just });
   });
-  if (!compras.length) return errosComprador(['Escolha o fornecedor de pelo menos uma peça.']);
+  if (!compras.length && parcial) return errosComprador(['Escolha o fornecedor de pelo menos uma peça para salvar.']);
   if (semJust.length) return errosComprador(semJust);
-  $('btnCompra').disabled = true; mostrar('enviandoCompra', true);
-  chamar('vdf_salvarCompra', TOKEN, { shortLink: CARD_EDICAO, compras: compras }).then(function (r) {
-    $('btnCompra').disabled = false; mostrar('enviandoCompra', false);
+  var botoes = [$('btnCompra'), $('btnCompraParcial')];
+  botoes.forEach(function (b) { if (b) b.disabled = true; }); mostrar('enviandoCompra', true);
+  chamar('vdf_salvarCompra', TOKEN, { shortLink: CARD_EDICAO, compras: compras, parcial: !!parcial }).then(function (r) {
+    botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoCompra', false);
     if (!r.ok) return errosComprador(r.faltas);
+    if (r.parcial) return sucesso('💾 Compra parcial salva no card <b>' + esc(r.nome) + '</b>: ' + r.pagas + ' item(ns) no checklist PAGAS.' + (r.pendentes ? '<br>' + r.pendentes + ' peça(s) ainda sem compra.' : '<br>Todas as peças compradas — clique em <b>Enviar compra</b> para o card seguir.') + (r.foraAut && r.foraAut.length ? '<br>⚠️ Fora da autorização (avisado no card): ' + esc(r.foraAut.join('; ')) + '.' : '') + '<br>O card continua em <b>' + esc(r.lista) + '</b>.', r.url, 'Voltar ao card');
     sucesso('✅ Compra registrada no card <b>' + esc(r.nome) + '</b>: ' + r.pagas + ' item(ns) no checklist PAGAS.' + (r.pendentes ? '<br>' + r.pendentes + ' peça(s) ainda sem compra.' : '<br>Todas as peças da oficina compradas.') + (r.foraAut && r.foraAut.length ? '<br>⚠️ Fora da autorização (avisado no card): ' + esc(r.foraAut.join('; ')) + '.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
-  }).catch(function (e) { $('btnCompra').disabled = false; mostrar('enviandoCompra', false); errosComprador([e.message]); });
+  }).catch(function (e) { botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoCompra', false); errosComprador([e.message]); });
 }
 function sucesso(html, url, rotuloNovo) {
   $('msgSucesso').innerHTML = html; $('linkCard').href = url;

@@ -1078,6 +1078,10 @@ function vdf_autorizar(token, p) {
    * complementar; compra entra em PAGAS COMPLEMENTO) ou 🚫 NÃO COMPRAR (sai do fluxo, fica de registro) — sem precisar
    * abrir o pedido do consultor. p.marcas = [{chave, complemento:true|false} | {chave, naoComprar:true, motivo}] */
   var marcas = vdf_ehAutorizador_(me) ? (p.marcas || []) : [];
+  /* 07/10/2026 (Weslley): como na cotação — "Salvar parcial" guarda as autorizações sem mover o card nem avisar o
+   * comprador; "Enviar autorização" fecha (move) e pode vir sem escolha nova, só para fechar o que foi salvo antes */
+  var parcial = !!p.parcial;
+  var autsAntes = vd_autorizacoesDaDescricao_(card.desc, an.pecas);
   var naoComprarAgora = {};
   marcas.forEach(function (m) { if (m && m.naoComprar && porChave[m.chave]) naoComprarAgora[m.chave] = 1; });
   (p.escolhas || []).forEach(function (e, i) {
@@ -1112,7 +1116,8 @@ function vdf_autorizar(token, p) {
     }).join('\n');
     if (feito) marcadas.push({ peca: peca, m: m });
   });
-  if (!linhas.length && !marcadas.length && !faltas.length) faltas.push('Escolha a cotação de pelo menos uma peça (ou marque complemento / não comprar).');
+  var fechar = !parcial && !linhas.length && !marcadas.length && autsAntes.length > 0;   // só fechar o que já foi salvo
+  if (!linhas.length && !marcadas.length && !faltas.length && !fechar) faltas.push(parcial ? 'Escolha a cotação de pelo menos uma peça para salvar.' : 'Escolha a cotação de pelo menos uma peça (ou marque complemento / não comprar).');
   if (faltas.length) return { ok: false, faltas: faltas };
   var obsL = vdf_linhasObs_(p, porChave, 'autorização');
 
@@ -1121,7 +1126,7 @@ function vdf_autorizar(token, p) {
   vd_backup_(card, 'compra autorizada pelo formulário por ' + me.username);
   var cabAut = linhas.length || obsL.linhas.length ? '\n\n**AUTORIZAÇÃO ' + agora + ' - ' + me.fullName + '**\n' + linhas.concat(obsL.linhas).join('\n') : '';
   var novaDesc = blocoNovo.replace(/\s+$/, '') + '\n\n' + resto + cabAut;
-  vd_gravarDesc_(card.id, novaDesc, token);
+  if (cabAut || marcadas.length) vd_gravarDesc_(card.id, novaDesc, token);
   if (marcadas.length) {
     // a base de "peça nova" acompanha a linha alterada (senão o robô acharia que é peça nova e devolveria para cotação)
     try { vd_pkSet_(card.id, vd_linhasConsultor_(blocoNovo).map(vd_sigItem_)); } catch (e) {}
@@ -1144,6 +1149,20 @@ function vdf_autorizar(token, p) {
   // tiverem autorização (diretoria + consultor). Enquanto isso fica onde está, avisando quem falta.
   var autsAgora = vd_autorizacoesDaDescricao_(novaDesc, an.pecas);
   var temAut = function (x) { return autsAgora.some(function (a) { return a.chave === vd_chavePeca_(x); }); };
+  if (parcial) {
+    // guarda e para por aqui: card fica onde está, sem menção ao comprador
+    try { ev_registrar_('AUTORIZAÇÃO', card, me.username, evAut, { detalhe: 'parcial' }); } catch (e) {}
+    var jaAut = an.pecas.filter(temAut).length;
+    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '💾 **AUTORIZAÇÃO PARCIAL salva** — ' + me.fullName + ' · ' + linhas.length + ' peça(s) agora · ' + vd_valorBR_(total) + ' · ' + jaAut + ' de ' + an.pecas.length + ' peça(s) autorizada(s) no card' + (typeof txtM === 'string' ? txtM : '') + obsL.texto + '\nO card continua em **' + vdf_nomeLista_(ctx, card.idList) + '** até a autorização ser enviada.' } }, token); } catch (e) {}
+    try { vd_marcar_(card); } catch (e) {}
+    return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, jaAut: jaAut, pecas: an.pecas.length, marcas: marcadas.length, lista: vdf_nomeLista_(ctx, card.idList) };
+  }
+  if (fechar) {
+    // nada novo: fecha o que foi salvo parcialmente — totais passam a ser os de todas as autorizações do card
+    total = autsAgora.reduce(function (sum, a) { return sum + (+a.valor || 0); }, 0);
+    linhas = autsAgora.map(function (a) { return a.chave; });
+    evAut = [];
+  }
   var grupoSeg = an.pecas.filter(function (x) { return !vdf_pecaParticular_(x, card, an); }), grupoPart = an.pecas.filter(function (x) { return vdf_pecaParticular_(x, card, an); });
   var aguarda = [];
   if (grupoSeg.length && grupoPart.length) {
@@ -1154,7 +1173,7 @@ function vdf_autorizar(token, p) {
     }
   }
   var movido = '';
-  try { ev_registrar_('AUTORIZAÇÃO', card, me.username, evAut, { detalhe: aguarda.length ? 'aguardando: ' + aguarda.join('; ') : '' }); } catch (e) {}
+  try { ev_registrar_('AUTORIZAÇÃO', card, me.username, evAut, { detalhe: (fechar ? 'enviada (fecha as parciais)' : '') + (aguarda.length ? ' aguardando: ' + aguarda.join('; ') : '') }); } catch (e) {}
   if (!aguarda.length) { try { movido = vdf_moverPara_(card, ctx, VDF_LISTA_AUTORIZADO, token, me.username); } catch (e) {} }
   // "sem autorização" só conta as peças que ESTA pessoa podia autorizar
   var semAut = an.pecas.filter(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador) && !temAut(x); }).length;   // autorizada antes (ex.: complemento) não conta
@@ -1304,6 +1323,9 @@ function vdf_salvarCompra(token, p) {
   var cotLidas = vd_cotacoesDaDescricao_(card.desc, an.pecas), lidas = cotLidas.cotacoes;
   var naoCotadas = (cotLidas.semCot || []).map(function (x) { return x.chave; });   // justificadas: não ficam esperando compra
   var faltas = [], compras = [];
+  /* 07/10/2026 (Weslley): "Salvar parcial" registra o que já comprou e o card fica em AUTORIZADO COMPRA;
+   * "Enviar compra" exige toda peça autorizada comprada (pode vir sem compra nova, só para fechar) */
+  var parcial = !!p.parcial;
   (p.compras || []).forEach(function (c, i) {
     var peca = porChave[c.chave];
     var rot = 'compra ' + (i + 1) + (peca ? ' (' + vd_nomePeca_(peca) + ')' : '');
@@ -1319,11 +1341,33 @@ function vdf_salvarCompra(token, p) {
     if (!ok) { faltas.push(rot + ': escolha uma cotação lançada no card (' + forn + ' ' + vd_valorBR_(valor) + ' não está na descrição)'); return; }
     compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim(), particular: vdf_pecaParticular_(peca, card, an) && !vdf_ehParticular_(card, an), complemento: !!peca.complemento, just: String(c.just || '').replace(/\s*\n\s*/g, ' ').trim() });
   });
-  if (!compras.length && !faltas.length) faltas.push('Escolha o fornecedor de pelo menos uma peça.');
+  if (!compras.length && !faltas.length && parcial) faltas.push('Escolha o fornecedor de pelo menos uma peça para salvar.');
   if (faltas.length) return { ok: false, faltas: faltas };
 
   // fora da autorização: não bloqueia, mas exige justificativa por peça e fica registrado no card
   var auts = vd_autorizacoesDaDescricao_(card.desc, an.pecas), foraAut = [], semJust = [];
+  // o que ainda falta comprar DEPOIS desta gravação (peça autorizada — ou qualquer peça, se o card não tem autorização — sem PAGAS)
+  var pendentesDepois = [];
+  try {
+    var lsA = vd_api_('/cards/' + card.id, { query: { fields: 'id', checklists: 'all', checkItem_fields: 'name' } }).checklists || [];
+    var nomesA = [];
+    lsA.filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); }).forEach(function (k) { (k.checkItems || []).forEach(function (i) { nomesA.push(vd_semAcento_(i.name)); }); });
+    var autChA = auts.map(function (a) { return a.chave; }), novasCh = compras.map(function (c) { return c.chave; });
+    an.pecas.forEach(function (x) {
+      var k = vd_chavePeca_(x);
+      if (naoCotadas.indexOf(k) >= 0 || novasCh.indexOf(k) >= 0) return;
+      if (autChA.length && autChA.indexOf(k) < 0) return;
+      if (!nomesA.some(function (nm) { return vd_casaItem_(nm, k); })) pendentesDepois.push(vd_nomePeca_(x));
+    });
+  } catch (e) {}
+  if (!parcial && pendentesDepois.length) return { ok: false, faltas: ['Ainda falta comprar ' + pendentesDepois.length + ' peça(s): ' + pendentesDepois.join('; ') + '. Para guardar o que já tem, use **💾 Salvar parcial**.'] };
+  if (!compras.length && !parcial) {
+    // nada novo e nada pendente: só fecha (move) o que foi salvo parcialmente
+    var movF = ''; try { movF = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username); } catch (e) {}
+    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🛒 **COMPRA ENVIADA** — ' + me.fullName + ' · todas as peças já estavam registradas' + (movF ? ' → **' + movF + '**' : '') } }, token); } catch (e) {}
+    try { vd_marcar_(card); } catch (e) {}
+    return { ok: true, url: card.shortUrl, nome: card.name, pagas: 0, pendentes: 0, foraAut: [], lista: movF || vdf_nomeLista_(ctx, card.idList) };
+  }
   compras.forEach(function (c) {
     var ch = c.chave, nome = vd_nomePeca_(porChave[ch]);
     var a = auts.filter(function (x) { return x.chave === ch; })[0];
@@ -1367,17 +1411,17 @@ function vdf_salvarCompra(token, p) {
       if (autCh.length && autCh.indexOf(k) < 0) return;
       if (!nomes.some(function (nm) { return vd_casaItem_(nm, k); })) pendentes++;
     });
-    if (!pendentes) movido = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username);
+    if (!pendentes && !parcial) movido = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username);
   } catch (e) {}
   try {
     var dirs = foraAut.length ? sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity').filter(function (u) { return u !== me.username; }) : [];
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +
-      '🛒 **COMPRA** — ' + me.fullName + ' · ' + n + ' item(ns)' + (movido ? ' → **' + movido + '**' : '') +
-      (pendentes ? '\n⏳ Falta comprar: ' + pendentes + ' peça(s)' : '') +
+      (parcial ? '💾 **COMPRA PARCIAL salva** — ' : '🛒 **COMPRA** — ') + me.fullName + ' · ' + n + ' item(ns)' + (movido ? ' → **' + movido + '**' : '') +
+      (pendentes ? '\n⏳ Falta comprar: ' + pendentes + ' peça(s)' : '') + (parcial && !pendentes ? '\nTudo comprado — envie a compra para o card seguir.' : '') +
       (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, url: card.shortUrl, nome: card.name, pagas: n, pendentes: pendentes, foraAut: foraAut, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+  return { ok: true, parcial: parcial, url: card.shortUrl, nome: card.name, pagas: n, pendentes: pendentes, foraAut: foraAut, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
 /** Linhas "COMPRADO: FORNECEDOR - CÓDIGO DESCRIÇÃO - R$ valor - dd/mm" em qualquer parte da descrição. */
