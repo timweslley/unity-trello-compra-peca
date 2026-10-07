@@ -132,7 +132,7 @@ sinistro e importa as peças do orçamento (seção 6).
 
 | O quê | Regra |
 |---|---|
-| `due` do card | maior previsão entre os itens de checklist pendentes (`pz_executar_` a cada 5 min; `pv_dueCard_` após mudanças) |
+| `due` do card | maior previsão entre os itens de checklist pendentes (`pz_executar_` a cada 5 min, também em card legado; `pv_dueCard_` após mudanças). Sem previsão de peça: **entrada na coluna + 2 dias úteis** (`PZ.DIAS_SEM_PREVISAO`; recalculado a cada troca de coluna; prazo posto à mão só é trocado quando a coluna muda). Em ENCERRADO/ENTREGUES/PENDÊNCIA o prazo fica **concluído** (`dueComplete`); se o card volta, desconclui. ESPERA não ganha prazo (07/10/2026) |
 | Etiqueta `ATRASADO` (laranja) | item FORNECIMENTO com previsão vencida sem ✔; comentário "⏰ Fornecimento atrasado — verificar prazo do item X (previsão dd/MM)"; sai sozinha |
 | Etiqueta `COTAÇÃO PARCIAL` (laranja) | há peça sem cotação nem justificativa |
 | Etiqueta `ORDEM AUTORIZADA` | marcada pelo comprador (`vdf_marcarOrdemAutorizada`); obrigatória para registrar compra; remove `ORDEM NAO AUTORIZADA` |

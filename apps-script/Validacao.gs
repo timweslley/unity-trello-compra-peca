@@ -1068,8 +1068,9 @@ function du_ehUtil_(d) {
 }
 
 /** Data (ISO, meio-dia) = hoje + N dias úteis. 0 = hoje. */
-function du_somarUteis_(dias) {
-  var n = parseInt(dias, 10) || 0, h = new Date();
+function du_somarUteis_(dias, base) {
+  var n = parseInt(dias, 10) || 0, h = base ? new Date(base) : new Date();
+  if (isNaN(h.getTime())) h = new Date();
   var d = new Date(h.getFullYear(), h.getMonth(), h.getDate(), 12, 0, 0);
   if (vd_prop_('VD_DIAS_UTEIS', 'SIM') === 'NAO') { d.setDate(d.getDate() + n); return d.toISOString(); }
   var guarda = 0;
@@ -1821,11 +1822,31 @@ function vd_testeDrive() {
 /* ============================ PRAZO DO CARD + ATRASADO (a cada minuto) ============================ */
 
 var PZ = {
-  LISTAS_FORA: ['ESPERA/NÃO AUTORIZADO', 'FALTA DADOS PARA COTAR', 'EM COTAÇÃO', 'COTAÇÃO FINALIZADA', 'ENTREGUES', 'ENCERRADO COMPRAS/FORNEC.'],
+  LISTAS_FORA: ['ESPERA/NÃO AUTORIZADO'],   // estacionamento: não ganha prazo
+  /* 07/10/2026 (Weslley): card nessas colunas está concluído — o prazo fica marcado como concluído; se o card volta, desmarca */
+  LISTAS_CONCLUIDAS: ['ENCERRADO COMPRAS/FORNEC.', 'ENTREGUES', 'PENDÊNCIA DE FATURAMENTO', 'PENDÊNCIA TRATADA - FATURAR'],
+  DIAS_SEM_PREVISAO: 2,   // card sem previsão de peça: prazo = entrada na coluna + N dias úteis
   LBL_ATRASADO: 'ATRASADO',
   COR_ATRASADO: 'orange',
   LIMITE_MS: 40 * 1000
 };
+
+/** Quando o card entrou na coluna atual (ISO). Guarda em PZ_COL_<id> = idList|data; busca no histórico do card só na 1ª vez por coluna. */
+function pz_entradaColuna_(c, props) {
+  var k = 'PZ_COL_' + c.id, g = String(props.getProperty(k) || '').split('|');
+  if (g[0] === c.idList && g[1]) return g[1];
+  var quando = '';
+  try {
+    var acts = vd_api_('/cards/' + c.id + '/actions', { cru: true, query: { filter: 'updateCard:idList,createCard', limit: 5, fields: 'date,data,type' } }) || [];
+    for (var i = 0; i < acts.length; i++) {
+      var a = acts[i], d = a.data || {};
+      if (a.type === 'createCard' || (d.listAfter && d.listAfter.id === c.idList)) { quando = a.date; break; }
+    }
+  } catch (e) {}
+  if (!quando) quando = new Date().toISOString();
+  props.setProperty(k, c.idList + '|' + quando);
+  return quando;
+}
 
 function pz_labelId_(board, nome, cor) {
   var cache = CacheService.getScriptCache();
@@ -1863,9 +1884,10 @@ function pz_executar_() {
   var fim = Date.now() + PZ.LIMITE_MS;
   var listas = vd_listas_(board);
   var fora = PZ.LISTAS_FORA.map(function (n) { return listas[n]; }).filter(String);
+  var concluidas = PZ.LISTAS_CONCLUIDAS.map(function (n) { return listas[vd_nomeColuna_(n)] || listas[n]; }).filter(String);
   var idAtrasado = null;
   var cards = vd_api_('/boards/' + board + '/cards', { query: {
-    fields: 'name,idList,idLabels,due,dateLastActivity,shortLink',
+    fields: 'name,idList,idLabels,due,dueComplete,dateLastActivity,shortLink',
     checklists: 'all', checklist_fields: 'name', checkItem_fields: 'state,due,name'
   } });
   var hoje = pz_hoje_();
@@ -1873,10 +1895,12 @@ function pz_executar_() {
   cards.forEach(function (c) {
     if (Date.now() > fim) return;
     if (fora.indexOf(c.idList) >= 0) return;
-    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
+    if (vdf_cardProtegido_(c.name || '')) return;
+    // card legado também ganha prazo pelas peças (07/10/2026, ESR9A30): a regra só olha os checklists
     var chave = 'PZ_AT_' + c.id;
-    var marca = c.dateLastActivity + '|' + c.idList;
-    if (props.getProperty(chave) === marca) return;
+    var marca = c.dateLastActivity + '|' + c.idList, antes = String(props.getProperty(chave) || '');
+    if (antes === marca) return;
+    var trocouColuna = !!antes && antes.split('|')[1] !== c.idList, concluida = concluidas.indexOf(c.idList) >= 0;   // 1ª passada não mexe em prazo já posto à mão
 
     var pend = [], todos = [], vencidosFO = [];
     (c.checklists || []).forEach(function (ck) {
@@ -1891,13 +1915,21 @@ function pz_executar_() {
     });
     var melhor = null;
     (pend.length ? pend : todos).forEach(function (it) { var t = new Date(it.due).getTime(); if (melhor === null || t > melhor) melhor = t; });
-    var mudou = false;
+    var mudou = false, atual = c.due ? new Date(c.due).getTime() : 0, upd = {};
     if (melhor !== null) {
-      var atual = c.due ? new Date(c.due).getTime() : 0;
-      if (Math.abs(atual - melhor) > 43200000) {
-        vd_api_('/cards/' + c.id, { method: 'put', payload: { due: new Date(melhor).toISOString(), dueComplete: false } });
-        mudou = true;
-      }
+      // prazo do card = maior previsão entre as peças pendentes (todas recebidas: a maior de todas)
+      if (Math.abs(atual - melhor) > 43200000) upd.due = new Date(melhor).toISOString();
+    } else if (!c.due || trocouColuna) {
+      // sem previsão de peça: N dias úteis a partir da entrada na coluna (07/10/2026)
+      var entrada = pz_entradaColuna_(c, props), alvo = new Date(du_somarUteis_(PZ.DIAS_SEM_PREVISAO, entrada)).getTime();
+      if (Math.abs(atual - alvo) > 43200000) upd.due = new Date(alvo).toISOString();
+    }
+    // concluído = card em ENCERRADO/ENTREGUES/PENDÊNCIA; volta para trás = desconcluído
+    if ((c.due || upd.due) && !!c.dueComplete !== concluida) upd.dueComplete = concluida;
+    if (Object.keys(upd).length) {
+      if (upd.due && upd.dueComplete === undefined) upd.dueComplete = concluida;
+      vd_api_('/cards/' + c.id, { method: 'put', payload: upd });
+      mudou = true;
     }
     // etiqueta ATRASADO
     if (vencidosFO.length || (c.idLabels || []).length) {
