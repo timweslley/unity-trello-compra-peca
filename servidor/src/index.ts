@@ -21,8 +21,17 @@ export function criarApp() {
 
   app.get('/saude', async () => {
     let banco = 'sem DATABASE_URL';
+    let acoes: { recebidas: number; ultima: string | null; ultimoTipo: string | null } | null = null;
     if (CFG.bancoUrl) {
       try { await consulta('SELECT 1'); banco = 'ok'; } catch (e) { banco = 'erro: ' + (e as Error).message; }
+      if (banco === 'ok') {
+        try {
+          const [r] = await consulta<{ total: string; ultima: string | null; ultimo_tipo: string | null }>(
+            `SELECT count(*)::text AS total, max(recebida_em)::text AS ultima,
+                    (SELECT tipo FROM trello_acao ORDER BY recebida_em DESC LIMIT 1) AS ultimo_tipo FROM trello_acao`);
+          acoes = { recebidas: Number(r.total), ultima: r.ultima, ultimoTipo: r.ultimo_tipo };
+        } catch { /* tabela ainda não existe */ }
+      }
     }
     const falta = [
       !CFG.bancoUrl && 'DATABASE_URL',
@@ -31,7 +40,7 @@ export function criarApp() {
       !CFG.trello.segredo && 'TRELLO_SEGREDO',
       !CFG.urlPublica && 'URL_PUBLICA',
     ].filter(Boolean);
-    return { ok: true, versao: VERSAO, modo: CFG.modo, quadro: CFG.trello.quadro, banco, migracao: ESTADO.migracao, webhook: ESTADO.webhook,
+    return { ok: true, versao: VERSAO, modo: CFG.modo, quadro: CFG.trello.quadro, banco, migracao: ESTADO.migracao, webhook: ESTADO.webhook, acoes,
       falta, chamadasTrello: chamadasTrello(), ativoHaSeg: Math.round((Date.now() - INICIO) / 1000) };
   });
 
