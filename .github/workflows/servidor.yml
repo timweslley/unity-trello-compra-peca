@@ -11,7 +11,7 @@ on:
 concurrency: servidor
 env:
   GCP_PROJETO: unity-compra-peca
-  GCP_NUMERO: ''            # número do projeto (o script imprime no fim)
+  GCP_NUMERO: '858550421734'   # número do projeto unity-compra-peca
   REGIAO: southamerica-east1
   SERVICO: compra-peca
   TRELLO_QUADRO: ZX4gRmnX   # TESTE; o principal (oH4TbTqb) só na fase 5
