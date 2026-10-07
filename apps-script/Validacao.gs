@@ -1623,6 +1623,38 @@ function vd_pkRebasear_(posCot, ctx) {
   console.log('rebase VD_PK2: ' + n + ' card(s) das colunas pós-cotação regravados a partir da descrição completa · ' + cards.length + ' cards em ' + listas.length + ' colunas · ' + leg + ' legado(s) · ' + semCmp + ' sem completa na TRAVA · completas na TRAVA: ' + Object.keys(mapa).length + ' · virada ' + new Date(vd_viradaMs_()).toLocaleString('pt-BR'));
 }
 
+/**
+ * Card fixo "➕ NOVO PEDIDO DE PEÇA" sempre em PRIMEIRO na coluna (Weslley, 07/10/2026): card novo e card movido entram no
+ * topo e empurravam o fixo para baixo. Guarda id|lista em VD_FIXO (achado na varredura completa) e, quando algo entrou na
+ * coluna dele, confere a ordem e manda de volta ao topo. Custo: 1 leitura só quando a coluna mexeu, 1 gravação só se saiu do topo.
+ */
+function vd_fixarCardNovo_(ctx, cards, completa) {
+  if (!ctx.modoAtivo) return false;
+  var props = PropertiesService.getScriptProperties();
+  cards = cards || [];
+  if (completa) {
+    var fixo = cards.filter(function (c) { return /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || ''); })[0];
+    if (fixo) props.setProperty('VD_FIXO', fixo.id + '|' + fixo.idList);
+  }
+  var g = String(props.getProperty('VD_FIXO') || '').split('|'), idFixo = g[0], idLista = g[1];
+  if (!idFixo || !idLista) return false;
+  var daColuna = cards.filter(function (c) { return c.idList === idLista; });
+  if (!daColuna.length || !daColuna.some(function (c) { return c.id !== idFixo; })) return false;   // nada entrou na coluna dele
+  // varredura completa já traz a coluna inteira em ordem; no ciclo incremental, lê a ordem atual
+  var ordem = completa ? daColuna : (vd_api_('/lists/' + idLista + '/cards', { query: { fields: 'name,pos' } }) || []);
+  if (!ordem.length || ordem[0].id === idFixo) return false;
+  if (!ordem.some(function (c) { return c.id === idFixo; })) return false;   // o fixo não está mais nessa coluna: a próxima varredura reaprende
+  vd_api_('/cards/' + idFixo, { method: 'put', payload: { pos: 'top' } });
+  return true;
+}
+/** Versão barata para quem acabou de pôr um card no topo de uma coluna (formulário/trava): se é a coluna do fixo, ele volta ao topo. */
+function vd_fixarTopo_(idLista, token) {
+  try {
+    var g = String(PropertiesService.getScriptProperties().getProperty('VD_FIXO') || '').split('|');
+    if (g[0] && g[1] === idLista) vd_api_('/cards/' + g[0], { method: 'put', payload: { pos: 'top' } }, token);
+  } catch (e) { console.log('fixar topo: ' + e); }
+}
+
 /** Execução principal (acionador de 1 em 1 min). */
 function vd_executarNucleo_() {
   if (!vd_ligado_()) return [];
@@ -1658,6 +1690,7 @@ function vd_executarNucleo_() {
   }
   if (completa) { listaPos = vd_cardsDasListas_(posCot, false); listaCot = vd_cardsParaConferir_(ctx); }
   vd_marcaSet_('NU_ACT', inicio);
+  try { if (vd_fixarCardNovo_(ctx, listaPos.concat(listaCot), completa)) console.log('card fixo devolvido ao topo da coluna'); } catch (e) { console.log('card fixo: ' + e); }
 
   // 1) colunas depois de EM COTAÇÃO: só peça nova
   listaPos.forEach(function (c) {

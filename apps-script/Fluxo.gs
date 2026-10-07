@@ -100,6 +100,7 @@ function st_executar_() {
     try {
       st_permitir_(cardId, de);
       vd_api_('/cards/' + cardId, { method: 'put', payload: { idList: de, pos: 'top' } });
+      vd_fixarTopo_(de);
       desfeitos++;
       var quem = a.memberCreator ? a.memberCreator.username : '';
       var orig = ''; try { orig = es_autor_(cardId); } catch (e) {}

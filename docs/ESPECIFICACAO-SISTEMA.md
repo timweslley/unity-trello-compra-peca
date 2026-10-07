@@ -75,7 +75,9 @@ pode ter peça particular dentro de um pedido de seguradora = pedido **MISTO**).
 **Colunas travadas** (só se entra pela ação certa): 4, 5, 6, 7, 8. Movimento manual para elas é desfeito.
 **Colunas livres**: 1, 9, 10 e qualquer outra.
 **Cards ignorados**: título contém "NOVO PEDIDO DE PEÇA" ou começa com "AVISO"; cards legados (anteriores à virada,
-sem descrição completa).
+sem descrição completa). O card fixo "➕ NOVO PEDIDO DE PEÇA" fica **sempre em primeiro** na coluna dele: o robô guarda
+onde ele está (`VD_FIXO`, varredura completa) e o devolve ao topo quando um card entra na coluna; o formulário (card novo,
+mover) e a trava de colunas também o reposicionam na hora (07/10/2026).
 
 ### 2.2 Transições
 

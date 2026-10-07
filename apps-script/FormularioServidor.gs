@@ -841,6 +841,7 @@ function vdf_moverPara_(card, ctx, nomeLista, token, usuario) {
   var de = vdf_nomeLista_(ctx, card.idList);
   vd_api_('/cards/' + card.id, { method: 'put', payload: { idList: id, pos: 'top' } }, token);
   card.idList = id;
+  vd_fixarTopo_(id, token);   // card fixo "NOVO PEDIDO" continua em primeiro (07/10/2026)
   try { ev_registrar_('COLUNA', card, usuario || 'formulário', null, { detalhe: (de || '?') + ' → ' + nomeLista }); } catch (e) {}
   return nomeLista;
 }
@@ -1647,6 +1648,7 @@ function vdf_salvar(token, p) {
   } else {
     var corpo = { idList: ctx.listas[rotina && pecas.length ? VD.LISTA_FALTA : VD.LISTA_COTACAO] || ctx.listas[VD.LISTA_COTACAO], name: titulo, desc: bloco + '\n\n' + VD.MARCADOR, pos: 'top' };
     card = vd_api_('/cards', { method: 'post', payload: corpo }, token);
+    vd_fixarTopo_(corpo.idList, token);   // card fixo "NOVO PEDIDO" continua em primeiro (07/10/2026)
     if (rotina) {
       try {
         var avisoR = String(p.aviso || '').trim();
