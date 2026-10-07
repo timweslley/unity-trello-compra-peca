@@ -535,20 +535,35 @@ function pv_lerHdiPecas_(texto, lista) {
     if (ini >= 0 && i > ini && /^FECHAR$/.test(u) && fim === linhas.length) fim = i;
   });
   var reTel = /\(\d{2}\)\s*\d{4,5}-?\d{4}/, reMail = /\S+@\S+\.\S+/, reData = /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g;
-  var cab = /^(PECA|PECAS|PREV\.?\s*ENTREGA|ENTREGA|FORNECEDOR|TEL\.?|E-?MAIL|PE[CG]AS DO LAUDO.*|PE[CG]AS DO SINISTRO|OLA .*)$|PREV\.?\s*ENTREGA.*FORNECEDOR/;
-  var pecas = [], fornecedores = [], datasSoltas = [], entregasSoltas = [], colunaAtual = '';
+  var cab = /^(PECA|PECAS|PREV\.?\s*ENTREGA|ENTREGA|FORNECEDOR|TEL\.?|E-?MAIL|PE[CG]AS DO LAUDO.*|PE[CG]AS DO SINISTRO|OLA .*|SAIR|FECHAR|INTRANET|HDI SEGUROS?)$|PREV\.?\s*ENTREGA.*FORNECEDOR/;
+  var pecas = [], fornecedores = [], datasSoltas = [], entregasSoltas = [], colunaAtual = '', linhaUltimaPeca = -1;
   var fornDe = function (t) { t = t.replace(reMail, '').replace(reTel, '').replace(/\s+/g, ' ').trim(); return t ? pv_fornecedorCurto_(t, lista) || t : ''; };
+  // vários fornecedores numa linha só (OCR do print junta a coluna: "CAR HOUSE (49)… mail CAR HOUSE (49)… mail"): um por contato
+  var fornsDe = function (t) {
+    var sep = reMail.test(t) ? new RegExp(reMail.source, 'g') : (reTel.test(t) ? new RegExp(reTel.source, 'g') : null);
+    var partes = sep ? t.split(sep) : [t];
+    if (sep) partes = partes.slice(0, -1);   // o último pedaço é o que sobra depois do último contato
+    var out = partes.map(fornDe).filter(String);
+    return out.length ? out : [fornDe(t)].filter(String);
+  };
   for (var i = ini + 1; i < fim; i++) {
-    var l = linhas[i], u = vd_semAcento_(l);
+    // ícones de ordenação do portal viram "☐ □ ▸" no OCR do print: fora, antes de reconhecer a linha (07/10/2026, BXZ4J84)
+    var l = linhas[i].replace(/^[^A-Za-z0-9(À-ÿ]+/, '').trim(), u = vd_semAcento_(l);
+    if (!l) continue;
     // cabeçalho de coluna sozinho na linha (layout em colunas): diz de que coluna são as linhas seguintes
     if (/^(ENTREGA|FORNECEDOR|TEL\.?|E-?MAIL)$/.test(u) && pecas.length) { colunaAtual = u.replace(/\W/g, ''); continue; }
     if (cab.test(u)) continue;
     if (/^FORNECIDO PELA OFICINA$/.test(u)) { fornecedores.push({ oficina: true }); continue; }
     var datas = l.match(reData) || [];
     var soDatas = datas.length && l.replace(reData, '').replace(/[\s\-]/g, '') === '';
-    if (soDatas) { datas.forEach(function (d) { (colunaAtual === 'ENTREGA' ? entregasSoltas : datasSoltas).push(d); }); continue; }
+    if (soDatas) {
+      // a data da peça caiu na linha de baixo (OCR quebrou a célula): é dela, não da fila
+      var ult = pecas[pecas.length - 1];
+      if (!colunaAtual && ult && !ult.previsao && linhaUltimaPeca === i - 1 && datas.length === 1) { ult.previsao = datas[0]; linhaUltimaPeca = i; continue; }
+      datas.forEach(function (d) { (colunaAtual === 'ENTREGA' ? entregasSoltas : datasSoltas).push(d); }); continue;
+    }
     var temForn = reTel.test(l) || reMail.test(l), oficinaNaLinha = /FORNECIDO PELA OFICINA/.test(u);
-    if (temForn && !datas.length && colunaAtual) { fornecedores.push({ nome: fornDe(l) }); continue; }   // coluna Fornecedor, uma célula por linha
+    if (temForn && !datas.length && colunaAtual) { fornsDe(l).forEach(function (nm) { fornecedores.push({ nome: nm }); }); continue; }   // coluna Fornecedor, uma célula (ou várias) por linha
     var desc = l.replace(reMail, '').replace(reTel, '');
     var pos = desc.search(reData); if (pos >= 0) desc = desc.slice(0, pos);
     var fornTxt = '';
@@ -557,7 +572,7 @@ function pv_lerHdiPecas_(texto, lista) {
     desc = desc.replace(/\s+/g, ' ').trim();
     if (!desc || desc.length < 4) {
       // só fornecedor na linha (layout em colunas): entra na fila de fornecedores
-      if (temForn) fornecedores.push({ nome: fornDe(l) });
+      if (temForn) fornsDe(l).forEach(function (nm) { fornecedores.push({ nome: nm }); });
       continue;
     }
     if (!/[A-Z]{3,}/.test(vd_semAcento_(desc))) continue;
@@ -566,7 +581,7 @@ function pv_lerHdiPecas_(texto, lista) {
     if (datas[1]) p.entregueEm = datas[1];
     if (temForn) p.fornecedor = fornDe(fornTxt || l.slice(desc.length));
     p._temForn = temForn || oficinaNaLinha;
-    pecas.push(p);
+    pecas.push(p); linhaUltimaPeca = i;
   }
   // layout em colunas: datas soltas e fornecedores casam pela ordem com as peças que ficaram sem
   var semData = pecas.filter(function (p) { return !p.previsao; });
