@@ -762,6 +762,21 @@ function rotuloCot(q) {
   return q.fornecedor + ' — ' + ([q.tipo, q.marca].filter(String).join(' ') || '—') + ' — ' + fmtValor(q.valor) + (q.dias !== '' && q.dias !== undefined ? ' — ' + q.dias + (+q.dias === 1 ? ' dia útil' : ' dias úteis') : (q.data ? ' — ' + q.data : ''));
 }
 /** Link do anúncio da cotação (Mercado Livre etc.), clicável; '' se não tem. */
+/* link de anúncio sem o rastreio, na hora de colar (mesma regra do servidor vdf_encurtarLink_, 07/10/2026) */
+function encurtarLink(u) {
+  u = String(u || '').trim();
+  if (!/^https?:\/\//i.test(u)) return u;
+  try {
+    var m;
+    if ((m = u.match(/^(https?:\/\/[^\/?#]*aliexpress\.[^\/?#]+\/item\/\d+\.html)/i))) return m[1];
+    if ((m = u.match(/^(https?:\/\/[^\/?#]*(?:mercadolivre\.com\.br|mercadolibre\.com|shopee\.com\.br)\/[^?#]+)/i))) return m[1].replace(/\/+$/, '');
+    if ((m = u.match(/^(https?:\/\/[^\/?#]*amazon\.[^\/?#]+\/(?:.*?\/)?dp\/[A-Z0-9]{10})/i))) return m[1];
+    var semHash = u.split('#')[0], partes = semHash.split('?');
+    if (partes.length < 2) return semHash;
+    var q = partes.slice(1).join('?').split('&').filter(function (kv) { return kv && !/^(utm_|spm=|gatewayAdapt=|fbclid=|gclid=|srsltid=|_gl=|ref=|ref_=|tag=|tracking_id=|aff_|afSmartRedirect=|scm=|pvid=|algo_|sk=|curPageLogUid=|pdp_|_t=|srcSns=|spreadType=|bizType=|social_params=|terminal_id=|shareScene=|_randl_|_rsc=|mc=|igsh=)/i.test(kv); });
+    return partes[0] + (q.length ? '?' + q.join('&') : '');
+  } catch (e) { return u; }
+}
 function linkCot(q) { return q && q.link && /^https?:\/\//i.test(q.link) ? ' <a href="' + esc(q.link) + '" target="_blank" rel="noopener" title="' + esc(q.link) + '">🔗 anúncio</a>' : ''; }
 function normForn(s) { return semAc(s).replace(/[^A-Z0-9]+/g, ' ').trim(); }
 /** Nome digitado -> nome oficial do cadastro (nome ou apelido igual, sem acento/pontuação); senão o digitado. */
@@ -1260,7 +1275,7 @@ function novaCot(item, pre) {
     + '<div><label>Valor (R$)' + (peca.valorOrc ? ' <span style="font-size:12px">· orç. ' + esc(fmtValor(peca.valorOrc)) + '</span>' : '') + '</label><input type="text" class="q-valor" inputmode="decimal" placeholder="1.647,00" oninput="atualizarEco(this)"><div class="q-eco"></div></div>'
     + '<div><label>Prazo (dias úteis)</label><input type="number" class="q-dias" min="0" placeholder="3"></div>'
     + '<div><button type="button" class="perigo" onclick="var it=this.closest(\'.item\');this.closest(\'.cot\').remove();atualizarPecaCot(it)">tirar</button></div>'
-    + '<div class="q-link-caixa"><label>Link do anúncio (opcional — Mercado Livre, site do fornecedor)</label><input type="text" class="q-link" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://produto.mercadolivre.com.br/…"></div>';
+    + '<div class="q-link-caixa"><label>Link do anúncio (opcional — Mercado Livre, site do fornecedor)</label><input type="text" class="q-link" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://produto.mercadolivre.com.br/…" onchange="this.value=encurtarLink(this.value)"></div>';
   item.querySelector('.cot-novas').appendChild(row);
   if (pre) {
     row.querySelector('.q-forn').value = pre.fornecedor || '';
@@ -1371,7 +1386,7 @@ function montarCompra(c) {
           + (pneuI ? '<div><label>Marca do pneu</label><input type="text" class="i-marca maiusc"></div><input type="hidden" class="i-tipo" value="">'
                    : '<div><label>Tipo</label><select class="i-tipo">' + tiposI.map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('') + '</select></div><div><label>Marca (opcional)</label><input type="text" class="i-marca maiusc"></div>')
           + '<div><label>Valor (R$)</label><input type="text" class="i-valor" inputmode="decimal"></div><div><label>Prazo (dias úteis)</label><input type="number" class="i-dias" min="0"></div></div>'
-          + '<label style="margin-top:6px">Link do anúncio (compra online — opcional)</label><input type="url" class="i-link" placeholder="https://… (Mercado Livre, AliExpress, Shopee…)">'
+          + '<label style="margin-top:6px">Link do anúncio (compra online — opcional)</label><input type="url" class="i-link" placeholder="https://… (Mercado Livre, AliExpress, Shopee…)" onchange="this.value=encurtarLink(this.value)">'
           + '<button type="button" class="principal" style="margin-top:8px" onclick="enviarIndisponivel()">↩️ Enviar para nova autorização</button></div>';
       }
     }
