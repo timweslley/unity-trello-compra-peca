@@ -244,7 +244,9 @@ checklist casa pelo prefixo `chave + ' '` (código/pneu) ou `chave + ' - '` (des
 
 ### 4.3 Cotação / autorização / compra
 
-- Cotação: fornecedor (normalizado pelo cadastro), tipo+marca, valor, **prazo em dias úteis**, link opcional,
+- Cotação: fornecedor (normalizado pelo cadastro), tipo+marca, valor, **prazo em dias úteis**, link opcional (guardado sem
+  o rastreio — AliExpress só `/item/<id>.html`, Mercado Livre/Shopee/Amazon só o caminho, demais sem `utm_`/`spm` etc.; parênteses
+  viram `%28 %29`; até 1 500 caracteres — 07/10/2026; a cotação nova da "cotação indisponível" também aceita link),
   OBS por peça, `SEM COTAÇÃO <peça>: motivo`, `NT` por fornecedor, `REMOVIDA:` tira a cotação igual mais recente.
   Toda peça precisa de cotação **ou** justificativa para o card seguir.
 - Autorização: vale a mais recente por peça; `DEVOLVIDA PARA COTAÇÃO` anula todas; `INDISPONÍVEL` do mesmo

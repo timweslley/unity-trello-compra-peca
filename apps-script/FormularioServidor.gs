@@ -737,8 +737,25 @@ function vdf_lerRemocao_(l, chaves) {
 function vdf_linkCot_(s) {
   s = String(s || '').trim();
   if (!s) return '';
-  if (!/^https?:\/\/\S+$/i.test(s) || /[()\s<>]/.test(s)) return null;
-  return s.length > 500 ? null : s;
+  if (!/^https?:\/\/\S+$/i.test(s) || /[\s<>]/.test(s)) return null;
+  s = vdf_encurtarLink_(s).replace(/\(/g, '%28').replace(/\)/g, '%29');   // parênteses quebrariam o [🔗 link](url) da descrição
+  return s.length > 1500 ? null : s;
+}
+/**
+ * Link de anúncio sem o rastreio (07/10/2026: link do AliExpress passava de 500 caracteres e era recusado).
+ * AliExpress → só /item/<id>.html; Mercado Livre, Shopee, Amazon → só o caminho; outros → tira os parâmetros de rastreio.
+ */
+function vdf_encurtarLink_(u) {
+  try {
+    var m;
+    if ((m = u.match(/^(https?:\/\/[^\/?#]*aliexpress\.[^\/?#]+\/item\/\d+\.html)/i))) return m[1];
+    if ((m = u.match(/^(https?:\/\/[^\/?#]*(?:mercadolivre\.com\.br|mercadolibre\.com|shopee\.com\.br)\/[^?#]+)/i))) return m[1].replace(/\/+$/, '');
+    if ((m = u.match(/^(https?:\/\/[^\/?#]*amazon\.[^\/?#]+\/(?:.*?\/)?dp\/[A-Z0-9]{10})/i))) return m[1];
+    var semHash = u.split('#')[0], partes = semHash.split('?');
+    if (partes.length < 2) return semHash;
+    var q = partes.slice(1).join('?').split('&').filter(function (kv) { return kv && !/^(utm_|spm=|gatewayAdapt=|fbclid=|gclid=|srsltid=|_gl=|ref=|ref_=|tag=|tracking_id=|aff_|afSmartRedirect=|scm=|pvid=|algo_|sk=|curPageLogUid=|pdp_|_t=|srcSns=|spreadType=|bizType=|social_params=|terminal_id=|shareScene=|_randl_|_rsc=|mc=|igsh=)/i.test(kv); });
+    return partes[0] + (q.length ? '?' + q.join('&') : '');
+  } catch (e) { return u; }
 }
 /** Tira o link do fim da linha de cotação ("- [🔗 link](url)" ou "- url") e devolve {linha, link}. */
 function vdf_tirarLinkCot_(l) {
@@ -1829,8 +1846,10 @@ function vdf_cotacaoIndisponivel(token, p) {
       var nf = foNome(n.fornecedor), nv = vd_valorNum_(n.valor), nd = String(n.dias == null ? '' : n.dias).trim(), nt = vd_tipoNorm_(n.tipo || '') || '', nm = String(n.marca || '').trim().toUpperCase();
       if (isNaN(nv) || nv <= 0) { faltas.push(nomeP + ': valor da cotação nova inválido'); return; }
       if (nd !== '' && !/^\d+$/.test(nd)) { faltas.push(nomeP + ': prazo da cotação nova em dias úteis (número)'); return; }
+      var nl = vdf_linkCot_(n.link);   // link do anúncio da cotação nova (compra online), 07/10/2026
+      if (nl === null) { faltas.push(nomeP + ': link da cotação nova inválido — cole o endereço completo, começando com http (ou deixe vazio)'); return; }
       if (!novas[nf]) { novas[nf] = []; ordem.push(nf); }
-      novas[nf].push(nomeP + (nt || nm ? ' - ' + [nt, nm].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(nv) + (nd !== '' ? ' - ' + nd + (nd === '1' ? ' dia útil' : ' dias úteis') : ''));
+      novas[nf].push(nomeP + (nt || nm ? ' - ' + [nt, nm].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(nv) + (nd !== '' ? ' - ' + nd + (nd === '1' ? ' dia útil' : ' dias úteis') : '') + (nl ? ' - [🔗 link](' + nl + ')' : ''));
       var e2 = ev_peca_(peca); e2.fornecedor = nf; e2.valor = nv; e2.dias = nd; e2.detalhe = 'cotação nova (no lugar da indisponível)'; evs.push(e2);
     }
   });
