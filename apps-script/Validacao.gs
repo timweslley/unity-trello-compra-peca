@@ -381,6 +381,9 @@ function vd_analisar_(desc, nomeCard, opts) {
 
   var lp = vd_linhasPecas_(bloco);
   var base = opts.base || [];
+  // marcar/desmarcar "| COMPLEMENTO dd/mm" numa peça que já existia não é peça nova (07/10/2026, Weslley): o card não volta a cotar
+  var semComp = function (s) { return String(s || '').replace(/\|COMPLEMENTO(?: \d{1,2}\/\d{1,2})?(?=\||$)/g, ''); };
+  var baseSem = base.map(semComp);
   var pecas = [], novas = [], naoComprar = [];
   lp.linhas.forEach(function (l) {
     var p = vd_analisarPeca_(l, pecas.length + 1, { codigoOpcional: particular });
@@ -389,7 +392,7 @@ function vd_analisar_(desc, nomeCard, opts) {
     // "NÃO COMPRAR": fica só de registro — fora de cotação, autorização, compra, totais e coluna (como se não existisse)
     if (p.naoComprar) { naoComprar.push(p); return; }
     pecas.push(p);
-    if (base.indexOf(p.sig) < 0) novas.push(p);
+    if (baseSem.indexOf(semComp(p.sig)) < 0) novas.push(p);
   });
   if (!modoNova && !pecas.length && !naoComprar.length && !lp.semOficina) {
     faltas.push('lista de peças no padrão (use o formulário ou escreva "PEÇAS:" e uma peça por linha: CÓDIGO | DESCRIÇÃO | TIPO)');

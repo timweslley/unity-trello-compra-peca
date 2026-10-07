@@ -227,7 +227,8 @@ comprar riscadas, grupos 🛡️ seguradora / 👤 particulares, resumo do forne
 
 **Assinatura de peça** (detecção de peça nova / trava): texto da linha sem numeração, sem `| ORÇ` e sem `| OBS`,
 sem acentos, maiúsculas → hash curto guardado por card (`VD_PK2_`). Editar observação ou valor do orçamento não
-conta como peça nova. Assinatura de trava (peça autorizada/comprada não pode mudar): `P|CÓD|DESC|TIPOS|QTD`.
+conta como peça nova; marcar/desmarcar `| COMPLEMENTO` numa peça existente também não (07/10/2026) — o card não volta
+para cotação. Mudar descrição, quantidade ou tipo continua contando como peça nova (precisa cotar de novo). Assinatura de trava (peça autorizada/comprada não pode mudar): `P|CÓD|DESC|TIPOS|QTD`.
 
 **Chave da peça**: código sem espaços; sem código → descrição sem acento; pneu → `PNEU <medida>`. Item de
 checklist casa pelo prefixo `chave + ' '` (código/pneu) ou `chave + ' - '` (descrição).
@@ -303,7 +304,7 @@ Trello do usuário (guardado no navegador).
 |---|---|---|
 | Pedido novo / ✏️ Editar | `vdf_salvar` | tipo (seguradora/particular), unidade, carro, placa, modelo, ano, motor, chassi, cor, seguradora, sinistro, nº ordem; anexos (orçamento → importa peças e FO por OCR; foto de capa); peças (código, qtd, valor no orçamento, descrição, tipo 1–2, ➕ complemento, 🚫 não comprar + motivo, **observação da peça**); pneus; obs geral. Duplicidade de placa aberta pede confirmação |
 | 💰 Cotação | `vdf_salvarCotacao` (`parcial` true/false) | por peça: fornecedor (autocompleta do cadastro), tipo/marca, valor, prazo d.u., link, obs, "sem cotação: motivo"; NT por fornecedor; remover cotação. Dois botões: **Salvar parcial** (guarda aos poucos, card fica em EM COTAÇÃO) e **Enviar cotação** (exige cobertura total; card anda) |
-| ✅ Autorizar | `vdf_autorizar`, `vdf_devolverCotacao` | por peça: escolher cotação (menor preço pré-marcada; selos 💲 menor preço / ⏱ menor prazo; valor do orçamento e economia), não autorizar, obs; obs geral; devolver com motivo |
+| ✅ Autorizar | `vdf_autorizar` (`escolhas`, `marcas`), `vdf_devolverCotacao` | por peça: escolher cotação (menor preço pré-marcada; selos 💲 menor preço / ⏱ menor prazo; valor do orçamento e economia), não autorizar, obs; obs geral; devolver com motivo. **Diretoria** também marca ➕ complemento / 🚫 não comprar (com motivo) direto na aba (07/10/2026): troca só a linha da peça na descrição, atualiza a base de peça nova, comenta; só marcas sem autorização reavalia a coluna |
 | 🛒 Compra | `vdf_salvarCompra`, `vdf_cotacaoIndisponivel`, `vdf_marcarOrdemAutorizada`, `vdf_avisarSolicitante`, `vdf_alterarPrevisao` | marcar peças compradas (previsão por data ou d.u.), justificar fora da autorização, cotação indisponível + nova cotação, ordem autorizada, aviso ao solicitante (Databox), alterar prazo autorizado com motivo |
 | 📦 Recebimento | `vdf_salvarRecebimento` | ✔ por item com data, obs, foto/NF da peça; obs geral |
 | 🚚 Fornecimento | `vdf_atualizarFornecimento`, `vdf_lerFornecimento`, `vdf_lerFornecimentoAnexo` | por item FO: fornecedor, previsão, situação (em cotação / B.O.), motivo (só se adiar); leitura de "Status do Pedido" (Cilia/HDI/Soma) por upload ou de anexo já no card; peças FO novas do documento |

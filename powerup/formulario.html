@@ -997,6 +997,13 @@ function montarAutorizacao(c) {
       div.innerHTML = h; div.dataset.fora = '1'; box.appendChild(div); return;
     }
     if (ja) h += '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + (ja.quando ? ' ' + esc(ja.quando) : '') + ')' : '') + '</div>';
+    // diretoria marca aqui mesmo ➕ complemento / 🚫 não comprar, sem abrir o pedido do consultor (07/10/2026)
+    if (c.diretoria) {
+      div.dataset.comp = p.complemento ? '1' : '';
+      h += '<div class="chips" style="margin:4px 0 6px"><label class="chip chip-comp' + (p.complemento ? ' marcado' : '') + '" title="Peça fora do orçamento autorizado: vai no orçamento complementar; a compra entra em PAGAS COMPLEMENTO"><input type="checkbox" class="a-comp"' + (p.complemento ? ' checked' : '') + ' onchange="autMarca(this)"> ➕ Complemento' + (p.compData ? ' ' + esc(p.compData) : '') + '</label>'
+        + '<label class="chip chip-nao" title="A oficina não vai comprar (recuperar, cliente já tem…): sai da cotação, da autorização, da compra e dos totais"><input type="checkbox" class="a-nao" onchange="autMarca(this)"> 🚫 Não comprar</label></div>'
+        + '<div class="nao-motivo oculto"><input type="text" class="a-nao-motivo maiusc" placeholder="Motivo de não comprar (vai para o card)"></div>';
+    }
     var semA = ((c.cotacoes && c.cotacoes.semCot) || []).filter(function (o) { return o.chave === p.chave; });
     if (!minhas.length) h += '<div class="dica ruim">' + (semA.length ? 'Não cotada — motivo do comprador: ' + esc(semA[semA.length - 1].texto) : 'Sem cotação lançada para esta peça.') + '</div>';
     else {
@@ -1011,6 +1018,29 @@ function montarAutorizacao(c) {
     div.innerHTML = h; box.appendChild(div);
   });
   totalAut();
+}
+function autMarca(cb) {
+  var item = cb.closest('.item'), comp = item.querySelector('.a-comp'), nao = item.querySelector('.a-nao');
+  if (cb === nao && nao.checked && comp) { comp.checked = false; }
+  if (cb === comp && comp.checked && nao) { nao.checked = false; }
+  if (comp) comp.closest('.chip').classList.toggle('marcado', comp.checked);
+  if (nao) {
+    nao.closest('.chip').classList.toggle('marcado', nao.checked);
+    var mot = item.querySelector('.nao-motivo'); if (mot) mot.classList.toggle('oculto', !nao.checked);
+    // não comprar: a peça fica sem autorização (rádio "não autorizar") e as cotações ficam travadas
+    Array.prototype.forEach.call(item.querySelectorAll('input[type=radio]'), function (r) { r.disabled = nao.checked; if (nao.checked && r.value === '') r.checked = true; });
+    item.classList.toggle('nao-comprar', nao.checked);
+  }
+  totalAut();
+}
+function marcasAut() {
+  var out = [];
+  Array.prototype.forEach.call($('autItens').children, function (item) {
+    var comp = item.querySelector('.a-comp'), nao = item.querySelector('.a-nao');
+    if (nao && nao.checked) { out.push({ chave: item.dataset.chave, naoComprar: true, motivo: ((item.querySelector('.a-nao-motivo') || {}).value || '').trim() }); return; }
+    if (comp && !!comp.checked !== (item.dataset.comp === '1')) out.push({ chave: item.dataset.chave, complemento: comp.checked });
+  });
+  return out;
 }
 function obsAut() {
   return Array.prototype.map.call($('autItens').children, function (item) { return { chave: item.dataset.chave, texto: ((item.querySelector('.a-obs') || {}).value || '').trim() }; }).filter(function (o) { return o.texto; });
@@ -1029,7 +1059,8 @@ function enviarDevolucao() {
 function escolhasAut() {
   var out = [];
   Array.prototype.forEach.call($('autItens').children, function (item) {
-    var r = item.querySelector('input[type=radio]:checked');
+    var r = item.querySelector('input[type=radio]:checked'), nao = item.querySelector('.a-nao');
+    if (nao && nao.checked) return;
     if (!r || r.value === '' || !item.dataset.cots) return;
     var q = JSON.parse(item.dataset.cots)[+r.value];
     out.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, valor: q.valor });
@@ -1042,13 +1073,16 @@ function totalAut() {
 }
 function enviarAutorizacao() {
   mostrar('erroComprador', false);
-  var e = escolhasAut();
-  if (!e.length) return errosComprador(['Escolha a cotação de pelo menos uma peça.']);
+  var e = escolhasAut(), marcas = marcasAut();
+  if (!e.length && !marcas.length) return errosComprador(['Escolha a cotação de pelo menos uma peça (ou marque complemento / não comprar).']);
+  var semMotivo = marcas.filter(function (m) { return m.naoComprar && !m.motivo; });
+  if (semMotivo.length) return errosComprador(['Não comprar: escreva o motivo (vai para o card).']);
   $('btnAut').disabled = true; mostrar('enviandoAut', true);
-  chamar('vdf_autorizar', TOKEN, { shortLink: CARD_EDICAO, escolhas: e, obs: obsAut(), geral: $('autGeral').value.trim() }).then(function (r) {
+  chamar('vdf_autorizar', TOKEN, { shortLink: CARD_EDICAO, escolhas: e, marcas: marcas, obs: obsAut(), geral: $('autGeral').value.trim() }).then(function (r) {
     $('btnAut').disabled = false; mostrar('enviandoAut', false);
     if (!r.ok) return errosComprador(r.faltas);
-    sucesso('✅ Compra autorizada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s), total ' + esc(fmtValor(r.total)) + '.' + (r.semAut ? '<br>' + r.semAut + ' peça(s) sem autorização.' : '') + (r.aguarda && r.aguarda.length ? '<br>⏳ Ainda falta autorizar: ' + esc(r.aguarda.join('; ')) + '.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+    if (!r.n) return sucesso('✏️ Peças marcadas no card <b>' + esc(r.nome) + '</b> (' + r.marcas + ' marcação(ões): complemento / não comprar).' + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+    sucesso('✅ Compra autorizada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s), total ' + esc(fmtValor(r.total)) + '.' + (r.marcas ? '<br>' + r.marcas + ' peça(s) marcada(s) como complemento / não comprar.' : '') + (r.semAut ? '<br>' + r.semAut + ' peça(s) sem autorização.' : '') + (r.aguarda && r.aguarda.length ? '<br>⏳ Ainda falta autorizar: ' + esc(r.aguarda.join('; ')) + '.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
   }).catch(function (x) { $('btnAut').disabled = false; mostrar('enviandoAut', false); errosComprador([x.message]); });
 }
 

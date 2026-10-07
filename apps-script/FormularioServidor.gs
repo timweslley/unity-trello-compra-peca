@@ -1074,9 +1074,16 @@ function vdf_autorizar(token, p) {
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
   var lidas = vd_cotacoesDaDescricao_(card.desc, an.pecas).cotacoes;
   var faltas = [], linhas = [], total = 0, evAut = [];
+  /* 07/10/2026 (Weslley): na aba Autorizar a diretoria também marca a peça como ➕ COMPLEMENTO (vai no orçamento
+   * complementar; compra entra em PAGAS COMPLEMENTO) ou 🚫 NÃO COMPRAR (sai do fluxo, fica de registro) — sem precisar
+   * abrir o pedido do consultor. p.marcas = [{chave, complemento:true|false} | {chave, naoComprar:true, motivo}] */
+  var marcas = vdf_ehAutorizador_(me) ? (p.marcas || []) : [];
+  var naoComprarAgora = {};
+  marcas.forEach(function (m) { if (m && m.naoComprar && porChave[m.chave]) naoComprarAgora[m.chave] = 1; });
   (p.escolhas || []).forEach(function (e, i) {
     var peca = porChave[e.chave];
     if (!peca) { faltas.push('escolha ' + (i + 1) + ': peça não encontrada no pedido'); return; }
+    if (naoComprarAgora[e.chave]) { faltas.push(vd_nomePeca_(peca) + ': marcada como não comprar — não pode ser autorizada ao mesmo tempo'); return; }
     if (!vdf_podeAutorizarPeca_(me, card, an, peca, criador)) { faltas.push(vd_nomePeca_(peca) + ': ' + (vdf_pecaParticular_(peca, card, an) ? 'peça particular — quem autoriza é o consultor que a lançou' : 'peça da seguradora — quem autoriza é a diretoria')); return; }
     var forn = String(e.fornecedor || '').trim().toUpperCase(), valor = vd_valorNum_(e.valor);
     var q = lidas.filter(function (x) { return x.chave === e.chave && x.fornecedor === forn && Math.abs(x.valor - valor) < 0.005; })[0];
@@ -1088,16 +1095,51 @@ function vdf_autorizar(token, p) {
     ea.detalhe = doPeca.length > 1 ? 'menor ' + vd_valorBR_(Math.min.apply(null, doPeca)) + ' · maior ' + vd_valorBR_(Math.max.apply(null, doPeca)) + ' · ' + doPeca.length + ' cotações' : '1 cotação';
     evAut.push(ea);
   });
-  if (!linhas.length && !faltas.length) faltas.push('Escolha a cotação de pelo menos uma peça.');
+  // marcas na linha da peça (bloco do consultor): troca só a linha daquela peça, o resto do bloco fica igual
+  var div = vd_dividir_(card.desc);
+  var blocoNovo = div.bloco, marcadas = [];
+  marcas.forEach(function (m) {
+    var peca = m && porChave[m.chave]; if (!peca) return;
+    if (m.naoComprar) { peca.naoComprar = true; peca.naoMotivo = String(m.motivo || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 80); peca.complemento = false; peca.compData = ''; }
+    else if (m.complemento !== undefined) { if (!!peca.complemento === !!m.complemento) return; peca.complemento = !!m.complemento; peca.compData = m.complemento ? cp_hoje_() : ''; }
+    else return;
+    var linhaNova = vd_linhaPeca_(peca, 0).replace(/^1\. /, ''), feito = false;
+    blocoNovo = blocoNovo.split('\n').map(function (l) {
+      if (feito || vd_sigItem_(l) !== peca.sig) return l;
+      feito = true;
+      var mNum = l.match(/^(\s*\d+\s*[.)\-]\s*)/);
+      return (mNum ? mNum[1] : '') + linhaNova;
+    }).join('\n');
+    if (feito) marcadas.push({ peca: peca, m: m });
+  });
+  if (!linhas.length && !marcadas.length && !faltas.length) faltas.push('Escolha a cotação de pelo menos uma peça (ou marque complemento / não comprar).');
   if (faltas.length) return { ok: false, faltas: faltas };
   var obsL = vdf_linhasObs_(p, porChave, 'autorização');
 
   var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
-  var div = vd_dividir_(card.desc);
   var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
   vd_backup_(card, 'compra autorizada pelo formulário por ' + me.username);
-  var novaDesc = div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n**AUTORIZAÇÃO ' + agora + ' - ' + me.fullName + '**\n' + linhas.concat(obsL.linhas).join('\n');
+  var cabAut = linhas.length || obsL.linhas.length ? '\n\n**AUTORIZAÇÃO ' + agora + ' - ' + me.fullName + '**\n' + linhas.concat(obsL.linhas).join('\n') : '';
+  var novaDesc = blocoNovo.replace(/\s+$/, '') + '\n\n' + resto + cabAut;
   vd_gravarDesc_(card.id, novaDesc, token);
+  if (marcadas.length) {
+    // a base de "peça nova" acompanha a linha alterada (senão o robô acharia que é peça nova e devolveria para cotação)
+    try { vd_pkSet_(card.id, vd_linhasConsultor_(blocoNovo).map(vd_sigItem_)); } catch (e) {}
+    an = vd_analisar_(novaDesc, card.name);
+    var comps = marcadas.filter(function (x) { return x.m.complemento; }).map(function (x) { return x.peca; }), descomp = marcadas.filter(function (x) { return x.m.complemento === false; }).map(function (x) { return x.peca; }), naos = marcadas.filter(function (x) { return x.m.naoComprar; }).map(function (x) { return x.peca; });
+    try { if (comps.length) ev_registrar_('COMPLEMENTO', card, me.username, comps.map(ev_peca_), { detalhe: comps.length + ' oficina · marcado na autorização' }); } catch (e) {}
+    try { if (naos.length) ev_registrar_('PEDIDO EDITADO', card, me.username, naos.map(ev_peca_), { detalhe: 'NÃO COMPRAR (autorização): ' + naos.map(function (x) { return x.naoMotivo; }).filter(String).join('; ') }); } catch (e) {}
+    var txtM = (comps.length ? '\n➕ **Complemento** (vai no orçamento complementar; compra em PAGAS COMPLEMENTO): ' + comps.map(cp_nome_).join('; ') : '')
+      + (descomp.length ? '\n➖ Deixou de ser complemento: ' + descomp.map(cp_nome_).join('; ') : '')
+      + (naos.length ? '\n🚫 **Não comprar**: ' + naos.map(function (x) { return cp_nome_(x) + (x.naoMotivo ? ' (' + x.naoMotivo + ')' : ''); }).join('; ') : '');
+    if (!linhas.length) {
+      // só marcas, sem autorização nova: comentário próprio; a coluna é reavaliada (card pode ter ficado sem peça da oficina)
+      try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✏️ **Peças marcadas na autorização** — ' + me.fullName + txtM + obsL.texto } }, token); } catch (e) {}
+      var mv = ''; try { mv = rc_reavaliarColuna_(card.id, token, me.username); } catch (e) {}
+      try { vd_marcar_(card); } catch (e) {}
+      return { ok: true, url: card.shortUrl, nome: card.name, n: 0, total: 0, semAut: 0, aguarda: [], marcas: marcadas.length, lista: mv || vdf_nomeLista_(ctx, card.idList) };
+    }
+  }
   // card com peças da seguradora E particulares: só vai para AUTORIZADO COMPRA quando as duas partes
   // tiverem autorização (diretoria + consultor). Enquanto isso fica onde está, avisando quem falta.
   var autsAgora = vd_autorizacoesDaDescricao_(novaDesc, an.pecas);
@@ -1119,10 +1161,10 @@ function vdf_autorizar(token, p) {
   try {
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **AUTORIZADO** — ' + me.fullName + ' · ' + linhas.length + ' peça(s) · ' + vd_valorBR_(total) + (movido ? ' → **' + movido + '**' : '') +
-      (semAut ? '\n⛔ Sem autorização (não comprar): ' + semAut + ' peça(s)' : '') + obsL.texto + (aguarda.length ? '\n⏳ Aguarda: ' + aguarda.join('; ') : '') } }, token);
+      (semAut ? '\n⛔ Sem autorização (não comprar): ' + semAut + ' peça(s)' : '') + (typeof txtM === 'string' ? txtM : '') + obsL.texto + (aguarda.length ? '\n⏳ Aguarda: ' + aguarda.join('; ') : '') } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, aguarda: aguarda, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+  return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, aguarda: aguarda, marcas: marcadas.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
 /** Observações por peça ({chave, texto}) e geral do autorizador -> linhas "OBS PEÇA: texto" + "OBS GERAL: texto" e texto para o comentário. */
