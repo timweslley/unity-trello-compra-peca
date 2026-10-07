@@ -60,6 +60,16 @@ export async function lerAnexo(cardId: string, a: AnexoCard, forcar = false): Pr
   }
 }
 
+/** Executa fn em todos os itens, no máximo `n` ao mesmo tempo, mantendo a ordem dos resultados. */
+export async function emParalelo<T, R>(itens: T[], n: number, fn: (x: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(itens.length);
+  let prox = 0;
+  await Promise.all(Array.from({ length: Math.min(n, itens.length) }, async () => {
+    while (prox < itens.length) { const i = prox++; out[i] = await fn(itens[i]); }
+  }));
+  return out;
+}
+
 // ---------- conferência: leitura do servidor × o que o robô gravou no card ----------
 const norm = (s: string) => R.cp_norm_(s) as string;
 
@@ -118,11 +128,11 @@ export async function conferirLeitores(limiteMs = 200_000, maxCards = 500) {
     const gabarito = codigosImportados(c.desc_completa || '');
     const lidos = new Set<string>();
     const conf: Conferencia = { card: c.short_link, anexos: legiveis.length, orcamentos: 0, docsFo: 0, importadas: { gabarito: gabarito.length, achadas: 0, faltando: [] }, fo: { lidas: 0, noChecklist: 0 }, erros: 0 };
-    let completo = true;
+    if (Date.now() - t0 > limiteMs) { pendentes = cards.length - resultado.length; break; }
+    // anexos do card lidos em paralelo (3 de cada vez): as fotos passam por OCR e são o que mais demora
+    const leituras = await emParalelo(legiveis, 3, (a) => lerAnexo(c.id, a));
     const vistos = new Set<string>();   // mesmo orçamento anexado duas vezes conta uma
-    for (const a of legiveis) {
-      if (Date.now() - t0 > limiteMs) { completo = false; break; }
-      const r = await lerAnexo(c.id, a);
+    for (const r of leituras) {
       if (r.erro) { conf.erros++; continue; }
       const l = r.leitura;
       if (!l) continue;
@@ -138,7 +148,6 @@ export async function conferirLeitores(limiteMs = 200_000, maxCards = 500) {
       }
       if (l.doc === 'FO') conf.docsFo++;
     }
-    if (!completo) { pendentes = cards.length - resultado.length; break; }
     conf.importadas.faltando = gabarito.filter((g) => !lidos.has(g));
     conf.importadas.achadas = gabarito.length - conf.importadas.faltando.length;
     resultado.push(conf);
