@@ -220,8 +220,10 @@ function iniciar(): Promise<void> {
     const w = new Worker(path.join(AQUI, 'trabalhador.js'), { workerData: { porta: port2, sinal, arquivo: ARQUIVO_ROBO, props, fixas }, transferList: [port2] });
     port1.on('message', async (m: { op: string; dados: unknown }) => {
       let resp: { ok: boolean; r?: unknown; erro?: string };
+      const t0 = Date.now();
       try { resp = { ok: true, r: await atender(m.op, m.dados) }; }
       catch (e) { resp = { ok: false, erro: (e as Error).message }; }
+      contar(m, Date.now() - t0);
       port1.postMessage(resp);
       Atomics.store(flag, 0, 1);
       Atomics.notify(flag, 0);
@@ -241,12 +243,52 @@ function iniciar(): Promise<void> {
   return pronto;
 }
 
+// ---------- registro das execuções (diagnóstico: o que demorou e onde) ----------
+export interface Execucao {
+  fn: string; rid?: string; chegou: string; filaMs: number; ms?: number; ok?: boolean; erro?: string;
+  /** por operação pedida pelo trabalhador: quantas vezes e quanto tempo (ms) */
+  ops: Record<string, { n: number; ms: number }>;
+  /** chamadas de rede por destino (host + 1º trecho do caminho) */
+  rede: Record<string, { n: number; ms: number }>;
+}
+const execucoes: Execucao[] = [];
+let atual: Execucao | null = null;
+export function ultimasExecucoes(): Execucao[] { return execucoes.slice().reverse(); }
+
+function contar(m: { op: string; dados: unknown }, ms: number) {
+  if (!atual) return;
+  const o = (atual.ops[m.op] ||= { n: 0, ms: 0 }); o.n++; o.ms += ms;
+  const pedidos = m.op === 'fetch' ? [m.dados] : m.op === 'fetchAll' ? (m.dados as unknown[]) : [];
+  for (const p of pedidos as Array<{ url?: string; metodo?: string }>) {
+    let k = '?';
+    try { const u = new URL(String(p.url)); k = (p.metodo || 'GET') + ' ' + u.host + '/' + u.pathname.split('/').filter(Boolean).slice(0, 2).map((x) => /\d/.test(x) && x.length > 6 ? ':id' : x).join('/'); } catch { /* */ }
+    const r = (atual.rede[k] ||= { n: 0, ms: 0 }); r.n++; r.ms += m.op === 'fetch' ? ms : 0;
+  }
+}
+
+function descrever(msg: Record<string, unknown>): { fn: string; rid?: string } {
+  if (msg.tipo === 'chamar') return { fn: String(msg.fn) };
+  try { const c = JSON.parse(String(msg.corpo)); return { fn: String(c.fn || '?'), rid: c.rid ? String(c.rid) : undefined }; } catch { return { fn: '?' }; }
+}
+
 function enviar(msg: Record<string, unknown>): Promise<unknown> {
   // uma execução por vez, como no Google para o mesmo usuário (e o trabalhador é síncrono)
+  const chegou = Date.now();
+  const ex: Execucao = { ...descrever(msg), chegou: new Date(chegou).toISOString(), filaMs: 0, ops: {}, rede: {} };
   const p = fila.then(async () => {
-    await iniciar();
-    const id = ++seq;
-    return new Promise((ok, erro) => { esperando.set(id, { ok, erro }); trabalhador!.postMessage({ id, ...msg }); });
+    ex.filaMs = Date.now() - chegou;
+    execucoes.push(ex); if (execucoes.length > 60) execucoes.shift();
+    atual = ex;
+    const t0 = Date.now();
+    try {
+      await iniciar();
+      const id = ++seq;
+      const r = await new Promise((ok, erro) => { esperando.set(id, { ok, erro }); trabalhador!.postMessage({ id, ...msg }); });
+      ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
+      if (!ex.ok) ex.erro = String(r).slice(0, 200);
+      return r;
+    } catch (e) { ex.ok = false; ex.erro = (e as Error).message.slice(0, 200); throw e; }
+    finally { ex.ms = Date.now() - t0; atual = null; }
   });
   fila = p.catch(() => null);
   return p;

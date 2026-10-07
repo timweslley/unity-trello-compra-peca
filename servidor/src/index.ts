@@ -11,7 +11,7 @@ import { garantirWebhook, chamadasTrello } from './trello/api.js';
 import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
-import { executarPost } from './gas/ponte.js';
+import { executarPost, ultimasExecucoes } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -165,6 +165,9 @@ export function criarApp() {
     catch (e) { return resp.code(500).send({ ok: false, erro: (e as Error).message }); }
     finally { conferindo = false; }
   });
+
+  /** Últimas execuções do código do formulário: função, espera na fila, duração e chamadas por destino (sem dados de card). */
+  app.get('/tarefas/execucoes', async () => ({ ok: true, execucoes: ultimasExecucoes() }));
 
   /** Leitura dos anexos de UM card (pelo código do link): só dados de peças, sem placa/chassi/nomes. ?forcar=1 relê. */
   app.get('/tarefas/leitura/:card', async (req, resp) => {
