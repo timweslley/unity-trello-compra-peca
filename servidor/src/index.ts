@@ -1,0 +1,74 @@
+/**
+ * Compra de Peça — servidor próprio (fase 0).
+ * Rotas: GET /saude · HEAD|POST /trello/webhook · (fase 3) POST /api · (fase 3) login Google.
+ */
+import Fastify from 'fastify';
+import { CFG } from './config.js';
+import { migrar, consulta } from './db.js';
+import { assinaturaValida, guardarAcao, type AcaoTrello } from './trello/webhook.js';
+import { garantirWebhook, chamadasTrello } from './trello/api.js';
+
+const INICIO = Date.now();
+const VERSAO = process.env.K_REVISION || process.env.GIT_SHA || 'dev';
+
+export function criarApp() {
+  const app = Fastify({ logger: { level: process.env.LOG_NIVEL || 'info' } });
+
+  // o webhook precisa do corpo cru (texto) para conferir a assinatura
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, corpo, done) => done(null, corpo));
+
+  app.get('/saude', async () => {
+    let banco = 'sem DATABASE_URL';
+    if (CFG.bancoUrl) {
+      try { await consulta('SELECT 1'); banco = 'ok'; } catch (e) { banco = 'erro: ' + (e as Error).message; }
+    }
+    return { ok: true, versao: VERSAO, modo: CFG.modo, quadro: CFG.trello.quadro, banco, chamadasTrello: chamadasTrello(), ativoHaSeg: Math.round((Date.now() - INICIO) / 1000) };
+  });
+
+  app.head('/trello/webhook', async (_req, resp) => { resp.code(200).send(); });
+
+  app.post('/trello/webhook', async (req, resp) => {
+    const corpo = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
+    const url = CFG.urlPublica.replace(/\/$/, '') + '/trello/webhook';
+    if (!assinaturaValida(corpo, url, req.headers['x-trello-webhook'] as string | undefined, CFG.trello.segredo)) {
+      req.log.warn('webhook com assinatura inválida');
+      return resp.code(401).send({ ok: false });
+    }
+    let dados: { action?: AcaoTrello };
+    try { dados = JSON.parse(corpo); } catch { return resp.code(400).send({ ok: false }); }
+    if (dados.action?.id) {
+      try {
+        const nova = await guardarAcao(dados.action, 'webhook', CFG.trello.quadro);
+        req.log.info({ acao: dados.action.type, card: dados.action.data?.card?.id, nova }, 'ação do Trello');
+      } catch (e) {
+        req.log.error(e, 'falha ao guardar ação');   // responde 200 mesmo assim: o Trello não deve desativar o webhook
+      }
+    }
+    return { ok: true };
+  });
+
+  return app;
+}
+
+async function principal() {
+  const app = criarApp();
+  if (CFG.bancoUrl) {
+    const feitas = await migrar();
+    if (feitas.length) app.log.info({ feitas }, 'migrações aplicadas');
+  } else {
+    app.log.warn('sem DATABASE_URL: subindo sem banco (só /saude)');
+  }
+  await app.listen({ port: CFG.porta, host: '0.0.0.0' });
+  if (CFG.urlPublica && CFG.trello.chave && CFG.trello.token && CFG.bancoUrl) {
+    try {
+      const w = await garantirWebhook(CFG.trello.quadro, CFG.urlPublica);
+      await consulta(`INSERT INTO trello_webhook (id, quadro, url) VALUES ($1,$2,$3) ON CONFLICT (id) DO NOTHING`, [w.id, CFG.trello.quadro, CFG.urlPublica + '/trello/webhook']);
+      app.log.info({ webhook: w.id, novo: w.novo }, 'webhook do Trello garantido');
+    } catch (e) {
+      app.log.error(e, 'não consegui garantir o webhook do Trello');
+    }
+  }
+}
+
+const ehPrincipal = process.argv[1] && /index\.(ts|js)$/.test(process.argv[1]);
+if (ehPrincipal) principal().catch((e) => { console.error(e); process.exit(1); });
