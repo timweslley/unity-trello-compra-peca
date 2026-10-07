@@ -175,7 +175,8 @@ repete chamadas lentas em paralelo).
 - Título: `PLACA CARRO COR SEGURADORA` (ex.: `RHV1E04 CRUZE PRATA SURA`); pedido particular → `… PARTICULAR`.
   Carro = nome curto digitado. Placa: `^[A-Z]{3}\d[A-Z0-9]\d{2}$` (antiga e Mercosul equivalentes).
 - Seguradoras conhecidas: HDI, PORTO, AZUL, ITAU, YELUM, SANCOR, BRADESCO, ALLIANZ, TOKIO, MAPFRE, SURA, ZURICH,
-  SUHAI, MITSUI, EZZE, DARWIN, AMERICAS, SOMPO, GENERALI, ALFA, JUSTOS.
+  SUHAI, MITSUI, EZZE, DARWIN, AMERICAS, SOMPO, GENERALI, ALFA, JUSTOS. No orçamento, vale primeiro o nome colado em
+  "Seguradora/Seguros" (cabeçalho), depois qualquer menção solta (e-mail `@hdi-yelum` não faz a Yelum virar HDI).
 - Unidade: campo personalizado `Unidade` (TOLEDO, RONDON, CASCAVEL, MOURÃO); cards antigos, por etiqueta.
 
 ### 4.2 Descrição (formato "completa")
@@ -329,7 +330,7 @@ Tesseract/serviço de OCR para imagem e PDF escaneado.
 |---|---|---|
 | Orçamento **HDI** | seções `PEÇAS FORNECIDAS PELA OFICINA` / `PELA HDI`; `VEICULO: … ANO PLACA:` | código, descrição, qtd, unitário, desconto % → líquido; placa, chassi, ano, modelo, cor, sinistro; FO |
 | Orçamento **Websoma/Soma/Porto** | `PEÇAS - TROCA (…)`, `LISTA DAS PEÇAS FORNECIDAS PELA SEGURADORA`, `LICENCA:` | código, descrição, tipo (REPOSIÇÃO/GENUÍNO…), qtd, bruto, desconto, líquido; FO com fornecedor/prazo da tabela STATUS DE ENTREGA |
-| Orçamento **Cilia** | `FORNECIMENTO` + coluna T; `CASCO - MARCA - MODELO (..) ANO` | idem; `OFICINA`/`SEGURADORA` separa oficina/FO; siglas de tipo (GENUINA, ORIGINAL, PRO, PPO, PPG, PPC, PAR…) |
+| Orçamento **Cilia** | `FORNECIMENTO` + coluna T; `CASCO - MARCA - MODELO (..) ANO` | idem; `OFICINA`/`SEGURADORA` separa oficina/FO; siglas de tipo (GENUINA, ORIGINAL, PRO, PPO, PPG, PPC, PAR…); valor líquido = preço × (1 − desconto %) (número seguido de % é desconto, 07/10/2026) |
 | **Peças do sinistro** (portal HDI, PDF ou print) | `PEÇAS DO SINISTRO` / `Peças do Laudo` | tabela sem código: descrição, Prev.Entrega, Entrega, Fornecedor (tel./e-mail); linhas "Fornecido pela Oficina" ignoradas; casa com os itens FO do card **pela descrição** (`cp_similar_`); aceita texto em linha ou em colunas (07/10/2026) |
 | **Status do Pedido** (Cilia) | `STATUS DAS PEÇAS|PREVISÃO DE ENTREGA|STATUS DO PEDIDO` | por peça: código (`^[A-Z0-9]{6,20}$`, ≥4 dígitos), descrição, fornecedor (linha com " / " ou após "FORNECEDOR"; palavras de STATUS nunca viram fornecedor), previsão (só datas sem hora), entregue/data |
 | O.S. Databox / CRLV | `MARCA: MODELO: ANO:` | placa, chassi, ano, modelo |

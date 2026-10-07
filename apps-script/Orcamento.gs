@@ -93,9 +93,13 @@ function vd_lerOrcamento_(texto) {
   var r = { origem: '', oficina: [], fo: [], seguradora: '', cor: '', sinistro: '' };
   var m;
 
-  // seguradora
-  for (var s = 0; s < VD_SEGURADORAS.length; s++) {
-    if (VD_SEGURADORAS[s][1].test(U)) { r.seguradora = VD_SEGURADORAS[s][0]; break; }
+  // seguradora: primeiro o nome colado em "SEGURADORA/SEGUROS" (cabeçalho do Cilia: "Yelum Seguradora"); só depois qualquer
+  // menção solta — o e-mail do regulador (@hdi-yelum.com.br) fazia a Yelum virar HDI (07/10/2026, RHM1J09)
+  for (var s = 0; s < VD_SEGURADORAS.length && !r.seguradora; s++) {
+    if (new RegExp('\\b' + VD_SEGURADORAS[s][0] + ' SEGUR(ADORA|OS)\\b').test(U)) r.seguradora = VD_SEGURADORAS[s][0];
+  }
+  for (var s2 = 0; s2 < VD_SEGURADORAS.length && !r.seguradora; s2++) {
+    if (VD_SEGURADORAS[s2][1].test(U)) r.seguradora = VD_SEGURADORAS[s2][0];
   }
   // cor
   if ((m = U.match(/\bCOR:? ([A-Z]{3,15})\b/)) && !/^(SINISTRO|NAO|AUTORIZADO|ENDERECO)$/.test(m[1])) r.cor = m[1];
@@ -165,7 +169,7 @@ function vd_lerOrcamento_(texto) {
   // ---------- Cilia ----------
   if (/FORNECIMENTO/.test(U) && /\bT (?:-|\d+,\d{2})/.test(U)) {
     r.origem = 'CILIA';
-    var reCi = /\bT (?:-|\d+,\d{2})(?: P \d+,\d{2})? (\d{1,3}) ([A-Z0-9]{4,20}) (?:\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?(.+?) ?(OFICINA|SEGURADORA) (?:R\$(?: ?(\d{1,3}(?:\.\d{3})*,\d{2})(?: ?(?:R\$ ?)?(\d{1,3}(?:\.\d{3})*,\d{2}))?(?: ?(\d{1,3},\d{2}) ?%)?)?|-)/g;
+    var reCi = /\bT (?:-|\d+,\d{2})(?: P \d+,\d{2})? (\d{1,3}) ([A-Z0-9]{4,20}) (?:\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?(.+?) ?(OFICINA|SEGURADORA) (?:R\$(?: ?(\d{1,3}(?:\.\d{3})*,\d{2})(?: ?(?:R\$ ?)?(\d{1,3}(?:\.\d{3})*,\d{2})(?! ?%))?(?: ?(\d{1,3},\d{2}) ?%)?)?|-)/g;   // número seguido de % é desconto, não total (07/10/2026)
     while ((m = reCi.exec(U))) {
       var tipo = m[3] || m[4] || '';
       // Cilia: "OFICINA R$ unit [R$ total] [desc %]" — o valor unitário líquido; formato confirmado no 1º PDF real (05/10/2026)
