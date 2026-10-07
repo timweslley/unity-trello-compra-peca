@@ -514,6 +514,7 @@ function aoMudarTipo() {
 function $(id) { return document.getElementById(id); }
 function mostrar(id, sim) { var el = typeof id === 'string' ? $(id) : id; if (el) el.classList.toggle('oculto', !sim); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]; }); }
+function brData(iso) { var m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] + '/' + m[1].slice(2) : esc(iso); }
 function guardar(k, v) { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} }
 function ler(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
 /* dentro do Power-Up (popup do Trello): avisa a casca do popup */
@@ -1362,21 +1363,29 @@ function lerFornecimentoAnexo(id) {
 function aplicarLeituraForn(r, av, anexa) {
   {
     if (r.erro) { av.className = 'alerta'; av.textContent = r.erro; return; }
-    var n = 0, mantidas = [];
+    var n = 0, mantidas = [], pareceres = [];
     (r.achados || []).forEach(function (a) {
       var it = document.querySelector('#fornItens .item[data-id="' + a.id + '"]'); if (!it) return;
+      var nomeIt = it.querySelector('strong').textContent.trim();
       if (a.fornecedor) { it.querySelector('.f-forn').value = nomeForn(a.fornecedor); }
       var fechada = it.dataset.ok && it.dataset.due;   // já recebida com data: previsão fica como está
       if (a.previsao && !fechada) { it.querySelector('.f-prev').value = a.previsao; }
-      if (a.previsao && fechada && a.previsao !== it.dataset.due) mantidas.push(it.querySelector('strong').textContent.trim());
+      if (a.previsao && fechada && a.previsao !== it.dataset.due) mantidas.push(nomeIt);
+      // parecer do Cilia mais novo que a tabela: motivo já preenchido / situação B.O. (07/10/2026)
+      if (!fechada && (a.motivo || a.situacao)) {
+        var elMot = it.querySelector('.f-motivo'); if (elMot && a.motivo) elMot.value = a.motivo;
+        if (a.situacao) { it.querySelector('.f-sit').value = a.situacao; }
+        pareceres.push(nomeIt + ': ' + (a.situacao === 'BO' ? '🚫 B.O. / sem previsão' : 'previsão ' + (a.previsaoTabela ? brData(a.previsaoTabela) + ' (tabela) → ' : '') + '<b>' + brData(a.previsao) + '</b>') + (a.motivo ? ' — ' + esc(a.motivo) : ''));
+      }
       // o documento trouxe outro código para a mesma peça: atualiza ao salvar (não duplica)
       if (a.codigoNovo) {
         it.dataset.codigoNovo = a.codigoNovo; it.dataset.descNova = a.descNova || '';
         var st = it.querySelector('strong'); if (st && !it.querySelector('.selo-codnovo')) st.insertAdjacentHTML('beforeend', ' <span class="selo prazo selo-codnovo">🔄 código novo: ' + esc(a.codigoNovo) + '</span>');
       }
-      if (a.fornecedor || a.previsao || a.codigoNovo) { n++; it.style.boxShadow = '0 0 0 2px var(--verde)'; }
+      if (a.fornecedor || a.previsao || a.codigoNovo || a.situacao) { n++; it.style.boxShadow = '0 0 0 2px var(--verde)'; }
     });
     var h = '<div class="aviso ' + (n ? 'ok' : 'info') + '" style="margin-top:8px">' + (n ? '✓ ' + n + ' peça(s) preenchida(s) pelo documento — confira e clique em <b>Salvar fornecimento</b>' + (anexa ? ' (o arquivo vai anexado no card).' : '.') : 'Li o documento, mas não achei fornecedor/prazo das peças deste card.') + '</div>';
+    if (pareceres.length) h += '<div class="aviso info" style="margin-top:6px">📋 <b>Pelos PARECERES do Cilia</b> (mais novos que a tabela): ' + pareceres.join(' · ') + '</div>';
     if (mantidas.length) h += '<div class="aviso info" style="margin-top:6px">ℹ️ Já recebida(s), previsão mantida: ' + esc(mantidas.join('; ')) + '</div>';
     if ((r.faltando || []).length) h += '<div class="alerta">⚠️ NÃO APARECEM NO DOCUMENTO: ' + esc(r.faltando.join('; ')) + '</div>';
     if ((r.extras || []).length) h += '<div class="alerta">⚠️ O DOCUMENTO TEM ' + r.extras.length + ' PEÇA(S) A MAIS QUE O CARD: ' + esc(r.extras.join('; ')) + ' — O ORÇAMENTO ATUALIZADO (COMPLEMENTO) NÃO FOI ANEXADO. Anexe pelo ✏️ EDITAR/INCLUIR PEÇA.</div>';

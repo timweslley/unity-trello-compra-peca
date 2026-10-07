@@ -391,6 +391,129 @@ function pv_lerStatusCilia_(texto, lista) {
 }
 
 /**
+ * PARECERES do "Status do Pedido" do Cilia (07/10/2026, ATX2884): a tabela de peças pode ficar parada (previsão 28/09)
+ * enquanto a mediadora registra nos pareceres "prazo alterado para 12/10 pelo motivo Atraso de fábrica" ou "Novo Prazo:
+ * 12/10". Lê cada parecer (cabeçalho "Fluxo: N | Criado por: … | Data de Criação: dd/mm/aaaa - hh:mm:ss") e extrai o que
+ * muda o fornecimento. Frases conhecidas:
+ *   - "O prazo de entrega do(s) item(ns) A; B foi alterado para 12/10/2026 pelo motivo Atraso de fábrica."
+ *   - "O prazo … foi alterado para sem previsão pelo motivo B.O."
+ *   - "Peças: 123 - A, 456 - B - … Novo Prazo: 12/10 - Motivo do atraso: … -"   (Novo Prazo: sem previsão)
+ *   - "Registrado B.O para o(s) item(ns): 123 - A - Laudo: Obsoleto"
+ *   - "Os Itens A,B em processo de fornecimento com previsão de entrega para o dia 28/09/2026."
+ * Devolve [{quando (Date), itens:[texto], prazo (ISO)|'', semPrevisao, bo, motivo, resumo}] do mais novo para o mais velho,
+ * ou [] quando não há pareceres. Texto livre fora dessas frases é ignorado (não vira regra).
+ */
+function pv_lerPareceresCilia_(texto) {
+  var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
+  var reCab = /FLUXO:\s*\d+\s*\|.*?DATA DE CRIACAO:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/g;
+  var cabs = [], m;
+  while ((m = reCab.exec(U))) cabs.push({ i: m.index, fim: m.index + m[0].length, quando: new Date(+m[3], +m[2] - 1, +m[1], m[4] ? +m[4] : 12, m[5] ? +m[5] : 0) });
+  if (!cabs.length) return [];
+  var out = [];
+  // "123 - FAROL ESQUERDO; 456 - GRADE" -> [{codigo:'123', descricao:'FAROL ESQUERDO'}, …] (código pode faltar)
+  var itensDe = function (s) {
+    return String(s || '').split(/[;,]/).map(function (x) {
+      var mi = x.replace(/\s+/g, ' ').trim().match(/^(?:([A-Z0-9]{5,20})\s*-\s*)?(.+)$/);
+      return mi ? { codigo: cp_norm_(mi[1] || ''), descricao: mi[2].trim() } : null;
+    }).filter(function (x) { return x && /[A-Z]{3}/.test(x.descricao) && x.descricao.length <= 60 && !/CILIA|^\d|:/.test(x.descricao); });
+  };
+  var bonito = function (s) { s = String(s || '').replace(/\s*-\s*$/, '').trim().toLowerCase(); return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; };
+  var dataDe = function (s, quando) {   // "12/10/2026" ou "12/10" (ano = do parecer; se cair antes dele, ano seguinte)
+    var md = String(s || '').match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/); if (!md) return null;
+    var a = md[3] ? +md[3] : quando.getFullYear(); if (a < 100) a += 2000;
+    var d = new Date(a, +md[2] - 1, +md[1], 12);
+    if (!md[3] && d.getTime() < quando.getTime() - 30 * 864e5) d = new Date(a + 1, +md[2] - 1, +md[1], 12);
+    return isNaN(d.getTime()) ? null : d;
+  };
+  cabs.forEach(function (c, k) {
+    var corpo = U.slice(c.fim, k + 1 < cabs.length ? cabs[k + 1].i : U.length).replace(/\s+/g, ' ')
+      .replace(/HTTPS?:\/\/\S+/g, ' ').replace(/\s\d{1,2}\/\d{1,2}\s+\d{2}\/\d{2}\/\d{4},\s*\d{2}:\d{2}\s+CILIA - STATUS DO PEDIDO/g, ' ')   // link e rodapé de página do PDF
+      .replace(/\s+/g, ' ').trim();
+    var p = { quando: c.quando, itens: [], prazo: '', semPrevisao: false, bo: false, motivo: '', resumo: corpo.replace(/^QUERY_BUILDER\s*/, '').slice(0, 160) };
+    var mAlt = corpo.match(/DO\(?S?\)? ITE[MN]\(?N?S?\)?\s*:?\s*(.+?)\s+FOI ALTERAD[OA] PARA\s+(SEM PREVISAO|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)(?:\s+PELO MOTIVO\s+(.+?))?\s*\.?\s*$/);
+    var mNovo = corpo.match(/NOVO PRAZO\s*:\s*(SEM PREVISAO|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/);
+    var mBo = corpo.match(/REGISTRADO B\.?O\.? PARA O\(?S?\)? ITE[MN]\(?N?S?\)?\s*:?\s*(.+?)(?:\s*-\s*LAUDO\s*:\s*(.+?))?\s*\.?\s*$/);
+    var mPrev = corpo.match(/OS ITENS\s+(.+?)\s+EM PROCESSO DE FORNECIMENTO COM PREVISAO DE ENTREGA PARA O DIA\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/);
+    if (mAlt) {
+      p.itens = itensDe(mAlt[1]);
+      if (/SEM PREVISAO/.test(mAlt[2])) p.semPrevisao = true; else { var d1 = dataDe(mAlt[2], c.quando); if (d1) p.prazo = d1.toISOString(); }
+      p.motivo = bonito((mAlt[3] || '').slice(0, 80));
+      if (/^B\.?O\.?$/i.test(p.motivo)) { p.bo = true; p.motivo = 'B.O.'; }
+    } else if (mNovo) {
+      var mPecas = corpo.match(/PECAS\s*:?\s*(.+?)\s*-?\s*CONTATO COM (?:O )?FORNECEDOR/);
+      p.itens = itensDe(mPecas ? mPecas[1] : '');
+      if (/SEM PREVISAO/.test(mNovo[1])) p.semPrevisao = true; else { var d2 = dataDe(mNovo[1], c.quando); if (d2) p.prazo = d2.toISOString(); }
+      var mMot = corpo.match(/MOTIVO DO ATRASO\s*:\s*(.+?)\s*-?\s*(?:ACAO|SITUACAO|NUMERO|CONTATO|NOVO PRAZO)\b/) || corpo.match(/MOTIVO DO ATRASO\s*:\s*(.+?)\s*-\s*/);
+      p.motivo = bonito(mMot ? mMot[1].slice(0, 80) : '');
+      if (p.semPrevisao && /OBSOLET|DESCONTINUAD|\bEM B\.?O\b|COTACAO B\.?O/.test(corpo)) { p.bo = true; p.motivo = p.motivo || (/OBSOLET|DESCONTINUAD/.test(corpo) ? 'Peça obsoleta' : 'B.O.'); }
+    } else if (mBo) {
+      p.itens = itensDe(mBo[1].replace(/,?\s*(AUTOMATICA|DEVIDO).*$/, '')); p.bo = true; p.semPrevisao = true; p.motivo = 'B.O.' + (mBo[2] ? ' — laudo: ' + bonito(mBo[2].slice(0, 60)) : '');
+    } else if (mPrev) {
+      p.itens = itensDe(mPrev[1]); var d3 = dataDe(mPrev[2], c.quando); if (d3) p.prazo = d3.toISOString();
+      p.motivo = '';
+    } else return;   // parecer sem prazo (contato, NF, etc.): não muda nada
+    if (p.itens.length) out.push(p);
+  });
+  out.sort(function (a, b) { return b.quando - a.quando; });
+  return out;
+}
+
+/** "Última Atualização (17/09/26 - 15:22:11)" da tabela do Cilia — para saber se o parecer é mais novo que a tabela. */
+function pv_ultimaAtualizacaoCilia_(texto) {
+  var m = vd_semAcento_(String(texto || '')).match(/ULTIMA ATUALIZACAO\s*\(?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/);
+  if (!m) return null;
+  var a = +m[3]; if (a < 100) a += 2000;
+  var d = new Date(a, +m[2] - 1, +m[1], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Aplica aos achados do Cilia o parecer mais novo de cada peça (quando é mais novo que a tabela): previsão passa a ser
+ * a do parecer, com o motivo; "sem previsão"/B.O. vira situação BO. Peça já entregue não muda.
+ */
+function pv_aplicarPareceres_(achados, texto, alvos) {
+  var pareceres = pv_lerPareceresCilia_(texto);
+  if (!pareceres.length) return 0;
+  var tabela = pv_ultimaAtualizacaoCilia_(texto), n = 0;
+  var acha = function (cod, desc, soNovos) {
+    for (var i = 0; i < pareceres.length; i++) {
+      var p = pareceres[i];
+      if (soNovos && tabela && p.quando <= tabela) return null;   // dali para trás a tabela já reflete (ou é mais nova que) o parecer
+      var bate = p.itens.some(function (it) { return (cod.length >= 5 && it.codigo && (it.codigo === cod || it.codigo.indexOf(cod) >= 0 || cod.indexOf(it.codigo) >= 0)) || cp_similar_(desc, it.descricao) > 0; });
+      if (bate) return p;
+    }
+    return null;
+  };
+  var aplica = function (r, par) {
+    var quando = Utilities.formatDate(par.quando, 'America/Sao_Paulo', 'dd/MM');
+    if (par.semPrevisao) {
+      r.situacao = 'BO'; r.motivo = (par.motivo || 'sem previsão') + ' (parecer Cilia de ' + quando + ')';
+    } else if (par.prazo && !(r.previsao && pv_mesmoDia_(par.prazo, r.previsao))) {
+      // sem a data da tabela não dá para saber quem é mais novo: só aceita o parecer que ADIA (é o que a mediadora registra)
+      if (!tabela && r.previsao && pv_diaNum_(par.prazo) < pv_diaNum_(r.previsao)) return false;
+      r.previsaoTabela = r.previsao; r.previsao = par.prazo;
+      r.motivo = (par.motivo || 'prazo alterado no parecer') + ' (parecer Cilia de ' + quando + ')';
+    } else return false;
+    r.parecer = par.resumo; n++;
+    return true;
+  };
+  achados.forEach(function (r) {
+    if (r.entregue) return;
+    var a = r.alvo || {};
+    var par = acha(cp_norm_(r.codigoNovo || a.codigo || a.codigoOrc), r.descNova || a.descricao || a.nome || '', true);
+    if (par) aplica(r, par);
+  });
+  // peça do card que SUMIU da tabela (B.O./obsoleta): o parecer é a única pista — entra só com a situação
+  var lidos = achados.map(function (r) { return r.alvo && r.alvo.id; });
+  (alvos || []).forEach(function (a) {
+    if (lidos.indexOf(a.id) >= 0) return;
+    var par = acha(cp_norm_(a.codigo || a.codigoOrc), a.descricao || a.nome || '', false);
+    if (par && par.semPrevisao) { var r = { alvo: a, fornecedor: '', previsao: '', linha: par.resumo.slice(0, 120), soParecer: true }; if (aplica(r, par)) achados.push(r); }
+  });
+  return n;
+}
+
+/**
  * Procura no texto as peças alvo (por código) e, perto de cada uma, fornecedor e previsão.
  * alvos = [{codigo, descricao, ...}] -> [{alvo, fornecedor, previsao(ISO), linha}]
  */
@@ -508,7 +631,11 @@ function pv_lerFornecimento_(texto, alvos, lista) {
       var r = cilia[melhor];
       outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, codigoNovo: r.codigo, descNova: r.descricao, entregue: r.entregue, entregueEm: r.entregueEm });
     });
-    if (outC.length) return outC;
+    if (outC.length) {
+      // pareceres mais novos que a tabela mudam a previsão (com motivo) ou marcam B.O. (07/10/2026)
+      try { pv_aplicarPareceres_(outC, texto, alvos); } catch (e) { console.log('pareceres cilia: ' + e); }
+      return outC;
+    }
   }
   var hoje = new Date(); hoje.setHours(0, 0, 0, 0);
   var out = [];
@@ -617,7 +744,9 @@ function pv_lerFornecimentoTexto_(card, texto) {
   }
   return {
     orcamento: !!orc.origem, lidos: achados.length,
-    achados: achados.map(function (r) { return { id: r.alvo.id, nome: r.alvo.nome, fornecedor: r.fornecedor, previsao: r.previsao ? Utilities.formatDate(new Date(r.previsao), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', codigoNovo: r.codigoNovo || '', descNova: r.descNova || '', entregue: !!r.entregue, entregueEm: r.entregueEm ? Utilities.formatDate(new Date(r.entregueEm), 'America/Sao_Paulo', 'yyyy-MM-dd') : '' }; }),
+    achados: achados.map(function (r) { return { id: r.alvo.id, nome: r.alvo.nome, fornecedor: r.fornecedor, previsao: r.previsao ? Utilities.formatDate(new Date(r.previsao), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', codigoNovo: r.codigoNovo || '', descNova: r.descNova || '', entregue: !!r.entregue, entregueEm: r.entregueEm ? Utilities.formatDate(new Date(r.entregueEm), 'America/Sao_Paulo', 'yyyy-MM-dd') : '',
+      // vindo do parecer do Cilia (07/10/2026): motivo da nova previsão, situação BO, previsão que a tabela mostrava
+      motivo: r.motivo || '', situacao: r.situacao || '', parecer: r.parecer || '', previsaoTabela: r.previsaoTabela ? Utilities.formatDate(new Date(r.previsaoTabela), 'America/Sao_Paulo', 'yyyy-MM-dd') : '' }; }),
     faltando: faltando, extras: extras.slice(0, 20)
   };
 }
