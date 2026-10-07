@@ -14,6 +14,7 @@ import { consulta } from '../db.js';
 import { extrairTexto } from '../leitores/texto.js';
 import { melhorLeitura } from '../leitores/leitura.js';
 import { lerAbaPlanilha, listarAbasPlanilha } from '../google/planilha.js';
+import { trello } from '../trello/api.js';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
 const ARQUIVO_ROBO = process.env.GAS_ARQUIVO || path.resolve(AQUI, '..', '..', 'recursos', 'formulario.gs.js');
@@ -31,6 +32,23 @@ export async function idDoQuadro(): Promise<string> {
   return quadroId;
 }
 
+/**
+ * O espelho pode ainda não ter o que a própria execução acabou de criar (checklist PAGAS criado e logo preenchido,
+ * card novo, comentário novo — 07/10/2026, compra do TAJ0E65). Nesse caso pergunta ao Trello (só leitura) de que
+ * quadro é. Sem chave do Trello (testes) ou se o Trello não responder: '' (= não confirmado, recusa).
+ */
+async function quadroNoTrello(tipo: 'cards' | 'checklists' | 'actions' | 'lists', id: string): Promise<string> {
+  if (!CFG.trello.chave || !CFG.trello.token) return '';
+  try {
+    if (tipo === 'actions') {
+      const a = await trello<{ data?: { board?: { id?: string } } }>(`/actions/${id}`, { query: { fields: 'data' }, tentativas: 2 });
+      return a?.data?.board?.id || '';
+    }
+    const r = await trello<{ idBoard?: string }>(`/${tipo}/${id}`, { query: { fields: 'idBoard' }, tentativas: 2 });
+    return r?.idBoard || '';
+  } catch { return ''; }
+}
+
 /** Decide se uma gravação no Trello pode ser feita (só no quadro do servidor). Devolve o motivo da recusa ou ''. */
 export async function conferirEscrita(url: string, metodo: string, corpo: string): Promise<string> {
   if (metodo === 'GET' || !/^https:\/\/api\.trello\.com\//.test(url)) return '';
@@ -39,12 +57,13 @@ export async function conferirEscrita(url: string, metodo: string, corpo: string
   const caminho = new URL(url).pathname.replace(/^\/1/, '');
   let json: Record<string, unknown> = {};
   try { json = corpo ? JSON.parse(corpo) : {}; } catch { /* corpo de formulário */ }
-  const doCard = async (ref: string) => (await consulta(`SELECT 1 FROM trello_card WHERE (id = $1 OR short_link = $1) AND quadro = $2`, [ref, quadro])).length > 0;
+  const doCard = async (ref: string) => (await consulta(`SELECT 1 FROM trello_card WHERE (id = $1 OR short_link = $1) AND quadro = $2`, [ref, quadro])).length > 0
+    || (/^[A-Za-z0-9]{8}$|^[a-f0-9]{24}$/.test(ref) && await quadroNoTrello('cards', ref) === quadro);
   let m: RegExpMatchArray | null;
   if ((m = caminho.match(/^\/cards\/([A-Za-z0-9]+)/))) return (await doCard(m[1])) ? '' : `card ${m[1]} não é do quadro ${CFG.trello.quadro}`;
   if ((m = caminho.match(/^\/checklists\/([a-f0-9]{24})/))) {
     const ok = await consulta(`SELECT 1 FROM trello_card WHERE quadro = $2 AND checklists @> jsonb_build_array(jsonb_build_object('id', $1::text))`, [m[1], quadro]);
-    return ok.length ? '' : `checklist ${m[1]} não é de card do quadro ${CFG.trello.quadro}`;
+    return ok.length || await quadroNoTrello('checklists', m[1]) === quadro ? '' : `checklist ${m[1]} não é de card do quadro ${CFG.trello.quadro}`;
   }
   if (caminho === '/checklists' || caminho === '/cards') {
     const alvo = String(json.idCard || json.idList || '');
@@ -54,7 +73,7 @@ export async function conferirEscrita(url: string, metodo: string, corpo: string
   }
   if ((m = caminho.match(/^\/actions\/([a-f0-9]{24})/))) {
     const ok = await consulta(`SELECT 1 FROM trello_acao WHERE id = $1 AND quadro = $2`, [m[1], quadro]);
-    return ok.length ? '' : 'comentário de fora do quadro';
+    return ok.length || await quadroNoTrello('actions', m[1]) === quadro ? '' : 'comentário de fora do quadro';
   }
   if ((m = caminho.match(/^\/customFields\/([a-f0-9]{24})/))) {
     const ok = await consulta(`SELECT 1 FROM trello_quadro WHERE id = $2 AND campos_def @> jsonb_build_array(jsonb_build_object('id', $1::text))`, [m[1], quadro]);
@@ -64,7 +83,7 @@ export async function conferirEscrita(url: string, metodo: string, corpo: string
   if ((m = caminho.match(/^\/boards\/([A-Za-z0-9]+)/))) return m[1] === quadro || m[1] === CFG.trello.quadro ? '' : 'outro quadro';
   if ((m = caminho.match(/^\/lists\/([a-f0-9]{24})/))) {
     const [l] = await consulta<{ listas: Array<{ id: string }> }>(`SELECT listas FROM trello_quadro WHERE id = $1`, [quadro]);
-    return l?.listas.some((x) => x.id === m![1]) ? '' : 'lista de fora do quadro';
+    return l?.listas.some((x) => x.id === m![1]) || await quadroNoTrello('lists', m[1]) === quadro ? '' : 'lista de fora do quadro';
   }
   return `gravação não reconhecida (${metodo} ${caminho}) — recusada por segurança`;
 }
