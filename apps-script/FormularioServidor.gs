@@ -899,9 +899,71 @@ function vdf_salvarCotacao(token, p) {
     if (autsAntes.some(function (a) { return a.chave === r.chave; })) { faltas.push(vd_nomePeca_(peca) + ': já autorizada — a cotação não pode mais ser alterada (na compra, use "cotação indisponível")'); return; }
     rem.push({ peca: peca, fornecedor: forn, valor: valor });
   });
-  if (!cots.length && !nt.length && !obs.length && !semCot.length && !rem.length) faltas.push('Lance pelo menos uma cotação, um fornecedor NT, uma observação ou a justificativa de uma peça não cotada.');
+  /* 07/10/2026 (Weslley): o comprador salva a cotação aos poucos, conforme recebe.
+   *  parcial = true  -> grava o que veio, card fica em EM COTAÇÃO (etiqueta COTAÇÃO PARCIAL), sem exigir cobertura, sem mencionar ninguém.
+   *  parcial = false -> "enviar": exige toda peça com cotação ou motivo; sem novidade também vale (fecha o que foi salvo parcialmente). */
+  var parcial = !!p.parcial;
+  var nada = !cots.length && !nt.length && !obs.length && !semCot.length && !rem.length;
+  if (nada && parcial) faltas.push('Nada novo para salvar.');
   if (faltas.length) return { ok: false, faltas: faltas };
+  var novaDesc = card.desc;
+  if (!nada) novaDesc = vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem);
+  // enviar: toda peça precisa de cotação OU de justificativa para não cotar (salvar parcial não exige)
+  var cobPrev = vdf_coberturaCotacao_(novaDesc, an.pecas);
+  if (!parcial && cobPrev.faltam.length) return { ok: false, faltas: cobPrev.faltam.map(function (n) { return n + ': sem cotação — lance a cotação, escreva o motivo de não cotar, ou use "Salvar parcial"'; }) };
+  if (!nada) {
+    vd_backup_(card, 'cotação ' + (parcial ? 'parcial ' : '') + 'lançada pelo formulário por ' + me.username);
+    vd_gravarDesc_(card.id, novaDesc, token);
+    try { fo_registrarUso_(cots.map(function (c) { return c.fornecedor; }).concat(nt), me.username); } catch (e) {}
+    try {
+      ev_registrar_('COTAÇÃO', card, me.username,
+        cots.map(function (c) { var e = ev_peca_(c.peca); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias; e.detalhe = [c.tipo, c.marca].filter(String).join(' ') + (parcial ? ' (parcial)' : ''); return e; })
+          .concat(semCot.map(function (x) { var e = ev_peca_(x.peca); e.detalhe = 'SEM COTAÇÃO: ' + x.texto; return e; }))
+          .concat(nt.map(function (f) { return { fornecedor: f, detalhe: 'NT (não tem)' }; }))
+          .concat(rem.map(function (r) { var e = ev_peca_(r.peca); e.fornecedor = r.fornecedor; e.valor = r.valor; e.detalhe = 'COTAÇÃO REMOVIDA'; return e; })));
+    } catch (e) {}
+  }
 
+  /* Cobertura (somando as cotações que já estavam no card): cada peça da oficina precisa de
+   * cotação OU de justificativa (SEM COTAÇÃO). Parcial (botão "Salvar parcial" ou cobertura incompleta) -> card fica
+   * em EM COTAÇÃO com a etiqueta COTAÇÃO PARCIAL. Completa e enviada -> anda (seguradora: PENDENTE AUTORIZAR;
+   * particular: COTAÇÃO FINALIZADA), avisando as peças não cotadas e o motivo. */
+  var cob = cobPrev;
+  // só peças particulares -> COTAÇÃO FINALIZADA (o consultor autoriza); havendo peça da seguradora -> PENDENTE AUTORIZAR
+  var particular = an.pecas.length ? an.pecas.every(function (x) { return vdf_pecaParticular_(x, card, an); }) : vdf_ehParticular_(card, an);
+  var misto = !particular && an.pecas.some(function (x) { return x.particular; });
+  var movido = '';
+  try { movido = vdf_moverPara_(card, ctx, parcial || cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token, me.username); } catch (e) {}
+  try { vdf_etiquetaParcial_(card, parcial || cob.faltam.length > 0, token); } catch (e) {}
+  var nPc = Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length;
+  if (parcial) {
+    // salva aos poucos: comentário curto, sem mencionar ninguém (o card não anda)
+    try {
+      var txtP = '💾 **COTAÇÃO PARCIAL salva** — ' + me.fullName + ' · ' + cots.length + ' cotação(ões) em ' + nPc + ' peça(s)' + (nt.length ? ' · ' + nt.length + ' NT' : '') + (movido ? ' → **' + movido + '**' : '')
+        + (cob.faltam.length ? '\n⏳ falta cotar ou justificar: ' + cob.faltam.join(', ') : '\n✅ todas as peças cobertas — falta só **Enviar cotação** pela aba Cotação.');
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txtP } }, token);
+    } catch (e) {}
+    try { vd_marcar_(card); } catch (e) {}
+    return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length };
+  }
+  try {
+    // menciona o setor de compras (quem cuida do card daqui em diante), não o consultor (05/10/2026, Weslley);
+    // o consultor só é mencionado quando é ele quem autoriza (pedido particular / peças particulares dele)
+    var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).toLowerCase().split(/[,;\s]+/).filter(function (u) { return u && u !== String(me.username).toLowerCase(); })[0] || '';   // 1º da lista (comprasunity), como no AUTORIZADO
+    var quem = particular ? vd_criador_(card.id) : '';
+    var mencoes = [compr, quem].concat(an.pecas.map(function (x) { return x.partPor; })).filter(function (u, i, a) { return u && u !== String(me.username).toLowerCase() && a.indexOf(u) === i; });
+    var txt = mencoes.map(function (u) { return '@' + u + ' '; }).join('') + '💰 **COTAÇÃO** — ' + me.fullName + ' · ' + (nada ? 'enviada (salva antes aos poucos)' : cots.length + ' cotação(ões) em ' + nPc + ' peça(s)' + (nt.length ? ' · ' + nt.length + ' NT' : '')) + (movido ? ' → **' + movido + '**' : '');
+    if (cob.faltam.length) txt += '\n⏳ **PARCIAL** — falta cotar ou justificar: ' + cob.faltam.join(', ');
+    else if (cob.semCot.length) txt += '\n⛔ **NÃO COTADAS:** ' + cob.semCot.map(function (s) { return s.nome + ' (' + s.texto + ')'; }).join('; ');
+    if (misto && !cob.faltam.length) txt += '\n👤 Particulares: autoriza o consultor pela aba Autorizar.';
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
+  } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length };
+}
+
+/** Monta a descrição nova com o bloco de cotação deste envio (abaixo do marcador). */
+function vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem) {
   var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
   var ordem = [], grupos = {};
   cots.forEach(function (c) {
@@ -919,47 +981,7 @@ function vdf_salvarCotacao(token, p) {
 
   var div = vd_dividir_(card.desc);
   var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
-  var novaDesc = div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n' + L.join('\n');
-  // toda peça precisa de cotação OU de justificativa para não cotar (exigido para enviar)
-  var cobPrev = vdf_coberturaCotacao_(novaDesc, an.pecas);
-  if (cobPrev.faltam.length) return { ok: false, faltas: cobPrev.faltam.map(function (n) { return n + ': sem cotação — lance a cotação ou escreva o motivo de não cotar'; }) };
-  vd_backup_(card, 'cotação lançada pelo formulário por ' + me.username);
-  vd_gravarDesc_(card.id, novaDesc, token);
-  try { fo_registrarUso_(cots.map(function (c) { return c.fornecedor; }).concat(nt), me.username); } catch (e) {}
-  try {
-    ev_registrar_('COTAÇÃO', card, me.username,
-      cots.map(function (c) { var e = ev_peca_(c.peca); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias; e.detalhe = [c.tipo, c.marca].filter(String).join(' '); return e; })
-        .concat(semCot.map(function (x) { var e = ev_peca_(x.peca); e.detalhe = 'SEM COTAÇÃO: ' + x.texto; return e; }))
-        .concat(nt.map(function (f) { return { fornecedor: f, detalhe: 'NT (não tem)' }; }))
-        .concat(rem.map(function (r) { var e = ev_peca_(r.peca); e.fornecedor = r.fornecedor; e.valor = r.valor; e.detalhe = 'COTAÇÃO REMOVIDA'; return e; })));
-  } catch (e) {}
-
-  /* Cobertura (somando as cotações que já estavam no card): cada peça da oficina precisa de
-   * cotação OU de justificativa (SEM COTAÇÃO). Parcial -> card fica em EM COTAÇÃO com a etiqueta
-   * COTAÇÃO PARCIAL. Completa -> anda (seguradora: PENDENTE AUTORIZAR; particular: COTAÇÃO FINALIZADA),
-   * avisando as peças não cotadas e o motivo. */
-  var cob = vdf_coberturaCotacao_(novaDesc, an.pecas);
-  // só peças particulares -> COTAÇÃO FINALIZADA (o consultor autoriza); havendo peça da seguradora -> PENDENTE AUTORIZAR
-  var particular = an.pecas.length ? an.pecas.every(function (x) { return vdf_pecaParticular_(x, card, an); }) : vdf_ehParticular_(card, an);
-  var misto = !particular && an.pecas.some(function (x) { return x.particular; });
-  var movido = '';
-  try { movido = vdf_moverPara_(card, ctx, cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token, me.username); } catch (e) {}
-  try { vdf_etiquetaParcial_(card, cob.faltam.length > 0, token); } catch (e) {}
-  try {
-    // menciona o setor de compras (quem cuida do card daqui em diante), não o consultor (05/10/2026, Weslley);
-    // o consultor só é mencionado quando é ele quem autoriza (pedido particular / peças particulares dele)
-    var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).toLowerCase().split(/[,;\s]+/).filter(function (u) { return u && u !== String(me.username).toLowerCase(); })[0] || '';   // 1º da lista (comprasunity), como no AUTORIZADO
-    var quem = particular ? vd_criador_(card.id) : '';
-    var mencoes = [compr, quem].concat(an.pecas.map(function (x) { return x.partPor; })).filter(function (u, i, a) { return u && u !== String(me.username).toLowerCase() && a.indexOf(u) === i; });
-    var nPc = Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length;
-    var txt = mencoes.map(function (u) { return '@' + u + ' '; }).join('') + '💰 **COTAÇÃO** — ' + me.fullName + ' · ' + cots.length + ' cotação(ões) em ' + nPc + ' peça(s)' + (nt.length ? ' · ' + nt.length + ' NT' : '') + (movido ? ' → **' + movido + '**' : '');
-    if (cob.faltam.length) txt += '\n⏳ **PARCIAL** — falta cotar ou justificar: ' + cob.faltam.join(', ');
-    else if (cob.semCot.length) txt += '\n⛔ **NÃO COTADAS:** ' + cob.semCot.map(function (s) { return s.nome + ' (' + s.texto + ')'; }).join('; ');
-    if (misto && !cob.faltam.length) txt += '\n👤 Particulares: autoriza o consultor pela aba Autorizar.';
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
-  } catch (e) {}
-  try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length };
+  return div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n' + L.join('\n');
 }
 
 /** Quais peças da oficina ainda não têm cotação nem justificativa de não cotar. */

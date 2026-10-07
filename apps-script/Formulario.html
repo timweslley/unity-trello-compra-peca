@@ -389,8 +389,10 @@
         <input type="text" id="cotNT" class="maiusc" placeholder="Ex.: ELETROPAR, TOLI (separe por vírgula)">
         <div class="dica" id="ntExistentes"></div>
       </section>
+      <div class="dica" style="margin:0 0 8px">💾 <b>Salvar parcial</b> guarda no card o que você já tem (pode fechar e voltar depois; o card fica em EM COTAÇÃO). ✅ <b>Enviar cotação</b> é só quando toda peça tiver cotação ou motivo de não cotar — aí o card segue para autorização.</div>
       <div class="rodape" style="margin-bottom:30px">
-        <button type="button" class="principal" id="btnCotacao" onclick="enviarCotacao()">Enviar cotação</button>
+        <button type="button" class="secundario" id="btnCotParcial" onclick="enviarCotacao(true)">💾 Salvar parcial</button>
+        <button type="button" class="principal" id="btnCotacao" onclick="enviarCotacao(false)">✅ Enviar cotação</button>
         <span class="carregando oculto" id="enviandoCot">Enviando…</span>
       </div>
     </div>
@@ -1062,8 +1064,8 @@ function novaCot(item, pre) {
   row.querySelector('.q-forn').focus();
   atualizarPecaCot(item);
 }
-function coletarCotacoes() {
-  var out = [], faltas = [];
+function coletarCotacoes(parcial) {
+  var out = [], faltas = [], cobertas = true;
   Array.prototype.forEach.call($('cotItens').children, function (item, i) {
     Array.prototype.forEach.call(item.querySelectorAll('.cot'), function (row, j) {
       var q = { chave: item.dataset.chave, fornecedor: row.querySelector('.q-forn').value.trim(), tipo: row.querySelector('.q-tipo').value, marca: row.querySelector('.q-marca').value.trim(), valor: row.querySelector('.q-valor').value.trim(), dias: row.querySelector('.q-dias').value.trim(), link: row.querySelector('.q-link').value.trim() };
@@ -1087,27 +1089,34 @@ function coletarCotacoes() {
     var nome = (item.querySelector('.item-topo strong') || {}).textContent || 'Peça';
     var box = item.querySelector('.semcot-box'), t = box && !box.classList.contains('oculto') ? ((item.querySelector('.q-semcot') || {}).value || '').trim() : '';
     var ativas = item.querySelectorAll('.cot-lida:not(.removida)').length + out.filter(function (q) { return q.chave === item.dataset.chave; }).length;
-    // justificativa obrigatória: peça sem nenhuma cotação precisa do motivo (ou já ter motivo no card)
-    if (!ativas && !t && !item.dataset.semja) faltas.push(nome + ': sem cotação — lance uma cotação ou escreva o motivo de não cotar');
+    // enviar: peça sem nenhuma cotação precisa do motivo (ou já ter motivo no card); salvar parcial: não exige (07/10/2026)
+    if (!ativas && !t && !item.dataset.semja) { cobertas = false; if (!parcial) faltas.push(nome + ': sem cotação — lance uma cotação, escreva o motivo de não cotar, ou use 💾 Salvar parcial para guardar o que já tem'); }
     return { chave: item.dataset.chave, texto: t };
   }).filter(function (o) { return o.texto; });
-  if (!out.length && !nt.length && !obs.length && !semCot.length && !remover.length) faltas.push('Lance pelo menos uma cotação, um fornecedor NT, uma observação ou o motivo de não cotar uma peça.');
-  return { cotacoes: out, nt: nt, obs: obs, semCot: semCot, remover: remover, faltas: faltas };
+  var nada = !out.length && !nt.length && !obs.length && !semCot.length && !remover.length;
+  // enviar sem novidade só vale quando tudo já está coberto (fecha a cotação salva parcialmente)
+  if (nada && (parcial || !cobertas)) faltas.push(parcial ? 'Nada novo para salvar.' : 'Lance pelo menos uma cotação, um fornecedor NT, uma observação ou o motivo de não cotar uma peça.');
+  return { cotacoes: out, nt: nt, obs: obs, semCot: semCot, remover: remover, faltas: faltas, nada: nada, cobertas: cobertas };
 }
 function errosComprador(lista) {
   $('erroComprador').innerHTML = '<b>Falta acertar:</b><ul>' + lista.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>';
   mostrar('erroComprador', true); window.scrollTo(0, 0);
 }
-function enviarCotacao() {
+function enviarCotacao(parcial) {
   mostrar('erroComprador', false);
-  var c = coletarCotacoes();
+  var c = coletarCotacoes(!!parcial);
   if (c.faltas.length) return errosComprador(c.faltas);
-  $('btnCotacao').disabled = true; mostrar('enviandoCot', true);
-  chamar('vdf_salvarCotacao', TOKEN, { shortLink: CARD_EDICAO, cotacoes: c.cotacoes, nt: c.nt, obs: c.obs, semCot: c.semCot, remover: c.remover }).then(function (r) {
-    $('btnCotacao').disabled = false; mostrar('enviandoCot', false);
+  var botoes = [$('btnCotacao'), $('btnCotParcial')];
+  botoes.forEach(function (b) { if (b) b.disabled = true; }); mostrar('enviandoCot', true);
+  chamar('vdf_salvarCotacao', TOKEN, { shortLink: CARD_EDICAO, cotacoes: c.cotacoes, nt: c.nt, obs: c.obs, semCot: c.semCot, remover: c.remover, parcial: !!parcial }).then(function (r) {
+    botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoCot', false);
     if (!r.ok) return errosComprador(r.faltas);
-    sucesso('✅ Cotação lançada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' cotação(ões)' + (r.obs ? ', ' + r.obs + ' observação(ões)' : '') + '.' + (r.faltam && r.faltam.length ? '<br>⏳ <b>Cotação parcial</b> — falta cotar ou justificar: ' + esc(r.faltam.join(', ')) + '. O card fica em EM COTAÇÃO.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Lançar mais / comprar');
-  }).catch(function (e) { $('btnCotacao').disabled = false; mostrar('enviandoCot', false); errosComprador([e.message]); });
+    var falta = r.faltam && r.faltam.length ? esc(r.faltam.join(', ')) : '';
+    if (r.parcial) return sucesso('💾 Cotação parcial salva no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' cotação(ões)' + (r.obs ? ', ' + r.obs + ' observação(ões)' : '') + '.'
+      + (falta ? '<br>⏳ Ainda falta cotar ou justificar: ' + falta + '.' : '<br>✅ Todas as peças já têm cotação ou motivo — quando quiser, abra de novo e clique em <b>Enviar cotação</b>.')
+      + '<br>O card fica em <b>EM COTAÇÃO</b> até você enviar.', r.url, 'Continuar cotando');
+    sucesso('✅ Cotação lançada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' cotação(ões)' + (r.obs ? ', ' + r.obs + ' observação(ões)' : '') + '.' + (falta ? '<br>⏳ <b>Cotação parcial</b> — falta cotar ou justificar: ' + falta + '. O card fica em EM COTAÇÃO.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Lançar mais / comprar');
+  }).catch(function (e) { botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoCot', false); errosComprador([e.message]); });
 }
 
 function montarCompra(c) {

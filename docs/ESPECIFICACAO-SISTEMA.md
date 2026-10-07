@@ -1,6 +1,6 @@
 # Compra de Peça — Especificação do sistema (para reimplementação em servidor próprio)
 
-**Grupo Unity · versão deste documento: 06/10/2026 (commit base `82d51f3`)**
+**Grupo Unity · versão deste documento: 07/10/2026**
 
 Este documento descreve **o que o sistema faz hoje** — fluxo, regras de negócio, modelo de dados, integrações e
 cálculos — de forma independente da tecnologia atual (Google Apps Script + Trello). Ele foi levantado diretamente
@@ -85,9 +85,9 @@ sem descrição completa).
 | (novo) → FALTA DADOS | formulário, modo "rotina" (só diretoria) | tem peça da oficina sem dados | comentário "🤖 Card aberto pela Rotina Unity" |
 | EM COTAÇÃO → FALTA DADOS | robô (`vd_conferirCard_`) | alguma **falta** (2.3) | "@criador ⚠️ **FALTA DADOS** — corrigir para seguir: …" (só quando o conjunto de faltas muda) |
 | FALTA DADOS → EM COTAÇÃO | robô | tudo completo | "✅ **DADOS COMPLETOS** → **EM COTAÇÃO**" + o que leu dos anexos |
-| EM COTAÇÃO → EM COTAÇÃO (fica) | comprador `vdf_salvarCotacao` | ainda há peça sem cotação nem justificativa | etiqueta laranja `COTAÇÃO PARCIAL`; comentário "💰 COTAÇÃO … ⏳ PARCIAL" |
+| EM COTAÇÃO → EM COTAÇÃO (fica) | comprador `vdf_salvarCotacao` com `parcial=true` (botão **💾 Salvar parcial**, 07/10/2026) | grava o que já tem, sem exigir cobertura | etiqueta laranja `COTAÇÃO PARCIAL`; comentário "💾 COTAÇÃO PARCIAL salva" sem menções; o card não anda |
 | EM COTAÇÃO → COTAÇÃO FINALIZADA | comprador `vdf_salvarCotacao` | todas as peças são particulares | comentário "💰 **COTAÇÃO**" |
-| EM COTAÇÃO → PENDENTE AUTORIZAR | comprador `vdf_salvarCotacao` | toda peça com cotação ou "SEM COTAÇÃO: motivo" | idem; menciona a diretoria |
+| EM COTAÇÃO → PENDENTE AUTORIZAR | comprador `vdf_salvarCotacao` (botão **✅ Enviar cotação**) | toda peça com cotação ou "SEM COTAÇÃO: motivo" (somando o que foi salvo parcialmente; enviar sem novidade vale) — se faltar, recusa e sugere Salvar parcial | idem; menciona o comprador/consultor |
 | PENDENTE/FINALIZADA → AUTORIZADO COMPRA | autorizador `vdf_autorizar` | pedido misto só move quando seguradora **e** particular têm ≥ 1 autorização | linhas `AUTORIZADO:` na descrição; "✅ **AUTORIZADO**" mencionando o comprador |
 | qualquer → EM COTAÇÃO | `vdf_devolverCotacao` | motivo obrigatório; bloqueado se já há compra (PAGAS) | bloco `DEVOLVIDA PARA COTAÇÃO` anula autorizações; "↩️ **COTAÇÃO DEVOLVIDA**" |
 | AUTORIZADO → EM COTAÇÃO / PENDENTE / FINALIZADA | comprador `vdf_cotacaoIndisponivel` | sem cotação nova → EM COTAÇÃO; com nova → PENDENTE (ou FINALIZADA se só particular) | linha `INDISPONÍVEL:`; "⚠️ **COTAÇÃO INDISPONÍVEL**" |
@@ -301,7 +301,7 @@ Trello do usuário (guardado no navegador).
 | Tela / aba | Ação no servidor | Conteúdo |
 |---|---|---|
 | Pedido novo / ✏️ Editar | `vdf_salvar` | tipo (seguradora/particular), unidade, carro, placa, modelo, ano, motor, chassi, cor, seguradora, sinistro, nº ordem; anexos (orçamento → importa peças e FO por OCR; foto de capa); peças (código, qtd, valor no orçamento, descrição, tipo 1–2, ➕ complemento, 🚫 não comprar + motivo, **observação da peça**); pneus; obs geral. Duplicidade de placa aberta pede confirmação |
-| 💰 Cotação | `vdf_salvarCotacao` | por peça: fornecedor (autocompleta do cadastro), tipo/marca, valor, prazo d.u., link, obs, "sem cotação: motivo"; NT por fornecedor; remover cotação |
+| 💰 Cotação | `vdf_salvarCotacao` (`parcial` true/false) | por peça: fornecedor (autocompleta do cadastro), tipo/marca, valor, prazo d.u., link, obs, "sem cotação: motivo"; NT por fornecedor; remover cotação. Dois botões: **Salvar parcial** (guarda aos poucos, card fica em EM COTAÇÃO) e **Enviar cotação** (exige cobertura total; card anda) |
 | ✅ Autorizar | `vdf_autorizar`, `vdf_devolverCotacao` | por peça: escolher cotação (menor preço pré-marcada; selos 💲 menor preço / ⏱ menor prazo; valor do orçamento e economia), não autorizar, obs; obs geral; devolver com motivo |
 | 🛒 Compra | `vdf_salvarCompra`, `vdf_cotacaoIndisponivel`, `vdf_marcarOrdemAutorizada`, `vdf_avisarSolicitante`, `vdf_alterarPrevisao` | marcar peças compradas (previsão por data ou d.u.), justificar fora da autorização, cotação indisponível + nova cotação, ordem autorizada, aviso ao solicitante (Databox), alterar prazo autorizado com motivo |
 | 📦 Recebimento | `vdf_salvarRecebimento` | ✔ por item com data, obs, foto/NF da peça; obs geral |
