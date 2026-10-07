@@ -144,12 +144,11 @@ describe('gabarito da conferência', () => {
 describe('cor lida como nome de campo (TAJ0E65, 07/10/2026)', () => {
   const layout = 'DOLPHIN MINI GS EV ELÉTRICO 2025\n\nPlaca     Cor               Chassi         Quilometragem   Combustível\nTAJ0E65   -                 -              0               0/8\n';
   const simples = 'DOLPHIN MINI GS EV ELÉTRICO 2025\nPlaca\nTAJ0E65\n\nCor\n-\n\nChassi\n-\n\nQuilometragem\n0\n';
-  it('a versão layout dá cor CHASSI (vício do texto lado a lado)', () => {
-    expect(lerTexto(layout).cor).toBe('CHASSI');
+  it('nome de campo logo depois de "Cor" não vira cor (regra corrigida no robô)', () => {
+    expect(lerTexto(layout).cor || '').toBe('');
+    expect(lerTexto('PLACA ABC1D23 COR: PRATA CHASSI 123').cor).toBe('PRATA');
   });
-  it('a escolha fica com a versão sem esse vício', () => {
-    const m = melhorLeitura({ layout, simples });
-    expect(m?.versao).toBe('simples');
-    expect(m?.leitura.cor || '').toBe('');
+  it('as duas versões do texto ficam sem cor', () => {
+    expect(melhorLeitura({ layout, simples })?.leitura.cor || '').toBe('');
   });
 });
