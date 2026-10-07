@@ -23,6 +23,18 @@ Tudo é montado e testado no quadro **TESTE** (laboratório). O principal só mu
 6. **Manual** — guias novos com as telas finais.
 7. **Ensaio da virada** — lista de verificação, plano de volta (Apps Script em reserva), e-mail SMTP, token da conta do robô.
 
+## Medição de velocidade (07/10/2026, sonda em us-east4)
+
+| Daqui até… | São Paulo (hoje) | EUA, Virgínia (us-east4) |
+|---|---|---|
+| Trello (1 consulta) | ~190 ms | ~80 ms |
+| Banco Neon (São Paulo) | ~5 ms | ~118 ms |
+
+Uma ação típica do formulário faz ~17 consultas ao Trello e ~12 ao banco: São Paulo ≈ 3,3 s; EUA com banco em SP ≈ 2,8 s
+(quase nada); **EUA com o banco também nos EUA ≈ 1,4 s (2,3× mais rápido)**. Junto vai a memória do que quase não muda
+(publicada 07/10: tira ~4 das 17 consultas). Mudar exige banco novo no Neon nos EUA (cópia do atual) e trocar o segredo
+DATABASE_URL — decisão do Weslley (dados passam a ficar nos EUA, como já ficam no Trello).
+
 ## Decisões registradas
 
 - 07/10/2026 — falha achada no robô pode ser corrigida no robô principal e replicada no servidor (Weslley). Primeira: cor "CHASSI" (regra da cor).
