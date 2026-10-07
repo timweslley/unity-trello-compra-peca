@@ -25,6 +25,20 @@ Sem `DATABASE_URL` o servidor sobe só com `/saude` (útil para conferir a publi
 
 Ao subir com `URL_PUBLICA`, chaves do Trello e banco, o servidor **cria o webhook do quadro sozinho** se ainda não existir.
 
+| `POST /tarefas/sincronizar` | retrato completo do quadro no banco (`?historico=1` importa também as ações antigas). Só lê o Trello; no máximo 1 vez a cada 2 min |
+
+## Espelho do quadro (fase 1)
+
+Cada ação que o Trello envia é gravada em `trello_acao` e, se mexe num card, o card é relido e regravado em
+`trello_card` (coluna, título, descrição, etiquetas, checklists, anexos, campos personalizados legíveis). Mudanças de
+listas, etiquetas e campos releem os metadados (`trello_quadro`). A cada 30 min, no máximo, a chegada de uma ação
+dispara também o retrato completo (pega o que o webhook possa ter perdido e marca `excluido_em` em card que sumiu).
+Comentários: view `comentario` (texto editado e apagado já resolvidos). Tudo é feito dentro da requisição, porque o
+Cloud Run só dá CPU enquanto responde.
+
+Testes de banco: `TEST_DATABASE_URL=postgres://… npm test` (banco descartável — o teste apaga o schema). No GitHub
+eles rodam com um Postgres próprio do job.
+
 ## Variáveis
 
 Ver `.env.exemplo`. No Cloud Run, as sensíveis vêm do Secret Manager (`DATABASE_URL`, `TRELLO_KEY`,

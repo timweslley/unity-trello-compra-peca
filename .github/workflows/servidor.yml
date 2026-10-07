@@ -22,6 +22,14 @@ defaults:
 jobs:
   testar:
     runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: teste, POSTGRES_PASSWORD: teste, POSTGRES_DB: teste }
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U teste" --health-interval 2s --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://teste:teste@localhost:5432/teste
     outputs:
       publicar: ${{ steps.p.outputs.publicar }}
     steps:

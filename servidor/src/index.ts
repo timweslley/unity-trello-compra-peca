@@ -1,12 +1,37 @@
 /**
- * Compra de Peça — servidor próprio (fase 0).
- * Rotas: GET /saude · HEAD|POST /trello/webhook · (fase 3) POST /api · (fase 3) login Google.
+ * Compra de Peça — servidor próprio.
+ * Rotas: GET /saude · HEAD|POST /trello/webhook · POST /tarefas/sincronizar · (fase 3) POST /api + login Google.
+ * O Cloud Run só dá CPU durante uma requisição: todo trabalho (atualizar card, sincronizar) é feito DENTRO dela.
  */
 import Fastify from 'fastify';
 import { CFG } from './config.js';
 import { migrar, consulta } from './db.js';
 import { assinaturaValida, guardarAcao, type AcaoTrello } from './trello/webhook.js';
 import { garantirWebhook, chamadasTrello } from './trello/api.js';
+import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
+
+/** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
+const SO_COMENTARIO = /^(commentCard|updateComment|deleteComment|addMemberToCard|removeMemberFromCard)$/;
+/** retrato completo do quadro a cada 30 min, no máximo, aproveitando a chegada de uma ação */
+const INTERVALO_SINC_MS = 30 * 60_000;
+let sincEmAndamento: Promise<unknown> | null = null;
+let ultimaSinc = 0;
+
+async function sincronizarTudo(log: { error: (e: unknown, m: string) => void }, comHistorico: boolean) {
+  if (sincEmAndamento) return sincEmAndamento;
+  sincEmAndamento = (async () => {
+    const quadro = await sincronizarQuadro(CFG.trello.quadro, CFG.permitirPrincipal);
+    let historico: unknown = null;
+    if (comHistorico) historico = await importarHistorico(CFG.trello.quadro, CFG.permitirPrincipal);
+    ultimaSinc = Date.now();
+    return { quadro, historico };
+  })().catch((e) => { log.error(e, 'sincronização falhou'); throw e; }).finally(() => { sincEmAndamento = null; });
+  return sincEmAndamento;
+}
+
+function trelloPronto(): boolean {
+  return !!(CFG.bancoUrl && CFG.trello.chave && CFG.trello.token);
+}
 
 const INICIO = Date.now();
 const VERSAO = process.env.GIT_SHA || process.env.K_REVISION || 'dev';
@@ -22,6 +47,7 @@ export function criarApp() {
   app.get('/saude', async () => {
     let banco = 'sem DATABASE_URL';
     let acoes: { recebidas: number; ultima: string | null; ultimoTipo: string | null } | null = null;
+    let espelho: unknown = null;
     if (CFG.bancoUrl) {
       try { await consulta('SELECT 1'); banco = 'ok'; } catch (e) { banco = 'erro: ' + (e as Error).message; }
       if (banco === 'ok') {
@@ -30,6 +56,7 @@ export function criarApp() {
             `SELECT count(*)::text AS total, max(recebida_em)::text AS ultima,
                     (SELECT tipo FROM trello_acao ORDER BY recebida_em DESC LIMIT 1) AS ultimo_tipo FROM trello_acao`);
           acoes = { recebidas: Number(r.total), ultima: r.ultima, ultimoTipo: r.ultimo_tipo };
+          espelho = await resumoEspelho();
         } catch { /* tabela ainda não existe */ }
       }
     }
@@ -40,7 +67,7 @@ export function criarApp() {
       !CFG.trello.segredo && 'TRELLO_SEGREDO',
       !CFG.urlPublica && 'URL_PUBLICA',
     ].filter(Boolean);
-    return { ok: true, versao: VERSAO, modo: CFG.modo, quadro: CFG.trello.quadro, banco, migracao: ESTADO.migracao, webhook: ESTADO.webhook, acoes,
+    return { ok: true, versao: VERSAO, modo: CFG.modo, quadro: CFG.trello.quadro, banco, migracao: ESTADO.migracao, webhook: ESTADO.webhook, acoes, espelho,
       falta, chamadasTrello: chamadasTrello(), ativoHaSeg: Math.round((Date.now() - INICIO) / 1000) };
   });
 
@@ -55,15 +82,40 @@ export function criarApp() {
     }
     let dados: { action?: AcaoTrello };
     try { dados = JSON.parse(corpo); } catch { return resp.code(400).send({ ok: false }); }
-    if (dados.action?.id) {
+    const a = dados.action;
+    if (a?.id) {
       try {
-        const nova = await guardarAcao(dados.action, 'webhook', CFG.trello.quadro);
-        req.log.info({ acao: dados.action.type, card: dados.action.data?.card?.id, nova }, 'ação do Trello');
+        const nova = await guardarAcao(a, 'webhook', CFG.trello.quadro);
+        req.log.info({ acao: a.type, card: a.data?.card?.id, nova }, 'ação do Trello');
+        if (nova && trelloPronto()) {
+          // espelho: relê o que a ação mudou (dentro da requisição — é quando o Cloud Run dá CPU)
+          if (mudaMetaQuadro(a.type)) await lerMetaQuadro(CFG.trello.quadro, CFG.permitirPrincipal, true);
+          const cardId = a.data?.card?.id;
+          if (cardId && !SO_COMENTARIO.test(a.type)) await atualizarCard(cardId, CFG.trello.quadro, CFG.permitirPrincipal);
+          if (Date.now() - ultimaSinc > INTERVALO_SINC_MS) await sincronizarTudo(req.log, false);
+          await consulta(`UPDATE trello_acao SET processada_em = now() WHERE id = $1`, [a.id]);
+        }
       } catch (e) {
-        req.log.error(e, 'falha ao guardar ação');   // responde 200 mesmo assim: o Trello não deve desativar o webhook
+        req.log.error(e, 'falha ao processar ação');   // responde 200 mesmo assim: o Trello não deve desativar o webhook
       }
     }
     return { ok: true };
+  });
+
+  /**
+   * Retrato completo do quadro (+ histórico de ações com ?historico=1). Só LÊ o Trello e grava no banco;
+   * no máximo uma vez a cada 2 minutos. Usado depois de publicar e por um agendador (fase 1, parte 2).
+   */
+  app.post('/tarefas/sincronizar', async (req, resp) => {
+    if (!trelloPronto()) return resp.code(503).send({ ok: false, erro: 'falta configuração (ver /saude)' });
+    if (!sincEmAndamento && Date.now() - ultimaSinc < 2 * 60_000) return resp.code(429).send({ ok: false, erro: 'sincronizado há menos de 2 minutos' });
+    const historico = (req.query as Record<string, string>)?.historico === '1';
+    try {
+      const r = await sincronizarTudo(req.log, historico);
+      return { ok: true, ...(r as object) };
+    } catch (e) {
+      return resp.code(500).send({ ok: false, erro: (e as Error).message });
+    }
   });
 
   return app;
