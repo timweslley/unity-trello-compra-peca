@@ -690,6 +690,7 @@ function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   try { texto = vd_ocr_(blob, nome); } catch (e) { return { fileId: arq.getId(), erro: 'Não consegui ler o arquivo (' + String(e.message || e).slice(0, 80) + ').' }; }
   var out = pv_lerFornecimentoTexto_(card, texto);
   out.fileId = arq.getId();
+  out.trecho = String(texto || '').slice(0, 4000);   // diagnóstico do OCR (o formulário não mostra)
   return out;
 }
 
