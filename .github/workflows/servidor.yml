@@ -6,7 +6,8 @@ name: Servidor
 on:
   push:
     branches: [main]
-    paths: ['servidor/**', '.github/workflows/servidor.yml']
+    # apps-script/: o servidor roda uma cópia do código do robô (leitores e formulário) — mudou lá, recopia e publica
+    paths: ['servidor/**', 'apps-script/**', '.github/workflows/servidor.yml']
   workflow_dispatch:
 concurrency: servidor
 env:
@@ -39,6 +40,8 @@ jobs:
         with: { node-version: 22, cache: npm, cache-dependency-path: servidor/package-lock.json }
       - run: sudo apt-get install -y -q poppler-utils >/dev/null
       - run: npm ci
+      - name: Copiar o código do robô (apps-script/) — sempre a versão deste commit
+        run: npm run extrair-leitores && npm run extrair-formulario && git status --short
       - run: npm run build
       - run: npm test
       - id: p
@@ -57,6 +60,10 @@ jobs:
           workload_identity_provider: projects/${{ env.GCP_NUMERO }}/locations/global/workloadIdentityPools/github/providers/github
           service_account: publicador@${{ env.GCP_PROJETO }}.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v2
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: servidor/package-lock.json }
+      - name: Copiar o código do robô (apps-script/) — o mesmo que passou nos testes
+        run: npm ci && npm run extrair-leitores && npm run extrair-formulario
       - name: Montar e enviar a imagem
         run: |
           IMAGEM="${REGIAO}-docker.pkg.dev/${GCP_PROJETO}/servidor/compra-peca"
