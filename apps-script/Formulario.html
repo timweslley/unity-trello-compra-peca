@@ -1302,8 +1302,8 @@ function montarCompra(c) {
           + (pneuI ? '<div><label>Marca do pneu</label><input type="text" class="i-marca maiusc"></div><input type="hidden" class="i-tipo" value="">'
                    : '<div><label>Tipo</label><select class="i-tipo">' + tiposI.map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('') + '</select></div><div><label>Marca (opcional)</label><input type="text" class="i-marca maiusc"></div>')
           + '<div><label>Valor (R$)</label><input type="text" class="i-valor" inputmode="decimal"></div><div><label>Prazo (dias úteis)</label><input type="number" class="i-dias" min="0"></div></div>'
-          + '<label style="margin-top:6px">Link do anúncio (compra online — opcional)</label><input type="url" class="i-link" placeholder="https://… (Mercado Livre, AliExpress, Shopee…)" onchange="this.value=encurtarLink(this.value)">'
-          + '<button type="button" class="principal" style="margin-top:8px" onclick="enviarIndisponivel()">↩️ Enviar para nova autorização</button></div>';
+          + '<div style="margin-top:8px"><label>Link do anúncio (compra online — opcional)</label><input type="url" class="i-link" style="width:100%;box-sizing:border-box" placeholder="https://… (Mercado Livre, AliExpress, Shopee…)" onchange="this.value=encurtarLink(this.value)"></div>'
+          + '<div style="margin-top:10px"><button type="button" class="principal" onclick="enviarIndisponivel()">↩️ Enviar para nova autorização</button></div></div>';
       }
     }
     div.innerHTML = h;
