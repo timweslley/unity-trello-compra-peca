@@ -1,8 +1,11 @@
 # Compra de Peça — servidor próprio. Imagem para o Cloud Run.
 FROM node:22-slim AS base
 WORKDIR /app
-# poppler-utils (pdftotext) e tesseract entram na fase 2 (leitura de documentos):
-# RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-por && rm -rf /var/lib/apt/lists/*
+# leitura de documentos (fase 2): pdftotext/pdftoppm + Tesseract em português; fuso de São Paulo (os leitores do robô
+# montam datas no horário local)
+RUN apt-get update && apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-por tzdata \
+  && rm -rf /var/lib/apt/lists/*
+ENV TZ=America/Sao_Paulo
 
 FROM base AS build
 COPY package.json package-lock.json ./

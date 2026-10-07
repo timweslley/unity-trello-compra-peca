@@ -9,6 +9,7 @@ import { migrar, consulta } from './db.js';
 import { assinaturaValida, guardarAcao, type AcaoTrello } from './trello/webhook.js';
 import { garantirWebhook, chamadasTrello } from './trello/api.js';
 import { importarPlanilha } from './google/planilha.js';
+import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -122,6 +123,49 @@ export function criarApp() {
     } catch (e) {
       return resp.code(500).send({ ok: false, erro: (e as Error).message });
     }
+  });
+
+  /**
+   * Fase 2 — conferência dos leitores: lê os anexos dos cards do quadro e compara as peças lidas com o que o robô
+   * gravou (descrição completa e checklist FORNECIMENTO). Resposta só com contagens e códigos de card.
+   * Processa até ?segundos=N (padrão 200) e para; chamar de novo continua (o que já foi lido vem do banco).
+   */
+  let conferindo = false;
+  app.post('/tarefas/conferir-leitores', async (req, resp) => {
+    if (!trelloPronto()) return resp.code(503).send({ ok: false, erro: 'falta configuração (ver /saude)' });
+    if (conferindo) return resp.code(429).send({ ok: false, erro: 'conferência em andamento' });
+    const seg = Math.min(250, Math.max(10, Number((req.query as Record<string, string>)?.segundos) || 200));
+    conferindo = true;
+    try { return { ok: true, versaoLeitor: VERSAO_LEITOR, ...(await conferirLeitores(seg * 1000)) }; }
+    catch (e) { return resp.code(500).send({ ok: false, erro: (e as Error).message }); }
+    finally { conferindo = false; }
+  });
+
+  /** Leitura dos anexos de UM card (pelo código do link): só dados de peças, sem placa/chassi/nomes. ?forcar=1 relê. */
+  app.get('/tarefas/leitura/:card', async (req, resp) => {
+    if (!trelloPronto()) return resp.code(503).send({ ok: false });
+    const { card } = req.params as { card: string };
+    const forcar = (req.query as Record<string, string>)?.forcar === '1';
+    const [c] = await consulta<{ id: string; anexos: AnexoCard[]; checklists: Array<{ nome: string; itens: Array<{ nome: string; feito: boolean }> }> }>(
+      `SELECT id, anexos, checklists FROM trello_card WHERE short_link = $1`, [card]);
+    if (!c) return resp.code(404).send({ ok: false, erro: 'card não está no espelho' });
+    const saida = [];
+    for (const a of c.anexos.filter(anexoLegivel).slice(-6)) {
+      const r = await lerAnexo(c.id, a, forcar);
+      const l = r.leitura;
+      const [info] = await consulta<{ metodo: string; versao_texto: string; tipo: string; ms: number }>(
+        `SELECT metodo, versao_texto, tipo, ms FROM anexo_leitura WHERE anexo_id = $1`, [a.id]);
+      saida.push({
+        anexo: a.id, ...info, doCache: r.doCache, erro: r.erro,
+        orcamento: l?.orcamento || '', documento: l?.docNome || '', seguradora: l?.seguradora || '',
+        oficina: (l?.oficina || []).map((i) => (i.pneu ? ['PNEU', i.medida, i.marca, i.qtd] : [i.codigo, i.descricao, i.qtd, i.valorOrc ?? null])),
+        fo: (l?.fo || []).map((i) => [i.codigo, i.descricao, i.qtd, i.fornecedor || '', i.previsao || '']),
+      });
+    }
+    return {
+      ok: true, versaoLeitor: VERSAO_LEITOR, anexos: saida,
+      checklistFornecimento: (c.checklists || []).filter((cl) => /FORNEC/i.test(cl.nome)).flatMap((cl) => cl.itens.map((i) => i.nome)),
+    };
   });
 
   return app;
