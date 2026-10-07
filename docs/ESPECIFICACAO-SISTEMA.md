@@ -228,7 +228,11 @@ comprar riscadas, grupos 🛡️ seguradora / 👤 particulares, resumo do forne
 **Assinatura de peça** (detecção de peça nova / trava): texto da linha sem numeração, sem `| ORÇ` e sem `| OBS`,
 sem acentos, maiúsculas → hash curto guardado por card (`VD_PK2_`). Editar observação ou valor do orçamento não
 conta como peça nova; marcar/desmarcar `| COMPLEMENTO` numa peça existente também não (07/10/2026) — o card não volta
-para cotação. Mudar descrição, quantidade ou tipo continua contando como peça nova (precisa cotar de novo). Assinatura de trava (peça autorizada/comprada não pode mudar): `P|CÓD|DESC|TIPOS|QTD`.
+para cotação. Mudar descrição, quantidade ou tipo conta como peça nova, **mas o formulário pergunta a quem editou** se a mudança exige nova cotação; respondendo "só acerto", a peça vai em `manterCotacao`, não é tratada como nova, o card fica onde está, cotações/autorizações seguem o código/descrição novos e o card recebe "✏️ Peça alterada sem nova cotação" (07/10/2026).
+
+**Complemento automático**: peça incluída à mão num pedido que tem orçamento da seguradora (importado agora ou já no card) nasce marcada como ➕ complemento (não está no orçamento); quem inclui pode desmarcar (07/10/2026).
+
+**FO que também está na oficina**: item FORNECIMENTO pendente com o mesmo código de uma peça da lista PEÇAS sai do checklist (a oficina venceu), com comentário "🔁 Passou para a oficina"; roda ao reavaliar a coluna (formulário) e no robô (07/10/2026, RHM1J09). Assinatura de trava (peça autorizada/comprada não pode mudar): `P|CÓD|DESC|TIPOS|QTD`.
 
 **Chave da peça**: código sem espaços; sem código → descrição sem acento; pneu → `PNEU <medida>`. Item de
 checklist casa pelo prefixo `chave + ' '` (código/pneu) ou `chave + ' - '` (descrição).

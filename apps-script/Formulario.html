@@ -1817,8 +1817,13 @@ function novoItem(tipo, dados) {
   var travada = dados.travada && !(CARD && CARD.diretoria);
   if (dados.travada) div.dataset.travada = dados.travada;
   var caixa = dados.particular !== undefined ? caixaDe(!!dados.particular) : caixaDe(pedidoPart());
-  // card da seguradora que já existe: a peça pode ser marcada à mão como COMPLEMENTO (vai no orçamento complementar)
-  var podeComp = !!CARD_EDICAO && caixa.id !== 'itensPart' && tipoPedido() !== 'PARTICULAR';
+  // card da seguradora (existente, ou novo com orçamento importado): a peça pode ser marcada como COMPLEMENTO
+  var podeComp = (!!CARD_EDICAO || !!ORC) && caixa.id !== 'itensPart' && tipoPedido() !== 'PARTICULAR';
+  // peça incluída à mão num pedido que tem orçamento da seguradora: não está no orçamento -> já nasce como complemento
+  // (07/10/2026, Weslley); quem incluir pode desmarcar
+  var compAuto = false;
+  if (dados.complemento === undefined && !dados.codigo && !dados.descricao && !dados.medida && podeComp && (ORC || (CARD && CARD.doOrcamento))) { dados.complemento = true; compAuto = true; }
+  if (dados.chave) div.dataset.orig = JSON.stringify({ chave: dados.chave, codigo: dados.codigo || '', descricao: dados.descricao || '', tipos: (dados.tipos || []).slice().sort(), qtd: String(dados.qtd || 1), pneu: tipo === 'pneu', medida: dados.medida || '' });
   var h = '<div class="item-topo"><strong class="num"></strong>'
     + (podeComp ? '<label class="chip chip-comp' + (div.dataset.comp ? ' marcado' : '') + '" title="Peça fora do orçamento autorizado: entra no orçamento complementar da seguradora (linha | COMPLEMENTO dd/mm; compra vai para PAGAS COMPLEMENTO)"><input type="checkbox" class="f-comp"' + (div.dataset.comp ? ' checked' : '') + ' onchange="marcarComp(\'' + id + '\', this.checked)"> ➕ Complemento' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</label>'
                : (div.dataset.comp ? '<span class="selo-comp">➕ COMPLEMENTO' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</span>' : ''))
@@ -1854,6 +1859,7 @@ function novoItem(tipo, dados) {
   }
   // observação do consultor sobre a peça (06/10/2026): vai na linha da peça do card e aparece para o comprador
   h += '<div class="inteiro" style="margin-top:8px"><label>Observação da peça <span style="font-size:12px">(opcional — o comprador vê)</span></label><input type="text" class="f-obs" maxlength="120" placeholder="Ex.: fotos em anexo; só o lado direito; pedir foto antes de comprar" value="' + esc(dados.obs || '') + '"></div>';
+  if (compAuto) h += '<div class="dica" style="margin-top:6px">➕ Marcada como <b>complemento</b> porque não está no orçamento da seguradora. Se estiver no orçamento, desmarque o chip.</div>';
   h += '<div class="nao-motivo' + (div.dataset.nao ? '' : ' oculto') + '"><label>Motivo de não comprar <span style="font-size:12px">(vai para o card)</span></label><input type="text" class="f-nao-motivo maiusc" placeholder="Ex.: recuperar a peça; cliente já tem; não precisa" value="' + esc(div.dataset.naoMotivo || '') + '"></div>';
   div.innerHTML = h;
   caixa.appendChild(div);
@@ -2015,11 +2021,57 @@ function mostrarErros(lista) {
   window.scrollTo(0, 0);
 }
 
+/* ---------- peça alterada em card que já andou: exige nova cotação? (07/10/2026, Weslley) ---------- */
+function pecasAlteradas() {
+  var out = [];
+  Array.prototype.forEach.call(document.querySelectorAll('#itens .item, #itensPart .item'), function (el) {
+    if (!el.dataset.orig || el.dataset.nao === '1') return;
+    var o = JSON.parse(el.dataset.orig), a;
+    if (el.dataset.tipo === 'pneu') { if (!o.pneu) { out.push({ el: el, orig: o, atual: null }); return; } a = { codigo: '', descricao: '', medida: el.querySelector('.f-medida').value.trim().toUpperCase(), tipos: [], qtd: String((el.querySelector('.f-qtd') || {}).value || 1) }; }
+    else {
+      if (o.pneu) { out.push({ el: el, orig: o, atual: null }); return; }
+      a = { codigo: el.querySelector('.f-codigo').value.trim().toUpperCase(), descricao: el.querySelector('.f-desc').value.trim().toUpperCase(), medida: '',
+        tipos: Array.prototype.filter.call(el.querySelectorAll('.f-tipo'), function (c) { return c.checked; }).map(function (c) { return c.value; }).sort(), qtd: String((el.querySelector('.f-qtd') || {}).value || 1) };
+    }
+    var mudou = a.codigo !== String(o.codigo || '').toUpperCase() || a.descricao !== String(o.descricao || '').toUpperCase() || a.medida !== String(o.medida || '').toUpperCase() || a.tipos.join('/') !== (o.tipos || []).join('/') || a.qtd !== String(o.qtd || 1);
+    if (mudou) out.push({ el: el, orig: o, atual: a });
+  });
+  return out;
+}
+function perguntarRecotar(alt, payload) {
+  var caixa = $('perguntaRecotar');
+  if (!caixa) { caixa = document.createElement('div'); caixa.id = 'perguntaRecotar'; caixa.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center;padding:16px'; document.body.appendChild(caixa); }
+  var h = '<div class="item" style="max-width:640px;width:100%;max-height:90vh;overflow:auto"><h2 style="margin-top:0">Peça alterada — precisa cotar de novo?</h2>'
+    + '<div class="dica" style="margin-bottom:10px">Este card já passou pela cotação. Para cada peça que você mudou, diga se a mudança exige nova cotação (o card volta para EM COTAÇÃO) ou se foi só um acerto (o card fica onde está e a cotação continua valendo).</div>';
+  alt.forEach(function (x, i) {
+    var o = x.orig, a = x.atual;
+    var de = o.pneu ? 'PNEU ' + o.medida : [o.codigo, o.descricao].filter(String).join(' ') + (o.tipos && o.tipos.length ? ' (' + o.tipos.join('/') + ')' : '') + (String(o.qtd) !== '1' ? ' x' + o.qtd : '');
+    var para = !a ? '(mudou o tipo de item)' : (x.el.dataset.tipo === 'pneu' ? 'PNEU ' + a.medida : [a.codigo, a.descricao].filter(String).join(' ') + (a.tipos.length ? ' (' + a.tipos.join('/') + ')' : '') + (a.qtd !== '1' ? ' x' + a.qtd : ''));
+    h += '<div class="item" style="margin:8px 0"><div><b>Era:</b> ' + esc(de) + '<br><b>Ficou:</b> ' + esc(para) + '</div>'
+      + '<div class="chips" style="margin-top:6px"><label class="chip marcado"><input type="radio" name="rc_' + i + '" value="cotar" checked onchange="pintarRc(this)"> 🔄 Exige nova cotação</label>'
+      + (a ? '<label class="chip"><input type="radio" name="rc_' + i + '" value="manter" onchange="pintarRc(this)"> ✔ Só acerto — manter a cotação</label>' : '') + '</div></div>';
+  });
+  h += '<div style="display:flex;gap:10px;margin-top:10px"><button type="button" class="principal" id="btnRcOk">Continuar e salvar</button><button type="button" class="secundario" id="btnRcVoltar">Voltar</button></div></div>';
+  caixa.innerHTML = h; caixa.style.display = 'flex';
+  $('btnRcVoltar').onclick = function () { caixa.style.display = 'none'; };
+  $('btnRcOk').onclick = function () {
+    var manter = [];
+    alt.forEach(function (x, i) {
+      var r = caixa.querySelector('input[name=rc_' + i + ']:checked');
+      if (r && r.value === 'manter' && x.atual) manter.push({ codigoAntigo: x.orig.codigo || '', codigo: x.atual.codigo || '', descricaoAntiga: x.orig.descricao || '', descricao: x.atual.descricao || '' });
+    });
+    payload.manterCotacao = manter;
+    caixa.style.display = 'none';
+    enviarPayload(payload);
+  };
+}
+function pintarRc(r) { Array.prototype.forEach.call(r.closest('.chips').querySelectorAll('.chip'), function (c) { c.classList.toggle('marcado', c.querySelector('input').checked); }); }
 function enviar(ev) {
   ev.preventDefault();
   mostrar('erroGeral', false);
   var c = coletar();
   if (c.faltas.length) return mostrarErros(c.faltas);
+  if (CARD_EDICAO && POS) { var alt = pecasAlteradas(); if (alt.length) return perguntarRecotar(alt, c.payload); }
   enviarPayload(c.payload);
 }
 function enviarPayload(payload) {

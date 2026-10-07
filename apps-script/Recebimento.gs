@@ -138,6 +138,11 @@ function rc_reavaliarColuna_(cardOuId, token, usuario) {
   var id = typeof cardOuId === 'string' ? cardOuId : cardOuId.id;
   var card = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state' } });
   if (vdf_cardProtegido_(card.name)) return '';
+  // item FO com o mesmo código de uma peça da oficina: sai do checklist (a oficina venceu) antes de avaliar a coluna (07/10/2026)
+  try {
+    var foFora = cp_foNaOficina_(card, token, usuario ? '@' + usuario : '');
+    if (foFora.length) card = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state' } });
+  } catch (e) { console.log('FO na oficina: ' + e); }
   var ctx = vd_contexto_(), lista = vdf_nomeLista_(ctx, card.idList);
   var itens = vdf_itensRecebimento_(card), pend = itens.filter(function (i) { return !i.ok; });
   var alvo = '';

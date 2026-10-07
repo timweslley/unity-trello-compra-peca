@@ -1569,6 +1569,18 @@ function vdf_salvar(token, p) {
 
   var titulo = String(n.carro || '').trim() ? vd_titulo_(d.placa, n.carro, extra.cor, extra.seguradora) : '';
   var novasPecas = posCot ? an.novas : [];
+  /* 07/10/2026 (Weslley): peça alterada em card que já andou — quem editou respondeu que a mudança NÃO exige nova cotação
+   * (acerto de texto, código atualizado…): não é peça nova, o card fica onde está e as cotações/autorizações seguem o
+   * código novo. p.manterCotacao = [{codigoAntigo, codigo, descricaoAntiga, descricao}] (valores novos da peça). */
+  var manter = posCot ? (p.manterCotacao || []).filter(function (m) { return m && (m.codigo || m.descricao); }) : [];
+  var mantidas = [];
+  if (manter.length) {
+    var bateM = function (nv, m) { var kc = cp_norm_(m.codigo), kn = cp_norm_(nv.codigo); return kc.length >= 4 ? kc === kn : (!kn && cp_norm_(m.descricao) === cp_norm_(nv.descricao)); };
+    novasPecas = novasPecas.filter(function (nv) { var m = manter.filter(function (x) { return bateM(nv, x); })[0]; if (m) { mantidas.push({ peca: nv, m: m }); return false; } return true; });
+    an.novas = novasPecas;
+    var trocasM = mantidas.filter(function (x) { return x.m.codigoAntigo && x.peca.codigo && cp_norm_(x.m.codigoAntigo) !== cp_norm_(x.peca.codigo); }).map(function (x) { return { codigoAntigo: x.m.codigoAntigo, codigo: x.peca.codigo }; });
+    if (trocasM.length) trocas = (typeof trocas !== 'undefined' && trocas ? trocas : []).concat(trocasM);
+  }
   // card NOVO com placa que já tem card aberto no quadro: só cria com confirmação explícita (criarMesmoAssim)
   if (!p.shortLink && !p.criarMesmoAssim) {
     var jaTem = [];
@@ -1581,6 +1593,8 @@ function vdf_salvar(token, p) {
     var resto = div.temMarcador ? div.resto
       : VD.MARCADOR + (String(card.desc || '').trim() ? '\n_(texto que estava no card antes do formulário)_\n' + card.desc : '');
     if (typeof trocas !== 'undefined' && trocas.length) { try { resto = cp_trocarCodigos_(resto, trocas); } catch (e) {} }   // cotações/autorizações seguem o código novo
+    // peça sem código mantida com descrição nova: as linhas de cotação/autorização seguem a descrição nova
+    mantidas.forEach(function (x) { if (!x.peca.codigo && x.m.descricaoAntiga && x.m.descricao) resto = resto.split(String(x.m.descricaoAntiga).toUpperCase()).join(String(x.m.descricao).toUpperCase()); });
     vd_backup_(card, 'editado pelo formulário por ' + me.username);
     var upd = { desc: bloco + '\n\n' + resto };
     if (titulo && titulo !== card.name) upd.name = titulo;
@@ -1706,6 +1720,10 @@ function vdf_salvar(token, p) {
       } else {
         vd_pkSet_(card.id, vd_linhasConsultor_(an.div.bloco).map(vd_sigItem_));
         acao = 'card continua em ' + lista;
+        if (mantidas.length) {
+          try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✏️ **Peça alterada sem nova cotação** — ' + me.fullName + ' respondeu que a mudança não exige cotar de novo: ' + mantidas.map(function (x) { return vd_nomePeca_(x.peca) + (x.m.codigoAntigo && cp_norm_(x.m.codigoAntigo) !== cp_norm_(x.peca.codigo) ? ' (era ' + x.m.codigoAntigo + ')' : (x.m.descricaoAntiga && x.m.descricaoAntiga !== x.peca.descricao ? ' (era ' + x.m.descricaoAntiga + ')' : '')); }).join('; ') + '. O card continua em **' + lista + '**.' } }, token); } catch (e) {}
+          try { ev_registrar_('PEDIDO EDITADO', card, me.username, mantidas.map(function (x) { return ev_peca_(x.peca); }), { detalhe: 'alterada sem nova cotação' }); } catch (e) {}
+        }
         // peça removida / FO complementar: a coluna pode ter mudado (tudo comprado, ou card encerrado reaberto)
         try { var mvS = rc_reavaliarColuna_(card.id, token, me.username); if (mvS) acao = 'card → ' + mvS; } catch (e) { console.log('salvar/coluna: ' + e); }
       }

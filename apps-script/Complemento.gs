@@ -443,3 +443,37 @@ function cp_aplicar_(card, cmp, o) {
   // só FO nova num card já encerrado: volta para FALTA CHEGAR (peça da oficina nova o robô devolve para cotação)
   if (cmp.fo.length && !cmp.oficina.length) { try { rc_reavaliarColuna_(card.id, o.token, o.quem || 'robô'); } catch (e) { console.log('complemento/coluna: ' + e); } }
 }
+
+/* ============================ FO QUE TAMBÉM ESTÁ NA OFICINA ============================
+ * 07/10/2026 (RHM1J09): o orçamento dizia que a seguradora fornecia a MOLDURA (checklist FORNECIMENTO), mas a diretoria
+ * mandou a oficina comprar e a peça entrou na lista PEÇAS (foi cotada, autorizada e comprada). O item FO pendente ficou
+ * sobrando e segurava o card em FALTA CHEGAR. Regra: peça da oficina (lista PEÇAS, não "não comprar") com o MESMO CÓDIGO de
+ * um item FORNECIMENTO ainda não entregue -> o item FO sai (a oficina venceu), com comentário. Roda no formulário (salvar
+ * pedido, autorização) e no núcleo do robô. Devolve os nomes dos itens removidos. */
+function cp_foNaOficina_(card, token, quem) {
+  var an;
+  try { an = vd_analisar_(card.desc || '', card.name || ''); } catch (e) { return []; }
+  var codigos = {};
+  (an.pecas || []).forEach(function (p) { var k = cp_norm_(p.codigo); if (k.length >= 4) codigos[k] = p; });
+  if (!Object.keys(codigos).length) return [];
+  var removidos = [];
+  (card.checklists || []).forEach(function (k) {
+    if (!/^FORNECIMENTO/i.test(String(k.name || '').trim())) return;
+    (k.checkItems || []).forEach(function (i) {
+      if (i.state === 'complete') return;
+      var m = vd_semAcento_(i.name).match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s/);
+      var kc = m ? cp_norm_(m[1]) : '';
+      if (!kc || !codigos[kc]) return;
+      try {
+        vd_api_('/cards/' + card.id + '/checkItem/' + i.id, { method: 'delete' }, token);
+        removidos.push(i.name);
+      } catch (e) { console.log('FO na oficina: ' + e); }
+    });
+  });
+  if (!removidos.length) return [];
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🔁 **Passou para a oficina** — ' + (quem || 'robô') + ': a peça está na lista da oficina (cotação/compra pela oficina), então saiu do checklist FORNECIMENTO: ' + removidos.map(function (n) { return n.split(/\s+[-—]\s+/)[0]; }).join('; ') } }, token);
+  } catch (e) {}
+  try { ev_registrar_('COMPLEMENTO', card, quem || 'robô', removidos.map(function (n) { return { peca: n.split(/\s+[-—]\s+/)[0], detalhe: 'FO → OFICINA (mesmo código na lista da oficina)' }; }), { detalhe: 'FO removida: ' + removidos.length }); } catch (e) {}
+  return removidos;
+}

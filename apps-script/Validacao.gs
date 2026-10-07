@@ -1423,6 +1423,13 @@ function vd_conferirPosCotacao_(card, ctx) {
   linhas.forEach(function (l, i) { if (base.indexOf(sigsH[i]) < 0) novas.push(l); });
   if (!novas.length) {
     if (baseTxt !== JSON.stringify(sigsH)) vd_pkSet_(card.id, sigs);
+    // peça da oficina com o mesmo código de um item FO pendente: o item FO sai (07/10/2026, RHM1J09)
+    if (ctx.modoAtivo && /FORNECIMENTO/i.test(div.bloco)) {
+      try {
+        var cFo = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state' } });
+        if (cp_foNaOficina_(cFo, null, 'robô').length) { try { rc_reavaliarColuna_(card.id, null, ''); } catch (e) {} }
+      } catch (e) { console.log('FO na oficina: ' + e); }
+    }
     // peça da oficina sem cotação num card que já andou (deixou de ser "não comprar", passou de FO para oficina…):
     // volta para EM COTAÇÃO — só em card que já teve cotação/compra de verdade (06/10/2026, QPG1B84)
     var semCot = [];
