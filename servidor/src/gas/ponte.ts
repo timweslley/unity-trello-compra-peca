@@ -93,7 +93,43 @@ interface Pedido { url: string; metodo: string; cabecalhos: Record<string, strin
   { tipo: 'nada' } | { tipo: 'texto'; texto: string; contentType: string } |
   { tipo: 'multipart'; partes: Array<{ nome: string; texto?: string; bytes?: Uint8Array; arquivo?: string; tipo?: string }> } }
 
+// ---------- memória das leituras do Trello que quase não mudam (velocidade, 07/10/2026) ----------
+// Cada ida ao Trello custa ~0,2 s daqui. O robô pergunta várias vezes por execução o id do quadro, quem é o usuário
+// e as listas/etiquetas/campos do quadro — isso fica guardado por pouco tempo. Card, checklist, anexo e ação: nunca.
+type Resposta = { status: number; cab: Record<string, string>; corpo: Uint8Array };
+const memoria = new Map<string, { ate: number; r: Resposta }>();
+let memoriaUsos = 0;
+export function usosDaMemoria(): { itens: number; usos: number } { return { itens: memoria.size, usos: memoriaUsos }; }
+export function esquecerMemoria(): void { memoria.clear(); }
+
+function validadeMemoria(url: string): number {
+  let u: URL; try { u = new URL(url); } catch { return 0; }
+  if (u.host !== 'api.trello.com') return 0;
+  const c = u.pathname.replace(/^\/1/, '');
+  if (/^\/members\/me$/.test(c)) return 10 * 60_000;                                     // quem é o usuário (por token)
+  if (/^\/boards\/[A-Za-z0-9]+$/.test(c)) return 60 * 60_000;                           // id / nome do quadro
+  if (/^\/boards\/[A-Za-z0-9]+\/(lists|labels|customFields|members)$/.test(c)) return 60_000;   // estrutura do quadro
+  return 0;
+}
+
 async function buscar(p: Pedido) {
+  const ttl = p.metodo === 'GET' ? validadeMemoria(p.url) : 0;
+  const chave = ttl ? p.url + '|' + (p.cabecalhos.Authorization || p.cabecalhos.authorization || '') : '';
+  if (ttl) {
+    const m = memoria.get(chave);
+    if (m && m.ate > Date.now()) { memoriaUsos++; return m.r; }
+  } else if (p.metodo !== 'GET' && /api\.trello\.com\/1\/(boards|lists|labels|customFields)/.test(p.url)) {
+    memoria.clear();   // mudou a estrutura do quadro: esquece tudo
+  }
+  const r = await buscarRede(p);
+  if (ttl && r.status === 200) {
+    if (memoria.size > 500) memoria.clear();
+    memoria.set(chave, { ate: Date.now() + ttl, r });
+  }
+  return r;
+}
+
+async function buscarRede(p: Pedido): Promise<Resposta> {
   const corpoTexto = p.corpo.tipo === 'texto' ? p.corpo.texto : '';
   const recusa = await conferirEscrita(p.url, p.metodo, corpoTexto);
   if (recusa) {

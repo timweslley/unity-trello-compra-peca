@@ -11,7 +11,7 @@ import { garantirWebhook, chamadasTrello, trello } from './trello/api.js';
 import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
-import { executarPost, ultimasExecucoes } from './gas/ponte.js';
+import { executarPost, ultimasExecucoes, usosDaMemoria, esquecerMemoria } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -103,7 +103,7 @@ export function criarApp() {
         req.log.info({ acao: a.type, card: a.data?.card?.id, nova }, 'ação do Trello');
         if (nova && trelloPronto()) {
           // espelho: relê o que a ação mudou (dentro da requisição — é quando o Cloud Run dá CPU)
-          if (mudaMetaQuadro(a.type)) await lerMetaQuadro(CFG.trello.quadro, CFG.permitirPrincipal, true);
+          if (mudaMetaQuadro(a.type)) { esquecerMemoria(); await lerMetaQuadro(CFG.trello.quadro, CFG.permitirPrincipal, true); }
           const cardId = a.data?.card?.id;
           if (cardId && !SO_COMENTARIO.test(a.type)) await atualizarCard(cardId, CFG.trello.quadro, CFG.permitirPrincipal);
           if (Date.now() - ultimaSinc > INTERVALO_SINC_MS) await sincronizarTudo(req.log, false);
@@ -184,7 +184,7 @@ export function criarApp() {
   });
 
   /** Últimas execuções do código do formulário: função, espera na fila, duração e chamadas por destino (sem dados de card). */
-  app.get('/tarefas/execucoes', async () => ({ ok: true, execucoes: ultimasExecucoes() }));
+  app.get('/tarefas/execucoes', async () => ({ ok: true, memoria: usosDaMemoria(), execucoes: ultimasExecucoes() }));
 
   /** Leitura dos anexos de UM card (pelo código do link): só dados de peças, sem placa/chassi/nomes. ?forcar=1 relê. */
   app.get('/tarefas/leitura/:card', async (req, resp) => {
