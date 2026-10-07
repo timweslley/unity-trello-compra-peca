@@ -7,7 +7,7 @@ import Fastify from 'fastify';
 import { CFG } from './config.js';
 import { migrar, consulta } from './db.js';
 import { assinaturaValida, guardarAcao, type AcaoTrello } from './trello/webhook.js';
-import { garantirWebhook, chamadasTrello } from './trello/api.js';
+import { garantirWebhook, chamadasTrello, trello } from './trello/api.js';
 import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
@@ -164,6 +164,23 @@ export function criarApp() {
     try { return { ok: true, versaoLeitor: VERSAO_LEITOR, ...(await conferirLeitores(seg * 1000)) }; }
     catch (e) { return resp.code(500).send({ ok: false, erro: (e as Error).message }); }
     finally { conferindo = false; }
+  });
+
+  /** Tempo de ida e volta daqui até o Trello e até o banco (mediana de N chamadas seguidas) — para escolher a região. */
+  app.get('/tarefas/latencia', async () => {
+    const n = 8;
+    const medir = async (f: () => Promise<unknown>) => {
+      const t: number[] = [];
+      for (let i = 0; i < n; i++) { const t0 = performance.now(); try { await f(); } catch { /* conta o tempo mesmo assim */ } t.push(Math.round(performance.now() - t0)); }
+      const o = [...t].sort((a, b) => a - b);
+      return { mediana: o[Math.floor(n / 2)], min: o[0], max: o[n - 1] };
+    };
+    const regiao = process.env.K_SERVICE ? (await fetch('http://metadata.google.internal/computeMetadata/v1/instance/region', { headers: { 'Metadata-Flavor': 'Google' } }).then((r) => r.text()).catch(() => '?')) : 'local';
+    return {
+      ok: true, regiao,
+      trello: trelloPronto() ? await medir(() => trello(`/boards/${CFG.trello.quadro}`, { query: { fields: 'id' }, tentativas: 1 })) : null,
+      banco: CFG.bancoUrl ? await medir(() => consulta('SELECT 1')) : null,
+    };
   });
 
   /** Últimas execuções do código do formulário: função, espera na fila, duração e chamadas por destino (sem dados de card). */

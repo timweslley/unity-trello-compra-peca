@@ -11,7 +11,8 @@
   var q = location.search || '', ls = window.localStorage;
   try { ls.removeItem('vd_tema'); } catch (e0) {}
   if (/[?&]tema=padrao\b/.test(q)) ls.removeItem('vd_tema2'); else if (/[?&]tema=trello\b/.test(q)) ls.setItem('vd_tema2', 'trello');
-  if (ls.getItem('vd_tema2') === 'trello') document.documentElement.className += ' tt';
+  /* 07/10/2026 (versão 2.0): no quadro TESTE (formulário servido pelo servidor novo, srv=1) o visual novo vale para todos */
+  if (ls.getItem('vd_tema2') === 'trello' || /[?&]srv=1(&|$)/.test(q)) document.documentElement.className += ' tt';
 } catch (e) {} })();
 </script>
 <style>
@@ -220,6 +221,30 @@
   .tt .opcao-aut:hover { background:var(--fundo2); }
   .tt .leitura input:disabled, .tt .leitura select:disabled, .tt .leitura textarea:disabled { background:var(--fundo2); }
   .tt .selo#seloTeste { background:var(--laranja); color:#fff; }
+  /* ===== versão 2.0 — revisão celular (06/10/2026): texto 16 px, alvos de toque de 48 px, botão principal fixo no rodapé ===== */
+  @media (max-width:640px) {
+    .tt body { font-size:16px; line-height:24px; }
+    .tt main { padding:12px 12px 96px; }
+    .tt label { font-size:14px; line-height:20px; }
+    .tt .dica { font-size:14px; line-height:20px; }
+    .tt input[type=text], .tt input[type=number], .tt input[type=date], .tt select { font-size:16px; min-height:48px; padding:10px 12px; border-radius:6px; }
+    .tt textarea { font-size:16px; border-radius:6px; }
+    .tt #placa { font-size:22px; font-weight:700; letter-spacing:2px; min-height:52px; }
+    .tt button, .tt .botao { min-height:48px; font-size:16px; font-weight:600; border-radius:6px; padding:10px 16px; }
+    .tt button.mini { min-height:36px; font-size:14px; }
+    .tt .perigo { min-height:44px; }
+    .tt .chip { min-height:44px; font-size:15px; font-weight:600; border-width:2px; border-radius:22px; padding:8px 14px; }
+    .tt .chip input { width:20px; height:20px; }
+    .tt .chips { gap:8px; }
+    .tt .item { padding:14px 12px; }
+    .tt .opcao-aut { min-height:48px; display:flex; align-items:center; font-size:16px; }
+    .tt .opcao-aut input { width:20px; height:20px; }
+    .tt section h2 { font-size:17px; line-height:24px; }
+    /* rodapé com o botão principal sempre à vista */
+    .tt .rodape { position:sticky; bottom:0; z-index:4; background:#fff; border-top:1px solid var(--borda); margin:0 -12px; padding:12px 12px 16px; }
+    .tt .rodape .principal { flex:1 1 100%; }
+    .tt .aba { min-height:48px; }
+  }
 </style>
 </head>
 <body>
