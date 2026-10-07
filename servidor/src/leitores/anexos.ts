@@ -88,7 +88,8 @@ export function codigosImportados(desc: string): string[] {
     const m = linha.match(/^\s*\d+\.\s+([^|]+)\|/);
     if (!m || /\|\s*COMPLEMENTO\b/i.test(linha)) continue;
     const cod = norm(m[1]);
-    if (cod.length >= 5 && cod !== 'PNEU') out.push(cod);
+    // código interno (0000006, SOMA001…) é peça sem código de fábrica: o robô apaga ao ler, então não é gabarito
+    if (cod.length >= 5 && cod !== 'PNEU' && !R.vd_codigoInterno_(cod)) out.push(cod);
   }
   return out;
 }
@@ -118,12 +119,16 @@ export async function conferirLeitores(limiteMs = 200_000, maxCards = 500) {
     const lidos = new Set<string>();
     const conf: Conferencia = { card: c.short_link, anexos: legiveis.length, orcamentos: 0, docsFo: 0, importadas: { gabarito: gabarito.length, achadas: 0, faltando: [] }, fo: { lidas: 0, noChecklist: 0 }, erros: 0 };
     let completo = true;
+    const vistos = new Set<string>();   // mesmo orçamento anexado duas vezes conta uma
     for (const a of legiveis) {
       if (Date.now() - t0 > limiteMs) { completo = false; break; }
       const r = await lerAnexo(c.id, a);
       if (r.erro) { conf.erros++; continue; }
       const l = r.leitura;
       if (!l) continue;
+      const assinatura = l.orcamento ? JSON.stringify([l.oficina, l.fo]) : '';
+      if (assinatura && vistos.has(assinatura)) continue;
+      if (assinatura) vistos.add(assinatura);
       if (l.orcamento) {
         conf.orcamentos++;
         for (const i of [...(l.oficina || []), ...(l.fo || [])]) if (i.codigo) lidos.add(norm(i.codigo));
