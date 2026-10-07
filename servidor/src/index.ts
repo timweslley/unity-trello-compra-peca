@@ -185,7 +185,7 @@ export function criarApp() {
         `SELECT metodo, versao_texto, tipo, ms, texto FROM anexo_leitura WHERE anexo_id = $1`, [a.id]);
       const { texto, ...semTexto } = info || ({} as typeof info);
       saida.push({
-        anexo: a.id, ...semTexto, classe: classificar(texto || '', l), doCache: r.doCache, erro: r.erro,
+        anexo: a.id, ...semTexto, classe: classificar(texto || '', l), doCache: r.doCache, erro: r.erro, pontos: r.pontos,
         orcamento: l?.orcamento || '', documento: l?.docNome || '', seguradora: l?.seguradora || '',
         oficina: (l?.oficina || []).map((i) => (i.pneu ? ['PNEU', i.medida, i.marca, i.qtd] : [i.codigo, i.descricao, i.qtd, i.valorOrc ?? null])),
         fo: (l?.fo || []).map((i) => [i.codigo, i.descricao, i.qtd, i.fornecedor || '', i.previsao || '']),

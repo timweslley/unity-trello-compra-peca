@@ -5,7 +5,7 @@
 import { CFG } from '../config.js';
 import { consulta } from '../db.js';
 import { extrairTexto } from './texto.js';
-import { melhorLeitura, type Leitura } from './leitura.js';
+import { melhorLeitura, lerTexto, rendimento, type Leitura } from './leitura.js';
 import * as R from './robo.js';
 
 /** Sobe quando os leitores mudam (robo.js regerado, texto.ts, leitura.ts): as leituras antigas são refeitas. */
@@ -28,7 +28,7 @@ async function baixar(url: string): Promise<Buffer> {
 }
 
 /** Lê um anexo (ou devolve a leitura guardada, se for da versão atual do leitor). */
-export async function lerAnexo(cardId: string, a: AnexoCard, forcar = false): Promise<{ leitura: Leitura | null; doCache: boolean; erro?: string }> {
+export async function lerAnexo(cardId: string, a: AnexoCard, forcar = false): Promise<{ leitura: Leitura | null; doCache: boolean; erro?: string; pontos?: Record<string, { pontos: number; cor: string; placas: number }> }> {
   if (!forcar) {
     const [g] = await consulta<{ leitura: Leitura | null; erro: string | null; versao_leitor: number }>(
       `SELECT leitura, erro, versao_leitor FROM anexo_leitura WHERE anexo_id = $1`, [a.id]);
@@ -40,6 +40,10 @@ export async function lerAnexo(cardId: string, a: AnexoCard, forcar = false): Pr
     // mesmo arquivo já lido em outro anexo (reenvio, cópia de card): reaproveita
     const tx = await extrairTexto(dados, a.nome, a.tipo);
     const melhor = melhorLeitura(tx.versoes);
+    // diagnóstico (sem texto): quanto cada versão do texto rendeu
+    const pontos = Object.fromEntries(Object.entries(tx.versoes).filter(([, t]) => t?.trim()).map(([v, t]) => {
+      const l = lerTexto(t); return [v, { pontos: rendimento(l), cor: l.cor || '', placas: (l.placas || []).length }];
+    }));
     const leitura = melhor?.leitura ?? null;
     await consulta(
       `INSERT INTO anexo_leitura (anexo_id, card_id, nome, bytes, hash, tipo, metodo, versao_texto, texto, leitura, versao_leitor, ms, erro, lido_em)
@@ -49,7 +53,7 @@ export async function lerAnexo(cardId: string, a: AnexoCard, forcar = false): Pr
          versao_leitor=EXCLUDED.versao_leitor, ms=EXCLUDED.ms, erro=NULL, lido_em=now()`,
       [a.id, cardId, a.nome, dados.length, tx.hash, tx.tipo, tx.metodo, melhor?.versao ?? null,
         melhor ? tx.versoes[melhor.versao] : null, leitura ? JSON.stringify(leitura) : null, VERSAO_LEITOR, Date.now() - t0]);
-    return { leitura, doCache: false };
+    return { leitura, doCache: false, pontos };
   } catch (e) {
     const erro = (e as Error).message.slice(0, 300);
     await consulta(
