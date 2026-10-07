@@ -57,8 +57,11 @@ function tela(titulo, texto, mostrarBotao, erro) {
 function fechar() { t.closeModal(); }
 
 function carregar(token) {
+  /* 07/10/2026: o popup abriu com o card errado (BAE2475 mostrou FKI2J50) — se o argumento `card` não vier, busca o card
+   * do contexto do Trello em vez de deixar o formulário cair no "card pendente" do navegador */
+  var pegarCard = (!CARD && MODO !== 'novo') ? t.card('shortLink').then(function (c) { CARD = (c && c.shortLink) || ''; }).catch(function () {}) : Promise.resolve();
   /* tema "trello" em avaliação: só para os usuários listados em PU_CFG.TEMA_TRELLO_USUARIOS; os demais ficam no visual padrão */
-  return t.member('username').catch(function () { return null; }).then(function (m) {
+  return pegarCard.then(function () { return t.member('username').catch(function () { return null; }); }).then(function (m) {
     var tema = !!(m && (cfg.TEMA_TRELLO_USUARIOS || []).indexOf(String(m.username || '').toLowerCase()) >= 0);
     carregar2(token, tema);
   });

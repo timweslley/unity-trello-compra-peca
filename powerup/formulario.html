@@ -656,6 +656,11 @@ function iniciar() {
     var modo = (loc.parameter && loc.parameter.modo) || '';
     if (card) { guardar('vd_card_pend', card); guardar('vd_modo_pend', modo || null); }
     else if (!m || (loc.parameter && loc.parameter.novo)) { guardar('vd_card_pend', null); guardar('vd_modo_pend', null); }
+    // dentro do Power-Up nunca usa o "card pendente" do navegador: sem card no endereço é pedido novo ou erro (07/10/2026, BAE2475 abriu FKI2J50)
+    if (PU && !card) {
+      guardar('vd_card_pend', null); guardar('vd_modo_pend', null);
+      if (!(loc.parameter && loc.parameter.novo)) return erroFatal('O Trello não informou qual card abrir. Feche esta janela e abra de novo pelo card (botão do Power-Up ou link ✏️ / 💰 nos anexos).');
+    }
     TOKEN = ler('vd_token');
     CARD_EDICAO = ler('vd_card_pend');
     var modoP = ler('vd_modo_pend');
@@ -804,7 +809,7 @@ function telaComprador(c) {
   // quem não tem permissão vê a aba, mas só para consulta
   if (!c.podeAutorizar) somenteLeitura('painelAut', 'Só quem autoriza pode mexer aqui: diretoria (peças da seguradora) ou o consultor que lançou a peça particular.');
   var foItens = (c.recebiveis || []).filter(function (i) { return /^FORNECIMENTO/.test(i.lista); });
-  mostrar('abaForn', foItens.length > 0); mostrar('fornAtalho', foItens.length > 0); montarFornecimento(c, foItens);
+  mostrar('abaForn', foItens.length > 0 || ABA_INICIAL === 'forn'); mostrar('fornAtalho', true); montarFornecimento(c, foItens);   // 07/10/2026: o botão 📎 Ler fica sempre (status de peça pode chegar antes do checklist)
   if (!COMPRADOR) {
     somenteLeitura('painelCot', 'Só o setor de compras (ou a diretoria) lança cotação.');
     somenteLeitura('painelCompra', 'Só o setor de compras (ou a diretoria) registra compra.');
@@ -1400,7 +1405,7 @@ function montarFornecimento(c, itens) {
   if (fa) fa.innerHTML = ans.length ? '📎 <b>Já no card</b> (lê sem anexar de novo): ' + ans.map(function (a) { return (a.url ? '<a href="' + esc(a.url) + '" target="_blank" rel="noopener" title="Abrir o original">' + esc(a.nome) + '</a>' : esc(a.nome)) + ' <a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false">ler</a>'; }).join(' · ') : '';
   var ft = $('fornAnexosTopo');
   if (ft) ft.innerHTML = ans.length ? '<b>Já no card:</b> ' + ans.map(function (a) { return (a.url ? '<a href="' + esc(a.url) + '" target="_blank" rel="noopener" title="Abrir o original">' + esc(a.nome.length > 44 ? a.nome.slice(0, 42) + '…' : a.nome) + '</a>' : esc(a.nome)) + ' <a href="#" onclick="lerFornecimentoAnexo(\'' + a.id + '\');return false" style="font-weight:600">→ ler</a>'; }).join(' &nbsp;·&nbsp; ') : '';
-  if (!itens.length) { box.innerHTML = '<div class="dica">Este card não tem peça fornecida pela seguradora.</div>'; return; }
+  if (!itens.length) { box.innerHTML = '<div class="dica">Este card ainda não tem peça fornecida pela seguradora no checklist. Se o Status do Pedido trouxer peças FO, leia o documento pelo botão 📎 do topo: as peças que não estão no card aparecem como "a mais" e entram pelo ✏️ Editar/Incluir peça (orçamento complementar).</div>'; return; }
   var grupo = '';
   itens.forEach(function (it) {
     if (it.lista !== grupo) { grupo = it.lista; var g = document.createElement('div'); g.className = 'grupo part'; g.textContent = grupo === 'FORNECIMENTO' ? '📦 Fornecimento (FO)' : '📦➕ Fornecimento — complemento'; box.appendChild(g); }
