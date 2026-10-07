@@ -438,14 +438,8 @@
     <div id="painelForn" class="oculto">
       <section>
         <h2>Fornecimento da seguradora (FO)</h2>
-        <div class="dica" style="margin-bottom:10px">Fornecedor e previsão de cada peça que a seguradora fornece. Previsão que já existia e muda: escreva o motivo. A chegada se marca na aba <b>📦 Recebimento</b>.</div>
-        <div class="item" style="background:var(--azul2)">
-          <label>📎 Ler print ou PDF do fornecimento ("Status do Pedido" do Cilia, "Peças do sinistro" do portal HDI, print do portal ou orçamento com fornecedor/prazo)</label>
-          <input type="file" id="fornArq" accept="application/pdf,image/*" onchange="lerFornecimento(this)">
-          <div class="dica" style="margin-top:6px">Ao escolher o arquivo a leitura começa sozinha (10–40 s). Depois confira os campos preenchidos e clique em <b>Salvar fornecimento</b> no fim da página — o arquivo vai anexado no card.</div>
-          <div id="fornAnexos" class="dica" style="margin-top:6px"></div>
-          <div id="fornLeitura" class="dica"></div>
-        </div>
+        <div class="dica" style="margin-bottom:10px">Fornecedor e previsão de cada peça que a seguradora fornece. Para ler um documento (Status do Pedido do Cilia, Peças do sinistro da HDI, print do portal), use o botão <b>📎 Ler…</b> no topo da página ou cole com Ctrl+V: a leitura começa sozinha (10–40 s), confira os campos e clique em <b>Salvar fornecimento</b> — o arquivo vai anexado no card. Previsão que fica para depois pede o motivo. A chegada se marca na aba <b>📦 Recebimento</b>.</div>
+        <div id="fornLeitura" class="dica"></div>
         <div id="fornItens"></div>
       </section>
       <div class="rodape" style="margin-bottom:30px">
@@ -882,7 +876,7 @@ function arqAlvoPadrao(files) {
   if (!$('comprador').classList.contains('oculto')) {
     var foco = document.activeElement, item = foco && foco.closest ? foco.closest('#recItens .item') : null;
     if (!$('painelRec').classList.contains('oculto')) return (item && item.querySelector('input[type=file]')) || $('recArqGeral');
-    if (!$('painelForn').classList.contains('oculto')) return $('fornArq');
+    if (!$('painelForn').classList.contains('oculto')) return $('fornArqTopo');
     return arqVisivel($('fornArqTopo')) ? $('fornArqTopo') : null;
   }
   if (!$('form').classList.contains('oculto')) {
