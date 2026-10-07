@@ -68,11 +68,29 @@ export interface Conferencia {
   anexos: number;
   orcamentos: number;
   docsFo: number;
-  /** peças da oficina lidas no orçamento × códigos presentes na descrição completa do card */
-  oficina: { lidas: number; naDescricao: number };
+  /** gabarito: códigos que o robô importou do orçamento para a descrição × quantos o servidor achou */
+  importadas: { gabarito: number; achadas: number; faltando: string[] };
   /** peças fornecidas pela seguradora lidas × itens do checklist FORNECIMENTO */
   fo: { lidas: number; noChecklist: number };
   erros: number;
+}
+
+/**
+ * Códigos das peças que o ROBÔ importou do orçamento para a descrição completa: linhas "n. CÓDIGO | DESCRIÇÃO | …"
+ * do bloco **PEÇAS:**, só em cards com a marca "_Orçamento importado (…)_", sem pneus e sem COMPLEMENTO (peça
+ * incluída à mão, que não está no orçamento). É o gabarito: o leitor do servidor tem de achar todos.
+ */
+export function codigosImportados(desc: string): string[] {
+  if (!/_Or[cç]amento importado \((CILIA|HDI|WEBSOMA)\)_/i.test(desc)) return [];
+  const bloco = desc.split(/\*\*PE[CÇ]AS:\*\*/i)[1]?.split(/\n\s*\n|\*\*FORNECIMENTO|===/)[0] || '';
+  const out: string[] = [];
+  for (const linha of bloco.split('\n')) {
+    const m = linha.match(/^\s*\d+\.\s+([^|]+)\|/);
+    if (!m || /\|\s*COMPLEMENTO\b/i.test(linha)) continue;
+    const cod = norm(m[1]);
+    if (cod.length >= 5 && cod !== 'PNEU') out.push(cod);
+  }
+  return out;
 }
 
 /** Códigos (com 5+ caracteres) das peças lidas que aparecem num texto de referência. */
@@ -96,7 +114,9 @@ export async function conferirLeitores(limiteMs = 200_000, maxCards = 500) {
   let pendentes = 0;
   for (const c of cards) {
     const legiveis = c.anexos.filter(anexoLegivel).slice(-MAX_ANEXOS_CARD);
-    const conf: Conferencia = { card: c.short_link, anexos: legiveis.length, orcamentos: 0, docsFo: 0, oficina: { lidas: 0, naDescricao: 0 }, fo: { lidas: 0, noChecklist: 0 }, erros: 0 };
+    const gabarito = codigosImportados(c.desc_completa || '');
+    const lidos = new Set<string>();
+    const conf: Conferencia = { card: c.short_link, anexos: legiveis.length, orcamentos: 0, docsFo: 0, importadas: { gabarito: gabarito.length, achadas: 0, faltando: [] }, fo: { lidas: 0, noChecklist: 0 }, erros: 0 };
     let completo = true;
     for (const a of legiveis) {
       if (Date.now() - t0 > limiteMs) { completo = false; break; }
@@ -106,8 +126,7 @@ export async function conferirLeitores(limiteMs = 200_000, maxCards = 500) {
       if (!l) continue;
       if (l.orcamento) {
         conf.orcamentos++;
-        const of = contarPresentes(l.oficina || [], c.desc_completa || c.desc_trello || '');
-        conf.oficina.lidas += of.lidas; conf.oficina.naDescricao += of.presentes;
+        for (const i of [...(l.oficina || []), ...(l.fo || [])]) if (i.codigo) lidos.add(norm(i.codigo));
         const forn = (c.checklists || []).filter((cl) => /FORNEC/i.test(cl.nome)).flatMap((cl) => cl.itens.map((i) => i.nome)).join(' | ');
         const fo = contarPresentes(l.fo || [], forn);
         conf.fo.lidas += fo.lidas; conf.fo.noChecklist += fo.presentes;
@@ -115,17 +134,20 @@ export async function conferirLeitores(limiteMs = 200_000, maxCards = 500) {
       if (l.doc === 'FO') conf.docsFo++;
     }
     if (!completo) { pendentes = cards.length - resultado.length; break; }
+    conf.importadas.faltando = gabarito.filter((g) => !lidos.has(g));
+    conf.importadas.achadas = gabarito.length - conf.importadas.faltando.length;
     resultado.push(conf);
   }
   const soma = (f: (c: Conferencia) => number) => resultado.reduce((s, c) => s + f(c), 0);
   return {
     cardsConferidos: resultado.length, cardsPendentes: pendentes,
     anexos: soma((c) => c.anexos), orcamentos: soma((c) => c.orcamentos), docsFo: soma((c) => c.docsFo), erros: soma((c) => c.erros),
-    oficina: { lidas: soma((c) => c.oficina.lidas), naDescricao: soma((c) => c.oficina.naDescricao) },
+    cardsComGabarito: resultado.filter((c) => c.importadas.gabarito > 0).length,
+    importadas: { gabarito: soma((c) => c.importadas.gabarito), achadas: soma((c) => c.importadas.achadas) },
     fo: { lidas: soma((c) => c.fo.lidas), noChecklist: soma((c) => c.fo.noChecklist) },
     /** cards com orçamento em que alguma peça lida não bate — para investigar um a um */
-    divergentes: resultado.filter((c) => c.oficina.naDescricao < c.oficina.lidas || c.fo.noChecklist < c.fo.lidas)
-      .map((c) => ({ card: c.card, oficina: `${c.oficina.naDescricao}/${c.oficina.lidas}`, fo: `${c.fo.noChecklist}/${c.fo.lidas}` })),
+    divergentes: resultado.filter((c) => c.importadas.faltando.length || c.fo.noChecklist < c.fo.lidas)
+      .map((c) => ({ card: c.card, importadas: `${c.importadas.achadas}/${c.importadas.gabarito}`, faltando: c.importadas.faltando, fo: `${c.fo.noChecklist}/${c.fo.lidas}` })),
     cardsSemOrcamentoLido: resultado.filter((c) => c.anexos > 0 && !c.orcamentos && !c.docsFo).map((c) => c.card),
   };
 }

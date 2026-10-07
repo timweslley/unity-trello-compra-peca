@@ -129,3 +129,14 @@ function pdfMinimo(linhas: string[]): Buffer {
   s += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
   return Buffer.from(s, 'latin1');
 }
+
+describe('gabarito da conferência', () => {
+  it('códigos importados do orçamento: só cards com a marca, sem pneu e sem complemento', async () => {
+    const { codigosImportados } = await import('../src/leitores/anexos.js');
+    const desc = ['**MODELO:** X', '', '**PEÇAS:**', '1. 5U0807221 | PARACHOQUE | GENUÍNA | ORÇ R$ 900,00',
+      '2. PNEU | 195/55R15 | IMPORTADO', '3. 5U0941005 | FAROL | ORIGINAL | COMPLEMENTO 07/10', '4. 5U0-853-601 | GRADE | GENUÍNA', '',
+      '**FORNECIMENTO (seguradora):** 2 peça(s)', '_Orçamento importado (CILIA)_'].join('\n');
+    expect(codigosImportados(desc)).toEqual(['5U0807221', '5U0853601']);
+    expect(codigosImportados(desc.replace('_Orçamento importado (CILIA)_', ''))).toEqual([]);
+  });
+});
