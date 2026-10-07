@@ -469,17 +469,21 @@ function cp_aplicar_(card, cmp, o) {
 function cp_foNaOficina_(card, token, quem) {
   var an;
   try { an = vd_analisar_(card.desc || '', card.name || ''); } catch (e) { return []; }
-  var codigos = {};
-  (an.pecas || []).forEach(function (p) { var k = cp_norm_(p.codigo); if (k.length >= 4) codigos[k] = p; });
-  if (!Object.keys(codigos).length) return [];
+  var codigos = {}, complementos = [];
+  (an.pecas || []).forEach(function (p) { var k = cp_norm_(p.codigo); if (k.length >= 4) codigos[k] = p; if (p.complemento && !p.naoComprar) complementos.push(p); });
+  if (!Object.keys(codigos).length && !complementos.length) return [];
   var removidos = [];
   (card.checklists || []).forEach(function (k) {
     if (!/^FORNECIMENTO/i.test(String(k.name || '').trim())) return;
     (k.checkItems || []).forEach(function (i) {
       if (i.state === 'complete') return;
-      var m = vd_semAcento_(i.name).match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s/);
-      var kc = m ? cp_norm_(m[1]) : '';
-      if (!kc || !codigos[kc]) return;
+      var base = String(i.name).split(/\s+[-—]\s+/)[0];
+      var m = vd_semAcento_(base).match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s+(.*)$/);
+      var kc = m ? cp_norm_(m[1]) : '', descFo = m ? m[2] : base;
+      // mesmo código na lista da oficina — ou, sem o código bater, peça ➕ complemento da oficina com a mesma descrição
+      // (07/10/2026, QPG1B84: orçamento complementar trocou a CALOTA de FO para oficina com código novo)
+      var bate = !!(kc && codigos[kc]) || complementos.some(function (p) { return cp_similar_(p.descricao || '', descFo) > 0; });
+      if (!bate) return;
       try {
         vd_api_('/cards/' + card.id + '/checkItem/' + i.id, { method: 'delete' }, token);
         removidos.push(i.name);
@@ -490,6 +494,6 @@ function cp_foNaOficina_(card, token, quem) {
   try {
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🔁 **Passou para a oficina** — ' + (quem || 'robô') + ': a peça está na lista da oficina (cotação/compra pela oficina), então saiu do checklist FORNECIMENTO: ' + removidos.map(function (n) { return n.split(/\s+[-—]\s+/)[0]; }).join('; ') } }, token);
   } catch (e) {}
-  try { ev_registrar_('COMPLEMENTO', card, quem || 'robô', removidos.map(function (n) { return { peca: n.split(/\s+[-—]\s+/)[0], detalhe: 'FO → OFICINA (mesmo código na lista da oficina)' }; }), { detalhe: 'FO removida: ' + removidos.length }); } catch (e) {}
+  try { ev_registrar_('COMPLEMENTO', card, quem || 'robô', removidos.map(function (n) { return { peca: n.split(/\s+[-—]\s+/)[0], detalhe: 'FO → OFICINA (mesmo código ou mesma peça ➕ complemento na lista da oficina)' }; }), { detalhe: 'FO removida: ' + removidos.length }); } catch (e) {}
   return removidos;
 }

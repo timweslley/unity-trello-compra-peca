@@ -237,7 +237,7 @@ para cotação. Mudar descrição, quantidade ou tipo conta como peça nova, **m
 
 **Complemento automático**: peça incluída à mão num pedido que tem orçamento da seguradora (importado agora ou já no card) nasce marcada como ➕ complemento (não está no orçamento); quem inclui pode desmarcar (07/10/2026).
 
-**FO que também está na oficina**: item FORNECIMENTO pendente com o mesmo código de uma peça da lista PEÇAS sai do checklist (a oficina venceu), com comentário "🔁 Passou para a oficina"; roda ao reavaliar a coluna (formulário) e no robô (07/10/2026, RHM1J09). Assinatura de trava (peça autorizada/comprada não pode mudar): `P|CÓD|DESC|TIPOS|QTD`.
+**FO que também está na oficina**: item FORNECIMENTO pendente com o mesmo código de uma peça da lista PEÇAS — ou com a mesma descrição (`cp_similar_`) de uma peça ➕ complemento da oficina, caso do orçamento complementar que troca a peça de FO para oficina com código novo (QPG1B84, 07/10/2026) — sai do checklist (a oficina venceu), com comentário "🔁 Passou para a oficina"; roda ao reavaliar a coluna (formulário) e no robô (07/10/2026, RHM1J09). Assinatura de trava (peça autorizada/comprada não pode mudar): `P|CÓD|DESC|TIPOS|QTD`.
 
 **Chave da peça**: código sem espaços; sem código → descrição sem acento; pneu → `PNEU <medida>`. Item de
 checklist casa pelo prefixo `chave + ' '` (código/pneu) ou `chave + ' - '` (descrição).
