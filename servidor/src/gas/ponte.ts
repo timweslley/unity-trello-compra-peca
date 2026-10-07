@@ -195,6 +195,8 @@ function iniciar(): Promise<void> {
     // valores que no robô são propriedades e aqui vêm da configuração do servidor (não gravam por cima)
     const fixas: Record<string, string> = {
       TRELLO_KEY: CFG.trello.chave, TRELLO_TOKEN: CFG.trello.token, VD_BOARD: CFG.trello.quadro, VD_PLANILHA_BACKUP: 'planilha-servidor',
+      // links ✏️/💰 que o servidor anexa: atalho que abre o formulário com srv=1
+      VD_URL_FORM: 'https://timweslley.github.io/unity-trello-compra-peca/powerup/servidor.html',
     };
     const w = new Worker(path.join(AQUI, 'trabalhador.js'), { workerData: { porta: port2, sinal, arquivo: ARQUIVO_ROBO, props, fixas }, transferList: [port2] });
     port1.on('message', async (m: { op: string; dados: unknown }) => {
