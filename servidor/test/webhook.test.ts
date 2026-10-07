@@ -44,3 +44,12 @@ describe('configuração', () => {
     expect(valor('X_TESTE')).toBe('abc');
   });
 });
+
+describe('proteção do quadro principal', () => {
+  it('recusa o principal sem PERMITIR_PRINCIPAL e aceita o TESTE', async () => {
+    const { conferirQuadroPermitido } = await import('../src/trello/api.js');
+    expect(() => conferirQuadroPermitido({ shortLink: 'oH4TbTqb' }, false)).toThrow(/bloqueado/);
+    expect(() => conferirQuadroPermitido({ shortLink: 'ZX4gRmnX' }, false)).not.toThrow();
+    expect(() => conferirQuadroPermitido({ shortLink: 'oH4TbTqb' }, true)).not.toThrow();
+  });
+});

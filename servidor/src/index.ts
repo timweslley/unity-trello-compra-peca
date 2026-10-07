@@ -79,8 +79,8 @@ async function principal() {
   if (!CFG.trello.segredo) app.log.warn('TRELLO_SEGREDO vazio: webhook aceita chamadas sem assinatura');
   if (CFG.urlPublica && CFG.trello.chave && CFG.trello.token) {
     try {
-      const w = await garantirWebhook(CFG.trello.quadro, CFG.urlPublica);
-      await consulta(`INSERT INTO trello_webhook (id, quadro, url) VALUES ($1,$2,$3) ON CONFLICT (id) DO NOTHING`, [w.id, CFG.trello.quadro, CFG.urlPublica + '/trello/webhook']);
+      const w = await garantirWebhook(CFG.trello.quadro, CFG.urlPublica, CFG.permitirPrincipal);
+      await consulta(`INSERT INTO trello_webhook (id, quadro, url) VALUES ($1,$2,$3) ON CONFLICT (id) DO NOTHING`, [w.id, w.quadroId, CFG.urlPublica + '/trello/webhook']);
       ESTADO.webhook = (w.novo ? 'criado ' : 'ativo ') + w.id;
       app.log.info({ webhook: w.id, novo: w.novo }, 'webhook do Trello garantido');
     } catch (e) {
