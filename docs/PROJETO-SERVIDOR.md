@@ -22,7 +22,7 @@
 
 | Fase | Entrega | Pronto quando | Status |
 |---|---|---|---|
-| **0 · Base** | `servidor/` com API, banco com migrações, webhook do Trello, Dockerfile, CI de publicação; projeto no Google Cloud ligado ao faturamento; primeiro deploy | `GET /saude` responde no Cloud Run | em andamento |
+| **0 · Base** | `servidor/` com API, banco com migrações, webhook do Trello, Dockerfile, CI de publicação; projeto no Google Cloud ligado ao faturamento; primeiro deploy | `GET /saude` responde no Cloud Run | no ar (falta segredos) |
 | **1 · Ouvir o Trello** | webhooks do quadro de TESTE gravando tudo no banco (cards, descrição completa, checklists, anexos, comentários, ações); importação dos cards existentes (aba TRAVA + EVENTOS) | banco espelha o quadro em tempo real sem mexer em nada | — |
 | **2 · Leitura de documentos** | leitores HDI / Soma / Cilia / Status do Pedido / NF portados, testados contra os PDFs reais já conhecidos | mesmos resultados do robô atual nos casos de referência | — |
 | **3 · Formulário** | formulário atual apontando para o servidor novo (mesmas funções `vdf_*` e respostas) + login Google; no quadro de TESTE | setor de compras testa em paralelo | — |
@@ -39,3 +39,4 @@
 
 - 07/10/2026 — decisões acima; conta Google Cloud criada com crédito; início da fase 0 (pasta `servidor/`).
 - 07/10/2026 (tarde) — publicação revisada antes do primeiro uso: imagem montada no GitHub e enviada ao Artifact Registry (sem Cloud Build), servidor roda com conta própria `compra-peca-run`, acesso público por `--no-invoker-iam-check` (a organização bloqueia `allUsers`), endereço fixo `https://compra-peca-<número>.southamerica-east1.run.app`, segredos em `PREENCHER` não derrubam o servidor e aparecem em `falta` no `/saude`. Testado localmente com Postgres 16 (migração, nova subida, webhook sem duplicar). Falta: rodar `preparar-gcp.sh` no Cloud Shell, banco Neon, cadastrar os segredos.
+- 07/10/2026 11:25 — **Google Cloud preparado e primeiro deploy no ar.** `preparar-gcp.sh` rodado no Cloud Shell (projeto `unity-compra-peca`, nº 858550421734, crédito vinculado; 1ª execução parou no repositório de imagens por propagação da API, 2ª passou inteira). CI publicou a versão `6a09447`: `https://compra-peca-858550421734.southamerica-east1.run.app/saude` responde (OBSERVAR, quadro TESTE). Pendente da fase 0: Weslley cadastrar os 4 segredos (DATABASE_URL do Neon, TRELLO_KEY, TRELLO_TOKEN, TRELLO_SEGREDO) e nova publicação para o servidor ler os valores, migrar o banco e criar o webhook.
