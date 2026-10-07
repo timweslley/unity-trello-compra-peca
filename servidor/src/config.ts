@@ -10,18 +10,27 @@ function obrigatoria(nome: string): string {
   return v;
 }
 
+/**
+ * Lê uma variável tratando como vazia o valor-semente "PREENCHER" (os segredos nascem assim no
+ * Secret Manager): o servidor sobe só com /saude até cada valor real ser cadastrado.
+ */
+export function valor(nome: string): string {
+  const v = (process.env[nome] || '').trim();
+  return /^PREENCHER$/i.test(v) ? '' : v;
+}
+
 export const CFG = {
   /** Porta que o Cloud Run injeta (PORT); 8080 em desenvolvimento. */
   porta: Number(process.env.PORT || 8080),
   /** Endereço público do servidor — o Trello chama <URL_PUBLICA>/trello/webhook. */
-  urlPublica: process.env.URL_PUBLICA || '',
+  urlPublica: valor('URL_PUBLICA'),
   /** Postgres (Neon/Supabase): postgres://usuario:senha@host/banco?sslmode=require */
-  bancoUrl: process.env.DATABASE_URL || '',
+  bancoUrl: valor('DATABASE_URL'),
   trello: {
-    chave: process.env.TRELLO_KEY || '',
-    token: process.env.TRELLO_TOKEN || '',
+    chave: valor('TRELLO_KEY'),
+    token: valor('TRELLO_TOKEN'),
     /** segredo da chave de API (Power-Up admin → "Secret"): assina os webhooks */
-    segredo: process.env.TRELLO_SEGREDO || '',
+    segredo: valor('TRELLO_SEGREDO'),
     /** quadro em uso: ZX4gRmnX (TESTE) ou oH4TbTqb (principal) */
     quadro: process.env.TRELLO_QUADRO || 'ZX4gRmnX',
   },

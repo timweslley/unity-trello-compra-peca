@@ -38,3 +38,4 @@
 ## Diário
 
 - 07/10/2026 — decisões acima; conta Google Cloud criada com crédito; início da fase 0 (pasta `servidor/`).
+- 07/10/2026 (tarde) — publicação revisada antes do primeiro uso: imagem montada no GitHub e enviada ao Artifact Registry (sem Cloud Build), servidor roda com conta própria `compra-peca-run`, acesso público por `--no-invoker-iam-check` (a organização bloqueia `allUsers`), endereço fixo `https://compra-peca-<número>.southamerica-east1.run.app`, segredos em `PREENCHER` não derrubam o servidor e aparecem em `falta` no `/saude`. Testado localmente com Postgres 16 (migração, nova subida, webhook sem duplicar). Falta: rodar `preparar-gcp.sh` no Cloud Shell, banco Neon, cadastrar os segredos.

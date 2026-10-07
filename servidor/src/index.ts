@@ -9,7 +9,9 @@ import { assinaturaValida, guardarAcao, type AcaoTrello } from './trello/webhook
 import { garantirWebhook, chamadasTrello } from './trello/api.js';
 
 const INICIO = Date.now();
-const VERSAO = process.env.K_REVISION || process.env.GIT_SHA || 'dev';
+const VERSAO = process.env.GIT_SHA || process.env.K_REVISION || 'dev';
+/** o que aconteceu na subida (aparece no /saude) */
+const ESTADO = { migracao: 'não rodou', webhook: 'não configurado' };
 
 export function criarApp() {
   const app = Fastify({ logger: { level: process.env.LOG_NIVEL || 'info' } });
@@ -22,7 +24,15 @@ export function criarApp() {
     if (CFG.bancoUrl) {
       try { await consulta('SELECT 1'); banco = 'ok'; } catch (e) { banco = 'erro: ' + (e as Error).message; }
     }
-    return { ok: true, versao: VERSAO, modo: CFG.modo, quadro: CFG.trello.quadro, banco, chamadasTrello: chamadasTrello(), ativoHaSeg: Math.round((Date.now() - INICIO) / 1000) };
+    const falta = [
+      !CFG.bancoUrl && 'DATABASE_URL',
+      !CFG.trello.chave && 'TRELLO_KEY',
+      !CFG.trello.token && 'TRELLO_TOKEN',
+      !CFG.trello.segredo && 'TRELLO_SEGREDO',
+      !CFG.urlPublica && 'URL_PUBLICA',
+    ].filter(Boolean);
+    return { ok: true, versao: VERSAO, modo: CFG.modo, quadro: CFG.trello.quadro, banco, migracao: ESTADO.migracao, webhook: ESTADO.webhook,
+      falta, chamadasTrello: chamadasTrello(), ativoHaSeg: Math.round((Date.now() - INICIO) / 1000) };
   });
 
   app.head('/trello/webhook', async (_req, resp) => { resp.code(200).send(); });
@@ -52,19 +62,29 @@ export function criarApp() {
 
 async function principal() {
   const app = criarApp();
-  if (CFG.bancoUrl) {
-    const feitas = await migrar();
-    if (feitas.length) app.log.info({ feitas }, 'migrações aplicadas');
-  } else {
-    app.log.warn('sem DATABASE_URL: subindo sem banco (só /saude)');
-  }
+  // escuta primeiro: o Cloud Run só considera a revisão no ar quando a porta responde
   await app.listen({ port: CFG.porta, host: '0.0.0.0' });
-  if (CFG.urlPublica && CFG.trello.chave && CFG.trello.token && CFG.bancoUrl) {
+  if (!CFG.bancoUrl) {
+    app.log.warn('sem DATABASE_URL: no ar só com /saude');
+    return;
+  }
+  try {
+    const feitas = await migrar();
+    ESTADO.migracao = feitas.length ? 'aplicadas: ' + feitas.join(', ') : 'em dia';
+  } catch (e) {
+    ESTADO.migracao = 'erro: ' + (e as Error).message;
+    app.log.error(e, 'migração falhou');
+    return;
+  }
+  if (!CFG.trello.segredo) app.log.warn('TRELLO_SEGREDO vazio: webhook aceita chamadas sem assinatura');
+  if (CFG.urlPublica && CFG.trello.chave && CFG.trello.token) {
     try {
       const w = await garantirWebhook(CFG.trello.quadro, CFG.urlPublica);
       await consulta(`INSERT INTO trello_webhook (id, quadro, url) VALUES ($1,$2,$3) ON CONFLICT (id) DO NOTHING`, [w.id, CFG.trello.quadro, CFG.urlPublica + '/trello/webhook']);
+      ESTADO.webhook = (w.novo ? 'criado ' : 'ativo ') + w.id;
       app.log.info({ webhook: w.id, novo: w.novo }, 'webhook do Trello garantido');
     } catch (e) {
+      ESTADO.webhook = 'erro: ' + (e as Error).message;
       app.log.error(e, 'não consegui garantir o webhook do Trello');
     }
   }

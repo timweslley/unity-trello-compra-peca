@@ -28,7 +28,7 @@ Ao subir com `URL_PUBLICA`, chaves do Trello e banco, o servidor **cria o webhoo
 ## Variáveis
 
 Ver `.env.exemplo`. No Cloud Run, as sensíveis vêm do Secret Manager (`DATABASE_URL`, `TRELLO_KEY`,
-`TRELLO_TOKEN`, `TRELLO_SEGREDO`, `URL_PUBLICA`); `TRELLO_QUADRO` e `MODO` são variáveis do repositório no GitHub.
+`TRELLO_TOKEN`, `TRELLO_SEGREDO`); `URL_PUBLICA` (endereço fixo do Cloud Run), `TRELLO_QUADRO` e `MODO` vêm do bloco `env` do workflow.
 
 ## Modo
 
@@ -42,5 +42,15 @@ Nunca editar uma migração já aplicada: criar a próxima.
 
 ## Publicação
 
-`.github/workflows/servidor.yml`: testa a cada push em `servidor/`; publica no Cloud Run
-(região São Paulo) quando as variáveis `GCP_PROJETO`, `GCP_WIF_PROVIDER` e `GCP_SA_EMAIL` existem no repositório.
+`.github/workflows/servidor.yml`: testa a cada push em `servidor/`; quando `GCP_NUMERO` (bloco `env` do
+workflow) está preenchido, monta a imagem no GitHub, envia ao Artifact Registry (São Paulo) e publica no
+Cloud Run com a conta `compra-peca-run`, conferindo o `/saude` no fim. O acesso do GitHub ao Google é sem
+senha (Workload Identity Federation). O Google Cloud é preparado uma vez por `infra/preparar-gcp.sh` (Cloud Shell).
+
+O serviço fica público com `--no-invoker-iam-check` (o Trello precisa chamar o webhook); a organização
+unitycs.com.br bloqueia o jeito antigo (`allUsers`). A proteção do webhook é a assinatura do Trello
+(`TRELLO_SEGREDO`), e a API do formulário (fase 3) terá login Google.
+
+Os segredos nascem com o valor `PREENCHER`, tratado como vazio: o servidor sobe só com `/saude`, que lista em
+`falta` o que ainda precisa ser cadastrado no Secret Manager. Banco inacessível ou migração com erro não derrubam
+o servidor — aparecem em `banco`/`migracao` no `/saude`.

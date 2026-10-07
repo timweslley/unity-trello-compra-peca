@@ -1,9 +1,7 @@
-# Servidor próprio (pasta servidor/): testa a cada push e publica no Cloud Run quando as variáveis do
-# repositório estiverem preenchidas (Settings > Secrets and variables > Actions > Variables):
-#   GCP_PROJETO       id do projeto no Google Cloud (ex.: unity-compra-peca)
-#   GCP_WIF_PROVIDER  projects/NNN/locations/global/workloadIdentityPools/github/providers/github
-#   GCP_SA_EMAIL      conta de serviço que publica (ex.: publicador@unity-compra-peca.iam.gserviceaccount.com)
-# Sem elas, só roda os testes (não falha).
+# Servidor próprio (pasta servidor/): testa a cada push e publica no Cloud Run (São Paulo).
+# A publicação usa os valores do bloco `env` abaixo (não são segredos — dizem só ONDE publicar).
+# Enquanto GCP_NUMERO estiver vazio, só roda os testes (não falha).
+# O acesso ao Google é sem senha (Workload Identity Federation), preparado por servidor/infra/preparar-gcp.sh.
 name: Servidor
 on:
   push:
@@ -11,12 +9,21 @@ on:
     paths: ['servidor/**', '.github/workflows/servidor.yml']
   workflow_dispatch:
 concurrency: servidor
+env:
+  GCP_PROJETO: unity-compra-peca
+  GCP_NUMERO: ''            # número do projeto (o script imprime no fim)
+  REGIAO: southamerica-east1
+  SERVICO: compra-peca
+  TRELLO_QUADRO: ZX4gRmnX   # TESTE; o principal (oH4TbTqb) só na fase 5
+  MODO: OBSERVAR            # OBSERVAR = nunca escreve no Trello
 defaults:
   run:
     working-directory: servidor
 jobs:
   testar:
     runs-on: ubuntu-24.04
+    outputs:
+      publicar: ${{ steps.p.outputs.publicar }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,28 +31,46 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      - id: p
+        run: echo "publicar=${{ env.GCP_NUMERO != '' }}" >> "$GITHUB_OUTPUT"
   publicar:
     needs: testar
-    if: ${{ vars.GCP_PROJETO != '' }}
+    if: ${{ needs.testar.outputs.publicar == 'true' }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       id-token: write
+    env:
+      IMAGEM: ${{ env.REGIAO }}-docker.pkg.dev/${{ env.GCP_PROJETO }}/servidor/compra-peca
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_SA_EMAIL }}
+          workload_identity_provider: projects/${{ env.GCP_NUMERO }}/locations/global/workloadIdentityPools/github/providers/github
+          service_account: publicador@${{ env.GCP_PROJETO }}.iam.gserviceaccount.com
       - uses: google-github-actions/setup-gcloud@v2
-      - name: Publicar no Cloud Run (São Paulo)
+      - name: Montar e enviar a imagem
         run: |
-          gcloud run deploy compra-peca \
-            --source . \
-            --project "${{ vars.GCP_PROJETO }}" \
-            --region southamerica-east1 \
-            --allow-unauthenticated \
-            --min-instances 0 --max-instances 2 --memory 512Mi --cpu 1 \
-            --set-env-vars "GIT_SHA=${GITHUB_SHA::7},TRELLO_QUADRO=${{ vars.TRELLO_QUADRO || 'ZX4gRmnX' }},MODO=${{ vars.MODO || 'OBSERVAR' }}" \
-            --update-secrets "DATABASE_URL=DATABASE_URL:latest,TRELLO_KEY=TRELLO_KEY:latest,TRELLO_TOKEN=TRELLO_TOKEN:latest,TRELLO_SEGREDO=TRELLO_SEGREDO:latest,URL_PUBLICA=URL_PUBLICA:latest" \
+          gcloud auth configure-docker ${REGIAO}-docker.pkg.dev --quiet
+          docker build -t "$IMAGEM:${GITHUB_SHA::7}" .
+          docker push "$IMAGEM:${GITHUB_SHA::7}"
+      - name: Publicar no Cloud Run
+        run: |
+          URL="https://${SERVICO}-${GCP_NUMERO}.${REGIAO}.run.app"
+          gcloud run deploy "$SERVICO" \
+            --image "$IMAGEM:${GITHUB_SHA::7}" \
+            --project "$GCP_PROJETO" --region "$REGIAO" \
+            --service-account "compra-peca-run@${GCP_PROJETO}.iam.gserviceaccount.com" \
+            --no-invoker-iam-check \
+            --min-instances 0 --max-instances 2 --memory 512Mi --cpu 1 --timeout 300 \
+            --set-env-vars "GIT_SHA=${GITHUB_SHA::7},URL_PUBLICA=${URL},TRELLO_QUADRO=${TRELLO_QUADRO},MODO=${MODO}" \
+            --update-secrets "DATABASE_URL=DATABASE_URL:latest,TRELLO_KEY=TRELLO_KEY:latest,TRELLO_TOKEN=TRELLO_TOKEN:latest,TRELLO_SEGREDO=TRELLO_SEGREDO:latest" \
             --quiet
+      - name: Conferir /saude
+        run: |
+          URL="https://${SERVICO}-${GCP_NUMERO}.${REGIAO}.run.app"
+          for i in 1 2 3 4 5; do
+            if curl -fsS "$URL/saude"; then echo; exit 0; fi
+            sleep 6
+          done
+          echo "::error::/saude não respondeu em $URL"; exit 1

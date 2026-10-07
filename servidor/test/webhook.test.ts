@@ -34,3 +34,13 @@ describe('rotas', () => {
     await app.close();
   });
 });
+
+describe('configuração', () => {
+  it('"PREENCHER" (valor-semente do Secret Manager) conta como vazio', async () => {
+    const { valor } = await import('../src/config.js');
+    process.env.X_TESTE = 'PREENCHER';
+    expect(valor('X_TESTE')).toBe('');
+    process.env.X_TESTE = ' abc ';
+    expect(valor('X_TESTE')).toBe('abc');
+  });
+});
