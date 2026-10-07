@@ -140,3 +140,16 @@ describe('gabarito da conferência', () => {
     expect(codigosImportados(desc.replace('_Orçamento importado (CILIA)_', ''))).toEqual([]);
   });
 });
+
+describe('cor lida como nome de campo (TAJ0E65, 07/10/2026)', () => {
+  const layout = 'DOLPHIN MINI GS EV ELÉTRICO 2025\n\nPlaca     Cor               Chassi         Quilometragem   Combustível\nTAJ0E65   -                 -              0               0/8\n';
+  const simples = 'DOLPHIN MINI GS EV ELÉTRICO 2025\nPlaca\nTAJ0E65\n\nCor\n-\n\nChassi\n-\n\nQuilometragem\n0\n';
+  it('a versão layout dá cor CHASSI (vício do texto lado a lado)', () => {
+    expect(lerTexto(layout).cor).toBe('CHASSI');
+  });
+  it('a escolha fica com a versão sem esse vício', () => {
+    const m = melhorLeitura({ layout, simples });
+    expect(m?.versao).toBe('simples');
+    expect(m?.leitura.cor || '').toBe('');
+  });
+});
