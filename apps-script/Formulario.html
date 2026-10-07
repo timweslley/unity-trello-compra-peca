@@ -1267,10 +1267,14 @@ function montarCompra(c) {
     else if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça — lance na aba Cotação.</div>';
     else {
       var aut = autDe(c, p.chave);
-      if (aut) h += '<div class="comprado">✅ autorizado: ' + esc(aut.fornecedor) + ' — ' + esc(fmtValor(aut.valor)) + '</div>' + botaoPrev('COT', p.chave, '', 'dias');
+      var cotAut = aut ? minhas.filter(function (q) { return mesmaCot(q, aut); })[0] : null;
+      if (aut) h += '<div class="comprado">✅ autorizado: ' + esc(aut.fornecedor) + ' — ' + esc(fmtValor(aut.valor)) + linkCot(cotAut) + '</div>' + botaoPrev('COT', p.chave, '', 'dias');
       else if ((c.autorizadas || []).length) h += '<div class="dica ruim">⚠️ Peça sem autorização — não comprar.</div>';
       h += '<select class="k-sel" onchange="avisoForaAut(this);totalCompra()"><option value="">— ainda não comprar —</option>' + minhas.map(function (q, j) { return '<option value="' + j + '"' + (mesmaCot(q, aut) ? ' selected' : '') + '>' + esc(rotuloCot(q)) + selosPeca(minhas)(q, true) + (mesmaCot(q, aut) ? ' ✅ autorizado' : '') + '</option>'; }).join('') + '</select><div class="alerta k-aviso oculto"></div>'
         + '<input type="text" class="k-just oculto" style="margin-top:6px" placeholder="Motivo da compra fora da autorização (obrigatório)">';
+      // links dos anúncios informados na cotação (Mercado Livre etc.): o comprador compra por eles (07/10/2026)
+      var comLink = minhas.filter(function (q) { return q.link && /^https?:\/\//i.test(q.link); });
+      if (comLink.length) h += '<div class="dica" style="margin-top:6px">' + comLink.map(function (q) { return esc(q.fornecedor) + ' ' + esc(fmtValor(q.valor)) + linkCot(q); }).join(' &nbsp;·&nbsp; ') + '</div>';
       div.dataset.cots = JSON.stringify(minhas);
       if (aut) {
         div.dataset.aut = JSON.stringify(aut);
