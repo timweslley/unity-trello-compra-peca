@@ -40,8 +40,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    env:
-      IMAGEM: ${{ env.REGIAO }}-docker.pkg.dev/${{ env.GCP_PROJETO }}/servidor/compra-peca
     steps:
       - uses: actions/checkout@v4
       - uses: google-github-actions/auth@v2
@@ -51,6 +49,8 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v2
       - name: Montar e enviar a imagem
         run: |
+          IMAGEM="${REGIAO}-docker.pkg.dev/${GCP_PROJETO}/servidor/compra-peca"
+          echo "IMAGEM=$IMAGEM" >> "$GITHUB_ENV"
           gcloud auth configure-docker ${REGIAO}-docker.pkg.dev --quiet
           docker build -t "$IMAGEM:${GITHUB_SHA::7}" .
           docker push "$IMAGEM:${GITHUB_SHA::7}"
