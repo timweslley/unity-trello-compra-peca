@@ -54,3 +54,9 @@ unitycs.com.br bloqueia o jeito antigo (`allUsers`). A proteção do webhook é 
 Os segredos nascem com o valor `PREENCHER`, tratado como vazio: o servidor sobe só com `/saude`, que lista em
 `falta` o que ainda precisa ser cadastrado no Secret Manager. Banco inacessível ou migração com erro não derrubam
 o servidor — aparecem em `banco`/`migracao` no `/saude`.
+
+## Segurança do quadro principal
+
+Enquanto `TRELLO_QUADRO=ZX4gRmnX` (TESTE) e `MODO=OBSERVAR`, o servidor **não lê nem escreve no quadro principal**
+(`oH4TbTqb`) e não escreve em nenhum quadro. O token do servidor é diferente do token do robô (Apps Script), então
+as chamadas do servidor não consomem o limite de chamadas do robô que atende o principal.
