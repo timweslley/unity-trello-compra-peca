@@ -58,18 +58,21 @@ function tela(titulo, texto, mostrarBotao, erro) {
 }
 function fechar() { t.closeModal(); }
 
+var SERVIDOR = false;
 function carregar(token) {
   /* 07/10/2026: o popup abriu com o card errado (BAE2475 mostrou FKI2J50) — se o argumento `card` não vier, busca o card
    * do contexto do Trello em vez de deixar o formulário cair no "card pendente" do navegador */
   var pegarCard = (!CARD && MODO !== 'novo') ? t.card('shortLink').then(function (c) { CARD = (c && c.shortLink) || ''; }).catch(function () {}) : Promise.resolve();
   /* tema "trello" em avaliação: só para os usuários listados em PU_CFG.TEMA_TRELLO_USUARIOS; os demais ficam no visual padrão */
-  return pegarCard.then(function () { return t.member('username').catch(function () { return null; }); }).then(function (m) {
+  /* 07/10/2026: quadro listado em QUADROS_SERVIDOR (o TESTE) usa o servidor próprio: o formulário recebe srv=1 */
+  var pegarQuadro = t.board('shortLink').then(function (b) { SERVIDOR = (cfg.QUADROS_SERVIDOR || []).indexOf((b && b.shortLink) || '') >= 0; }).catch(function () {});
+  return Promise.all([pegarCard, pegarQuadro]).then(function () { return t.member('username').catch(function () { return null; }); }).then(function (m) {
     var tema = !!(m && (cfg.TEMA_TRELLO_USUARIOS || []).indexOf(String(m.username || '').toLowerCase()) >= 0);
     carregar2(token, tema);
   });
 }
 function carregar2(token, tema) {
-  var url = (cfg.URL_FORM || cfg.URL_APP) + '?pu=1' + (tema ? '&tema=trello' : '&tema=padrao');
+  var url = (cfg.URL_FORM || cfg.URL_APP) + '?pu=1' + (tema ? '&tema=trello' : '&tema=padrao') + (SERVIDOR ? '&srv=1' : '');
   if (MODO === 'novo') url += '&novo=1';
   else if (CARD) url += '&card=' + encodeURIComponent(CARD) + (MODO ? '&modo=' + encodeURIComponent(MODO) : '');
   url += '#token=' + token;

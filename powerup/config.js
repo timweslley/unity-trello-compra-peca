@@ -7,6 +7,10 @@
 window.PU_CFG = {
   URL_APP: 'https://script.google.com/macros/s/AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew/exec',
   URL_FORM: 'https://timweslley.github.io/unity-trello-compra-peca/powerup/formulario.html',
+  /* 07/10/2026: servidor próprio (Google Cloud Run). Só os quadros listados em QUADROS_SERVIDOR usam ele;
+   * os demais (o principal) continuam no Apps Script (URL_APP). */
+  URL_SERVIDOR: 'https://compra-peca-858550421734.southamerica-east1.run.app/api',
+  QUADROS_SERVIDOR: ['ZX4gRmnX'],
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:

@@ -11,6 +11,7 @@ import { garantirWebhook, chamadasTrello } from './trello/api.js';
 import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
+import { executarPost } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -51,6 +52,8 @@ export function criarApp() {
 
   // o webhook precisa do corpo cru (texto) para conferir a assinatura
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, corpo, done) => done(null, corpo));
+  // o formulário manda text/plain (assim o navegador não faz a consulta prévia de CORS)
+  app.addContentTypeParser('text/plain', { parseAs: 'string' }, (_req, corpo, done) => done(null, corpo));
 
   app.get('/saude', async () => {
     let banco = 'sem DATABASE_URL';
@@ -123,6 +126,23 @@ export function criarApp() {
       return { ok: true, ...(r as object) };
     } catch (e) {
       return resp.code(500).send({ ok: false, erro: (e as Error).message });
+    }
+  });
+
+  /**
+   * Fase 3 — o formulário: mesmo pedido que ia ao Apps Script ({fn, args, rid}), mesma resposta ({ok, r} | {ok:false, erro}).
+   * Quem responde é o próprio código do robô (recursos/formulario.gs.js) rodando com os serviços do Google imitados.
+   */
+  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'POST, OPTIONS', 'access-control-allow-headers': 'content-type' };
+  app.options('/api', async (_req, resp) => resp.headers(cors).code(204).send());
+  app.post('/api', async (req, resp) => {
+    resp.headers(cors).type('application/json; charset=utf-8');
+    if (!trelloPronto()) return JSON.stringify({ ok: false, erro: 'Servidor sem configuração (ver /saude).' });
+    try {
+      return await executarPost(typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}));
+    } catch (e) {
+      req.log.error(e, 'api');
+      return JSON.stringify({ ok: false, erro: 'Erro no servidor: ' + (e as Error).message });
     }
   });
 

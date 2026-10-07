@@ -9,7 +9,7 @@ import { melhorLeitura, type Leitura } from './leitura.js';
 import * as R from './robo.js';
 
 /** Sobe quando os leitores mudam (robo.js regerado, texto.ts, leitura.ts): as leituras antigas são refeitas. */
-export const VERSAO_LEITOR = 1;
+export const VERSAO_LEITOR = 2;
 const MAX_BYTES = 15 * 1024 * 1024;
 const MAX_ANEXOS_CARD = 6;
 

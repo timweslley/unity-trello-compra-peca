@@ -9,7 +9,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "migrar": "tsx -e \"import('./src/db.ts').then(m=>m.migrar().then(f=>{console.log('aplicadas:',f);return m.fecharBanco()}))\"",
-    "extrair-leitores": "node scripts/extrair-leitores.mjs"
+    "extrair-leitores": "node scripts/extrair-leitores.mjs",
+    "extrair-formulario": "node scripts/extrair-leitores.mjs formulario"
   },
   "keywords": [],
   "author": "",

@@ -549,6 +549,9 @@ function avisarPai(msg) { try { var w = window; for (var i = 0; i < 4 && w !== w
  * em vez de gravar de novo. Sem isso, gravação espera 45 s antes de repetir. */
 var CHAMADA_LEITURA = { vdf_abrir: 1, vdf_iniciar: 1, vdf_buscarPlaca: 1, vdf_carregarCard: 1, vdf_lerDocumento: 1, vdf_lerAnexoCard: 1, vdf_lerFornecimento: 1, vdf_lerFornecimentoAnexo: 1 };
 var CHAMADA_LONGA = { vdf_lerDocumento: 1, vdf_lerAnexoCard: 1, vdf_subirArquivo: 1, vdf_lerFornecimento: 1, vdf_lerFornecimentoAnexo: 1, vdf_padronizarAnexos: 1, vdf_textoAnexo: 1, vdf_removerRepetidos: 1, vdf_valoresOrcamento: 1 };
+/* 07/10/2026: quadro de TESTE fala com o servidor próprio (Google Cloud); o Power-Up avisa com srv=1 no endereço.
+ * Sem srv=1 (quadro principal, links antigos) continua no Apps Script — nada muda para o principal. */
+var URL_CHAMADA = (/[?&]srv=1(&|$)/.test(location.search) && window.PU_CFG && PU_CFG.URL_SERVIDOR) ? PU_CFG.URL_SERVIDOR : PU_CFG.URL_APP;
 function novoRid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10); }
 function avisoLento(txt) {
   var d = $('avisoLento');
@@ -604,7 +607,7 @@ function chamar(fn) {
       var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
       ctls.push(ctl);
       var eu = disparadas;
-      fetch(PU_CFG.URL_APP, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo, signal: ctl ? ctl.signal : undefined })
+      fetch(URL_CHAMADA, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo, signal: ctl ? ctl.signal : undefined })
         .then(function (r) {
           if (r.status >= 500) throw new Error('500');
           return r.text();

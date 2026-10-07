@@ -127,6 +127,20 @@ async function gravarEventos(linhas: ReturnType<typeof linhasEventos>): Promise<
   return { linhas: linhas.length, novas };
 }
 
+/** Todas as células de uma aba (valores crus; datas como número de série). */
+export async function lerAbaPlanilha(planilhaId: string, aba: string): Promise<unknown[][]> {
+  return lerIntervalo(planilhaId, `'${aba.replace(/'/g, "''")}'`);
+}
+
+/** Nomes das abas da planilha. */
+export async function listarAbasPlanilha(planilhaId: string): Promise<string[]> {
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${planilhaId}?fields=sheets.properties.title`,
+    { headers: { Authorization: 'Bearer ' + await tokenGoogle() } });
+  if (!r.ok) throw new ErroPlanilha(r.status, `Sheets ${r.status} ao listar abas`);
+  const j = await r.json() as { sheets?: Array<{ properties: { title: string } }> };
+  return (j.sheets || []).map((x) => x.properties.title);
+}
+
 /** Lê TRAVA e EVENTOS e grava no banco. Registra a execução em `sincronizacao` (tipo 'planilha'). */
 export async function importarPlanilha(planilhaId: string) {
   const [s] = await consulta<{ id: string }>(`INSERT INTO sincronizacao (tipo, quadro) VALUES ('planilha', $1) RETURNING id`, [planilhaId]);
