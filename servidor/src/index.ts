@@ -46,6 +46,9 @@ const INICIO = Date.now();
 const VERSAO = process.env.GIT_SHA || process.env.K_REVISION || 'dev';
 /** o que aconteceu na subida (aparece no /saude) */
 const ESTADO = { migracao: 'não rodou', webhook: 'não configurado' };
+/** resolve quando as migrações terminam (a /api espera: o trabalhador lê tabelas criadas por elas) */
+let bancoPronto!: () => void;
+const BANCO_PRONTO = new Promise<void>((ok) => { bancoPronto = ok; });
 
 export function criarApp() {
   const app = Fastify({ logger: { level: process.env.LOG_NIVEL || 'info' } });
@@ -139,6 +142,7 @@ export function criarApp() {
     resp.headers(cors).type('application/json; charset=utf-8');
     if (!trelloPronto()) return JSON.stringify({ ok: false, erro: 'Servidor sem configuração (ver /saude).' });
     try {
+      await Promise.race([BANCO_PRONTO, new Promise((_, n) => setTimeout(() => n(new Error('banco ainda iniciando, tente de novo')), 20_000))]);
       return await executarPost(typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}));
     } catch (e) {
       req.log.error(e, 'api');
@@ -204,6 +208,7 @@ async function principal() {
   try {
     const feitas = await migrar();
     ESTADO.migracao = feitas.length ? 'aplicadas: ' + feitas.join(', ') : 'em dia';
+    bancoPronto();
   } catch (e) {
     ESTADO.migracao = 'erro: ' + (e as Error).message;
     app.log.error(e, 'migração falhou');

@@ -216,7 +216,7 @@ function iniciar(): Promise<void> {
     w.on('exit', () => { trabalhador = null; pronto = null; });
     await new Promise<void>((ok) => w.once('message', () => ok()));
     trabalhador = w;
-  })();
+  })().catch((e) => { pronto = null; throw e; });   // falha na partida não fica guardada: a próxima chamada tenta de novo
   return pronto;
 }
 
