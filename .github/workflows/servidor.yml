@@ -15,7 +15,7 @@ env:
   REGIAO: southamerica-east1
   SERVICO: compra-peca
   TRELLO_QUADRO: ZX4gRmnX   # TESTE; o principal (oH4TbTqb) só na fase 5
-  MODO: OBSERVAR            # OBSERVAR = nunca escreve no Trello
+  MODO: ATIVO               # ATIVO no TESTE (Weslley, 07/10); o principal segue bloqueado no código
 defaults:
   run:
     working-directory: servidor
