@@ -56,3 +56,18 @@ export function melhorLeitura(versoes: Record<string, string>): { versao: string
   }
   return melhor && { versao: melhor.versao, leitura: melhor.leitura };
 }
+
+/** Classe de um documento que não é orçamento nem fornecimento (só para conferência): nunca devolve o texto. */
+export function classificar(texto: string, l: Leitura | null): string {
+  if (l?.orcamento) return 'orçamento ' + l.orcamento;
+  if (l?.docNome) return l.docNome;
+  const U = R.vd_normTexto_(texto || '') as string;
+  if (!U.trim()) return 'sem texto';
+  if (/NFS-?E|NOTA FISCAL DE SERVICO|PRESTADOR DE SERVICO/.test(U)) return 'nota de serviço';
+  if (/DANFE|NOTA FISCAL ELETRONICA|CHAVE DE ACESSO/.test(U)) return 'nota fiscal';
+  if (/CERTIFICADO DE REGISTRO|CRLV|DOCUMENTO DE LICENCIAMENTO/.test(U)) return 'documento do veículo';
+  if (/ORDEM DE SERVICO|O\.S\. N/.test(U)) return 'O.S.';
+  if (/MERCADO ?LIVRE|MERCADO PAGO/.test(U)) return 'compra Mercado Livre';
+  if (/ORCAMENTO|SINISTRO|SEGURADORA|CILIA|WEBSOMA/.test(U)) return 'ORÇAMENTO/SINISTRO NÃO RECONHECIDO';
+  return 'outro';
+}
