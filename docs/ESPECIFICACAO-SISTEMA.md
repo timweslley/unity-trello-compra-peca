@@ -306,7 +306,7 @@ Trello do usuário (guardado no navegador).
 | 🛒 Compra | `vdf_salvarCompra`, `vdf_cotacaoIndisponivel`, `vdf_marcarOrdemAutorizada`, `vdf_avisarSolicitante`, `vdf_alterarPrevisao` | marcar peças compradas (previsão por data ou d.u.), justificar fora da autorização, cotação indisponível + nova cotação, ordem autorizada, aviso ao solicitante (Databox), alterar prazo autorizado com motivo |
 | 📦 Recebimento | `vdf_salvarRecebimento` | ✔ por item com data, obs, foto/NF da peça; obs geral |
 | 🚚 Fornecimento | `vdf_atualizarFornecimento`, `vdf_lerFornecimento`, `vdf_lerFornecimentoAnexo` | por item FO: fornecedor, previsão, situação (em cotação / B.O.), motivo (só se adiar); leitura de "Status do Pedido" (Cilia/HDI/Soma) por upload ou de anexo já no card; peças FO novas do documento |
-| Todas as abas | — | links 📎 dos anexos originais; atalho de upload do fornecimento |
+| Todas as abas | — | links 📎 dos anexos originais; atalho de upload do fornecimento; **colar com Ctrl+V** (print, foto, PDF ou arquivo copiado) vai para o campo de anexo mais próximo do último clique, senão para o da aba aberta (07/10/2026) |
 
 Funções de leitura: `vdf_abrir`, `vdf_iniciar`, `vdf_buscarPlaca`, `vdf_carregarCard`, `vdf_lerDocumento`,
 `vdf_lerAnexoCard`, `vdf_valoresOrcamento`. Administrativas (diretoria): `vdf_padronizarAnexos`,
@@ -324,6 +324,7 @@ Tesseract/serviço de OCR para imagem e PDF escaneado.
 | Orçamento **HDI** | seções `PEÇAS FORNECIDAS PELA OFICINA` / `PELA HDI`; `VEICULO: … ANO PLACA:` | código, descrição, qtd, unitário, desconto % → líquido; placa, chassi, ano, modelo, cor, sinistro; FO |
 | Orçamento **Websoma/Soma/Porto** | `PEÇAS - TROCA (…)`, `LISTA DAS PEÇAS FORNECIDAS PELA SEGURADORA`, `LICENCA:` | código, descrição, tipo (REPOSIÇÃO/GENUÍNO…), qtd, bruto, desconto, líquido; FO com fornecedor/prazo da tabela STATUS DE ENTREGA |
 | Orçamento **Cilia** | `FORNECIMENTO` + coluna T; `CASCO - MARCA - MODELO (..) ANO` | idem; `OFICINA`/`SEGURADORA` separa oficina/FO; siglas de tipo (GENUINA, ORIGINAL, PRO, PPO, PPG, PPC, PAR…) |
+| **Peças do sinistro** (portal HDI, PDF ou print) | `PEÇAS DO SINISTRO` / `Peças do Laudo` | tabela sem código: descrição, Prev.Entrega, Entrega, Fornecedor (tel./e-mail); linhas "Fornecido pela Oficina" ignoradas; casa com os itens FO do card **pela descrição** (`cp_similar_`); aceita texto em linha ou em colunas (07/10/2026) |
 | **Status do Pedido** (Cilia) | `STATUS DAS PEÇAS|PREVISÃO DE ENTREGA|STATUS DO PEDIDO` | por peça: código (`^[A-Z0-9]{6,20}$`, ≥4 dígitos), descrição, fornecedor (linha com " / " ou após "FORNECEDOR"; palavras de STATUS nunca viram fornecedor), previsão (só datas sem hora), entregue/data |
 | O.S. Databox / CRLV | `MARCA: MODELO: ANO:` | placa, chassi, ano, modelo |
 | NF/DANFE/XML | `<nNF>` ou OCR | número da NF para o nome do anexo |

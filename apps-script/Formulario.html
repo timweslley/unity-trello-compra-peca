@@ -372,7 +372,7 @@
     <!-- atalho do fornecimento em todas as abas (Weslley, 06/10/2026): o Status do Pedido do Cilia pode entrar de qualquer aba -->
     <div id="fornAtalho" class="item oculto" style="display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:8px 0 4px">
       <strong style="font-size:14px">🚚 Fornecimento da seguradora</strong>
-      <label for="fornArqTopo" class="botao principal" style="padding:8px 14px;font-size:13px">📎 Ler Status do Pedido / print do portal</label>
+      <label for="fornArqTopo" class="botao principal" style="padding:8px 14px;font-size:13px">📎 Ler Status do Pedido (Cilia) / Peças do sinistro (HDI) / print do portal</label>
       <input type="file" id="fornArqTopo" accept="application/pdf,image/*" onchange="lerFornecimento(this)" style="display:none">
       <span id="fornAnexosTopo" style="font-size:13px;color:var(--texto)"></span>
     </div>
@@ -438,7 +438,7 @@
         <h2>Fornecimento da seguradora (FO)</h2>
         <div class="dica" style="margin-bottom:10px">Fornecedor e previsão de cada peça que a seguradora fornece. Previsão que já existia e muda: escreva o motivo. A chegada se marca na aba <b>📦 Recebimento</b>.</div>
         <div class="item" style="background:var(--azul2)">
-          <label>📎 Ler print ou PDF do fornecimento (portal da seguradora, "Status do Pedido" do Cilia ou orçamento com fornecedor/prazo)</label>
+          <label>📎 Ler print ou PDF do fornecimento ("Status do Pedido" do Cilia, "Peças do sinistro" do portal HDI, print do portal ou orçamento com fornecedor/prazo)</label>
           <input type="file" id="fornArq" accept="application/pdf,image/*" onchange="lerFornecimento(this)">
           <div class="dica" style="margin-top:6px">Ao escolher o arquivo a leitura começa sozinha (10–40 s). Depois confira os campos preenchidos e clique em <b>Salvar fornecimento</b> no fim da página — o arquivo vai anexado no card.</div>
           <div id="fornAnexos" class="dica" style="margin-top:6px"></div>
@@ -615,6 +615,7 @@ function erroFatal(msg) {
 function abrirFormulario() {
   mostrar('telaCarregando', false); mostrar('form', true);
   if (!$('itens').children.length) novoItem('peca');
+  dicasColar();
 }
 
 /* ---------- edição de card existente ---------- */
@@ -776,12 +777,79 @@ function textoTotais(escolhas) {
   out.push('Total <b>' + fmtValor(s + pt) + '</b>');
   return out.join(' · ');
 }
+/* ---------- colar (Ctrl+V) em qualquer ponto de anexo (07/10/2026, Weslley: "como estão acostumados no Trello") ----------
+ * Print, foto, PDF ou arquivo copiado do Explorer: o colar vai para o campo de anexo mais próximo de onde a pessoa
+ * clicou por último; sem clique, para o campo da aba aberta (Fornecimento, Recebimento, Pedido). O arquivo entra
+ * no <input type=file> e dispara o mesmo "change" do botão Escolher arquivo — nada muda no resto. */
+var ARQ_ALVO = null;
+document.addEventListener('mousedown', function (e) {
+  var raiz = e.target.closest ? e.target.closest('.item, section, #fornAtalho') : null;
+  var inp = raiz && raiz.querySelector('input[type=file]');
+  if (inp) ARQ_ALVO = inp;
+}, true);
+function arqVisivel(inp) {
+  if (!inp || !document.body.contains(inp)) return false;
+  var el = inp.id === 'fornArqTopo' ? $('fornAtalho') : inp;
+  for (var p = el; p && p !== document.body; p = p.parentNode) { if (p.classList && p.classList.contains('oculto')) return false; }
+  return true;
+}
+function arqAlvoPadrao(files) {
+  var soImagem = files.every(function (f) { return /^image\//.test(f.type); });
+  if (!$('comprador').classList.contains('oculto')) {
+    var foco = document.activeElement, item = foco && foco.closest ? foco.closest('#recItens .item') : null;
+    if (!$('painelRec').classList.contains('oculto')) return (item && item.querySelector('input[type=file]')) || $('recArqGeral');
+    if (!$('painelForn').classList.contains('oculto')) return $('fornArq');
+    return arqVisivel($('fornArqTopo')) ? $('fornArqTopo') : null;
+  }
+  if (!$('form').classList.contains('oculto')) {
+    var f2 = document.activeElement, naCapa = f2 && f2.closest && f2.closest('#capa, [for=capa]');
+    return naCapa && soImagem ? $('capa') : $('arquivo');
+  }
+  return null;
+}
+function aceita(inp, f) {
+  var acc = (inp.getAttribute('accept') || '').split(',').map(function (s) { return s.trim(); }).filter(String);
+  if (!acc.length) return true;
+  return acc.some(function (a) { return a === '*/*' || (a.charAt(0) === '.' ? f.name.toLowerCase().slice(-a.length) === a.toLowerCase() : (a.slice(-2) === '/*' ? f.type.indexOf(a.slice(0, -1)) === 0 : f.type === a)); });
+}
+document.addEventListener('paste', function (e) {
+  var cd = e.clipboardData; if (!cd) return;
+  var files = Array.prototype.slice.call(cd.files || []);
+  if (!files.length) Array.prototype.forEach.call(cd.items || [], function (it) { if (it.kind === 'file') { var f = it.getAsFile(); if (f) files.push(f); } });
+  if (!files.length) return;   // texto normal: deixa colar no campo
+  var carimbo = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  files = files.map(function (f, i) { return /^image\.(png|jpe?g)$/i.test(f.name) || !f.name ? new File([f], 'colado-' + carimbo + (i ? '-' + (i + 1) : '') + '.' + ((f.type.split('/')[1] || 'png').replace('jpeg', 'jpg')), { type: f.type }) : f; });
+  var alvo = arqVisivel(ARQ_ALVO) ? ARQ_ALVO : arqAlvoPadrao(files);
+  if (alvo && alvo.id === 'capa' && !files.every(function (f) { return aceita(alvo, f); })) alvo = $('arquivo');
+  if (!alvo || alvo.disabled) return;
+  var ok = files.filter(function (f) { return aceita(alvo, f); });
+  if (!ok.length) { avisoLento('Esse tipo de arquivo não serve aqui (' + files.map(function (f) { return f.name; }).join(', ') + ').'); setTimeout(function () { avisoLento(''); }, 4000); return; }
+  if (!alvo.multiple) ok = ok.slice(0, 1);
+  e.preventDefault();
+  try {
+    var dt = new DataTransfer(); ok.forEach(function (f) { dt.items.add(f); });
+    alvo.files = dt.files;
+  } catch (err) { avisoLento('Não consegui colar aqui — use o botão Escolher arquivo.'); setTimeout(function () { avisoLento(''); }, 4000); return; }
+  var rotulo = alvo.id === 'capa' ? 'foto de capa' : alvo.id === 'arquivo' ? 'documentos do pedido' : /^fornArq/.test(alvo.id) ? 'fornecimento' : 'recebimento';
+  avisoLento('📋 Colado em ' + rotulo + ': ' + ok.map(function (f) { return f.name; }).join(', ')); setTimeout(function () { avisoLento(''); }, 3000);
+  alvo.dispatchEvent(new Event('change', { bubbles: true }));
+});
+/** Dica "ou cole com Ctrl+V" ao lado de cada campo de arquivo (uma vez por campo). */
+function dicasColar() {
+  Array.prototype.forEach.call(document.querySelectorAll('input[type=file]:not([data-cola])'), function (inp) {
+    inp.dataset.cola = '1';
+    var ref = inp.id === 'fornArqTopo' ? document.querySelector('label[for=fornArqTopo]') : inp;
+    if (ref) ref.insertAdjacentHTML('afterend', ' <span class="dica" style="display:inline;font-size:12px;white-space:nowrap">📋 ou cole com Ctrl+V</span>');
+  });
+}
+
 function mostrarAba(a) {
   mostrar('painelCot', a === 'cot'); mostrar('painelAut', a === 'aut'); mostrar('painelCompra', a === 'compra');
   $('abaCot').classList.toggle('marcada', a === 'cot'); $('abaAut').classList.toggle('marcada', a === 'aut'); $('abaCompra').classList.toggle('marcada', a === 'compra');
   mostrar('painelRec', a === 'rec'); $('abaRec').classList.toggle('marcada', a === 'rec');
   mostrar('painelForn', a === 'forn'); $('abaForn').classList.toggle('marcada', a === 'forn');
   mostrar('erroComprador', false);
+  dicasColar();
 }
 
 /* ---------- menor preço / menor prazo por peça (sem olhar o tipo) ---------- */
@@ -937,6 +1005,7 @@ function montarRecebimento(c) {
     j.innerHTML = '✔ Já recebidas: ' + ja.map(function (i) { return esc(i.nome.split(' - ')[0]); }).join(' · ');
     box.appendChild(j);
   }
+  dicasColar();
 }
 function recAnexar(inp, idItem) {
   var files = Array.prototype.slice.call(inp.files || []);

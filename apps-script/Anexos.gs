@@ -92,7 +92,7 @@ function ax_batizarLido_(card, a, r, complementar, token) {
     var placa = ax_placa_(card);
     if (!placa) return '';
     var nome = '';
-    if (r.doc === 'FO') nome = ax_nome_(AX.FO, placa, ['Status do Pedido Cilia'], a.date);
+    if (r.doc === 'FO') nome = ax_nome_(AX.FO, placa, [r.docNome || 'Status do Pedido Cilia'], a.date);
     else if (r.orcamento && (r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) {
       nome = ax_nome_(complementar ? AX.ORC_MAIS : AX.ORC, placa, [r.seguradora || '', ax_origem_(r.orcamento)], a.date);
     }

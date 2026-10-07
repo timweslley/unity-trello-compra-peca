@@ -220,7 +220,7 @@ function vdf_atualizarFornecimento(token, p) {
       var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: f.getBlob(), name: '🚚 FO — ' + f.getName() } }, token);
       // nome padronizado "🚚 FO · PLACA · Status do Pedido Cilia · dd/MM" (v2, v3… quando entra outro) — 05/10/2026
       if (at && at.id) {
-        var nm = f.getName(), doc = /status/i.test(nm) ? 'Status do Pedido Cilia' : /hdi/i.test(nm) ? 'HDI' : /soma/i.test(nm) ? 'Websoma' : '';
+        var nm = f.getName(), doc = /status/i.test(nm) ? 'Status do Pedido Cilia' : /hdi/i.test(nm) ? 'Peças HDI' : /soma/i.test(nm) ? 'Websoma' : '';
         at.name = ax_batizar_(card.id, at.id, ax_nome_(AX.FO, ax_placa_(card), [doc]), anexosCard, token);
         anexosCard.push({ id: at.id, name: at.name, date: new Date().toISOString() });
       }
@@ -394,10 +394,96 @@ function pv_lerStatusCilia_(texto, lista) {
  * Procura no texto as peças alvo (por código) e, perto de cada uma, fornecedor e previsão.
  * alvos = [{codigo, descricao, ...}] -> [{alvo, fornecedor, previsao(ISO), linha}]
  */
+/**
+ * "Peças do sinistro" do portal HDI (07/10/2026, BXZ4J84): tabela sem código de peça —
+ *   PEÇA | Prev.Entrega | Entrega | Fornecedor | Tel. | E-mail   (e "Fornecido pela Oficina" nas peças da oficina)
+ * O texto chega em linha (PDF com texto/OCR que preserva colunas) ou em colunas (uma célula por linha: descrições,
+ * depois as datas soltas, depois os fornecedores na mesma ordem). Devolve [{descricao, previsao, entregueEm, entregue,
+ * fornecedor, oficina, linha}] ou null quando não é esse documento.
+ */
+function pv_lerHdiPecas_(texto, lista) {
+  var U = vd_semAcento_(texto);
+  if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
+  var linhas = String(texto || '').replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
+  var ini = -1, fim = linhas.length;
+  linhas.forEach(function (l, i) {
+    var u = vd_semAcento_(l);
+    if (ini < 0 && /PE[CG]AS DO (LAUDO|SINISTRO)/.test(u)) ini = i;
+    if (ini >= 0 && i > ini && /^FECHAR$/.test(u) && fim === linhas.length) fim = i;
+  });
+  var reTel = /\(\d{2}\)\s*\d{4,5}-?\d{4}/, reMail = /\S+@\S+\.\S+/, reData = /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g;
+  var cab = /^(PECA|PECAS|PREV\.?\s*ENTREGA|ENTREGA|FORNECEDOR|TEL\.?|E-?MAIL|PE[CG]AS DO LAUDO.*|PE[CG]AS DO SINISTRO|OLA .*)$|PREV\.?\s*ENTREGA.*FORNECEDOR/;
+  var pecas = [], fornecedores = [], datasSoltas = [], entregasSoltas = [], colunaAtual = '';
+  var fornDe = function (t) { t = t.replace(reMail, '').replace(reTel, '').replace(/\s+/g, ' ').trim(); return t ? pv_fornecedorCurto_(t, lista) || t : ''; };
+  for (var i = ini + 1; i < fim; i++) {
+    var l = linhas[i], u = vd_semAcento_(l);
+    // cabeçalho de coluna sozinho na linha (layout em colunas): diz de que coluna são as linhas seguintes
+    if (/^(ENTREGA|FORNECEDOR|TEL\.?|E-?MAIL)$/.test(u) && pecas.length) { colunaAtual = u.replace(/\W/g, ''); continue; }
+    if (cab.test(u)) continue;
+    if (/^FORNECIDO PELA OFICINA$/.test(u)) { fornecedores.push({ oficina: true }); continue; }
+    var datas = l.match(reData) || [];
+    var soDatas = datas.length && l.replace(reData, '').replace(/[\s\-]/g, '') === '';
+    if (soDatas) { datas.forEach(function (d) { (colunaAtual === 'ENTREGA' ? entregasSoltas : datasSoltas).push(d); }); continue; }
+    var temForn = reTel.test(l) || reMail.test(l), oficinaNaLinha = /FORNECIDO PELA OFICINA/.test(u);
+    if (temForn && !datas.length && colunaAtual) { fornecedores.push({ nome: fornDe(l) }); continue; }   // coluna Fornecedor, uma célula por linha
+    var desc = l.replace(reMail, '').replace(reTel, '');
+    var pos = desc.search(reData); if (pos >= 0) desc = desc.slice(0, pos);
+    var fornTxt = '';
+    if (temForn) { var m = l.match(reData); var dep = m ? l.slice(l.lastIndexOf(m[m.length - 1]) + m[m.length - 1].length) : ''; fornTxt = dep || ''; }
+    if (oficinaNaLinha) desc = desc.replace(/fornecido pela oficina/i, '');
+    desc = desc.replace(/\s+/g, ' ').trim();
+    if (!desc || desc.length < 4) {
+      // só fornecedor na linha (layout em colunas): entra na fila de fornecedores
+      if (temForn) fornecedores.push({ nome: fornDe(l) });
+      continue;
+    }
+    if (!/[A-Z]{3,}/.test(vd_semAcento_(desc))) continue;
+    var p = { descricao: desc.toUpperCase(), previsao: '', entregueEm: '', entregue: false, fornecedor: '', oficina: oficinaNaLinha, linha: l.slice(0, 120) };
+    if (datas[0]) p.previsao = datas[0];
+    if (datas[1]) p.entregueEm = datas[1];
+    if (temForn) p.fornecedor = fornDe(fornTxt || l.slice(desc.length));
+    p._temForn = temForn || oficinaNaLinha;
+    pecas.push(p);
+  }
+  // layout em colunas: datas soltas e fornecedores casam pela ordem com as peças que ficaram sem
+  var semData = pecas.filter(function (p) { return !p.previsao; });
+  datasSoltas.forEach(function (d, k) { if (semData[k]) semData[k].previsao = d; });
+  var comPrev = pecas.filter(function (p) { return p.previsao && !p.entregueEm; });
+  entregasSoltas.forEach(function (d, k) { if (comPrev[k]) comPrev[k].entregueEm = d; });
+  var semForn = pecas.filter(function (p) { return !p._temForn; });
+  fornecedores.forEach(function (f, k) { if (!semForn[k]) return; if (f.oficina) semForn[k].oficina = true; else semForn[k].fornecedor = f.nome; });
+  pecas.forEach(function (p) {
+    delete p._temForn;
+    var dp = p.previsao ? pv_datas_(p.previsao)[0] : null, de = p.entregueEm ? pv_datas_(p.entregueEm)[0] : null;
+    p.previsao = dp ? dp.toISOString() : '';
+    p.entregueEm = de ? de.toISOString() : '';
+    p.entregue = !!de;
+  });
+  return pecas.length ? pecas : null;
+}
+
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
   lista = lista || (function () { try { return fo_lista_(); } catch (e) { return []; } })();
+  // "Peças do sinistro" do portal HDI: sem código — casa pela descrição (07/10/2026)
+  var hdi = null; try { hdi = pv_lerHdiPecas_(texto, lista); } catch (e) { console.log('peças hdi: ' + e); }
+  if (hdi) {
+    var outH = [], usadasH = {};
+    (alvos || []).forEach(function (a) {
+      var melhor = -1, nota = 0;
+      hdi.forEach(function (p, i) {
+        if (usadasH[i] || p.oficina) return;
+        var sim = cp_similar_(a.descricao || a.nome, p.descricao);
+        if (sim > nota) { nota = sim; melhor = i; }
+      });
+      if (melhor < 0) return;
+      usadasH[melhor] = 1;
+      var r = hdi[melhor];
+      outH.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, entregue: r.entregue, entregueEm: r.entregueEm });
+    });
+    if (outH.length) return outH;
+  }
   // layout "Status do Pedido" do Cilia: fornecedor em duas linhas e data na linha da peça — leitor próprio
   var cilia = null; try { cilia = pv_lerStatusCilia_(texto, lista); } catch (e) { console.log('status cilia: ' + e); }
   if (cilia) {
@@ -511,8 +597,13 @@ function pv_lerFornecimentoTexto_(card, texto) {
   var orc = vd_lerOrcamento_(texto), extras = [];
   var conhecidas = alvos.map(function (a) { return cp_norm_(a.codigo); }).concat(vd_analisar_(card.desc, card.name).pecas.map(function (p) { return cp_norm_(p.codigo); })).filter(function (k) { return k.length >= 4; });
   var ja = function (k) { return conhecidas.some(function (c) { return c === k || c.indexOf(k) >= 0 || k.indexOf(c) >= 0; }); };
+  var hdiL = null; try { hdiL = pv_lerHdiPecas_(texto, foLista); } catch (e) {}
   if (orc.origem) {
     orc.fo.forEach(function (p) { var k = cp_norm_(p.codigo); if (k.length >= 4 && !ja(k)) extras.push(cp_nome_(p)); });
+  } else if (hdiL) {
+    // "Peças do sinistro" da HDI: FO do documento que não bate com nenhuma peça do card (pela descrição)
+    var descsCard = alvos.map(function (a) { return a.descricao || a.nome; }).concat(vd_analisar_(card.desc, card.name).pecas.map(function (p) { return p.descricao || ''; }));
+    hdiL.forEach(function (p) { if (p.oficina) return; if (!descsCard.some(function (d) { return cp_similar_(d, p.descricao) > 0; })) extras.push(p.descricao + (p.fornecedor ? ' (' + p.fornecedor + ')' : '')); });
   } else {
     String(texto).split('\n').forEach(function (l) {
       if (!pv_datas_(l).length) return;

@@ -671,7 +671,11 @@ function vd_lerAnexoTrello_(a, opt) {
       var orc = vd_lerOrcamento_(texto);
       r.cor = orc.cor; r.seguradora = orc.seguradora; r.sinistro = orc.sinistro; r.orcamento = orc.origem;
       // tipo do documento para o nome padronizado do anexo (05/10/2026): "Status do Pedido" do Cilia = fornecimento
-      if (!orc.origem && /STATUS DO PEDIDO|PREVISAO DE ENTREGA/.test(vd_normTexto_(texto))) r.doc = 'FO';
+      if (!orc.origem) {
+        var nt = vd_normTexto_(texto);
+        if (/STATUS DO PEDIDO|PREVISAO DE ENTREGA/.test(nt)) { r.doc = 'FO'; r.docNome = 'Status do Pedido Cilia'; }
+        else if (/PECAS DO SINISTRO|PECAS DO LAUDO/.test(nt)) { r.doc = 'FO'; r.docNome = 'Peças HDI'; }   // portal HDI (07/10/2026)
+      }
       if (orc.origem) {
         try { if (pv_enriquecerFo_(texto, orc.fo)) r.foi = orc.fo.filter(function (x) { return x.fornecedor || x.previsao; }).map(function (x) { return [x.codigo || '', x.fornecedor || '', x.previsao || '']; }); } catch (e) {}
         r.orc = { o: vd_orcCompacto_(orc.oficina), f: vd_orcCompacto_(orc.fo) }; orcFull = orc;
