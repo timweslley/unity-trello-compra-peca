@@ -34,6 +34,8 @@ export const CFG = {
     /** quadro em uso: ZX4gRmnX (TESTE) ou oH4TbTqb (principal) */
     quadro: process.env.TRELLO_QUADRO || 'ZX4gRmnX',
   },
+  /** planilha do robô ("Validação Trello — backup de descrições"), lida pela API do Sheets — só leitura */
+  planilhaId: valor('PLANILHA_ID'),
   /** liberação explícita para ligar no quadro principal (oH4TbTqb) — só na virada (fase 5) */
   permitirPrincipal: valor('PERMITIR_PRINCIPAL').toUpperCase() === 'SIM',
   /** 'OBSERVAR' = só grava no banco, nunca mexe no Trello; 'ATIVO' = aplica as regras */

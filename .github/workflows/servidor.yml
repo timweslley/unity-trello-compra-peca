@@ -15,6 +15,7 @@ env:
   REGIAO: southamerica-east1
   SERVICO: compra-peca
   TRELLO_QUADRO: ZX4gRmnX   # TESTE; o principal (oH4TbTqb) só na fase 5
+  PLANILHA_ID: 12O4Ztbwm3Qk6TonDCpkCGCRlKVUrESX8qm_z4qz0gcU   # planilha do robô (só leitura)
   MODO: ATIVO               # ATIVO no TESTE (Weslley, 07/10); o principal segue bloqueado no código
 defaults:
   run:
@@ -71,7 +72,7 @@ jobs:
             --service-account "compra-peca-run@${GCP_PROJETO}.iam.gserviceaccount.com" \
             --no-invoker-iam-check \
             --min-instances 0 --max-instances 2 --memory 512Mi --cpu 1 --timeout 300 \
-            --set-env-vars "GIT_SHA=${GITHUB_SHA::7},URL_PUBLICA=${URL},TRELLO_QUADRO=${TRELLO_QUADRO},MODO=${MODO}" \
+            --set-env-vars "GIT_SHA=${GITHUB_SHA::7},URL_PUBLICA=${URL},TRELLO_QUADRO=${TRELLO_QUADRO},MODO=${MODO},PLANILHA_ID=${PLANILHA_ID}" \
             --update-secrets "DATABASE_URL=DATABASE_URL:latest,TRELLO_KEY=TRELLO_KEY:latest,TRELLO_TOKEN=TRELLO_TOKEN:latest,TRELLO_SEGREDO=TRELLO_SEGREDO:latest" \
             --quiet
       - name: Conferir /saude

@@ -8,6 +8,7 @@ import { CFG } from './config.js';
 import { migrar, consulta } from './db.js';
 import { assinaturaValida, guardarAcao, type AcaoTrello } from './trello/webhook.js';
 import { garantirWebhook, chamadasTrello } from './trello/api.js';
+import { importarPlanilha } from './google/planilha.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -23,8 +24,13 @@ async function sincronizarTudo(log: { error: (e: unknown, m: string) => void }, 
     const quadro = await sincronizarQuadro(CFG.trello.quadro, CFG.permitirPrincipal);
     let historico: unknown = null;
     if (comHistorico) historico = await importarHistorico(CFG.trello.quadro, CFG.permitirPrincipal);
+    // planilha do robô (descrição completa + eventos): erro aqui não derruba o resto
+    let planilha: unknown = null;
+    if (CFG.planilhaId) {
+      try { planilha = await importarPlanilha(CFG.planilhaId); } catch (e) { planilha = { erro: (e as Error).message }; }
+    }
     ultimaSinc = Date.now();
-    return { quadro, historico };
+    return { quadro, historico, planilha };
   })().catch((e) => { log.error(e, 'sincronização falhou'); throw e; }).finally(() => { sincEmAndamento = null; });
   return sincEmAndamento;
 }
