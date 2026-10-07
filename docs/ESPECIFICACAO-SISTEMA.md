@@ -273,6 +273,10 @@ Quem batiza: o robô ao ler anexo novo subido à mão (módulo complemento; leit
 Links anexados ao card: `✏️ EDITAR/INCLUIR PEÇA` (`?card=<shortLink>`) e `💰 COTAÇÃO/COMPRA/RECEBIMENTO`
 (`&modo=compras`).
 
+**Power-Up** (`powerup/`): o Trello reaproveita o iframe da seção do card ao trocar de card, mudando só o `#contexto`
+do endereço (sem recarregar) — a biblioteca guarda o contexto lido na abertura. A seção e o popup recarregam no
+`hashchange` e conferem o card do hash contra o da biblioteca antes de abrir o formulário (07/10/2026, BXZ4J84 abria AUX4331).
+
 ### 4.6 Campos personalizados
 
 `Unidade` (lista), `Seguradora` (lista, aprende), `Tipo` (SEGURADORA/PARTICULAR/MISTO), `Placa`, `Consultor`

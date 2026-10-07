@@ -42,11 +42,24 @@ var cfg = window.PU_CFG;
 var t = TrelloPowerUp.iframe({ appKey: cfg.CHAVE, appName: cfg.NOME });
 var base = location.href.replace(/[^\/]*$/, '');
 
+/* 07/10/2026 (BXZ4J84 abriu AUX4331): o Trello reaproveita este iframe ao trocar de card e só muda o "#contexto" do
+ * endereço — a página não recarrega e a biblioteca guarda o contexto (card) lido na abertura. Resultado: botões e
+ * resumo do card anterior. Mudou o hash = mudou o card: recarrega. */
+window.addEventListener('hashchange', function () { location.reload(); });
+function cardDoHash() {
+  try { return (JSON.parse(decodeURIComponent(location.hash.slice(1))).context || {}).card || ''; } catch (e) { return ''; }
+}
+function contextoVelho() {
+  var agora = cardDoHash(), lib = (t.getContext() || {}).card || '';
+  return !!(agora && lib && agora !== lib);
+}
+
 function $(id) { return document.getElementById(id); }
 function ehCardFixo(nome) {
   return /^\s*AVISO\b/i.test(nome || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '');
 }
 function abrir(shortLink, modo, titulo) {
+  if (contextoVelho()) { location.reload(); return; }   // contexto da biblioteca ficou de outro card: não abre o errado
   return t.modal({ url: base + 'form.html', args: { card: shortLink, modo: modo }, fullscreen: true, title: titulo });
 }
 function botao(texto, classe, acao) {
@@ -115,8 +128,8 @@ function desenhar() {
   });
 }
 
-t.render(desenhar);
-desenhar();
+t.render(function () { if (contextoVelho()) return location.reload(); return desenhar(); });
+if (contextoVelho()) location.reload(); else desenhar();
 </script>
 </body>
 </html>
