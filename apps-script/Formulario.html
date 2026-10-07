@@ -1079,6 +1079,7 @@ function montarCotacao(c) {
                 : ' <button type="button" class="mini" onclick="editarCot(this, ' + j + ')">✏️ editar</button> <button type="button" class="mini" onclick="removerCot(this)">🗑️ remover</button>') + '</div>';
     }).join('') + '</div>';
     div.dataset.lidas = JSON.stringify(jaLidas);
+    if (autP) h += '<div class="dica" style="margin-bottom:6px">✅ Peça já autorizada — cotação nova aqui fica <b>só de registro</b> (não muda a autorização nem a coluna). Para trocar o fornecedor, use <b>cotação indisponível</b> na aba Compra.</div>';
     h += obsPedido(p);
     var obsLidas = ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; });
     if (obsLidas.length) h += '<div class="dica" style="margin-bottom:6px">Obs. já no card: ' + obsLidas.map(function (o) { return esc(o.texto); }).join(' · ') + '</div>';
@@ -1186,6 +1187,7 @@ function enviarCotacao(parcial) {
     botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoCot', false);
     if (!r.ok) return errosComprador(r.faltas);
     var falta = r.faltam && r.faltam.length ? esc(r.faltam.join(', ')) : '';
+    if (r.registro) return sucesso('📝 Cotação registrada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' cotação(ões) em peça(s) já autorizada(s). A autorização e a coluna (<b>' + esc(r.lista) + '</b>) não mudam.', r.url, 'Lançar mais / comprar');
     if (r.parcial) return sucesso('💾 Cotação parcial salva no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' cotação(ões)' + (r.obs ? ', ' + r.obs + ' observação(ões)' : '') + '.'
       + (falta ? '<br>⏳ Ainda falta cotar ou justificar: ' + falta + '.' : '<br>✅ Todas as peças já têm cotação ou motivo — quando quiser, abra de novo e clique em <b>Enviar cotação</b>.')
       + '<br>O card fica em <b>EM COTAÇÃO</b> até você enviar.', r.url, 'Continuar cotando');

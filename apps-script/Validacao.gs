@@ -2149,6 +2149,9 @@ function vd_vitrine_(desc, nome, pagas) {
     } else if (aut) {
       var qa = minhas.filter(function (q) { return q.fornecedor === aut.fornecedor && Math.abs(q.valor - aut.valor) < 0.005; })[0] || {};
       sub.push('✅ ' + vd_md_([fornTxt(aut.fornecedor), tipoTxt(qa), vd_valorBR_(aut.valor), prazoTxt(qa)].filter(String).join(' · ')) + ecoTxt(p, aut) + linkTxt(qa));
+      // outras cotações da peça (anteriores ou lançadas só de registro depois da autorização, 07/10/2026)
+      var outras = minhas.filter(function (q) { return q !== qa; });
+      if (outras.length) sub.push('📝 também cotado: ' + outras.slice(0, 4).map(function (q) { return vd_md_([fornTxt(q.fornecedor), vd_valorBR_(q.valor), prazoTxt(q)].filter(String).join(' ')); }).join(' · ') + (outras.length > 4 ? ' · …' : ''));
     } else {
       if (!p.pneu && (p.tipos || []).length) cab += ' _(' + p.tipos.map(vd_tit_).join('/') + ')_';
       if (minhas.length) minhas.forEach(function (q) { sub.push(vd_md_([fornTxt(q.fornecedor), tipoTxt(q), vd_valorBR_(q.valor), prazoTxt(q)].filter(String).join(' · ')) + ecoTxt(p, q) + linkTxt(q)); });

@@ -906,18 +906,24 @@ function vdf_salvarCotacao(token, p) {
   var nada = !cots.length && !nt.length && !obs.length && !semCot.length && !rem.length;
   if (nada && parcial) faltas.push('Nada novo para salvar.');
   if (faltas.length) return { ok: false, faltas: faltas };
+  /* 07/10/2026 (Weslley): cotação lançada em peça JÁ AUTORIZADA (ou comprada) é só de registro — fica na descrição e na
+   * vitrine ("📝 também cotado"), mas não mexe na autorização, não move o card e não menciona ninguém. Vale quando toda
+   * cotação deste envio é de peça autorizada e não há peça nova sem cotação / remoção junto. Para trocar o fornecedor
+   * autorizado, o caminho continua sendo "cotação indisponível" na aba Compra. */
+  var registro = !parcial && cots.length > 0 && !rem.length && !semCot.length
+    && cots.every(function (c) { return autsAntes.some(function (a) { return a.chave === vd_chavePeca_(c.peca); }); });
   var novaDesc = card.desc;
   if (!nada) novaDesc = vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem);
   // enviar: toda peça precisa de cotação OU de justificativa para não cotar (salvar parcial não exige)
   var cobPrev = vdf_coberturaCotacao_(novaDesc, an.pecas);
-  if (!parcial && cobPrev.faltam.length) return { ok: false, faltas: cobPrev.faltam.map(function (n) { return n + ': sem cotação — lance a cotação, escreva o motivo de não cotar, ou use "Salvar parcial"'; }) };
+  if (!parcial && !registro && cobPrev.faltam.length) return { ok: false, faltas: cobPrev.faltam.map(function (n) { return n + ': sem cotação — lance a cotação, escreva o motivo de não cotar, ou use "Salvar parcial"'; }) };
   if (!nada) {
-    vd_backup_(card, 'cotação ' + (parcial ? 'parcial ' : '') + 'lançada pelo formulário por ' + me.username);
+    vd_backup_(card, 'cotação ' + (parcial ? 'parcial ' : registro ? 'de registro ' : '') + 'lançada pelo formulário por ' + me.username);
     vd_gravarDesc_(card.id, novaDesc, token);
     try { fo_registrarUso_(cots.map(function (c) { return c.fornecedor; }).concat(nt), me.username); } catch (e) {}
     try {
       ev_registrar_('COTAÇÃO', card, me.username,
-        cots.map(function (c) { var e = ev_peca_(c.peca); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias; e.detalhe = [c.tipo, c.marca].filter(String).join(' ') + (parcial ? ' (parcial)' : ''); return e; })
+        cots.map(function (c) { var e = ev_peca_(c.peca); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias; e.detalhe = [c.tipo, c.marca].filter(String).join(' ') + (parcial ? ' (parcial)' : registro ? ' (registro, peça já autorizada)' : ''); return e; })
           .concat(semCot.map(function (x) { var e = ev_peca_(x.peca); e.detalhe = 'SEM COTAÇÃO: ' + x.texto; return e; }))
           .concat(nt.map(function (f) { return { fornecedor: f, detalhe: 'NT (não tem)' }; }))
           .concat(rem.map(function (r) { var e = ev_peca_(r.peca); e.fornecedor = r.fornecedor; e.valor = r.valor; e.detalhe = 'COTAÇÃO REMOVIDA'; return e; })));
@@ -933,9 +939,18 @@ function vdf_salvarCotacao(token, p) {
   var particular = an.pecas.length ? an.pecas.every(function (x) { return vdf_pecaParticular_(x, card, an); }) : vdf_ehParticular_(card, an);
   var misto = !particular && an.pecas.some(function (x) { return x.particular; });
   var movido = '';
-  try { movido = vdf_moverPara_(card, ctx, parcial || cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token, me.username); } catch (e) {}
-  try { vdf_etiquetaParcial_(card, parcial || cob.faltam.length > 0, token); } catch (e) {}
+  if (!registro) {
+    try { movido = vdf_moverPara_(card, ctx, parcial || cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token, me.username); } catch (e) {}
+    try { vdf_etiquetaParcial_(card, parcial || cob.faltam.length > 0, token); } catch (e) {}
+  }
   var nPc = Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length;
+  if (registro) {
+    try {
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '📝 **COTAÇÃO DE REGISTRO** — ' + me.fullName + ' · ' + cots.length + ' cotação(ões) em ' + nPc + ' peça(s) já autorizada(s): a autorização e a coluna não mudam. Para trocar o fornecedor autorizado, use "cotação indisponível" na aba Compra.' } }, token);
+    } catch (e) {}
+    try { vd_marcar_(card); } catch (e) {}
+    return { ok: true, registro: true, url: card.shortUrl, nome: card.name, lista: vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: [], semCot: 0 };
+  }
   if (parcial) {
     // salva aos poucos: comentário curto, sem mencionar ninguém (o card não anda)
     try {
