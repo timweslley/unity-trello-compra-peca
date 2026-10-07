@@ -389,11 +389,16 @@
         <input type="text" id="cotNT" class="maiusc" placeholder="Ex.: ELETROPAR, TOLI (separe por vírgula)">
         <div class="dica" id="ntExistentes"></div>
       </section>
-      <div class="dica" style="margin:0 0 8px">💾 <b>Salvar parcial</b> guarda no card o que você já tem (pode fechar e voltar depois; o card fica em EM COTAÇÃO). ✅ <b>Enviar cotação</b> é só quando toda peça tiver cotação ou motivo de não cotar — aí o card segue para autorização.</div>
-      <div class="rodape" style="margin-bottom:30px">
-        <button type="button" class="secundario" id="btnCotParcial" onclick="enviarCotacao(true)">💾 Salvar parcial</button>
-        <button type="button" class="principal" id="btnCotacao" onclick="enviarCotacao(false)">✅ Enviar cotação</button>
-        <span class="carregando oculto" id="enviandoCot">Enviando…</span>
+      <div class="item" style="margin:8px 0 30px">
+        <div style="font-size:13px;color:var(--texto);margin-bottom:10px;line-height:1.45">
+          <b>💾 Salvar parcial</b> — guarda no card o que você já tem; pode fechar e voltar depois (o card fica em EM COTAÇÃO).<br>
+          <b>✅ Enviar cotação</b> — só quando toda peça tiver cotação ou motivo de não cotar; aí o card segue para autorização.
+        </div>
+        <div class="rodape" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+          <button type="button" class="principal" id="btnCotParcial" onclick="enviarCotacao(true)" style="background:#fff;color:var(--azul);border:2px solid var(--azul)">💾 Salvar parcial</button>
+          <button type="button" class="principal" id="btnCotacao" onclick="enviarCotacao(false)">✅ Enviar cotação</button>
+          <span class="carregando oculto" id="enviandoCot">Enviando…</span>
+        </div>
       </div>
     </div>
 
