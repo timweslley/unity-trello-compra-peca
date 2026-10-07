@@ -488,7 +488,7 @@
 <script>
 /* Versão estática do formulário (GitHub Pages). O servidor continua sendo o Apps Script,
  * chamado por fetch (doPost {fn,args}). Gerada a partir de apps-script/Formulario.html. */
-var CFG = { chave: PU_CFG.CHAVE, urlApp: PU_CFG.URL_FORM, teste: false, tipos: ['GENUÍNO', 'ORIGINAL', 'PARALELO', 'USADO'], categPneu: ['IMPORTADO', '1ª LINHA'] };
+var CFG = { chave: PU_CFG.CHAVE, urlApp: (/[?&]srv=1(&|$)/.test(location.search) ? PU_CFG.URL_FORM.replace(/formulario\.html$/, 'servidor.html') : PU_CFG.URL_FORM), teste: false, tipos: ['GENUÍNO', 'ORIGINAL', 'PARALELO', 'USADO'], categPneu: ['IMPORTADO', '1ª LINHA'] };
 var TOKEN = '', CARD_EDICAO = '', FILE_IDS = [], CAPA_ID = '', seq = 0;
 var COMP = null;   // orçamento complementar lido neste card: {origem, fo:[peças novas da seguradora]}
 var ABA_INICIAL = '';   // modo=cot|aut|compra|rec abre direto na aba da tarefa

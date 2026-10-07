@@ -29,7 +29,7 @@ def gerar(s):
                '<script src="./config.js"></script>\n<script>\n'
                '/* Versão estática do formulário (GitHub Pages). O servidor continua sendo o Apps Script,\n'
                ' * chamado por fetch (doPost {fn,args}). Gerada a partir de apps-script/Formulario.html. */\n'
-               "var CFG = { chave: PU_CFG.CHAVE, urlApp: PU_CFG.URL_FORM, teste: false, tipos: ['GENUÍNO', 'ORIGINAL', 'PARALELO', 'USADO'], categPneu: ['IMPORTADO', '1ª LINHA'] };")
+               "var CFG = { chave: PU_CFG.CHAVE, urlApp: (/[?&]srv=1(&|$)/.test(location.search) ? PU_CFG.URL_FORM.replace(/formulario\\.html$/, 'servidor.html') : PU_CFG.URL_FORM), teste: false, tipos: ['GENUÍNO', 'ORIGINAL', 'PARALELO', 'USADO'], categPneu: ['IMPORTADO', '1ª LINHA'] };")
     i = s.index('/* Leituras: se o Google prender')
     j = s.index('function telaLogin() {')
     s = s[:i] + BLOCO_CHAMAR + s[j:]
