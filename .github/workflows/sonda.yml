@@ -1,0 +1,55 @@
+# Sonda de velocidade (07/10/2026, autorizada pelo Weslley): publica a MESMA imagem do servidor numa região dos EUA
+# (perto do Trello), SEM webhook (URL_PUBLICA vazia, MODO=OBSERVAR) e mede /tarefas/latencia lá e em São Paulo.
+# Roda só quando este arquivo muda. Para apagar a sonda: trocar ACAO para "apagar" e enviar.
+name: Sonda de velocidade
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/sonda.yml']
+concurrency: sonda
+env:
+  ACAO: medir
+  GCP_PROJETO: unity-compra-peca
+  GCP_NUMERO: '858550421734'
+  REGIAO_SP: southamerica-east1
+  REGIAO_SONDA: us-east4
+  SERVICO: compra-peca-sonda
+  TRELLO_QUADRO: ZX4gRmnX
+jobs:
+  sonda:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.GCP_NUMERO }}/locations/global/workloadIdentityPools/github/providers/github
+          service_account: publicador@${{ env.GCP_PROJETO }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Apagar a sonda
+        if: env.ACAO == 'apagar'
+        run: gcloud run services delete "$SERVICO" --project "$GCP_PROJETO" --region "$REGIAO_SONDA" --quiet || true
+      - name: Esperar a publicação do servidor (a sonda usa a mesma imagem)
+        if: env.ACAO == 'medir'
+        run: sleep 240
+      - name: Publicar a sonda
+        if: env.ACAO == 'medir'
+        run: |
+          IMG=$(gcloud run services describe compra-peca --project "$GCP_PROJETO" --region "$REGIAO_SP" --format='value(spec.template.spec.containers[0].image)')
+          echo "imagem: $IMG"
+          gcloud run deploy "$SERVICO" --image "$IMG" --project "$GCP_PROJETO" --region "$REGIAO_SONDA" \
+            --service-account "compra-peca-run@${GCP_PROJETO}.iam.gserviceaccount.com" --no-invoker-iam-check \
+            --min-instances 0 --max-instances 1 --memory 2Gi --cpu 2 --timeout 300 \
+            --set-env-vars "TRELLO_QUADRO=${TRELLO_QUADRO},MODO=OBSERVAR,GIT_SHA=sonda" \
+            --update-secrets "DATABASE_URL=DATABASE_URL:latest,TRELLO_KEY=TRELLO_KEY:latest,TRELLO_TOKEN=TRELLO_TOKEN:latest" --quiet
+      - name: Medir
+        if: env.ACAO == 'medir'
+        run: |
+          SP="https://compra-peca-${GCP_NUMERO}.${REGIAO_SP}.run.app"
+          US=$(gcloud run services describe "$SERVICO" --project "$GCP_PROJETO" --region "$REGIAO_SONDA" --format='value(status.url)')
+          for u in "$SP" "$US"; do curl -s "$u/saude" >/dev/null; sleep 5; done
+          for i in 1 2; do
+            echo "== São Paulo"; curl -s "$SP/tarefas/latencia"; echo
+            echo "== EUA (${REGIAO_SONDA})"; curl -s "$US/tarefas/latencia"; echo
+          done
