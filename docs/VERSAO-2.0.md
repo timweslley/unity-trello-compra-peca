@@ -33,7 +33,7 @@ Tudo é montado e testado no quadro **TESTE** (laboratório). O principal só mu
 Uma ação típica do formulário faz ~17 consultas ao Trello e ~12 ao banco: São Paulo ≈ 3,3 s; EUA com banco em SP ≈ 2,8 s
 (quase nada); **EUA com o banco também nos EUA ≈ 1,4 s (2,3× mais rápido)**. Junto vai a memória do que quase não muda
 (publicada 07/10: tira ~4 das 17 consultas). Mudar exige banco novo no Neon nos EUA (cópia do atual) e trocar o segredo
-DATABASE_URL — decisão do Weslley (dados passam a ficar nos EUA, como já ficam no Trello).
+DATABASE_URL — decisão do Weslley (dados passam a ficar nos EUA, como já ficam no Trello). **Adiada para 08/10/2026** (pedido dele); a sonda `compra-peca-sonda` (us-east4) fica parada até lá, sem custo.
 
 ## Decisões registradas
 
