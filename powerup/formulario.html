@@ -2890,6 +2890,16 @@ iniciar();
       var sec = g('anexosCard').closest('section'); var h2 = sec && sec.querySelector('h2');
       if (h2) h2.insertAdjacentElement('afterend', lista); else g('anexosCard').insertAdjacentElement('beforebegin', lista);
     });
+    // resultado da leitura aparece no próprio cartão (não lá embaixo do botão de foto)
+    var lc = g('anexosCard') && g('anexosCard')._v2lista, da = g('dicaArquivo');
+    if (lc && da) {
+      var res = lc.querySelector('.v2-resultado');
+      if (!res) { res = document.createElement('div'); res.className = 'v2-resultado'; lc.appendChild(res); }
+      var tx = (da.textContent || '').trim();
+      res.textContent = tx; res.style.display = tx ? '' : 'none';
+      res.className = 'v2-resultado ' + (da.classList.contains('ruim') ? 'dica ruim' : 'dica boa');
+      res.style.marginTop = '8px'; res.style.display = tx ? 'block' : 'none';
+    }
     cartaoLeitura(g('fornAnexosTopo'), '🚚 Ler fornecimento de um anexo do card', 'Status do Pedido (Cilia), Peças do sinistro (HDI) ou print do portal.', null);
     cartaoLeitura(g('fornAnexos'), '🚚 Ler fornecimento de um anexo do card', '', null);
     teclados();
