@@ -578,6 +578,43 @@ var CHAMADA_LONGA = { vdf_lerDocumento: 1, vdf_lerAnexoCard: 1, vdf_subirArquivo
  * Sem srv=1 (quadro principal, links antigos) continua no Apps Script — nada muda para o principal. */
 var URL_CHAMADA = (/[?&]srv=1(&|$)/.test(location.search) && window.PU_CFG && PU_CFG.URL_SERVIDOR) ? PU_CFG.URL_SERVIDOR : PU_CFG.URL_APP;
 function novoRid() { return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10); }
+/* 07/10/2026 (Weslley: "a velocidade tem impactado o uso"): no quadro PRINCIPAL, as leituras de navegação (abrir, carregar
+ * card, buscar placa) podem ir ao servidor próprio, que responde sem a fila do Google. Gravações e OCR continuam no Apps
+ * Script. Ligado por usuário em PU_CFG.LEITURA_SERVIDOR (lista de usuários ou 'todos'); se o servidor não responder em
+ * 8 s, recusar ou errar, a chamada cai no Google como sempre — a pessoa não percebe. */
+var LEITURA_SRV_FN = { vdf_iniciar: 1, vdf_abrir: 1, vdf_buscarPlaca: 1, vdf_carregarCard: 1 };
+function leituraServidorLigada() {
+  if (!(window.PU_CFG && PU_CFG.URL_SERVIDOR) || URL_CHAMADA === PU_CFG.URL_SERVIDOR) return false;   // já é o servidor (srv=1)
+  try { return localStorage.getItem('vd_leitura_srv') === '1'; } catch (e) { return false; }
+}
+/* chamado depois do login (vdf_iniciar devolve o usuário): guarda a decisão para as próximas aberturas */
+function ligarLeituraServidor(usuario) {
+  var cfg = window.PU_CFG && PU_CFG.LEITURA_SERVIDOR, liga = false;
+  if (cfg === 'todos') liga = true;
+  else if (cfg && cfg.usuarios) liga = cfg.usuarios.map(function (u) { return String(u).toLowerCase(); }).indexOf(String(usuario || '').toLowerCase()) >= 0;
+  try { localStorage.setItem('vd_leitura_srv', liga ? '1' : '0'); } catch (e) {}
+  return liga;
+}
+/* medição local (últimas 60 chamadas): fn, por onde foi, ms, ok — para diagnóstico pelo console (vd_tempos) */
+function anotarTempo(fn, via, ms, ok) {
+  try { var l = JSON.parse(localStorage.getItem('vd_tempos') || '[]'); l.push([new Date().toISOString().slice(11, 19), fn, via, ms, ok ? 1 : 0]); localStorage.setItem('vd_tempos', JSON.stringify(l.slice(-60))); } catch (e) {}
+}
+function chamarServidorLeitura(corpo, fn) {
+  var t0 = Date.now();
+  return new Promise(function (resolver, rejeitar) {
+    var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var rel = setTimeout(function () { try { ctl && ctl.abort(); } catch (e) {} rejeitar(new Error('servidor: 8 s')); }, 8000);
+    fetch(PU_CFG.URL_SERVIDOR, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo, signal: ctl ? ctl.signal : undefined })
+      .then(function (r) { if (r.status >= 400) throw new Error('servidor: ' + r.status); return r.text(); })
+      .then(function (t) {
+        clearTimeout(rel);
+        var j; try { j = JSON.parse(t); } catch (e) { throw new Error('servidor: resposta inválida'); }
+        if (j.ok) { anotarTempo(fn, 'srv', Date.now() - t0, true); resolver(j.r); return; }
+        throw new Error('servidor: ' + (j.erro || 'erro'));   // erro de negócio ou recusa: o Google responde (e explica)
+      })
+      .catch(function (e) { clearTimeout(rel); anotarTempo(fn, 'srv', Date.now() - t0, false); rejeitar(e); });
+  });
+}
 function avisoLento(txt) {
   var d = $('avisoLento');
   if (!d) {
@@ -590,7 +627,14 @@ function avisoLento(txt) {
 }
 function chamar(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
-  var leitura = !!CHAMADA_LEITURA[fn], longa = !!CHAMADA_LONGA[fn];
+  if (LEITURA_SRV_FN[fn] && leituraServidorLigada()) {
+    var corpoSrv = JSON.stringify({ fn: fn, args: args });
+    return chamarServidorLeitura(corpoSrv, fn).catch(function () { return chamarGoogle(fn, args); });
+  }
+  return chamarGoogle(fn, args);
+}
+function chamarGoogle(fn, args) {
+  var leitura = !!CHAMADA_LEITURA[fn], longa = !!CHAMADA_LONGA[fn], tIni = Date.now();
   var ridOk = !!(window.PU_CFG && PU_CFG.SERVIDOR_RID);
   var paralelo = leitura || ridOk;
   /* espera antes de disparar a próxima tentativa */
@@ -640,7 +684,8 @@ function chamar(fn) {
         .then(function (t) {
           if (fim) return;
           var j; try { j = JSON.parse(t); } catch (e) { throw new Error('resposta inválida'); }
-          if (j.ok) { encerrar(); resolver(j.r); return; }
+          if (j.ok) { encerrar(); anotarTempo(fn, 'google', Date.now() - tIni, true); resolver(j.r); return; }
+          anotarTempo(fn, 'google', Date.now() - tIni, false);
           erroFinal(j.erro || 'Erro no servidor');
         })
         .catch(function (e) { if (!fim) falhaDeRede(e); });
@@ -714,6 +759,7 @@ function iniciar() {
     chamar('vdf_abrir', TOKEN, CARD_EDICAO || '').then(function (ab) {
       var info = ab.info;
       if (info.cfg) { CFG.teste = !!info.cfg.teste; CFG.tipos = info.cfg.tipos || CFG.tipos; CFG.categPneu = info.cfg.categPneu || CFG.categPneu; mostrar('seloTeste', CFG.teste); }
+      if (typeof ligarLeituraServidor === 'function') ligarLeituraServidor(info.usuario);   // leitura pelo servidor próprio, por usuário (07/10/2026)
       $('usuario').innerHTML = esc(info.nome) + ' <a href="#" onclick="sair();return false">sair</a>';
       COMPRADOR = !!info.comprador;
       var sel = $('unidade');

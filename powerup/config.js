@@ -11,6 +11,9 @@ window.PU_CFG = {
    * os demais (o principal) continuam no Apps Script (URL_APP). */
   URL_SERVIDOR: 'https://compra-peca-858550421734.southamerica-east1.run.app/api',
   QUADROS_SERVIDOR: ['ZX4gRmnX'],
+  /* 07/10/2026: no quadro PRINCIPAL, leituras de navegação (abrir, carregar card, buscar placa) pelo servidor próprio,
+   * com volta automática ao Apps Script se ele não responder. Por usuário; 'todos' libera a equipe inteira. */
+  LEITURA_SERVIDOR: { usuarios: ['timweslley', 'christianfarias23'] },
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:

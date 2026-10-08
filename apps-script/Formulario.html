@@ -627,6 +627,7 @@ function iniciar() {
     if (MODO_COMPRAS) document.querySelector('header h1').textContent = ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento', forn: 'Fornecimento' })[ABA_INICIAL] ? ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento', forn: 'Fornecimento' })[ABA_INICIAL] + ' de Peça — Unity' : 'Cotação / Compra / Recebimento — Unity';
     if (!TOKEN) return telaLogin();
     chamar('vdf_iniciar', TOKEN).then(function (info) {
+      if (typeof ligarLeituraServidor === 'function') ligarLeituraServidor(info.usuario);   // leitura pelo servidor próprio, por usuário (07/10/2026)
       $('usuario').innerHTML = esc(info.nome) + ' <a href="#" onclick="sair();return false">sair</a>';
       COMPRADOR = !!info.comprador;
       var sel = $('unidade');
