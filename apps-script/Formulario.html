@@ -2215,8 +2215,19 @@ iniciar();
   .v2 .tt .aba .rotulo, .v2 .aba .rotulo { display:inline !important; }
   .v2 #fornAtalho label.botao { color:#fff !important; font-size:15px !important; min-height:48px; display:flex; align-items:center; }
   .v2 #fornAtalho { padding:10px !important; }
-  .v2 #fornAtalho > strong, .v2 #fornAnexosTopo { display:none; }
-  .v2.v2-detalhes #fornAtalho > strong, .v2.v2-detalhes #fornAnexosTopo { display:inline; }
+  .v2 #fornAtalho > strong { display:none; }
+  .v2.v2-detalhes #fornAtalho > strong { display:inline; }
+  /* anexos que já estão no card: cartão com botão grande "Ler" (07/10: "ruim de clicar" e "ficou oculto") */
+  .v2 .v2-orig { display:none !important; }
+  .v2 .v2-ler { background:#fff; border:2px solid #0c66e4; border-radius:12px; padding:10px 12px; margin:4px 0 14px; width:100%; }
+  .v2 .v2-ler h4 { margin:0 0 4px; font-size:16px; line-height:22px; color:#172b4d; }
+  .v2 .v2-ler .sub { font-size:14px; color:#44546f; margin-bottom:4px; }
+  .v2 .v2-ler .linha { display:flex; align-items:center; gap:10px; padding:8px 0; border-top:1px solid #dcdfe4; }
+  .v2 .v2-ler .linha:first-of-type { border-top:0; }
+  .v2 .v2-ler .ico { font-size:22px; flex:0 0 auto; }
+  .v2 .v2-ler .nome { flex:1; min-width:0; font-size:15px; line-height:20px; font-weight:600; color:#172b4d; text-decoration:none; overflow-wrap:anywhere; }
+  .v2 .v2-ler .nome small { display:block; font-weight:400; color:#0c66e4; font-size:13px; }
+  .v2 .v2-ler button { min-height:48px; flex:0 0 auto; padding:8px 14px !important; font-size:16px !important; }
   .v2 #modoEdicao, .v2 #infoComprador { display:none; }
   .v2.v2-detalhes #modoEdicao:not(.oculto), .v2.v2-detalhes #infoComprador { display:block; }
   .v2 .dica:not(.ruim):not(.boa):not([id]):not(.item .dica), .v2 #painelCot > .item > div:first-child, .v2 #painelAut > .item > div:first-child,
@@ -2709,8 +2720,46 @@ iniciar();
   }
   if (form) { form.addEventListener('input', function () { clearTimeout(guardarRascunho.t); guardarRascunho.t = setTimeout(guardarRascunho, 800); }); form.addEventListener('change', function () { setTimeout(guardarRascunho, 300); }); }
 
+  /* ---------- anexos do card: cartão com botão grande "Ler" ---------- */
+  function cartaoLeitura(box, titulo, sub, onde) {
+    if (!box) return;
+    var lista = box._v2lista;
+    if (box.dataset.v2c !== box.innerHTML) {
+      box.dataset.v2c = box.innerHTML;
+      var lers = $$('a', box).filter(function (a) { return /^\s*(→\s*)?ler( de novo)?\s*$/i.test(a.textContent); });
+      if (!lers.length) { box.classList.remove('v2-orig'); if (lista) lista.style.display = 'none'; return; }
+      if (!lista) {
+        lista = document.createElement('div'); lista.className = 'v2-ler'; box._v2lista = lista;
+        if (onde) onde(lista); else box.insertAdjacentElement('beforebegin', lista);
+      }
+      var linhas = lers.map(function (l, i) {
+        var a = l.previousElementSibling; while (a && a.tagName !== 'A') a = a.previousElementSibling;
+        var nome = a ? a.textContent.trim() : 'Anexo ' + (i + 1), url = a && a.href && !/#$/.test(a.href) ? a.href : '';
+        var orc = /ORÇ|OR[CÇ]AMENTO|\.pdf|📄|Cilia|HDI|Soma|Status/i.test(nome), foto = /📸|\.(jpe?g|png|webp)/i.test(nome) && !orc;
+        var de = /novo/i.test(l.textContent);
+        return '<div class="linha"><span class="ico">' + (orc ? '📄' : foto ? '📸' : '📎') + '</span>'
+          + (url ? '<a class="nome" href="' + txt(url) + '" target="_blank" rel="noopener">' : '<span class="nome">') + txt(nome.replace(/^[📄📸🚚📦🔗]\s*/u, ''))
+          + (url ? '<small>abrir o arquivo</small></a>' : '</span>')
+          + '<button type="button" class="' + (orc ? 'principal' : 'secundario') + '" data-i="' + i + '">' + (de ? '🔄 Ler de novo' : '📖 Ler') + '</button></div>';
+      });
+      lista.innerHTML = '<h4>' + titulo + '</h4>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + linhas.join('');
+      $$('button', lista).forEach(function (b) { b.onclick = function () { var l = lers[+b.dataset.i]; b.disabled = true; b.textContent = '⏳ Lendo…'; l.click(); }; });
+      // o que não é "ler" (links e outros anexos) continua aparecendo embaixo
+      box.classList.add('v2-orig');
+      var extra = box.querySelector('.anexos-orig');
+      if (extra) { var c = extra.cloneNode(true); c.style.marginTop = '8px'; lista.appendChild(c); }
+    }
+    if (lista) lista.style.display = (box.classList.contains('oculto') || box.closest('.oculto')) ? 'none' : '';
+  }
+
   /* ---------- ligar tudo ---------- */
   function varrer() {
+    cartaoLeitura(g('anexosCard'), '📎 Já está no card', 'Toque em <b>Ler</b> para o sistema preencher o carro e as peças.', function (lista) {
+      var sec = g('anexosCard').closest('section'); var h2 = sec && sec.querySelector('h2');
+      if (h2) h2.insertAdjacentElement('afterend', lista); else g('anexosCard').insertAdjacentElement('beforebegin', lista);
+    });
+    cartaoLeitura(g('fornAnexosTopo'), '🚚 Ler fornecimento de um anexo do card', 'Status do Pedido (Cilia), Peças do sinistro (HDI) ou print do portal.', null);
+    cartaoLeitura(g('fornAnexos'), '🚚 Ler fornecimento de um anexo do card', '', null);
     teclados();
     if (pedidoNovo()) oferecerRascunho();
     $$('.dica.ruim, #compraAviso, .aviso.trava, .aviso.info').forEach(encurtar);
