@@ -1915,6 +1915,12 @@ function aplicarLeitura(r, dica, sufixo) {
       por('carro', r.carro, 'carro'); por('cor', r.cor, 'cor'); por('seguradora', r.seguradora, 'seguradora'); por('sinistro', r.sinistro, 'sinistro');
       if (r.orcamento && CARD_EDICAO && CARD && (CARD.pecas || []).length) importarComplemento(r.orcamento, r.anexoId);
       else if (r.orcamento && !ORC) importarOrcamento(r.orcamento);
+      // 07/10/2026 (Weslley, ARW5715): foto do carro / arquivo sem nenhum dado de veículo não é "erro" — só não tinha o que ler
+      if (!r.confere && !(r.placasDoc || []).length && !r.chassi && !(r.chassiDivergente || []).length && !r.modelo && !r.orcamento) {
+        dica.textContent = 'ℹ️ Neste arquivo não achei placa, chassi nem orçamento — nada foi alterado.' + sufixo;
+        dica.className = 'dica';
+        return;
+      }
       if (!r.confere) {
         dica.innerHTML = '⚠️ O documento não mostra a placa ' + esc(normPlaca($('placa').value)) + (r.placasDoc.length ? ' (achei: ' + esc(r.placasDoc.join(', ')) + ')' : '') + '. Não preenchi o chassi.' + esc(sufixo);
         dica.className = 'dica ruim';
