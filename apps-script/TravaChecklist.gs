@@ -140,7 +140,7 @@ function ck_executar_() {
     if (tocados.indexOf(cardId) < 0) tocados.push(cardId);
     if (ck_licenciada_(a, cache)) return;
     var txt = '';
-    try { txt = ck_desfazer_(a); } catch (e) { txt = 'não consegui desfazer (' + String(e.message || e).slice(0, 60) + ')'; }
+    try { txt = ck_desfazer_(a); } catch (e) { txt = /\b404\b/.test(String(e.message || e)) ? '' : 'não consegui desfazer (' + String(e.message || e).slice(0, 60) + ')'; }   // 404 = o item já sumiu (checklist apagado antes): nada a desfazer
     if (!txt) return;
     n++;
     var quem = a.memberCreator ? a.memberCreator.username : '';
