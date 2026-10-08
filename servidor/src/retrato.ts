@@ -62,10 +62,12 @@ async function retratarUmaVez(shortLink: string): Promise<void> {
 /** Retrata em lote os cards abertos do quadro (os que ainda não têm retrato primeiro), até `ms`. */
 export async function retratarTodos(quadro: string, ms: number): Promise<{ feitos: number; erros: number; faltam: number }> {
   const fim = Date.now() + ms;
+  // cards de aviso e o card fixo não são pedidos
+  await consulta(`DELETE FROM pedido_retrato r USING trello_card c WHERE c.id = r.card_id AND (c.nome ~* '^\\s*AVISO' OR c.nome ~* 'NOVO PEDIDO DE PE')`);
   const cards = await consulta<{ short_link: string }>(
     `SELECT c.short_link FROM trello_card c LEFT JOIN pedido_retrato r ON r.card_id = c.id
      WHERE c.quadro = $1 AND NOT c.fechado AND c.excluido_em IS NULL
-       AND c.nome !~* '^\\s*AVISO\\b' AND c.nome !~* 'NOVO PEDIDO DE PE'
+       AND c.nome !~* '^\\s*AVISO' AND c.nome !~* 'NOVO PEDIDO DE PE'
      ORDER BY r.retratado_em NULLS FIRST`, [quadro]);
   let feitos = 0, erros = 0;
   for (const c of cards) {
