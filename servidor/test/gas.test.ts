@@ -53,6 +53,14 @@ describe.skipIf(!BANCO || !existsSync(DIST))('serviços do Google imitados', () 
     expect((await post('teste_digest')).r).toBe('kAFQmDzST7DWlj99KOF/cg==');
     expect((await post('teste_data')).r).toBe('07/10/2026 às 12:04:05');
   });
+  it('principal (só leitura): VD_BOARD do principal, nada gravado no banco, gravação no Trello recusada', async () => {
+    const lp = async (fn: string, ...args: unknown[]) => JSON.parse(await ponte.executarLeituraPrincipal(JSON.stringify({ fn, args })));
+    await db.consulta(`DELETE FROM gas_propriedade WHERE chave = 'A'`);
+    expect((await lp('teste_props')).r).toMatch(/^1\|oH4TbTqb\|/);
+    expect(await db.consulta(`SELECT 1 FROM gas_propriedade WHERE chave = 'A'`)).toHaveLength(0);
+    expect((await lp('teste_escrita', 'sAAAAAAA')).r).toMatch(/^403:servidor: no quadro principal o servidor só lê/);
+    expect(ponte.LEITURAS_PRINCIPAL).toEqual(['vdf_iniciar', 'vdf_abrir', 'vdf_buscarPlaca', 'vdf_carregarCard']);
+  });
   it('erro do código do robô volta como {ok:false, erro}', async () => {
     expect(await post('teste_erro')).toEqual({ ok: false, erro: 'falhou de propósito' });
   });

@@ -42,3 +42,16 @@ servidor próprio (`PU_CFG.URL_SERVIDOR` = `…/api`), e só depois ao Apps Scri
 - Amanhã cedo: servidor aceitando as 4 leituras no principal → já vale para Weslley e Christian (config atual).
 - Algumas horas sem diferença → `LEITURA_SERVIDOR: 'todos'` (só editar o config.js; o Pages publica em 1 min).
 - Etapa seguinte (ganho extra): servir essas leituras pelo **espelho** (banco), em vez de reler o Trello a cada abertura.
+
+## Feito no servidor (07/10/2026, sessão do servidor)
+
+- O formulário marca a chamada com `?quadro=principal` (em `chamarServidorLeitura`). Com essa marca, `POST /api` só aceita
+  `vdf_iniciar`, `vdf_abrir`, `vdf_buscarPlaca` e `vdf_carregarCard`; qualquer outra função volta `{ok:false}` (o formulário
+  cai no Apps Script, como previsto). Sem a marca, `/api` continua sendo o formulário do TESTE.
+- As leituras do principal rodam num **trabalhador separado** (fila própria, não espera o TESTE) com `VD_BOARD = oH4TbTqb` e em
+  **modo só leitura**: toda chamada ao Trello que não seja GET é recusada pelo próprio servidor; nada é gravado no banco
+  (propriedades, abas) nem na planilha; gatilhos e e-mail são ignorados.
+- A **descrição completa** (aba TRAVA) e o **cadastro de fornecedores** (aba FORNECEDORES) são lidos **ao vivo** da planilha real a
+  cada chamada (a planilha é compartilhada como Leitor com o servidor) — nada de cópia velha. Memória e cache do trabalhador
+  são zerados a cada chamada.
+- Diagnóstico: `/tarefas/execucoes` mostra cada chamada com `quadro: "principal"`, tempo e chamadas por destino.

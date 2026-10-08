@@ -112,7 +112,10 @@ function validadeMemoria(url: string): number {
   return 0;
 }
 
-async function buscar(p: Pedido) {
+async function buscar(p: Pedido, ctx: Contexto) {
+  if (ctx.somenteLeitura && p.metodo !== 'GET') {
+    return { status: 403, cab: { 'content-type': 'text/plain' }, corpo: new TextEncoder().encode('servidor: no quadro principal o servidor só lê') };
+  }
   const ttl = p.metodo === 'GET' ? validadeMemoria(p.url) : 0;
   const chave = ttl ? p.url + '|' + (p.cabecalhos.Authorization || p.cabecalhos.authorization || '') : '';
   if (ttl) {
@@ -174,10 +177,27 @@ async function abaExiste(nome: string): Promise<boolean> {
   return false;
 }
 
-async function atender(op: string, d: any): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
+/** Abas da planilha real que a leitura do principal consulta ao vivo (as outras ficam vazias). */
+const ABAS_AO_VIVO = ['TRAVA', 'FORNECEDORES'];
+
+/** Pedidos do trabalhador no modo "só leitura" (quadro principal): nada é gravado no banco; a planilha é lida ao vivo. */
+async function atenderLeitura(op: string, d: any, ctx: Contexto): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
   switch (op) {
-    case 'fetch': return buscar(d);
-    case 'fetchAll': return Promise.all((d as Pedido[]).map(buscar));
+    case 'props.gravar': case 'props.apagar': case 'aba.criar': case 'aba.gravar': case 'gatilho': case 'email': return null;
+    case 'aba.existe': return d === 'backup' || ABAS_AO_VIVO.includes(d);
+    case 'aba.lista': return ['backup', ...ABAS_AO_VIVO];
+    case 'aba.ler': {
+      if (!ABAS_AO_VIVO.includes(d) || !CFG.planilhaId) return [];
+      return (await lerAbaPlanilha(CFG.planilhaId, d)).map(reviverData(ABAS_COPIADAS[d] || []));
+    }
+    default: return atender(op, d, ctx);
+  }
+}
+
+async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  switch (op) {
+    case 'fetch': return buscar(d, ctx);
+    case 'fetchAll': return Promise.all((d as Pedido[]).map((x) => buscar(x, ctx)));
     case 'props.gravar':
       for (const [k, v] of Object.entries(d as Record<string, string>)) {
         await consulta(`INSERT INTO gas_propriedade (chave, valor) VALUES ($1,$2) ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, alterada_em = now()`, [k, v]);
@@ -223,75 +243,23 @@ async function atender(op: string, d: any): Promise<unknown> {   // eslint-disab
       return id;
     }
     case 'email': console.warn('[e-mail do robô — ainda não enviado pelo servidor]', d.para, d.assunto); return null;
-    case 'gatilho': setTimeout(() => { chamar(d.fn, []).catch((e) => console.error('gatilho', d.fn, e)); }, Math.max(1000, d.ms || 0)); return null;
+    case 'gatilho': setTimeout(() => { ctx.chamar(d.fn, []).catch((e) => console.error('gatilho', d.fn, e)); }, Math.max(1000, d.ms || 0)); return null;
     default: throw new Error('operação desconhecida: ' + op);
   }
 }
 
-// ---------- trabalhador ----------
-let trabalhador: Worker | null = null;
-let pronto: Promise<void> | null = null;
-let seq = 0;
-const esperando = new Map<number, { ok: (v: unknown) => void; erro: (e: Error) => void }>();
-let fila: Promise<unknown> = Promise.resolve();
-
-async function propsIniciais(): Promise<Record<string, string>> {
-  const rs = await consulta<{ chave: string; valor: string }>(`SELECT chave, valor FROM gas_propriedade`);
-  return Object.fromEntries(rs.map((r) => [r.chave, r.valor]));
-}
-
-function iniciar(): Promise<void> {
-  if (pronto) return pronto;
-  pronto = (async () => {
-    const props = await propsIniciais();
-    const sinal = new SharedArrayBuffer(4);
-    const flag = new Int32Array(sinal);
-    const { port1, port2 } = new MessageChannel();
-    // valores que no robô são propriedades e aqui vêm da configuração do servidor (não gravam por cima)
-    const fixas: Record<string, string> = {
-      TRELLO_KEY: CFG.trello.chave, TRELLO_TOKEN: CFG.trello.token, VD_BOARD: CFG.trello.quadro, VD_PLANILHA_BACKUP: 'planilha-servidor',
-      // links ✏️/💰 que o servidor anexa: atalho que abre o formulário com srv=1
-      VD_URL_FORM: 'https://timweslley.github.io/unity-trello-compra-peca/powerup/servidor.html',
-    };
-    const w = new Worker(path.join(AQUI, 'trabalhador.js'), { workerData: { porta: port2, sinal, arquivo: ARQUIVO_ROBO, props, fixas }, transferList: [port2] });
-    port1.on('message', async (m: { op: string; dados: unknown }) => {
-      let resp: { ok: boolean; r?: unknown; erro?: string };
-      const t0 = Date.now();
-      try { resp = { ok: true, r: await atender(m.op, m.dados) }; }
-      catch (e) { resp = { ok: false, erro: (e as Error).message }; }
-      contar(m, Date.now() - t0);
-      port1.postMessage(resp);
-      Atomics.store(flag, 0, 1);
-      Atomics.notify(flag, 0);
-    });
-    w.on('message', (m: { pronto?: boolean; id?: number; ok?: boolean; r?: unknown; erro?: string }) => {
-      if (m.pronto) return;
-      const e = esperando.get(m.id!);
-      if (!e) return;
-      esperando.delete(m.id!);
-      if (m.ok) e.ok(m.r); else e.erro(new Error(m.erro));
-    });
-    w.on('error', (e) => { console.error('trabalhador caiu:', e); trabalhador = null; pronto = null; esperando.forEach((x) => x.erro(e)); esperando.clear(); });
-    w.on('exit', () => { trabalhador = null; pronto = null; });
-    await new Promise<void>((ok) => w.once('message', () => ok()));
-    trabalhador = w;
-  })().catch((e) => { pronto = null; throw e; });   // falha na partida não fica guardada: a próxima chamada tenta de novo
-  return pronto;
-}
-
 // ---------- registro das execuções (diagnóstico: o que demorou e onde) ----------
 export interface Execucao {
-  fn: string; rid?: string; chegou: string; filaMs: number; ms?: number; ok?: boolean; erro?: string;
+  fn: string; rid?: string; quadro?: string; chegou: string; filaMs: number; ms?: number; ok?: boolean; erro?: string;
   /** por operação pedida pelo trabalhador: quantas vezes e quanto tempo (ms) */
   ops: Record<string, { n: number; ms: number }>;
   /** chamadas de rede por destino (host + 1º trecho do caminho) */
   rede: Record<string, { n: number; ms: number }>;
 }
 const execucoes: Execucao[] = [];
-let atual: Execucao | null = null;
 export function ultimasExecucoes(): Execucao[] { return execucoes.slice().reverse(); }
 
-function contar(m: { op: string; dados: unknown }, ms: number) {
+function contar(atual: Execucao | null, m: { op: string; dados: unknown }, ms: number) {
   if (!atual) return;
   const o = (atual.ops[m.op] ||= { n: 0, ms: 0 }); o.n++; o.ms += ms;
   const pedidos = m.op === 'fetch' ? [m.dados] : m.op === 'fetchAll' ? (m.dados as unknown[]) : [];
@@ -307,30 +275,102 @@ function descrever(msg: Record<string, unknown>): { fn: string; rid?: string } {
   try { const c = JSON.parse(String(msg.corpo)); return { fn: String(c.fn || '?'), rid: c.rid ? String(c.rid) : undefined }; } catch { return { fn: '?' }; }
 }
 
-function enviar(msg: Record<string, unknown>): Promise<unknown> {
-  // uma execução por vez, como no Google para o mesmo usuário (e o trabalhador é síncrono)
-  const chegou = Date.now();
-  const ex: Execucao = { ...descrever(msg), chegou: new Date(chegou).toISOString(), filaMs: 0, ops: {}, rede: {} };
-  const p = fila.then(async () => {
-    ex.filaMs = Date.now() - chegou;
-    execucoes.push(ex); if (execucoes.length > 60) execucoes.shift();
-    atual = ex;
-    const t0 = Date.now();
-    try {
-      await iniciar();
-      const id = ++seq;
-      const r = await new Promise((ok, erro) => { esperando.set(id, { ok, erro }); trabalhador!.postMessage({ id, ...msg }); });
-      ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
-      if (!ex.ok) ex.erro = String(r).slice(0, 200);
-      return r;
-    } catch (e) { ex.ok = false; ex.erro = (e as Error).message.slice(0, 200); throw e; }
-    finally { ex.ms = Date.now() - t0; atual = null; }
-  });
-  fila = p.catch(() => null);
-  return p;
+// ---------- trabalhadores: um por quadro ----------
+// TESTE: o formulário inteiro (lê e grava, com a proteção de escrita). PRINCIPAL (07/10/2026): só as leituras de navegação
+// (abrir, carregar card, buscar placa) — VD_BOARD do principal, nenhuma gravação no Trello, no banco nem na planilha.
+async function propsIniciais(): Promise<Record<string, string>> {
+  const rs = await consulta<{ chave: string; valor: string }>(`SELECT chave, valor FROM gas_propriedade`);
+  return Object.fromEntries(rs.map((r) => [r.chave, r.valor]));
 }
 
+export const QUADRO_PRINCIPAL_SL = 'oH4TbTqb';
+/** Funções que o quadro principal pode chamar no servidor (só leitura). */
+export const LEITURAS_PRINCIPAL = ['vdf_iniciar', 'vdf_abrir', 'vdf_buscarPlaca', 'vdf_carregarCard'];
+
+class Contexto {
+  private trabalhador: Worker | null = null;
+  private pronto: Promise<void> | null = null;
+  private seq = 0;
+  private esperando = new Map<number, { ok: (v: unknown) => void; erro: (e: Error) => void }>();
+  private fila: Promise<unknown> = Promise.resolve();
+  atual: Execucao | null = null;
+  constructor(readonly nome: 'teste' | 'principal', readonly somenteLeitura: boolean) {}
+
+  private fixas(): Record<string, string> {
+    return {
+      TRELLO_KEY: CFG.trello.chave, TRELLO_TOKEN: CFG.trello.token, VD_PLANILHA_BACKUP: 'planilha-servidor',
+      VD_BOARD: this.somenteLeitura ? QUADRO_PRINCIPAL_SL : CFG.trello.quadro,
+      // links ✏️/💰: no TESTE o atalho que abre o formulário com srv=1; no principal o formulário de sempre
+      VD_URL_FORM: this.somenteLeitura ? 'https://timweslley.github.io/unity-trello-compra-peca/powerup/formulario.html'
+        : 'https://timweslley.github.io/unity-trello-compra-peca/powerup/servidor.html',
+    };
+  }
+
+  private iniciar(): Promise<void> {
+    if (this.pronto) return this.pronto;
+    this.pronto = (async () => {
+      const props = await propsIniciais();
+      const sinal = new SharedArrayBuffer(4);
+      const flag = new Int32Array(sinal);
+      const { port1, port2 } = new MessageChannel();
+      const w = new Worker(path.join(AQUI, 'trabalhador.js'), {
+        workerData: { porta: port2, sinal, arquivo: ARQUIVO_ROBO, props, fixas: this.fixas(), somenteLeitura: this.somenteLeitura }, transferList: [port2] });
+      port1.on('message', async (m: { op: string; dados: unknown }) => {
+        let resp: { ok: boolean; r?: unknown; erro?: string };
+        const t0 = Date.now();
+        try { resp = { ok: true, r: await (this.somenteLeitura ? atenderLeitura(m.op, m.dados, this) : atender(m.op, m.dados, this)) }; }
+        catch (e) { resp = { ok: false, erro: (e as Error).message }; }
+        contar(this.atual, m, Date.now() - t0);
+        port1.postMessage(resp);
+        Atomics.store(flag, 0, 1);
+        Atomics.notify(flag, 0);
+      });
+      w.on('message', (m: { pronto?: boolean; id?: number; ok?: boolean; r?: unknown; erro?: string }) => {
+        if (m.pronto) return;
+        const e = this.esperando.get(m.id!);
+        if (!e) return;
+        this.esperando.delete(m.id!);
+        if (m.ok) e.ok(m.r); else e.erro(new Error(m.erro));
+      });
+      w.on('error', (e) => { console.error('trabalhador caiu:', this.nome, e); this.trabalhador = null; this.pronto = null; this.esperando.forEach((x) => x.erro(e)); this.esperando.clear(); });
+      w.on('exit', () => { this.trabalhador = null; this.pronto = null; });
+      await new Promise<void>((ok) => w.once('message', () => ok()));
+      this.trabalhador = w;
+    })().catch((e) => { this.pronto = null; throw e; });   // falha na partida não fica guardada: a próxima chamada tenta de novo
+    return this.pronto;
+  }
+
+  enviar(msg: Record<string, unknown>): Promise<unknown> {
+    // uma execução por vez em cada quadro, como no Google para o mesmo usuário (e o trabalhador é síncrono)
+    const chegou = Date.now();
+    const ex: Execucao = { ...descrever(msg), quadro: this.nome, chegou: new Date(chegou).toISOString(), filaMs: 0, ops: {}, rede: {} };
+    const p = this.fila.then(async () => {
+      ex.filaMs = Date.now() - chegou;
+      execucoes.push(ex); if (execucoes.length > 60) execucoes.shift();
+      this.atual = ex;
+      const t0 = Date.now();
+      try {
+        await this.iniciar();
+        const id = ++this.seq;
+        const r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg }); });
+        ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
+        if (!ex.ok) ex.erro = String(r).slice(0, 200);
+        return r;
+      } catch (e) { ex.ok = false; ex.erro = (e as Error).message.slice(0, 200); throw e; }
+      finally { ex.ms = Date.now() - t0; this.atual = null; }
+    });
+    this.fila = p.catch(() => null);
+    return p;
+  }
+  chamar(fn: string, args: unknown[]): Promise<unknown> { return this.enviar({ tipo: 'chamar', fn, args }); }
+}
+
+const TESTE = new Contexto('teste', false);
+const PRINCIPAL = new Contexto('principal', true);
+
 /** O doPost do robô: recebe o corpo `{fn, args, rid}` do formulário e devolve o texto JSON da resposta. */
-export function executarPost(corpo: string): Promise<string> { return enviar({ tipo: 'post', corpo }) as Promise<string>; }
-/** Chama uma função do robô direto (gatilhos, diagnóstico). */
-export function chamar(fn: string, args: unknown[]): Promise<unknown> { return enviar({ tipo: 'chamar', fn, args }); }
+export function executarPost(corpo: string): Promise<string> { return TESTE.enviar({ tipo: 'post', corpo }) as Promise<string>; }
+/** Leitura de navegação do quadro principal (só as funções de LEITURAS_PRINCIPAL; quem chama confere). */
+export function executarLeituraPrincipal(corpo: string): Promise<string> { return PRINCIPAL.enviar({ tipo: 'post', corpo }) as Promise<string>; }
+/** Chama uma função do robô direto (gatilhos, diagnóstico) — quadro do servidor. */
+export function chamar(fn: string, args: unknown[]): Promise<unknown> { return TESTE.chamar(fn, args); }

@@ -604,7 +604,7 @@ function chamarServidorLeitura(corpo, fn) {
   return new Promise(function (resolver, rejeitar) {
     var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var rel = setTimeout(function () { try { ctl && ctl.abort(); } catch (e) {} rejeitar(new Error('servidor: 8 s')); }, 8000);
-    fetch(PU_CFG.URL_SERVIDOR, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo, signal: ctl ? ctl.signal : undefined })
+    fetch(PU_CFG.URL_SERVIDOR + '?quadro=principal', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo, signal: ctl ? ctl.signal : undefined })
       .then(function (r) { if (r.status >= 400) throw new Error('servidor: ' + r.status); return r.text(); })
       .then(function (t) {
         clearTimeout(rel);

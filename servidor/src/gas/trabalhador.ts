@@ -10,8 +10,8 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 
-interface Dados { porta: MessagePort; sinal: SharedArrayBuffer; arquivo: string; props: Record<string, string>; fixas: Record<string, string> }
-const { porta, sinal, arquivo, props: propsIniciais, fixas } = workerData as Dados;
+interface Dados { porta: MessagePort; sinal: SharedArrayBuffer; arquivo: string; props: Record<string, string>; fixas: Record<string, string>; somenteLeitura?: boolean }
+const { porta, sinal, arquivo, props: propsIniciais, fixas, somenteLeitura } = workerData as Dados;
 const flag = new Int32Array(sinal);
 
 /** Pede algo à thread principal e espera a resposta (bloqueia este trabalhador, não o servidor). */
@@ -302,6 +302,8 @@ const G = globalThis as unknown as Record<string, (...a: unknown[]) => unknown>;
 
 parentPort!.on('message', (m: { id: number; tipo: 'post' | 'chamar' | 'gatilho'; corpo?: string; fn?: string; args?: unknown[] }) => {
   const t0 = Date.now();
+  // leitura do quadro principal (07/10/2026): nada guardado de uma execução para outra — a planilha e o Trello são lidos de novo
+  if (somenteLeitura) { ABAS.clear(); CACHE.clear(); }
   try {
     let r: unknown;
     if (m.tipo === 'post') r = (G.doPost({ postData: { contents: m.corpo } }) as { texto: string }).texto;

@@ -11,7 +11,7 @@ import { garantirWebhook, chamadasTrello, trello } from './trello/api.js';
 import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
-import { executarPost, ultimasExecucoes, usosDaMemoria, esquecerMemoria } from './gas/ponte.js';
+import { executarPost, executarLeituraPrincipal, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -143,7 +143,15 @@ export function criarApp() {
     if (!trelloPronto()) return JSON.stringify({ ok: false, erro: 'Servidor sem configuração (ver /saude).' });
     try {
       await Promise.race([BANCO_PRONTO, new Promise((_, n) => setTimeout(() => n(new Error('banco ainda iniciando, tente de novo')), 20_000))]);
-      return await executarPost(typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}));
+      const corpo = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
+      // quadro principal (07/10/2026): só as leituras de navegação; o formulário marca com ?quadro=principal
+      let pedido: { fn?: string; quadro?: string } = {};
+      try { pedido = JSON.parse(corpo); } catch { /* o robô responde o erro */ }
+      if ((req.query as Record<string, string>)?.quadro === 'principal' || pedido.quadro === 'principal') {
+        if (!LEITURAS_PRINCIPAL.includes(String(pedido.fn))) return JSON.stringify({ ok: false, erro: 'servidor: no quadro principal o servidor só faz leitura (' + String(pedido.fn) + ' fica no Apps Script)' });
+        return await executarLeituraPrincipal(corpo);
+      }
+      return await executarPost(corpo);
     } catch (e) {
       req.log.error(e, 'api');
       return JSON.stringify({ ok: false, erro: 'Erro no servidor: ' + (e as Error).message });
