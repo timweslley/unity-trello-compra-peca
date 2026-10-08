@@ -2314,6 +2314,21 @@ iniciar();
   .v2 #form { padding-bottom:84px; }
   .v2 #comprador .item .dica:not(.ruim):not(.boa):not([id]) { display:none; }
   .v2.v2-ajuda #comprador .item .dica:not(.ruim):not(.boa):not([id]) { display:block; }
+  /* peças bem separadas (07/10/2026, Weslley: "separação fraca"): fundo cinza, cada peça um cartão com faixa de título e cor de situação */
+  .v2 body, .v2 main { background:#eef0f3 !important; }
+  .v2 section { background:transparent; }
+  .v2 #cotItens > .item, .v2 #autItens > .item, .v2 #compraItens > .item, .v2 #recItens > .item, .v2 #fornItens > .item, .v2 #itens > .item, .v2 #itensPart > .item {
+    background:#fff; border:1px solid #b3b9c4; border-left:6px solid #8590a2; border-radius:12px; box-shadow:0 2px 6px #091e4226; margin:0 0 20px; padding:0 12px 12px; overflow:hidden; }
+  .v2 .item.v2-pend { border-left-color:#c9372c !important; }
+  .v2 .item.v2-ok { border-left-color:#1f845a !important; }
+  .v2 #cotItens > .item > .item-topo, .v2 #autItens > .item > .item-topo, .v2 #compraItens > .item > .item-topo, .v2 #recItens > .item > .item-topo, .v2 #fornItens > .item > .item-topo {
+    background:#f1f2f4; margin:0 -12px 12px; padding:12px; border-bottom:1px solid #dcdfe4; align-items:flex-start; }
+  .v2 #itens > .item > .v2-resumo, .v2 #itensPart > .item > .v2-resumo { background:#f1f2f4; margin:0 -12px; padding:10px 12px; }
+  .v2 #itens > .item.v2-fechada, .v2 #itensPart > .item.v2-fechada { padding-bottom:0; }
+  .v2 #itens > .item:not(.v2-fechada) > .v2-resumo { margin-bottom:12px; }
+  .v2 .v2num { display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:30px; padding:0 6px; border-radius:15px; background:#172b4d; color:#fff; font-size:15px; font-weight:800; margin-right:8px; vertical-align:middle; }
+  .v2 .semcot-box:not(.v2-aberto) > label, .v2 .semcot-box:not(.v2-aberto) > input { display:none; }
+  .v2 .semcot-box.v2-aberto > .v2-semcotbtn { display:none; }
   .v2 .v2-obsbtn { background:transparent !important; color:#0c66e4 !important; padding:4px 0 !important; min-height:36px !important; font-size:15px !important; }
   .v2 #v2nav button { flex:1; min-height:52px; font-size:17px; }
   .v2 #v2nav #v2voltar { flex:0 0 auto; }
@@ -2506,8 +2521,10 @@ iniciar();
   function pintarResumo(it) {
     var r = resumoDe(it), el = it.querySelector(':scope > .v2-resumo');
     if (!el) return;
+    it.classList.toggle('v2-pend', !!r.falta && it.dataset.nao !== '1');
+    it.classList.toggle('v2-ok', !r.falta);
     var num = $$('#itens > .item, #itensPart > .item').indexOf(it) + 1;
-    el.innerHTML = '<div class="t"><b>' + num + '. ' + txt(r.titulo) + '</b><span>' + txt(r.sub) + '</span>'
+    el.innerHTML = '<div class="t"><b><span class="v2num">' + num + '</span>' + txt(r.titulo) + '</b><span>' + txt(r.sub) + '</span>'
       + (r.falta ? ' <span class="falta">· ⚠️ ' + txt(r.falta) + '</span>' : '') + (it.dataset.nao === '1' ? ' <span class="selo-trava">não comprar</span>' : '') + '</div>'
       + '<span class="seta">' + (it.classList.contains('v2-fechada') ? 'Abrir ▾' : 'Fechar ▴') + '</span>';
   }
@@ -2609,9 +2626,37 @@ iniciar();
     caixa.insertAdjacentElement('beforebegin', b);
   }
 
+  /* "Não vai cotar? Motivo": atrás de um botão enquanto vazio */
+  function prepararSemCot(box) {
+    if (box.dataset.v2) return; box.dataset.v2 = '1';
+    var inp = box.querySelector('input');
+    if (inp && inp.value) { box.classList.add('v2-aberto'); return; }
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'secundario v2-obsbtn v2-semcotbtn'; b.textContent = '🚫 Não vou cotar esta peça';
+    b.onclick = function () { box.classList.add('v2-aberto'); if (inp) inp.focus(); };
+    box.insertBefore(b, box.firstChild);
+  }
+  /* número da peça em destaque e cor da situação (vermelho = falta algo, verde = resolvida) */
+  function marcarPeca(it) {
+    var st = it.querySelector(':scope > .item-topo > strong');
+    if (st && !st.querySelector('.v2num')) {
+      var n = st.firstChild;
+      if (n && n.nodeType === 3 && /^\s*\d+\.\s/.test(n.nodeValue)) {
+        var m = n.nodeValue.match(/^\s*(\d+)\.\s/);
+        n.nodeValue = n.nodeValue.slice(m[0].length);
+        st.insertAdjacentHTML('afterbegin', '<span class="v2num">' + m[1] + '</span>');
+      }
+    }
+    var ruim = $$('.dica.ruim, .alerta', it).some(function (d) { return d.offsetParent !== null; });
+    var ok = !ruim && ($$('.cot-lida:not(.removida), .comprado, input.r-ok:checked', it).length > 0 || /autorizad|chegou/i.test((it.querySelector('.selo-trava') || {}).textContent || ''));
+    it.classList.toggle('v2-pend', ruim);
+    it.classList.toggle('v2-ok', ok);
+  }
+
   /* ---------- ligar tudo ---------- */
   function varrer() {
     $$('#comprador input.q-obs').forEach(prepararObs);
+    $$('#comprador .semcot-box').forEach(prepararSemCot);
+    $$('#cotItens > .item, #autItens > .item, #compraItens > .item, #recItens > .item, #fornItens > .item').forEach(marcarPeca);
     $$('input[type=file]').forEach(prepararArquivo);
     $$('input.f-qtd').forEach(prepararQtd);
     atualizarTopo();
