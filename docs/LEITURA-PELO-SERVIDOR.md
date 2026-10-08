@@ -55,3 +55,8 @@ servidor próprio (`PU_CFG.URL_SERVIDOR` = `…/api`), e só depois ao Apps Scri
   cada chamada (a planilha é compartilhada como Leitor com o servidor) — nada de cópia velha. Memória e cache do trabalhador
   são zerados a cada chamada.
 - Diagnóstico: `/tarefas/execucoes` mostra cada chamada com `quadro: "principal"`, tempo e chamadas por destino.
+- **Conferido 07/10/2026 23:25** (versão `dd46c44`), 3 cards do principal mais recentes, mesma chamada nos dois caminhos:
+  `vdf_carregarCard` servidor 1,4–4,0 s × Apps Script 6,2–14,6 s; `vdf_iniciar` 0,23 s × 3,1 s (resposta idêntica).
+  Resposta do card idêntica em tudo, exceto 1 linha do cadastro de fornecedores cujo **nome é uma data** na planilha
+  (o Google devolve o texto da data, o servidor o número) — linha sem uso; corrigir na planilha se quiser.
+  `vdf_salvar` com `?quadro=principal` → recusado (`ok:false`), como combinado.
