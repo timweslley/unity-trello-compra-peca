@@ -12,7 +12,7 @@ import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
 import { retratar, retratarTodos } from './retrato.js';
-import { idDoQuadro, executarPost, executarLeituraPrincipal, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria } from './gas/ponte.js';
+import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -221,6 +221,10 @@ export function criarApp() {
     const ex = ultimasExecucoes().slice(0, 30);
     const porLista = await consulta<{ lista: string; pedidos: number; erros: number }>(
       `SELECT COALESCE(lista,'?') lista, count(*)::int pedidos, count(erro)::int erros FROM pedido_retrato GROUP BY 1 ORDER BY 2 DESC`).catch(() => []);
+    const principal = await consulta<{ fn: string; n: number; mediana: number; p90: number; frios: number; erros: number }>(
+      `SELECT fn, count(*)::int n, percentile_cont(0.5) WITHIN GROUP (ORDER BY ms)::int mediana, percentile_cont(0.9) WITHIN GROUP (ORDER BY ms)::int p90,
+              count(*) FILTER (WHERE frio)::int frios, count(*) FILTER (WHERE ok IS FALSE)::int erros
+       FROM execucao WHERE quadro = 'principal' AND quando > now() - interval '7 days' GROUP BY fn ORDER BY n DESC`).catch(() => []);
     const h = (t: unknown) => String(t ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!));
     const ms = (n?: number) => n == null ? '—' : n < 1000 ? n + ' ms' : (n / 1000).toFixed(1) + ' s';
     const lentas = ex.filter((e) => (e.ms || 0) > 5000).length, falhas = ex.filter((e) => e.ok === false).length;
@@ -236,6 +240,8 @@ table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;ove
 <div class="k"><b>${h(String(ESTADO.webhook).split(' ')[0])}</b><span>webhook do Trello</span></div>
 <div class="k"><b class="${lentas ? 'ruim' : 'ok'}">${lentas}</b><span>ações acima de 5 s (últimas 30)</span></div>
 <div class="k"><b class="${falhas ? 'ruim' : 'ok'}">${falhas}</b><span>ações com erro (últimas 30)</span></div></div>
+<h2>Leitura do quadro principal pelo servidor (últimos 7 dias)</h2><table><tr><th>Ação</th><th>Vezes</th><th>Mediana</th><th>90% abaixo de</th><th>Partida a frio</th><th>Erros</th></tr>
+${principal.map((p) => `<tr><td>${h(String(p.fn).replace(/^vdf_/, ''))}</td><td>${p.n}</td><td>${ms(p.mediana)}</td><td>${ms(p.p90)}</td><td>${p.frios}</td><td class="${p.erros ? 'ruim' : ''}">${p.erros}</td></tr>`).join('') || '<tr><td colspan="6">nenhuma ainda</td></tr>'}</table>
 <h2>Pedidos no banco (TESTE), por etapa</h2><table><tr><th>Etapa</th><th>Pedidos</th><th>Com erro no retrato</th></tr>
 ${porLista.map((l) => `<tr><td>${h(l.lista)}</td><td>${l.pedidos}</td><td class="${l.erros ? 'ruim' : ''}">${l.erros}</td></tr>`).join('')}</table>
 <h2>Últimas ações do formulário</h2><table><tr><th>Hora</th><th>Quadro</th><th>Ação</th><th>Tempo</th><th>Espera</th><th></th></tr>
@@ -289,6 +295,7 @@ async function principal() {
     const feitas = await migrar();
     ESTADO.migracao = feitas.length ? 'aplicadas: ' + feitas.join(', ') : 'em dia';
     bancoPronto();
+    if (trelloPronto()) aquecerTrabalhadores();   // a primeira ação de quem abre o formulário não paga a partida
   } catch (e) {
     ESTADO.migracao = 'erro: ' + (e as Error).message;
     app.log.error(e, 'migração falhou');

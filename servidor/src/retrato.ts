@@ -25,8 +25,9 @@ export function retratar(shortLink: string): Promise<void> {
 }
 
 async function retratarUmaVez(shortLink: string): Promise<void> {
-  const [c] = await consulta<{ id: string; quadro: string; short_link: string }>(`SELECT id, quadro, short_link FROM trello_card WHERE short_link = $1 OR id = $1`, [shortLink]);
+  const [c] = await consulta<{ id: string; quadro: string; short_link: string; nome: string }>(`SELECT id, quadro, short_link, nome FROM trello_card WHERE short_link = $1 OR id = $1`, [shortLink]);
   if (!c) return;
+  if (/^\s*AVISO\b|NOVO PEDIDO DE PE/i.test(c.nome || '')) { await consulta(`DELETE FROM pedido_retrato WHERE card_id = $1`, [c.id]); return; }
   shortLink = c.short_link;
   const t0 = Date.now();
   let r: Record<string, unknown>;

@@ -79,7 +79,7 @@ jobs:
             --project "$GCP_PROJETO" --region "$REGIAO" \
             --service-account "compra-peca-run@${GCP_PROJETO}.iam.gserviceaccount.com" \
             --no-invoker-iam-check \
-            --min-instances 0 --max-instances 2 --memory 2Gi --cpu 2 --timeout 300 \
+            --min-instances 0 --max-instances 2 --memory 2Gi --cpu 2 --cpu-boost --timeout 300 \
             --set-env-vars "GIT_SHA=${GITHUB_SHA::7},URL_PUBLICA=${URL},TRELLO_QUADRO=${TRELLO_QUADRO},MODO=${MODO},PLANILHA_ID=${PLANILHA_ID}" \
             --update-secrets "DATABASE_URL=DATABASE_URL:latest,TRELLO_KEY=TRELLO_KEY:latest,TRELLO_TOKEN=TRELLO_TOKEN:latest,TRELLO_SEGREDO=TRELLO_SEGREDO:latest" \
             --quiet

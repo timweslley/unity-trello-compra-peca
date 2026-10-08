@@ -254,7 +254,7 @@ async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   
 
 // ---------- registro das execuções (diagnóstico: o que demorou e onde) ----------
 export interface Execucao {
-  fn: string; rid?: string; quadro?: string; chegou: string; filaMs: number; ms?: number; ok?: boolean; erro?: string;
+  fn: string; rid?: string; quadro?: string; chegou: string; frio?: boolean; filaMs: number; ms?: number; ok?: boolean; erro?: string;
   /** por operação pedida pelo trabalhador: quantas vezes e quanto tempo (ms) */
   ops: Record<string, { n: number; ms: number }>;
   /** chamadas de rede por destino (host + 1º trecho do caminho) */
@@ -354,6 +354,7 @@ class Contexto {
       this.atual = ex;
       const t0 = Date.now();
       try {
+        if (!this.trabalhador) ex.frio = true;
         await this.iniciar();
         const id = ++this.seq;
         const r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg }); });
@@ -361,18 +362,26 @@ class Contexto {
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
         return r;
       } catch (e) { ex.ok = false; ex.erro = (e as Error).message.slice(0, 200); throw e; }
-      finally { ex.ms = Date.now() - t0; this.atual = null; }
+      finally {
+        ex.ms = Date.now() - t0; this.atual = null;
+        consulta(`INSERT INTO execucao (quadro, fn, ms, fila_ms, ok, erro, frio, rede) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [ex.quadro, ex.fn, ex.ms, ex.filaMs, ex.ok ?? null, ex.erro ?? null, !!ex.frio, JSON.stringify(ex.rede)]).catch(() => null);
+      }
     });
     this.fila = p.catch(() => null);
     return p;
   }
   chamar(fn: string, args: unknown[]): Promise<unknown> { return this.enviar({ tipo: 'chamar', fn, args }); }
+  /** Liga o trabalhador antes da primeira chamada (partida a frio fora do caminho do usuário). */
+  aquecer(): Promise<void> { return this.iniciar().catch(() => undefined); }
 }
 
 const TESTE = new Contexto('teste', false, CFG.trello.quadro);
 const PRINCIPAL = new Contexto('principal', true, QUADRO_PRINCIPAL_SL, true);
 /** Retrato dos pedidos do TESTE no banco (versão 2.0, passo 1): lê o card como o formulário lê, sem gravar nada. */
 const RETRATO = new Contexto('retrato', true, CFG.trello.quadro);
+/** Liga os trabalhadores do TESTE e do principal assim que o servidor sobe. */
+export function aquecerTrabalhadores(): Promise<unknown> { return Promise.all([TESTE.aquecer(), PRINCIPAL.aquecer()]); }
 export function retratoDoCard(shortLink: string): Promise<unknown> { return RETRATO.chamar('vdf_carregarCard', [CFG.trello.token, shortLink]); }
 
 /** O doPost do robô: recebe o corpo `{fn, args, rid}` do formulário e devolve o texto JSON da resposta. */
