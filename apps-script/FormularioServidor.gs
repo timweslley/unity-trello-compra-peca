@@ -1337,6 +1337,11 @@ function vdf_salvarCompra(token, p) {
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro — não recebe cotação nem compra.'] };
   if (!vdf_temOrdemAut_(card)) return { ok: false, faltas: ['🏷️ FALTA A ETIQUETA ORDEM AUTORIZADA — confira no Databox se a ordem está autorizada e o orçamento importado. Se estiver tudo certo, coloque a etiqueta no card e envie de novo; se não, avise o solicitante no card.'] };
+  // (revisão 07/10/2026, Weslley) autorização parcial é rascunho: compra só depois de a diretoria ENVIAR a autorização
+  // (card em AUTORIZADO COMPRA ou adiante). Antes disso o card ainda está em cotação/autorização.
+  var colunaAtual = vd_nomeColuna_(vdf_nomeLista_(ctx, card.idList));
+  if ([VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_PENDENTE, VDF_LISTA_FINALIZADA, 'ESPERA/NÃO AUTORIZADO'].map(vd_nomeColuna_).indexOf(colunaAtual) >= 0)
+    return { ok: false, faltas: ['A autorização ainda não foi enviada pela diretoria (o card está em ' + colunaAtual + '). A compra só pode ser registrada depois que o card chegar em AUTORIZADO COMPRA.'] };
   var an = vd_analisar_(card.desc, card.name);
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });

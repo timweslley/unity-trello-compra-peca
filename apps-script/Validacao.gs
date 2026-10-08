@@ -1885,6 +1885,7 @@ function pz_executar_() {
   var listas = vd_listas_(board);
   var fora = PZ.LISTAS_FORA.map(function (n) { return listas[n]; }).filter(String);
   var concluidas = PZ.LISTAS_CONCLUIDAS.map(function (n) { return listas[vd_nomeColuna_(n)] || listas[n]; }).filter(String);
+  var idChegar = listas['FALTA CHEGAR'] || '';
   var idAtrasado = null;
   var cards = vd_api_('/boards/' + board + '/cards', { query: {
     fields: 'name,idList,idLabels,due,dueComplete,dateLastActivity,shortLink',
@@ -1930,6 +1931,23 @@ function pz_executar_() {
       if (upd.due && upd.dueComplete === undefined) upd.dueComplete = concluida;
       vd_api_('/cards/' + c.id, { method: 'put', payload: upd });
       mudou = true;
+    }
+    // FALTA CHEGAR sem previsão de peça e prazo (entrada + 2 d.u.) vencido: avisa uma vez por prazo (07/10/2026)
+    var dueAgora = upd.due || c.due || '';
+    if (melhor === null && c.idList === idChegar && dueAgora && pz_diaLocal_(dueAgora) < hoje && !concluida) {
+      var kAviso = 'PZ_SEMPREV_' + c.id;
+      if (props.getProperty(kAviso) !== dueAgora) {
+        var semDataFo = [], semDataPg = [];
+        (c.checklists || []).forEach(function (ck) {
+          var nomeCk = String(ck.name || '').trim();
+          (ck.checkItems || []).forEach(function (it) { if (it.state === 'complete' || it.due) return; (/FORNECIMENTO/i.test(nomeCk) ? semDataFo : (/^PAGAS/i.test(nomeCk) ? semDataPg : [])).push(it.name.split(/\s+[-—]\s+/)[0]); });
+        });
+        if (semDataFo.length || semDataPg.length) {
+          vd_comentar_(c, '⏰ Prazo do card vencido sem previsão de peça — ' + [semDataFo.length ? 'verificar prazo do item ' + semDataFo.join('; ') : '', semDataPg.length ? 'verificar compra do item ' + semDataPg.join('; ') : ''].filter(String).join(' · ') + '.');
+          mudou = true;
+        }
+        props.setProperty(kAviso, dueAgora);
+      }
     }
     // etiqueta ATRASADO
     if (vencidosFO.length || (c.idLabels || []).length) {
