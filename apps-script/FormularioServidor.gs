@@ -219,7 +219,8 @@ var VD_MARCAS = ['CHEVROLET', 'CHEV', 'GM', 'VOLKSWAGEN', 'VW', 'FORD', 'FIAT', 
 
 function vd_carroCurto_(modelo) {
   var ps = vd_semAcento_(modelo).replace(/[\/]/g, ' ').split(/\s+/).filter(String);
-  for (var i = 0; i < ps.length; i++) if (VD_MARCAS.indexOf(ps[i]) < 0 && !/^\d/.test(ps[i])) return ps[i];
+  // "VOLKSWAGEN NOVO GOL RALLYE" -> GOL, não NOVO (ATP5105, 08/10/2026)
+  for (var i = 0; i < ps.length; i++) if (VD_MARCAS.indexOf(ps[i]) < 0 && !/^\d/.test(ps[i]) && !(/^(NOVO|NOVA)$/.test(ps[i]) && i + 1 < ps.length)) return ps[i];
   return '';
 }
 

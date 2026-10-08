@@ -62,6 +62,7 @@ function vd_limparDescricao_(d) {
     .replace(/[()]/g, ' ')
     .replace(/\s*\*\s*$/, '')
     .replace(/\s+/g, ' ')
+    .replace(/\b([A-ZÀ-Ü0-9]{3,}) \1\b/g, '$1')   // "PORTA PORTA DIANTEIRA" (Websoma repete a palavra, 08/10/2026)
     .trim()
     .slice(0, 70);
 }
@@ -73,6 +74,26 @@ function vd_liquidoOrc_(unit, descPct) {
   var u = vd_numOrc_(unit), d = vd_numOrc_(descPct);
   if (isNaN(u)) return NaN;
   return isNaN(d) || d <= 0 || d >= 100 ? u : u * (1 - d / 100);
+}
+
+/**
+ * Websoma/Porto "ORÇAMENTO DETALHADO" com códigos espaçados (08/10/2026, ATP5105). Sequência no texto:
+ *   CÓDIGO (um ou vários seguidos) ... DESCRIÇÃO [- VAL. aaaa/aaaa] [complemento] TIPO QDE VLR DESC% VLR M.O. PINT.
+ * Os códigos entram numa fila e cada descrição que aparece consome o próximo código da fila.
+ */
+function vd_websomaDetalhado_(corpo, lista, add) {
+  // "5U4/ 831055/D /CTR" -> "\u0001 5U4/831055/D/CTR \u0001" (partes vazias somem)
+  var txt = corpo.replace(/\b([A-Z0-9]{2,4})\/ ?([A-Z0-9]{4,8})\/ ?([A-Z0-9]{0,3}) ?\/ ?([A-Z0-9]{0,4})(?=\s|$)/g, function (_, a, b, c, d) { return ' \u0001' + [a, b, c, d].filter(String).join('/') + '\u0001 '; });
+  var re = /\u0001([^\u0001]+)\u0001|(\([^)]+\)|[A-Z][A-Z0-9 .\-\/,]*?)(?: - VAL\. \d{4}\/\d{4})?((?: [A-Z0-9][A-Z0-9.\/]*)*?) (GENUIN[OA]|REPOSICAO|ORIGINAL|PARALEL[OA]|USAD[OA]|RECONDICIONAD[OA]) (\d{1,3}) (\d{1,3}(?:\.\d{3})*,\d{2}) (\d{1,3}(?:\.\d{3})*,\d{2}) (\d{1,3}(?:\.\d{3})*,\d{2})/g;
+  var fila = [], m;
+  while ((m = re.exec(txt))) {
+    if (m[1]) { fila.push(m[1]); continue; }
+    var desc = m[2], extra = String(m[3] || '').trim();
+    if (extra && !/\d/.test(extra) && !/^(GENUIN|REPOSIC|ORIGINAL|PARALEL|USAD)/.test(extra)) desc += ' ' + extra;   // cor/acabamento ("PRETO SATIN"); "ATE 27/11/11" não
+    var bruto = vd_numOrc_(m[6]), liq = vd_numOrc_(m[8]), calc = vd_liquidoOrc_(m[6], m[7]);
+    var valor = (!isNaN(liq) && !isNaN(calc) && Math.abs(liq - calc) < 0.05) ? liq : (isNaN(calc) ? bruto : calc);
+    add(lista, fila.length ? fila.shift() : '', desc, m[5], m[4], valor);
+  }
 }
 
 /** Recorta o texto entre um início e o primeiro dos finais. */
@@ -158,6 +179,10 @@ function vd_lerOrcamento_(texto) {
     secs.forEach(function (sec) {
       var ehFO = /^PECAS - TROCA \(FORNECIDAS PELA SEGURADORA\)|^LISTA DAS PECAS FORNECIDAS PELA SEGURADORA/.test(sec);
       var corpo = vd_secao_(sec, /PECAS - TROCA|LISTA DAS PECAS FORNECIDAS/, fimWs).replace(/^.*?PINTURA /, '');
+      // 08/10/2026 (ATP5105, Porto): o PDF detalhado traz código VW espaçado ("5U4/ 831055/D /CTR"), descrição entre
+      // parênteses, "- Val. aaaa/aaaa", complemento (cor) e, às vezes, vários códigos seguidos das descrições — o leitor
+      // geral lia "2011 ATE 27/11/11". Esse layout tem leitor próprio.
+      if (/\b[A-Z0-9]{2,4}\/ [A-Z0-9]{4,8}\//.test(corpo)) { vd_websomaDetalhado_(corpo, ehFO ? r.fo : r.oficina, add); return; }
       while ((m = reWs.exec(corpo))) {
         // colunas: Vlr (bruto) · Desc. (%) · Vlr (líquido). Se o 3º número bate com bruto - desconto, é o líquido; senão calcula.
         var bruto = vd_numOrc_(m[5]), liq = vd_numOrc_(m[7]), calc = vd_liquidoOrc_(m[5], m[6]);
