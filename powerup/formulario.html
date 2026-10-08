@@ -2394,7 +2394,7 @@ iniciar();
   .v2 .cot:not(.v2-sheet) { background:#f7f8f9; border:1px solid #dcdfe4; border-radius:8px; padding:8px; margin-top:8px; }
   /* faixa verde "Salvo ✓" */
   .v2 #v2toast { position:fixed; left:12px; right:12px; top:12px; z-index:30; background:#1f845a; color:#fff; font-size:17px; font-weight:700; border-radius:10px; padding:14px 16px;
-    box-shadow:0 6px 16px #091e4240; transform:translateY(-140%); transition:transform .25s; }
+    box-shadow:0 6px 16px #091e4240; transform:translateY(-250%); transition:transform .25s; }
   .v2 #v2toast.on { transform:translateY(0); }
   /* rascunho */
   .v2 #v2rascunho { background:#fff7d6; border:1px solid #f5cd47; border-radius:8px; padding:10px 12px; margin-bottom:12px; font-size:15px; }
@@ -2760,7 +2760,9 @@ iniciar();
   function prepararCot(row) {
     if (row.dataset.v2) return; row.dataset.v2 = '1';
     var item = row.closest('.item');
-    var nome = item ? (((item.querySelector('.item-topo strong') || {}).textContent) || '').replace(/^\s*\d+\s*/, '').split('orç.')[0].trim() : '';
+    var st = item && item.querySelector('.item-topo strong'), cp = st ? st.cloneNode(true) : null;
+    if (cp) $$('.v2num, .selo-orc, .dica', cp).forEach(function (x) { x.remove(); });
+    var nome = cp ? cp.textContent.replace(/^\s*\d+\.\s/, '').trim() : '';
     row.insertAdjacentHTML('afterbegin', '<div class="v2-sheettopo"><b>Nova cotação<br><span style="font-size:14px;font-weight:500;color:#44546f">' + txt(nome) + '</span></b></div>');
     var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'principal v2-pronto'; ok.textContent = '✓ Pronto';
     ok.onclick = function () {
