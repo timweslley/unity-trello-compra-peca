@@ -65,25 +65,30 @@ function vdf_treinoLeitor(token, p) {
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
   p = p || {};
   var props = PropertiesService.getScriptProperties(), t0 = Date.now();
+  var passo = 'pasta';
+  try {
   var pasta = tr_pasta_();
   var est = null;
   try { est = JSON.parse(props.getProperty('TR_ESTADO') || 'null'); } catch (e) {}
   if (!est || p.reiniciar) {
     var board = vd_board_();
     var lista = tr_listar_(board);
-    var arqLista = pasta.createFile('treino_lista.json', JSON.stringify(lista), 'application/json');
+    passo = 'gravar lista (' + lista.length + ')';
+    var arqLista = pasta.createFile(Utilities.newBlob(JSON.stringify(lista), 'application/json', 'treino_lista.json'));
     est = { lista: arqLista.getId(), total: lista.length, pos: 0, feitos: 0, erros: 0, lotes: [], loteN: 0 };
     props.setProperty('TR_ESTADO', JSON.stringify(est));
   }
+  passo = 'ler lista';
   var lista = JSON.parse(DriveApp.getFileById(est.lista).getBlob().getDataAsString());
   var lote = [], n = 0;
+  passo = 'anexos';
   while (est.pos < lista.length && Date.now() - t0 < TR.LIMITE_MS && lote.length < TR.LOTE) {
     var it = lista[est.pos];
     var reg = { card: it.card, nome: it.nome, fechado: it.fechado, shortLink: it.shortLink, att: it.att, anexo: it.anexo, arquivo: it.arquivo, bytes: it.bytes, data: it.data };
     try {
       var resp = qt_fetch_(it.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
       if (resp.getResponseCode() >= 300) throw new Error('Trello ' + resp.getResponseCode());
-      var texto = vd_ocr_(resp.getBlob(), it.arquivo || it.anexo);
+      var texto = vd_ocr_(resp.getBlob(), 'treino_' + it.att + '.pdf');
       reg.texto = String(texto || '').slice(0, TR.TEXTO_MAX);
       try {
         var orc = vd_lerOrcamento_(texto);
@@ -99,9 +104,12 @@ function vdf_treinoLeitor(token, p) {
   }
   if (lote.length) {
     est.loteN++;
-    var arq = pasta.createFile('treino_lote_' + ('00' + est.loteN).slice(-3) + '.json', JSON.stringify(lote), 'application/json');
+    passo = 'gravar lote ' + est.loteN;
+    var arq = pasta.createFile(Utilities.newBlob(JSON.stringify(lote), 'application/json', 'treino_lote_' + ('00' + est.loteN).slice(-3) + '.json'));
     est.lotes.push(arq.getId());
   }
+  passo = 'estado';
   props.setProperty('TR_ESTADO', JSON.stringify(est));
   return { ok: true, total: est.total, pos: est.pos, feitos: est.feitos, erros: est.erros, nesta: n, lotes: est.lotes, fim: est.pos >= lista.length, pasta: pasta.getUrl(), listaId: est.lista };
+  } catch (e) { console.log('treino/' + passo + ': ' + e); return { ok: false, erro: String((e && e.message) || e), passo: passo }; }
 }
