@@ -1824,7 +1824,8 @@ function vd_testeDrive() {
 var PZ = {
   LISTAS_FORA: ['ESPERA/NÃO AUTORIZADO'],   // estacionamento: não ganha prazo
   /* 07/10/2026 (Weslley): card nessas colunas está concluído — o prazo fica marcado como concluído; se o card volta, desmarca */
-  LISTAS_CONCLUIDAS: ['ENCERRADO COMPRAS/FORNEC.', 'ENTREGUES', 'PENDÊNCIA DE FATURAMENTO', 'PENDÊNCIA TRATADA - FATURAR'],
+  /* 08/10/2026 (Weslley): as colunas de pendência pós-entrega (ordem de serviço/comercial e fiscal) também contam como concluídas */
+  LISTAS_CONCLUIDAS: ['ENCERRADO COMPRAS/FORNEC.', 'ENTREGUES', 'PENDÊNCIA DE FATURAMENTO', 'PENDÊNCIA TRATADA - FATURAR', 'PENDÊNCIA ORDEM DE SERVIÇO/COMERCIAL', 'PENDENCIA FISCAL'],
   DIAS_SEM_PREVISAO: 2,   // card sem previsão de peça: prazo = entrada na coluna + N dias úteis
   LBL_ATRASADO: 'ATRASADO',
   COR_ATRASADO: 'orange',
