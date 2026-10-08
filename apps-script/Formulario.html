@@ -853,6 +853,13 @@ function arqAlvoPadrao(files) {
   if (!$('comprador').classList.contains('oculto')) {
     var foco = document.activeElement, item = foco && foco.closest ? foco.closest('#recItens .item') : null;
     if (!$('painelRec').classList.contains('oculto')) return (item && item.querySelector('input[type=file]')) || $('recArqGeral');
+    if (!$('painelCompra').classList.contains('oculto')) {
+      // aba Compra: cola na peça clicada; se só uma peça tem o campo, nela; senão pede para clicar na peça
+      var itC = foco && foco.closest ? foco.closest('#compraItens .item') : null, campos = document.querySelectorAll('#compraItens .k-arq');
+      if (itC && itC.querySelector('.k-arq')) return itC.querySelector('.k-arq');
+      if (campos.length === 1) return campos[0];
+      avisoLento('Clique na peça da compra antes de colar o print.'); setTimeout(function () { avisoLento(''); }, 4000); return null;
+    }
     if (!$('painelForn').classList.contains('oculto')) return $('fornArqTopo');
     return arqVisivel($('fornArqTopo')) ? $('fornArqTopo') : null;
   }
@@ -885,7 +892,7 @@ document.addEventListener('paste', function (e) {
     var dt = new DataTransfer(); ok.forEach(function (f) { dt.items.add(f); });
     alvo.files = dt.files;
   } catch (err) { avisoLento('Não consegui colar aqui — use o botão Escolher arquivo.'); setTimeout(function () { avisoLento(''); }, 4000); return; }
-  var rotulo = alvo.id === 'capa' ? 'foto de capa' : alvo.id === 'arquivo' ? 'documentos do pedido' : /^fornArq/.test(alvo.id) ? 'fornecimento' : 'recebimento';
+  var rotulo = alvo.id === 'capa' ? 'foto de capa' : alvo.id === 'arquivo' ? 'documentos do pedido' : /^fornArq/.test(alvo.id) ? 'fornecimento' : alvo.classList.contains('k-arq') ? 'compra (' + ((alvo.closest('.item') || {}).querySelector ? alvo.closest('.item').querySelector('.item-topo strong').textContent.slice(0, 40) : 'peça') + ')' : 'recebimento';
   avisoLento('📋 Colado em ' + rotulo + ': ' + ok.map(function (f) { return f.name; }).join(', ')); setTimeout(function () { avisoLento(''); }, 3000);
   alvo.dispatchEvent(new Event('change', { bubbles: true }));
 });
@@ -1290,8 +1297,9 @@ function enviarCotacao(parcial) {
   }).catch(function (e) { botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoCot', false); errosComprador([e.message]); });
 }
 
+var COMPRA_ANEXOS = {};   // chave da peça → [{fileId, nome}] — print/arquivo da negociação e pagamento (08/10/2026)
 function montarCompra(c) {
-  var box = $('compraItens'); box.innerHTML = '';
+  var box = $('compraItens'); box.innerHTML = ''; COMPRA_ANEXOS = {};
   var lidas = (c.cotacoes && c.cotacoes.cotacoes) || [];
   var pagas = c.pagas || [];
   var lista = pecasOficina(c);
@@ -1315,7 +1323,9 @@ function montarCompra(c) {
       if (aut) h += '<div class="comprado">✅ autorizado: ' + esc(aut.fornecedor) + ' — ' + esc(fmtValor(aut.valor)) + linkCot(cotAut) + '</div>' + botaoPrev('COT', p.chave, '', 'dias');
       else if ((c.autorizadas || []).length) h += '<div class="dica ruim">⚠️ Peça sem autorização — não comprar.</div>';
       h += '<select class="k-sel" onchange="avisoForaAut(this);totalCompra()"><option value="">— ainda não comprar —</option>' + minhas.map(function (q, j) { return '<option value="' + j + '"' + (mesmaCot(q, aut) ? ' selected' : '') + '>' + esc(rotuloCot(q)) + selosPeca(minhas)(q, true) + (mesmaCot(q, aut) ? ' ✅ autorizado' : '') + '</option>'; }).join('') + '</select><div class="alerta k-aviso oculto"></div>'
-        + '<input type="text" class="k-just oculto" style="margin-top:6px" placeholder="Motivo da compra fora da autorização (obrigatório)">';
+        + '<input type="text" class="k-just oculto" style="margin-top:6px" placeholder="Motivo da compra fora da autorização (obrigatório)">'
+        // print/arquivo da negociação e forma de pagamento (08/10/2026): vai para o card junto com a compra
+        + '<div style="margin-top:8px"><label>Print / arquivo da negociação e pagamento (opcional)</label><input type="file" class="k-arq" multiple accept="image/*,application/pdf" onchange="compraAnexar(this)"><div class="dica k-arqs"></div></div>';
       // links dos anúncios informados na cotação (Mercado Livre etc.): o comprador compra por eles (07/10/2026)
       var comLink = minhas.filter(function (q) { return q.link && /^https?:\/\//i.test(q.link); });
       if (comLink.length) h += '<div class="dica" style="margin-top:6px">' + comLink.map(function (q) { return esc(q.fornecedor) + ' ' + esc(fmtValor(q.valor)) + linkCot(q); }).join(' &nbsp;·&nbsp; ') + '</div>';
@@ -1338,7 +1348,7 @@ function montarCompra(c) {
     div.innerHTML = h;
     box.appendChild(div);
   });
-  totalCompra();
+  totalCompra(); dicasColar();
   var semNenhuma = !(c.autorizadas || []).length;
   var semOrdem = c.ordemAut === false;
   $('compraAviso').innerHTML = (semOrdem ? '🏷️ <b>FALTA A ETIQUETA ORDEM AUTORIZADA</b> — a compra só é liberada com a ordem de serviço autorizada.<br>'
@@ -1571,18 +1581,41 @@ function enviarCompra(parcial) {
     var q = JSON.parse(item.dataset.cots)[+sel.value];
     var just = ((item.querySelector('.k-just') || {}).value || '').trim();
     if (foraDaAut(item, q) && !just) semJust.push(item.querySelector('.item-topo strong').textContent + ': compra fora da autorização — escreva o motivo.');
-    compras.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, tipo: q.tipo, marca: q.marca, valor: q.valor, dias: q.dias, just: just });
+    compras.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, tipo: q.tipo, marca: q.marca, valor: q.valor, dias: q.dias, just: just, anexos: COMPRA_ANEXOS[item.dataset.chave] || [] });
   });
-  if (!compras.length && parcial) return errosComprador(['Escolha o fornecedor de pelo menos uma peça para salvar.']);
+  // arquivo colado em peça ainda sem compra escolhida: vai para o card mesmo assim (regra 08/10: tudo o que foi colado é anexado)
+  var anexosExtra = [], comCompra = compras.map(function (c) { return c.chave; });
+  Object.keys(COMPRA_ANEXOS).forEach(function (k) { if (comCompra.indexOf(k) < 0) (COMPRA_ANEXOS[k] || []).forEach(function (a) { anexosExtra.push({ chave: k, fileId: a.fileId, nome: a.nome }); }); });
+  if (!compras.length && parcial && !anexosExtra.length) return errosComprador(['Escolha o fornecedor de pelo menos uma peça para salvar.']);
   if (semJust.length) return errosComprador(semJust);
   var botoes = [$('btnCompra'), $('btnCompraParcial')];
   botoes.forEach(function (b) { if (b) b.disabled = true; }); mostrar('enviandoCompra', true);
-  chamar('vdf_salvarCompra', TOKEN, { shortLink: CARD_EDICAO, compras: compras, parcial: !!parcial }).then(function (r) {
+  chamar('vdf_salvarCompra', TOKEN, { shortLink: CARD_EDICAO, compras: compras, parcial: !!parcial, anexosExtra: anexosExtra }).then(function (r) {
     botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoCompra', false);
     if (!r.ok) return errosComprador(r.faltas);
-    if (r.parcial) return sucesso('💾 Compra parcial salva no card <b>' + esc(r.nome) + '</b>: ' + r.pagas + ' item(ns) no checklist PAGAS.' + (r.pendentes ? '<br>' + r.pendentes + ' peça(s) ainda sem compra.' : '<br>Todas as peças compradas — clique em <b>Enviar compra</b> para o card seguir.') + (r.foraAut && r.foraAut.length ? '<br>⚠️ Fora da autorização (avisado no card): ' + esc(r.foraAut.join('; ')) + '.' : '') + '<br>O card continua em <b>' + esc(r.lista) + '</b>.', r.url, 'Voltar ao card');
-    sucesso('✅ Compra registrada no card <b>' + esc(r.nome) + '</b>: ' + r.pagas + ' item(ns) no checklist PAGAS.' + (r.pendentes ? '<br>' + r.pendentes + ' peça(s) ainda sem compra.' : '<br>Todas as peças da oficina compradas.') + (r.foraAut && r.foraAut.length ? '<br>⚠️ Fora da autorização (avisado no card): ' + esc(r.foraAut.join('; ')) + '.' : '') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+    COMPRA_ANEXOS = {};
+    var txtAx = (r.anexos && r.anexos.length ? '<br>📎 Anexado no card: ' + esc(r.anexos.join(' · ')) : '') + (r.repetidos && r.repetidos.length ? '<br>🗑️ Não anexado (já estava no card): ' + esc(r.repetidos.join(' · ')) : '');
+    if (!r.pagas && r.parcial && r.anexos && r.anexos.length) return sucesso('📎 Arquivo(s) da negociação anexado(s) no card <b>' + esc(r.nome) + '</b>.' + txtAx + '<br>Nenhuma compra registrada ainda — o card continua em <b>' + esc(r.lista) + '</b>.', r.url, 'Voltar ao card');
+    if (r.parcial) return sucesso('💾 Compra parcial salva no card <b>' + esc(r.nome) + '</b>: ' + r.pagas + ' item(ns) no checklist PAGAS.' + (r.pendentes ? '<br>' + r.pendentes + ' peça(s) ainda sem compra.' : '<br>Todas as peças compradas — clique em <b>Enviar compra</b> para o card seguir.') + (r.foraAut && r.foraAut.length ? '<br>⚠️ Fora da autorização (avisado no card): ' + esc(r.foraAut.join('; ')) + '.' : '') + txtAx + '<br>O card continua em <b>' + esc(r.lista) + '</b>.', r.url, 'Voltar ao card');
+    sucesso('✅ Compra registrada no card <b>' + esc(r.nome) + '</b>: ' + r.pagas + ' item(ns) no checklist PAGAS.' + (r.pendentes ? '<br>' + r.pendentes + ' peça(s) ainda sem compra.' : '<br>Todas as peças da oficina compradas.') + (r.foraAut && r.foraAut.length ? '<br>⚠️ Fora da autorização (avisado no card): ' + esc(r.foraAut.join('; ')) + '.' : '') + txtAx + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
   }).catch(function (e) { botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoCompra', false); errosComprador([e.message]); });
+}
+/** Sobe na hora o print/arquivo da negociação da peça (aba Compra) e guarda em COMPRA_ANEXOS; o envio leva os ids. */
+function compraAnexar(inp) {
+  var item = inp.closest('.item'), chave = item.dataset.chave, dicaEl = item.querySelector('.k-arqs');
+  var files = Array.prototype.slice.call(inp.files || []);
+  (function prox() {
+    var f = files.shift(); if (!f) { inp.value = ''; return; }
+    if (f.size > 15 * 1024 * 1024) { errosComprador(['Arquivo muito grande (máx. 15 MB): ' + f.name]); return prox(); }
+    var linha = document.createElement('div'); linha.textContent = '⏳ enviando ' + f.name + '…'; dicaEl.appendChild(linha);
+    lerArquivo(f).then(function (b64) { return chamar('vdf_subirArquivo', TOKEN, b64, f.type || 'application/octet-stream', f.name); }).then(function (r) {
+      var a = { fileId: r.fileId, nome: f.name };
+      (COMPRA_ANEXOS[chave] = COMPRA_ANEXOS[chave] || []).push(a);
+      linha.innerHTML = '📎 ' + esc(f.name) + ' <a href="#" style="margin-left:6px" title="tirar">✖</a>';
+      linha.querySelector('a').onclick = function (e) { e.preventDefault(); COMPRA_ANEXOS[chave] = (COMPRA_ANEXOS[chave] || []).filter(function (x) { return x !== a; }); linha.remove(); };
+      prox();
+    }).catch(function (e) { linha.textContent = '❌ ' + f.name + ': ' + e.message; prox(); });
+  })();
 }
 function sucesso(html, url, rotuloNovo) {
   $('msgSucesso').innerHTML = html; $('linkCard').href = url;

@@ -1364,9 +1364,15 @@ function vdf_salvarCompra(token, p) {
     if (qc && String(qc.dias == null ? '' : qc.dias) !== '' && String(c.dias == null ? '' : c.dias).trim() !== '' && +c.dias !== +qc.dias && !String(c.just || '').trim())
       { faltas.push(rot + ': prazo ' + c.dias + ' d.u. diferente do cotado (' + qc.dias + ' d.u.) — escreva o motivo.'); return; }
     if (!ok) { faltas.push(rot + ': escolha uma cotação lançada no card (' + forn + ' ' + vd_valorBR_(valor) + ' não está na descrição)'); return; }
-    compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim(), particular: vdf_pecaParticular_(peca, card, an) && !vdf_ehParticular_(card, an), complemento: !!peca.complemento, just: String(c.just || '').replace(/\s*\n\s*/g, ' ').trim() });
+    compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim(), particular: vdf_pecaParticular_(peca, card, an) && !vdf_ehParticular_(card, an), complemento: !!peca.complemento, just: String(c.just || '').replace(/\s*\n\s*/g, ' ').trim(), anexos: c.anexos || [] });
   });
-  if (!compras.length && !faltas.length && parcial) faltas.push('Escolha o fornecedor de pelo menos uma peça para salvar.');
+  /* 08/10/2026 (Weslley): print/arquivo da negociação e forma de pagamento, por peça — TUDO o que foi colado no formulário vai
+   * para o card (nome "🛒 COMPRA · PLACA · FORN · PEÇA · dd/MM"), menos cópia idêntica do que já está lá. Arquivo de peça
+   * ainda sem compra escolhida também vai (anexosExtra). */
+  var arqs = [];
+  compras.forEach(function (c) { (c.anexos || []).forEach(function (a) { if (a && a.fileId) arqs.push({ fileId: a.fileId, nome: a.nome, forn: c.fornecedor, peca: vd_nomePeca_(porChave[c.chave]) }); }); });
+  (p.anexosExtra || []).forEach(function (a) { if (a && a.fileId) arqs.push({ fileId: a.fileId, nome: a.nome, forn: '', peca: porChave[a.chave] ? vd_nomePeca_(porChave[a.chave]) : '' }); });
+  if (!compras.length && !faltas.length && parcial && !arqs.length) faltas.push('Escolha o fornecedor de pelo menos uma peça para salvar.');
   if (faltas.length) return { ok: false, faltas: faltas };
 
   // fora da autorização: não bloqueia, mas exige justificativa por peça e fica registrado no card
@@ -1388,10 +1394,17 @@ function vdf_salvarCompra(token, p) {
   if (!parcial && pendentesDepois.length) return { ok: false, faltas: ['Ainda falta comprar ' + pendentesDepois.length + ' peça(s): ' + pendentesDepois.join('; ') + '. Para guardar o que já tem, use **💾 Salvar parcial**.'] };
   if (!compras.length && !parcial) {
     // nada novo e nada pendente: só fecha (move) o que foi salvo parcialmente
+    var axF = vdf_anexarCompra_(card, arqs, token);
     var movF = ''; try { movF = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username); } catch (e) {}
-    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🛒 **COMPRA ENVIADA** — ' + me.fullName + ' · todas as peças já estavam registradas' + (movF ? ' → **' + movF + '**' : '') } }, token); } catch (e) {}
+    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🛒 **COMPRA ENVIADA** — ' + me.fullName + ' · todas as peças já estavam registradas' + (movF ? ' → **' + movF + '**' : '') + vdf_txtAnexosCompra_(axF) } }, token); } catch (e) {}
     try { vd_marcar_(card); } catch (e) {}
-    return { ok: true, url: card.shortUrl, nome: card.name, pagas: 0, pendentes: 0, foraAut: [], lista: movF || vdf_nomeLista_(ctx, card.idList) };
+    return { ok: true, url: card.shortUrl, nome: card.name, pagas: 0, pendentes: 0, foraAut: [], anexos: axF.anexados, repetidos: axF.repetidos, lista: movF || vdf_nomeLista_(ctx, card.idList) };
+  }
+  if (!compras.length && parcial) {
+    // só arquivos (peça ainda sem compra escolhida): anexa e pronto
+    var axP = vdf_anexarCompra_(card, arqs, token);
+    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '📎 **Negociação/pagamento anexado** — ' + me.fullName + vdf_txtAnexosCompra_(axP) } }, token); } catch (e) {}
+    return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, pagas: 0, pendentes: 0, foraAut: [], anexos: axP.anexados, repetidos: axP.repetidos, lista: vdf_nomeLista_(ctx, card.idList) };
   }
   compras.forEach(function (c) {
     var ch = c.chave, nome = vd_nomePeca_(porChave[ch]);
@@ -1410,6 +1423,7 @@ function vdf_salvarCompra(token, p) {
   if (semJust.length) return { ok: false, faltas: semJust.map(function (n) { return n + ': compra fora da autorização — escreva o motivo.'; }) };
 
   var n = vd_checklistPagas_(card.id, compras, token);
+  var axC = vdf_anexarCompra_(card, arqs, token);
   try {
     ev_registrar_('COMPRA', card, me.username, compras.map(function (c) {
       var e = ev_peca_(porChave[c.chave]); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias;
@@ -1443,10 +1457,49 @@ function vdf_salvarCompra(token, p) {
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +
       (parcial ? '💾 **COMPRA PARCIAL salva** — ' : '🛒 **COMPRA** — ') + me.fullName + ' · ' + n + ' item(ns)' + (movido ? ' → **' + movido + '**' : '') +
       (pendentes ? '\n⏳ Falta comprar: ' + pendentes + ' peça(s)' : '') + (parcial && !pendentes ? '\nTudo comprado — envie a compra para o card seguir.' : '') +
-      (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') } }, token);
+      (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') + vdf_txtAnexosCompra_(axC) } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, parcial: parcial, url: card.shortUrl, nome: card.name, pagas: n, pendentes: pendentes, foraAut: foraAut, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+  return { ok: true, parcial: parcial, url: card.shortUrl, nome: card.name, pagas: n, pendentes: pendentes, foraAut: foraAut, anexos: axC.anexados, repetidos: axC.repetidos, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
+
+/**
+ * Anexa ao card os arquivos da negociação/pagamento subidos na aba Compra (08/10/2026).
+ * arqs = [{fileId, nome, forn, peca}] (arquivos da pasta temporária do formulário).
+ * Regra do Weslley: tudo o que foi colado vai para o card, exceto cópia idêntica (MD5) de anexo que já está lá.
+ * Devolve {anexados:[nome], repetidos:[nome original]}.
+ */
+function vdf_anexarCompra_(card, arqs, token) {
+  var out = { anexados: [], repetidos: [] };
+  if (!arqs || !arqs.length) return out;
+  var placa = ax_placa_(card), anexosCard = [];
+  try { anexosCard = vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,fileName,bytes,date,isUpload,url' } }) || []; } catch (e) {}
+  var hashes = {};   // id do anexo → md5 (só calcula para os de tamanho igual)
+  arqs.forEach(function (a) {
+    var f;
+    try { f = vdf_arquivoTemp_(a.fileId); } catch (e) { console.log('compra/anexo: ' + e); return; }
+    try {
+      var blob = f.getBlob(), bytes = blob.getBytes().length, md5 = ax_md5_(blob);
+      var igual = anexosCard.filter(function (x) { return x.isUpload && +x.bytes === bytes; }).filter(function (x) {
+        if (!(x.id in hashes)) hashes[x.id] = ax_hashAnexo_(x);
+        return hashes[x.id] && hashes[x.id] === md5;
+      })[0];
+      if (igual) { out.repetidos.push((a.nome || f.getName()) + ' (já está no card como «' + igual.name + '»)'); f.setTrashed(true); return; }
+      var curto = String(a.peca || '').replace(/^[A-Z0-9][A-Z0-9\/.\-]{3,}\s+/, '').slice(0, 40).trim();   // descrição sem o código
+      var nome = ax_nome_(AX.COMPRA, placa, [a.forn || '', curto]);
+      var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: blob, name: nome } }, token);
+      if (at && at.id) { nome = ax_batizar_(card.id, at.id, nome, anexosCard, token, { nomeAtual: nome, semVersao: true }); anexosCard.push({ id: at.id, name: nome, bytes: bytes, isUpload: true, date: new Date().toISOString() }); hashes[at.id] = md5; }
+      f.setTrashed(true);
+      out.anexados.push(nome);
+    } catch (e) { console.log('compra/anexo ' + a.nome + ': ' + e); }
+  });
+  return out;
+}
+function vdf_txtAnexosCompra_(ax) {
+  var t = '';
+  if (ax.anexados.length) t += '\n📎 Negociação/pagamento: ' + ax.anexados.join(' · ');
+  if (ax.repetidos.length) t += '\n🗑️ Não anexado (repetido): ' + ax.repetidos.join(' · ');
+  return t;
 }
 
 /** Linhas "COMPRADO: FORNECEDOR - CÓDIGO DESCRIÇÃO - R$ valor - dd/mm" em qualquer parte da descrição. */

@@ -394,6 +394,7 @@ function cp_executar_() {
     try { a = vd_api_('/cards/' + c.id + '/attachments/' + at.id, { cru: true, query: { fields: 'name,mimeType,isUpload,bytes,url,date' } }); } catch (e) { continue; }
     // mesmo arquivo subido de novo à mão (conteúdo igual, conferido por hash): apaga o repetido e comenta (06/10/2026)
     if (a.isUpload && ax_removerRepetido_(c.id, a, ac.memberCreator ? ac.memberCreator.username : '')) { vistos.push(a.id); mudou = true; continue; }
+    if (ax_semLeituraRobo_(a.name)) { vistos.push(a.id); mudou = true; continue; }   // nota/foto/comprovante já batizado pelo sistema: não é orçamento
     if (!vd_anexoLegivel_(a)) continue;
     if (new Date(a.date).getTime() - cp_criadoEm_(c.id) <= CP.ESPERA_CRIACAO_MS) continue;   // orçamento original do card
     vistos.push(a.id); mudou = true;

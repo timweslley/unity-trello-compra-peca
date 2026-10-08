@@ -271,8 +271,12 @@ ainda atualizam; avisa); sem data anterior → grava sem motivo; **motivo obriga
 ### 4.5 Anexos
 
 Nomes padronizados: `📄 ORÇ · PLACA · SEGURADORA · Sistema · dd/MM`, `📄 ORÇ+` (complementar),
-`🚚 FO · PLACA · Status do Pedido Cilia · dd/MM`, `📦 NF nº · PLACA · FORN · dd/MM`, `📸 PLACA · capa|recebimento · dd/MM`;
+`🚚 FO · PLACA · Status do Pedido Cilia · dd/MM`, `📦 NF nº · PLACA · FORN · dd/MM`, `📸 PLACA · capa|recebimento · dd/MM`,
+`🛒 COMPRA · PLACA · FORN · PEÇA · dd/MM` (print/arquivo da negociação e pagamento, aba Compra, 08/10/2026; sem versão);
 repetição do tipo ganha ` v1`, ` v2`…; cópia idêntica (MD5) é apagada; máx. 6 anexos legíveis por card, 15 MB.
+**Regra 08/10/2026 (Weslley): tudo o que for colado/anexado no formulário vai para o card, exceto cópia idêntica** — na aba
+Compra a conferência de MD5 é feita antes de anexar (o repetido é descartado e citado no comentário). Anexo que o próprio
+sistema batizou como `📦 NF`, `📸` ou `🛒 COMPRA` não passa pelo OCR do robô (não é orçamento).
 Quem batiza: o robô ao ler anexo novo subido à mão (módulo complemento; leitura que falhou é tentada de novo em até
 3 ciclos, `CP_RETRY`), o formulário ao anexar, e **o "📎 Ler" da aba Fornecimento** quando reconhece o documento
 (Status do Pedido Cilia / Peças HDI) e acha peças do card (07/10/2026, ATX2884).
@@ -323,7 +327,7 @@ Trello do usuário (guardado no navegador).
 | Pedido novo / ✏️ Editar | `vdf_salvar` | tipo (seguradora/particular), unidade, carro, placa, modelo, ano, motor, chassi, cor, seguradora, sinistro, nº ordem; anexos (orçamento → importa peças e FO por OCR; foto de capa); peças (código, qtd, valor no orçamento, descrição, tipo 1–2, ➕ complemento, 🚫 não comprar + motivo, **observação da peça**); pneus; obs geral. Duplicidade de placa aberta pede confirmação |
 | 💰 Cotação | `vdf_salvarCotacao` (`parcial` true/false) | por peça: fornecedor (autocompleta do cadastro), tipo/marca, valor, prazo d.u., link, obs, "sem cotação: motivo"; NT por fornecedor; remover cotação. Dois botões: **Salvar parcial** (guarda aos poucos, card fica em EM COTAÇÃO) e **Enviar cotação** (exige cobertura total; card anda) |
 | ✅ Autorizar | `vdf_autorizar` (`escolhas`, `marcas`, `parcial`), `vdf_devolverCotacao` | por peça: escolher cotação (menor preço pré-marcada; selos 💲 menor preço / ⏱ menor prazo; valor do orçamento e economia), não autorizar, obs; obs geral; devolver com motivo. **Diretoria** também marca ➕ complemento / 🚫 não comprar (com motivo) direto na aba (07/10/2026): troca só a linha da peça na descrição, atualiza a base de peça nova, comenta; só marcas sem autorização reavalia a coluna. Peça já autorizada com a mesma cotação marcada **não é reenviada** (revisão 07/10/2026) |
-| 🛒 Compra | `vdf_salvarCompra` (`parcial`), `vdf_cotacaoIndisponivel`, `vdf_marcarOrdemAutorizada`, `vdf_avisarSolicitante`, `vdf_alterarPrevisao` | marcar peças compradas (previsão por data ou d.u.), links 🔗 dos anúncios informados na cotação (na linha da autorizada e abaixo da lista, 07/10/2026), justificar fora da autorização, cotação indisponível + nova cotação, ordem autorizada, aviso ao solicitante (Databox), alterar prazo autorizado com motivo |
+| 🛒 Compra | `vdf_salvarCompra` (`parcial`, `compras[].anexos`, `anexosExtra`), `vdf_cotacaoIndisponivel`, `vdf_marcarOrdemAutorizada`, `vdf_avisarSolicitante`, `vdf_alterarPrevisao` | marcar peças compradas (previsão por data ou d.u.), links 🔗 dos anúncios informados na cotação (na linha da autorizada e abaixo da lista, 07/10/2026), **print/arquivo da negociação e pagamento por peça** (escolher arquivo ou Ctrl+V na peça; sobe na hora, vai para o card no Salvar parcial/Enviar como `🛒 COMPRA · …`, mesmo em peça ainda sem compra escolhida; 08/10/2026), justificar fora da autorização, cotação indisponível + nova cotação, ordem autorizada, aviso ao solicitante (Databox), alterar prazo autorizado com motivo |
 | 📦 Recebimento | `vdf_salvarRecebimento` | ✔ por item com data, obs, foto/NF da peça; obs geral |
 | 🚚 Fornecimento | `vdf_atualizarFornecimento`, `vdf_lerFornecimento`, `vdf_lerFornecimentoAnexo` | por item FO: fornecedor, previsão, situação (em cotação / B.O.), motivo (só se adiar); leitura de "Status do Pedido" (Cilia/HDI/Soma) por upload ou de anexo já no card; peças FO novas do documento |
 | Todas as abas | — | links 📎 dos anexos originais; atalho de upload do fornecimento; **colar com Ctrl+V** (print, foto, PDF ou arquivo copiado) vai para o campo de anexo mais próximo do último clique, senão para o da aba aberta (07/10/2026) |

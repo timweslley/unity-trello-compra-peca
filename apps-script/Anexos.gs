@@ -6,12 +6,16 @@
  *   🚚 FO · RHV1E04 · Status do Pedido Cilia · 05/10
  *   📦 NF 12345 · RHV1E04 · MARAJO · 06/10          nota do recebimento (número quando o arquivo deixa ler)
  *   📸 · RHV1E04 · capa · 05/10                     fotos
+ *   🛒 COMPRA · RHV1E04 · AVENIDA · PARA-CHOQUE · 08/10   print/arquivo da negociação e pagamento (aba Compra, 08/10/2026)
  * Quando entra outro do MESMO tipo no card, o anterior vira "v1" e o novo "v2" (v3…) — só aparece versão
  * quando há mais de um. A data é a do upload. O robô nunca identifica anexo pelo nome (usa id e conteúdo),
  * então renomear não muda nada no funcionamento. Trello aceita PUT /cards/{id}/attachments/{id} {name}.
  */
-var AX = { ORC: '📄 ORÇ', ORC_MAIS: '📄 ORÇ+', FO: '🚚 FO', NF: '📦 NF', FOTO: '📸', SEP: ' · ' };
-var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?) · |📸 )/;
+var AX = { ORC: '📄 ORÇ', ORC_MAIS: '📄 ORÇ+', FO: '🚚 FO', NF: '📦 NF', FOTO: '📸', COMPRA: '🛒 COMPRA', SEP: ' · ' };
+var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?|🛒 COMPRA) · |📸 )/;
+/** Anexo que o próprio sistema batizou sabendo o que é (nota, foto, comprovante de compra): o robô não gasta OCR lendo-o
+ *  à procura de orçamento (08/10/2026). ORÇ/FO ficam de fora de propósito — podem ser orçamento complementar. */
+function ax_semLeituraRobo_(nome) { return /^((📦 NF( \d+)?|🛒 COMPRA) · |📸 )/.test(String(nome || '')); }
 
 function ax_hoje_(d) { var dt = d ? new Date(d) : new Date(); if (isNaN(dt.getTime())) dt = new Date(); return Utilities.formatDate(dt, 'America/Sao_Paulo', 'dd/MM'); }
 
