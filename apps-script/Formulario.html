@@ -2200,7 +2200,16 @@ iniciar();
   .v2 #v2topo .etapa { flex:1; min-width:140px; font-size:14px; line-height:18px; color:#44546f; }
   .v2 #v2topo .etapa b { display:block; color:#172b4d; font-size:15px; }
   .v2 #v2topo button { min-height:40px; font-size:14px; padding:6px 10px; }
-  .v2 header { position:static; }
+  .v2 header { position:static; padding:6px 12px; gap:8px; flex-wrap:nowrap; }
+  .v2 header h1 { display:none; }
+  .v2 header .selo { font-size:10px; padding:2px 6px; }
+  .v2 header .usuario { font-size:12px; white-space:nowrap; margin-left:auto; }
+  .v2 header .v2hb { min-height:36px !important; font-size:13px !important; padding:4px 10px !important; white-space:nowrap; }
+  .v2 .tt .aba .rotulo, .v2 .aba .rotulo { display:inline !important; }
+  .v2 #fornAtalho label.botao { color:#fff !important; font-size:15px !important; min-height:48px; display:flex; align-items:center; }
+  .v2 #fornAtalho { padding:10px !important; }
+  .v2 #fornAtalho > strong, .v2 #fornAnexosTopo { display:none; }
+  .v2.v2-detalhes #fornAtalho > strong, .v2.v2-detalhes #fornAnexosTopo { display:inline; }
   .v2 #modoEdicao, .v2 #infoComprador { display:none; }
   .v2.v2-detalhes #modoEdicao:not(.oculto), .v2.v2-detalhes #infoComprador { display:block; }
   .v2 .dica:not(.ruim):not(.boa):not([id]):not(.item .dica), .v2 #painelCot > .item > div:first-child, .v2 #painelAut > .item > div:first-child,
@@ -2214,7 +2223,11 @@ iniciar();
   .v2 #v2passos .p.feito i, .v2 #v2passos .p.atual i { background:#0c66e4; }
   .v2 #v2passos .p.atual { color:#172b4d; }
   .v2 .v2-fora { display:none !important; }
-  .v2 #v2nav { position:sticky; bottom:0; z-index:4; background:#fff; border-top:1px solid #091e4224; margin:0 -12px; padding:12px 12px 16px; display:flex; gap:10px; }
+  .v2 #v2nav { position:fixed; left:0; right:0; bottom:0; z-index:7; background:#fff; border-top:1px solid #091e4224; padding:10px 12px 14px; display:flex; gap:10px; box-shadow:0 -2px 8px #091e4214; }
+  .v2 #form { padding-bottom:84px; }
+  .v2 #comprador .item .dica:not(.ruim):not(.boa):not([id]) { display:none; }
+  .v2.v2-ajuda #comprador .item .dica:not(.ruim):not(.boa):not([id]) { display:block; }
+  .v2 .v2-obsbtn { background:transparent !important; color:#0c66e4 !important; padding:4px 0 !important; min-height:36px !important; font-size:15px !important; }
   .v2 #v2nav button { flex:1; min-height:52px; font-size:17px; }
   .v2 #v2nav #v2voltar { flex:0 0 auto; }
   .v2 #v2erroPasso { margin-bottom:12px; }
@@ -2230,7 +2243,7 @@ iniciar();
   .v2 .item.v2-fechada > :not(.v2-resumo) { display:none !important; }
   .v2 .item:not(.v2-fechada) > .v2-resumo { border-bottom:1px solid #091e4224; padding-bottom:8px; margin-bottom:10px; }
   /* abas */
-  .v2 .abas:not(.v2-todas) .aba:not(.marcada) { display:none; }
+  .v2 .abas:not(.v2-todas) .aba:not(.marcada):not(#v2outras) { display:none; }
   .v2 #v2outras { flex:0 0 auto; min-height:48px; }
   /* arquivo */
   .v2 input[type=file].v2-arq { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
@@ -2270,9 +2283,11 @@ iniciar();
   /* ---------- 1. topo fixo ---------- */
   var topo = document.createElement('div');
   topo.id = 'v2topo';
-  topo.innerHTML = '<span class="placa" id="v2placa">—</span><span class="etapa" id="v2etapa"></span>'
-    + '<button type="button" class="secundario" id="v2det">📎 Detalhes</button><button type="button" class="secundario" id="v2aj">❔ Ajuda</button>';
-  document.querySelector('header').insertAdjacentElement('afterend', topo);
+  topo.innerHTML = '<span class="placa" id="v2placa">—</span><span class="etapa" id="v2etapa"></span>';
+  var cab = document.querySelector('header');
+  cab.insertAdjacentElement('afterend', topo);
+  cab.querySelector('h1').insertAdjacentHTML('afterend', '<button type="button" class="secundario v2hb" id="v2det">📎 Detalhes</button><button type="button" class="secundario v2hb" id="v2aj">❔ Ajuda</button>');
+  if (g('seloTeste')) g('seloTeste').textContent = 'TESTE';
   g('v2det').onclick = function () { html.classList.toggle('v2-detalhes'); this.textContent = html.classList.contains('v2-detalhes') ? '📎 Esconder' : '📎 Detalhes'; };
   g('v2aj').onclick = function () { html.classList.toggle('v2-ajuda'); };
   var PROXIMO = {
@@ -2496,8 +2511,19 @@ iniciar();
     if (frase) suc.insertAdjacentHTML('beforeend', '<div id="v2agora">👉 ' + txt(frase) + '</div>');
   }).observe(suc, { childList: true });
 
+  /* observação opcional por peça (comprador): escondida atrás de "+ Observação" enquanto vazia */
+  function prepararObs(inp) {
+    if (inp.dataset.v2 || inp.value) return; inp.dataset.v2 = '1';
+    var caixa = inp.parentNode; if (!caixa || caixa.tagName !== 'DIV' || caixa.classList.contains('item')) return;
+    caixa.classList.add('v2-fora');
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'secundario v2-obsbtn'; b.textContent = '+ Observação desta peça';
+    b.onclick = function () { caixa.classList.remove('v2-fora'); b.remove(); inp.focus(); };
+    caixa.insertAdjacentElement('beforebegin', b);
+  }
+
   /* ---------- ligar tudo ---------- */
   function varrer() {
+    $$('#comprador input.q-obs').forEach(prepararObs);
     $$('input[type=file]').forEach(prepararArquivo);
     $$('input.f-qtd').forEach(prepararQtd);
     atualizarTopo();
