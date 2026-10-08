@@ -2242,6 +2242,10 @@ iniciar();
   .v2 .v2num { display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:30px; padding:0 6px; border-radius:15px; background:#172b4d; color:#fff; font-size:15px; font-weight:800; margin-right:8px; vertical-align:middle; }
   .v2 .semcot-box:not(.v2-aberto) > label, .v2 .semcot-box:not(.v2-aberto) > input { display:none; }
   .v2 .semcot-box.v2-aberto > .v2-semcotbtn { display:none; }
+  /* avisos curtos no celular (Weslley 07/10: "mais diretos, menos espaço") */
+  .v2 .aviso { font-size:14px !important; line-height:20px; padding:8px 10px !important; margin-bottom:10px !important; }
+  .v2 .dica.ruim, .v2 .dica.boa { display:inline-block; font-size:14px !important; line-height:20px; padding:3px 8px !important; margin:2px 0 6px !important; border-radius:4px; }
+  .v2 .alerta { font-size:13px; padding:6px 8px; }
   .v2 .v2-obsbtn { background:transparent !important; color:#0c66e4 !important; padding:4px 0 !important; min-height:36px !important; font-size:15px !important; }
   .v2 #v2nav button { flex:1; min-height:52px; font-size:17px; }
   .v2 #v2nav #v2voltar { flex:0 0 auto; }
@@ -2565,8 +2569,32 @@ iniciar();
     it.classList.toggle('v2-ok', ok);
   }
 
+  /* textos de aviso encurtados (o texto completo fica no "toque longo"/title) */
+  var CURTOS = [
+    [/Ainda sem cotação: lance uma cotação ou justifique abaixo por que não vai cotar\./g, '⚠️ Sem cotação'],
+    [/Sem cotação lançada para esta peça — lance na aba Cotação\./g, '⚠️ Sem cotação (aba Cotação)'],
+    [/Não cotada — motivo já no card: /g, '🚫 Não cotada: '],
+    [/O orçamento não traz código de fábrica desta peça — busque no Cilia\./g, '⚠️ Sem código — buscar no Cilia'],
+    [/⚠️ Peça sem autorização — não comprar\./g, '⛔ Sem autorização — não comprar'],
+    [/🔒 SOMENTE VISUALIZAÇÃO — /g, '🔒 Só visualizar: '],
+    [/🏷️ <b>FALTA A ETIQUETA ORDEM AUTORIZADA<\/b> — a compra só é liberada com a ordem de serviço autorizada\./g, '🏷️ <b>Falta a etiqueta ORDEM AUTORIZADA</b>'],
+    [/1️⃣ Confira no <b>Databox<\/b> se a ordem está <b>autorizada<\/b> e o orçamento <b>importado<\/b>\.<br>/g, 'Conferiu no Databox (ordem autorizada e orçamento importado)?<br>'],
+    [/2️⃣ Está tudo certo\? /g, '✅ Sim: '],
+    [/3️⃣ Não está\? Avise /g, '❌ Não: avise '],
+    [/⚠️ Este card ainda <b>não tem autorização da diretoria<\/b>\. Se registrar a compra agora, ela fica marcada no card como <b>fora da autorização<\/b>\./g, '⚠️ <b>Sem autorização da diretoria</b> — a compra fica como fora da autorização.'],
+    [/Já existe card com esta placa\. Quer atualizar um deles\?/g, 'Já existe card desta placa. Atualizar um deles?']
+  ];
+  function encurtar(el) {
+    if (el.dataset.v2c === el.innerHTML) return;
+    var h = el.innerHTML, novo = h;
+    CURTOS.forEach(function (c) { novo = novo.replace(c[0], c[1]); });
+    if (novo !== h) { if (!el.title) el.title = el.textContent; el.innerHTML = novo; }
+    el.dataset.v2c = el.innerHTML;
+  }
+
   /* ---------- ligar tudo ---------- */
   function varrer() {
+    $$('.dica.ruim, #compraAviso, .aviso.trava, .aviso.info').forEach(encurtar);
     $$('#comprador input.q-obs').forEach(prepararObs);
     $$('#comprador .semcot-box').forEach(prepararSemCot);
     $$('#cotItens > .item, #autItens > .item, #compraItens > .item, #recItens > .item, #fornItens > .item').forEach(marcarPeca);
