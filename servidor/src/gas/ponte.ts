@@ -184,6 +184,10 @@ const ABAS_AO_VIVO = ['TRAVA', 'FORNECEDORES'];
 async function atenderLeitura(op: string, d: any, ctx: Contexto): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
   switch (op) {
     case 'props.gravar': case 'props.apagar': case 'aba.criar': case 'aba.gravar': case 'gatilho': case 'email': return null;
+    // retrato do TESTE: as abas são as do próprio servidor (banco), só leitura
+    case 'aba.existe': case 'aba.lista': case 'aba.ler': if (!ctx.abasAoVivo) return atender(op, d, ctx); break;
+  }
+  switch (op) {
     case 'aba.existe': return d === 'backup' || ABAS_AO_VIVO.includes(d);
     case 'aba.lista': return ['backup', ...ABAS_AO_VIVO];
     case 'aba.ler': {
@@ -294,14 +298,14 @@ class Contexto {
   private esperando = new Map<number, { ok: (v: unknown) => void; erro: (e: Error) => void }>();
   private fila: Promise<unknown> = Promise.resolve();
   atual: Execucao | null = null;
-  constructor(readonly nome: 'teste' | 'principal', readonly somenteLeitura: boolean) {}
+  constructor(readonly nome: 'teste' | 'principal' | 'retrato', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false) {}
 
   private fixas(): Record<string, string> {
     return {
       TRELLO_KEY: CFG.trello.chave, TRELLO_TOKEN: CFG.trello.token, VD_PLANILHA_BACKUP: 'planilha-servidor',
-      VD_BOARD: this.somenteLeitura ? QUADRO_PRINCIPAL_SL : CFG.trello.quadro,
+      VD_BOARD: this.quadro,
       // links ✏️/💰: no TESTE o atalho que abre o formulário com srv=1; no principal o formulário de sempre
-      VD_URL_FORM: this.somenteLeitura ? 'https://timweslley.github.io/unity-trello-compra-peca/powerup/formulario.html'
+      VD_URL_FORM: this.nome === 'principal' ? 'https://timweslley.github.io/unity-trello-compra-peca/powerup/formulario.html'
         : 'https://timweslley.github.io/unity-trello-compra-peca/powerup/servidor.html',
     };
   }
@@ -365,8 +369,11 @@ class Contexto {
   chamar(fn: string, args: unknown[]): Promise<unknown> { return this.enviar({ tipo: 'chamar', fn, args }); }
 }
 
-const TESTE = new Contexto('teste', false);
-const PRINCIPAL = new Contexto('principal', true);
+const TESTE = new Contexto('teste', false, CFG.trello.quadro);
+const PRINCIPAL = new Contexto('principal', true, QUADRO_PRINCIPAL_SL, true);
+/** Retrato dos pedidos do TESTE no banco (versão 2.0, passo 1): lê o card como o formulário lê, sem gravar nada. */
+const RETRATO = new Contexto('retrato', true, CFG.trello.quadro);
+export function retratoDoCard(shortLink: string): Promise<unknown> { return RETRATO.chamar('vdf_carregarCard', [CFG.trello.token, shortLink]); }
 
 /** O doPost do robô: recebe o corpo `{fn, args, rid}` do formulário e devolve o texto JSON da resposta. */
 export function executarPost(corpo: string): Promise<string> { return TESTE.enviar({ tipo: 'post', corpo }) as Promise<string>; }

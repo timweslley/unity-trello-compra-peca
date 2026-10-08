@@ -23,6 +23,31 @@ Tudo é montado e testado no quadro **TESTE** (laboratório). O principal só mu
 6. **Manual** — guias novos com as telas finais.
 7. **Ensaio da virada** — lista de verificação, plano de volta (Apps Script em reserva), e-mail SMTP, token da conta do robô.
 
+## Estrutura (08/10/2026 — aprovado pelo Weslley: "Sim")
+
+Problema: os dados de um pedido moram em 4 lugares (texto da descrição, aba TRAVA, checklists, propriedades do robô), o
+mesmo código existe em 3 cópias (robô no Google, cópia no servidor, formulário em 2 versões), o formulário conversa no
+formato do Google ("função + dados") e duas sessões mexem no mesmo projeto ao mesmo tempo.
+
+1. **O banco vira o dono dos dados; o Trello vira vitrine.** Tabelas de pedido, peça, cotação, autorização, compra,
+   recebimento, fornecimento e histórico. Sem risco: (a) o servidor grava em paralelo (retrato a cada ação no card) e
+   compara uma semana; (b) o formulário passa a LER do banco; (c) etapa por etapa passa a GRAVAR no banco, e o servidor
+   escreve a descrição/checklists do Trello a partir dele. Fim da TRAVA, da vitrine × completa e da leitura do texto.
+   → **(a) começou 08/10:** tabela `pedido_retrato` + `pedido_historico` (migração 007), retrato a cada ação no card do
+   TESTE (webhook) e em lote por `/tarefas/retratar`; resumo em `/tarefas/pedidos`; peças em linhas na view `v_peca`.
+2. **Regras escritas uma vez** (leitores, dias úteis, permissões, montagem da descrição) num núcleo com testes dos PDFs
+   reais, usado pelo servidor e — enquanto existir — gerado para o Apps Script.
+3. **Formulário servido pelo próprio servidor**, API com rotas claras (abrir card, lançar cotação…), **login Google** com
+   papéis no banco (consultor, comprador, autorizador, financeiro, diretoria, por unidade), registro de quem fez o quê,
+   conta própria do robô no Trello. Junta a fase 3b e as ideias "cara de aplicativo".
+4. **Regras de trabalho:** uma sessão no sistema atual (Apps Script/principal), outra na 2.0 (servidor/TESTE);
+   `docs/SESSOES.md` diz quem mexe em quê; principal só com testes passando e confirmação do Weslley.
+5. **Segurança e acompanhamento:** painel de saúde (`/painel`, feito 08/10), cópia diária do banco (a fazer),
+   documentação num lugar só (`docs/README.md`, feito 08/10).
+
+Região (decidido na proposta de 08/10): fica **São Paulo** — com o banco dono dos dados, o que importa é servidor e banco
+juntos; as gravações no Trello passam a ser em segundo plano. Sonda us-east4 pode ser apagada.
+
 ## Ideias guardadas para depois — "cara de aplicativo" (Weslley 07/10: boas, não perder)
 
 1. **Ícone na tela inicial do celular** (app instalável, abre em tela cheia sem navegador e sem passar pelo Trello).

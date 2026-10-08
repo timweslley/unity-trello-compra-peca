@@ -11,7 +11,8 @@ import { garantirWebhook, chamadasTrello, trello } from './trello/api.js';
 import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
-import { executarPost, executarLeituraPrincipal, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria } from './gas/ponte.js';
+import { retratar, retratarTodos } from './retrato.js';
+import { idDoQuadro, executarPost, executarLeituraPrincipal, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -105,7 +106,11 @@ export function criarApp() {
           // espelho: relê o que a ação mudou (dentro da requisição — é quando o Cloud Run dá CPU)
           if (mudaMetaQuadro(a.type)) { esquecerMemoria(); await lerMetaQuadro(CFG.trello.quadro, CFG.permitirPrincipal, true); }
           const cardId = a.data?.card?.id;
-          if (cardId && !SO_COMENTARIO.test(a.type)) await atualizarCard(cardId, CFG.trello.quadro, CFG.permitirPrincipal);
+          if (cardId && !SO_COMENTARIO.test(a.type)) {
+            await atualizarCard(cardId, CFG.trello.quadro, CFG.permitirPrincipal);
+            // versão 2.0: retrato do pedido no banco, em paralelo ao Trello (falha aqui não atrapalha o webhook)
+            await retratar(cardId).catch((e) => req.log.warn(e, 'retrato'));
+          }
           if (Date.now() - ultimaSinc > INTERVALO_SINC_MS) await sincronizarTudo(req.log, false);
           await consulta(`UPDATE trello_acao SET processada_em = now() WHERE id = $1`, [a.id]);
         }
@@ -189,6 +194,53 @@ export function criarApp() {
       trello: trelloPronto() ? await medir(() => trello(`/boards/${CFG.trello.quadro}`, { query: { fields: 'id' }, tentativas: 1 })) : null,
       banco: CFG.bancoUrl ? await medir(() => consulta('SELECT 1')) : null,
     };
+  });
+
+  /** Versão 2.0: retrata no banco os pedidos abertos do TESTE (os sem retrato primeiro), por até ?segundos=N (padrão 200). */
+  let retratando = false;
+  app.post('/tarefas/retratar', async (req, resp) => {
+    if (!trelloPronto()) return resp.code(503).send({ ok: false });
+    if (retratando) return resp.code(429).send({ ok: false, erro: 'em andamento' });
+    const seg = Math.min(250, Math.max(10, Number((req.query as Record<string, string>)?.segundos) || 200));
+    retratando = true;
+    try { return { ok: true, ...(await retratarTodos(await idDoQuadro(), seg * 1000)) }; }
+    catch (e) { return resp.code(500).send({ ok: false, erro: (e as Error).message }); }
+    finally { retratando = false; }
+  });
+  /** Resumo dos pedidos retratados (sem dados de cliente): por lista, quantos, peças e erros. */
+  app.get('/tarefas/pedidos', async () => ({
+    ok: true,
+    porLista: await consulta(`SELECT lista, count(*)::int AS pedidos, sum(jsonb_array_length(COALESCE(pecas,'[]')))::int AS pecas, count(erro)::int AS erros,
+                                     max(retratado_em) AS ultimo FROM pedido_retrato GROUP BY lista ORDER BY 2 DESC`),
+    mudancas24h: (await consulta<{ n: number }>(`SELECT count(*)::int AS n FROM pedido_historico WHERE quando > now() - interval '24 hours'`))[0]?.n ?? 0,
+    erros: await consulta(`SELECT short_link, erro FROM pedido_retrato WHERE erro IS NOT NULL LIMIT 20`),
+  }));
+
+  /** Painel de saúde (só números, sem dados de cliente): versão, webhook, tempos das ações, erros, pedidos por etapa. */
+  app.get('/painel', async (_req, resp) => {
+    const ex = ultimasExecucoes().slice(0, 30);
+    const porLista = await consulta<{ lista: string; pedidos: number; erros: number }>(
+      `SELECT COALESCE(lista,'?') lista, count(*)::int pedidos, count(erro)::int erros FROM pedido_retrato GROUP BY 1 ORDER BY 2 DESC`).catch(() => []);
+    const h = (t: unknown) => String(t ?? '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]!));
+    const ms = (n?: number) => n == null ? '—' : n < 1000 ? n + ' ms' : (n / 1000).toFixed(1) + ' s';
+    const lentas = ex.filter((e) => (e.ms || 0) > 5000).length, falhas = ex.filter((e) => e.ok === false).length;
+    resp.type('text/html; charset=utf-8');
+    return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Painel do servidor</title>
+<style>body{margin:0;font:15px/1.4 -apple-system,Segoe UI,Roboto,sans-serif;background:#f1f2f4;color:#172b4d}main{max-width:900px;margin:0 auto;padding:12px}
+h1{font-size:20px;margin:8px 0}h2{font-size:16px;margin:18px 0 8px}.c{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.k{background:#fff;border-radius:10px;padding:10px 12px;box-shadow:0 1px 2px #091e4226}.k b{display:block;font-size:22px}.k span{font-size:13px;color:#626f86}
+table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;font-size:14px}td,th{padding:6px 8px;border-bottom:1px solid #dcdfe4;text-align:left}
+.ruim{color:#ae2e24;font-weight:700}.ok{color:#216e4e}</style></head><body><main>
+<h1>Painel do servidor · ${h(VERSAO)}</h1>
+<div class="c"><div class="k"><b>${h(CFG.modo)}</b><span>modo · quadro ${h(CFG.trello.quadro)}</span></div>
+<div class="k"><b>${h(String(ESTADO.webhook).split(' ')[0])}</b><span>webhook do Trello</span></div>
+<div class="k"><b class="${lentas ? 'ruim' : 'ok'}">${lentas}</b><span>ações acima de 5 s (últimas 30)</span></div>
+<div class="k"><b class="${falhas ? 'ruim' : 'ok'}">${falhas}</b><span>ações com erro (últimas 30)</span></div></div>
+<h2>Pedidos no banco (TESTE), por etapa</h2><table><tr><th>Etapa</th><th>Pedidos</th><th>Com erro no retrato</th></tr>
+${porLista.map((l) => `<tr><td>${h(l.lista)}</td><td>${l.pedidos}</td><td class="${l.erros ? 'ruim' : ''}">${l.erros}</td></tr>`).join('')}</table>
+<h2>Últimas ações do formulário</h2><table><tr><th>Hora</th><th>Quadro</th><th>Ação</th><th>Tempo</th><th>Espera</th><th></th></tr>
+${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' }))}</td><td>${h(e.quadro)}</td><td>${h(e.fn.replace(/^vdf_/, ''))}</td><td class="${(e.ms || 0) > 5000 ? 'ruim' : ''}">${ms(e.ms)}</td><td>${ms(e.filaMs)}</td><td class="${e.ok === false ? 'ruim' : 'ok'}">${e.ok === false ? 'erro' : e.ok ? 'ok' : '…'}</td></tr>`).join('')}</table>
+</main></body></html>`;
   });
 
   /** Últimas execuções do código do formulário: função, espera na fila, duração e chamadas por destino (sem dados de card). */
