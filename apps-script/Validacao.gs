@@ -817,6 +817,23 @@ function vd_orcCompacto_(lista) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
+/* ============================ CSS (concessionária fornece tudo) ============================
+ * 08/10/2026 (Weslley, regra fixa): nos carros que a oficina faz para a ZACARIAS (CSS), as peças são SEMPRE fornecidas
+ * (FO), seja qual for a seguradora. Reconhecimento: ZACARIAS no título do card (ou no nome do carro do pedido novo).
+ * Toda peça de orçamento (do robô ou do formulário) vai para o checklist FORNECIMENTO; só peça particular fica na oficina. */
+var VD_CSS = /\bZACARIAS\b/i;
+function vd_cardCss_(nomeCard) { return VD_CSS.test(String(nomeCard || '')); }
+/** Peça no formato da oficina (formulário/orçamento) -> item FO do checklist FORNECIMENTO. */
+function vd_pecaParaFo_(x, forn) {
+  return x.pneu ? { pneu: true, medida: x.medida || '', marca: x.marca || x.categoria || '', qtd: x.qtd || '', fornecedor: forn || '' }
+    : { pneu: false, codigo: String(x.codigo || '').trim(), descricao: String(x.descricao || '').trim(), qtd: x.qtd || '', valorOrc: x.valorOrc || '', fornecedor: forn || '' };
+}
+/** Orçamento lido {oficina, fo}: num card CSS tudo vira FO. Devolve um orçamento novo (não mexe no original). */
+function vd_orcCss_(orc, nomeCard) {
+  if (!orc || !vd_cardCss_(nomeCard) || !(orc.oficina || []).length) return orc;
+  return { origem: orc.origem, oficina: [], fo: (orc.fo || []).concat(orc.oficina.map(function (x) { return vd_pecaParaFo_(x, 'ZACARIAS'); })) };
+}
+
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4

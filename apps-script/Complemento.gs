@@ -425,6 +425,7 @@ function cp_doAnexo_(c, a, ctx) {
   if (!placa || !(r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) return false;
   var orc = r.orcFull || (r.orc ? { oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : null);
   if (!orc) return false;
+  orc = vd_orcCss_(orc, card.name);   // CSS (Zacarias): tudo é FO (08/10/2026)
   var cmp = cp_comparar_(card, orc, a.id);
   if (!cmp.oficina.length && !cmp.fo.length && !(cmp.atualizar || []).length) return false;
   cp_aplicar_(card, cmp, { origem: r.orcamento, anexo: a.name, quem: 'robô', token: null, ctx: ctx });

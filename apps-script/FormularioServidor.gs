@@ -1584,6 +1584,15 @@ function vdf_salvar(token, p) {
   }
   var orc = p.orcamento || null;
   var fo = orc && orc.fo ? orc.fo : [];
+  /* 08/10/2026 (Weslley, regra fixa): card CSS (ZACARIAS no título / nome do carro) -> toda peça da seguradora é FO:
+   * sai da lista da oficina e entra no checklist FORNECIMENTO (fornecedor ZACARIAS). Peça particular continua na oficina. */
+  var cssCard = vd_cardCss_((card && card.name) || '') || vd_cardCss_(n.carro);
+  if (cssCard) {
+    var paraFo = [];
+    pecas = pecas.filter(function (x) { if (x.particular || x.naoComprar) return true; paraFo.push(vd_pecaParaFo_(x, 'ZACARIAS')); return false; });
+    if (paraFo.length) { fo = fo.concat(paraFo); orc = orc || { origem: 'CSS' }; }
+    if (p.complemento && (p.complemento.oficina || []).length) { var cc = vd_orcCss_(p.complemento, 'ZACARIAS'); p.complemento = { origem: p.complemento.origem, oficina: [], fo: cc.fo }; }
+  }
   var tipo = vd_tipoNormPedido_(n.tipo) || 'SEGURADORA';
   var particular = tipo === 'PARTICULAR';
   var extra = {
@@ -1609,6 +1618,14 @@ function vdf_salvar(token, p) {
   if (p.shortLink) {
     card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard' } });
     if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro — não pode ser usado como pedido. Clique em "Fazer pedido novo em vez disso".'] };
+    // CSS pelo título do card (quando o nome do carro não trouxe ZACARIAS): mesma conversão para FO
+    if (!cssCard && vd_cardCss_(card.name)) {
+      cssCard = true;
+      var paraFo2 = [];
+      pecas = pecas.filter(function (x) { if (x.particular || x.naoComprar) return true; paraFo2.push(vd_pecaParaFo_(x, 'ZACARIAS')); return false; });
+      if (paraFo2.length) { fo = fo.concat(paraFo2); extra.fo = fo; orc = orc || { origem: 'CSS' }; }
+      if (p.complemento && (p.complemento.oficina || []).length) { var cc2 = vd_orcCss_(p.complemento, 'ZACARIAS'); p.complemento = { origem: p.complemento.origem, oficina: [], fo: cc2.fo }; }
+    }
     lista = vd_api_('/lists/' + card.idList, { query: { fields: 'name' } }).name;
     posCot = vdf_ehPosCotacao_(lista);
     // peça já autorizada ou comprada: não muda nem sai do pedido (só a diretoria)

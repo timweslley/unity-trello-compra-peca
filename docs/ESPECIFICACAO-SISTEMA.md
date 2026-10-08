@@ -268,6 +268,13 @@ Regra do fornecimento (06/10/2026): item já recebido com data **não muda a pre
 ainda atualizam; avisa); sem data anterior → grava sem motivo; **motivo obrigatório só quando a nova previsão
 é posterior** à antiga. Rotina (diretoria) usa motivo automático "portal da seguradora".
 
+**CSS — Zacarias (regra fixa, 08/10/2026, Weslley):** nos carros que a oficina faz para a **ZACARIAS** (concessionária CSS), as
+peças são **sempre fornecidas (FO)**, seja qual for a seguradora. Reconhecimento: `ZACARIAS` no título do card ou no nome do
+carro do pedido (`VD_CSS`, `vd_cardCss_`). Efeito: toda peça de orçamento (lida pelo robô — `cp_doAnexo_` — ou enviada pelo
+formulário — `vdf_salvar`, inclusive complemento) vai para o checklist `FORNECIMENTO` com fornecedor `ZACARIAS`
+(`vd_orcCss_`, `vd_pecaParaFo_`); nada entra na lista da oficina, exceto peça **particular** ou 🚫 não comprar. No formulário,
+peça de card CSS não exige código/tipo nem orçamento anexado (vira FO). Caso-base: SEZ6D14 (Youse).
+
 ### 4.5 Anexos
 
 Nomes padronizados: `📄 ORÇ · PLACA · SEGURADORA · Sistema · dd/MM`, `📄 ORÇ+` (complementar),
