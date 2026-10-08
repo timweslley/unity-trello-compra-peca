@@ -23,6 +23,16 @@ Tudo é montado e testado no quadro **TESTE** (laboratório). O principal só mu
 6. **Manual** — guias novos com as telas finais.
 7. **Ensaio da virada** — lista de verificação, plano de volta (Apps Script em reserva), e-mail SMTP, token da conta do robô.
 
+## Ideias guardadas para depois — "cara de aplicativo" (Weslley 07/10: boas, não perder)
+
+1. **Ícone na tela inicial do celular** (app instalável, abre em tela cheia sem navegador e sem passar pelo Trello).
+2. **Tela inicial = lista de cards** do nosso banco (placa grande, situação colorida, o que falta), filtros "Para cotar / Para autorizar / Para comprar / Chegando" e lupa por placa.
+3. **Barra de botões fixa embaixo**: 🏠 Início · ➕ Pedido · 💰 Cotar · 📦 Chegou.
+4. **Avisos no celular** ("peça do ARW5715 chegou", "3 cotações esperando você") que abrem direto no card (depende do item 1; no iPhone cada pessoa aceita).
+5. **Ler pela câmera** o código de barras da nota/etiqueta na chegada para marcar o que chegou.
+
+Feitas em 07/10 (celular, TESTE): teclado certo em cada campo, cotação nova num painel que sobe de baixo, faixa verde "Salvo ✓" com vibração, rascunho automático do pedido novo (oferece "Continuar de onde parou").
+
 ## Medição de velocidade (07/10/2026, sonda em us-east4)
 
 | Daqui até… | São Paulo (hoje) | EUA, Virgínia (us-east4) |
