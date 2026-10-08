@@ -26,13 +26,13 @@ function pv_item_(card, id) {
 /** Prazo do card = maior previsão entre os itens ainda não recebidos (PAGAS* e FORNECIMENTO*). */
 function pv_dueCard_(cardId, token) {
   try {
-    var c = vd_api_('/cards/' + cardId, { query: { fields: 'due', checklists: 'all', checkItem_fields: 'state,due' } });
+    var c = vd_api_('/cards/' + cardId, { query: { fields: 'due,dueComplete', checklists: 'all', checkItem_fields: 'state,due' } });
     var maior = '';
     (c.checklists || []).forEach(function (k) {
       if (!/^(PAGAS|FORNECIMENTO)/i.test(String(k.name || '').trim())) return;
       (k.checkItems || []).forEach(function (i) { if (i.state !== 'complete' && i.due && (!maior || new Date(i.due) > new Date(maior))) maior = i.due; });
     });
-    if (maior && !pv_mesmoDia_(maior, c.due)) vd_api_('/cards/' + cardId, { method: 'put', payload: { due: maior } }, token);
+    if (maior && (!pv_mesmoDia_(maior, c.due) || c.dueComplete)) vd_api_('/cards/' + cardId, { method: 'put', payload: { due: maior, dueComplete: false } }, token);
   } catch (e) { console.log('prazo do card: ' + e); }
 }
 
@@ -188,6 +188,8 @@ function vdf_atualizarFornecimento(token, p) {
       }
     }
     if (x.entregue && it.state !== 'complete') { mud.state = 'complete'; txt.push('✔ entregue'); }
+    // B.O. / em cotação = sem previsão: a data sai do item (revisão 07/10/2026 — ficava "atrasada" para sempre)
+    if (x.situacao !== undefined && /^(B\.?O|EM COTA)/.test(vd_semAcento_(x.situacao || '')) && it.due && !mud.due && it.state !== 'complete') { mud.due = null; txt.push('sem previsão'); }
     if (!Object.keys(mud).length) return;
     ops.push({ it: it, mud: mud });
     linhas.push('- ' + pv_curto_(base) + ': ' + txt.join(' · '));
@@ -199,7 +201,17 @@ function vdf_atualizarFornecimento(token, p) {
   if (faltas.length) return { ok: false, faltas: faltas };
   if (!ops.length && !novos.length && !(p.fileIds || []).length) return { ok: true, nada: true, url: card.shortUrl, nome: card.name, n: 0, avisos: avisos };
 
-  ops.forEach(function (o) { vd_api_('/cards/' + card.id + '/checkItem/' + o.it.id, { method: 'put', payload: o.mud }, token); });
+  ops.forEach(function (o) {
+    var mud = o.mud;
+    if (mud.due === null) {   // tirar a data: o Trello aceita null (JSON); se recusar, tenta vazio — e nunca derruba o resto
+      var resto = {}; Object.keys(mud).forEach(function (k) { if (k !== 'due') resto[k] = mud[k]; });
+      if (Object.keys(resto).length) vd_api_('/cards/' + card.id + '/checkItem/' + o.it.id, { method: 'put', payload: resto }, token);
+      try { vd_api_('/cards/' + card.id + '/checkItem/' + o.it.id, { method: 'put', payload: { due: null } }, token); }
+      catch (e) { try { vd_api_('/cards/' + card.id + '/checkItem/' + o.it.id, { method: 'put', payload: { due: '' } }, token); } catch (e2) { console.log('tirar previsão: ' + e2); } }
+      return;
+    }
+    vd_api_('/cards/' + card.id + '/checkItem/' + o.it.id, { method: 'put', payload: mud }, token);
+  });
   if (novos.length) {
     var cl = (card.checklists || []).filter(function (k) { return /FORNECIMENTO/i.test(k.name || '') && !/COMPLEMENTO/i.test(k.name || ''); })[0];
     if (!cl) cl = vd_api_('/checklists', { method: 'post', payload: { idCard: card.id, name: 'FORNECIMENTO', pos: 'bottom' } }, token);

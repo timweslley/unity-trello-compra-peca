@@ -928,8 +928,10 @@ function vdf_salvarCotacao(token, p) {
    * vitrine ("📝 também cotado"), mas não mexe na autorização, não move o card e não menciona ninguém. Vale quando toda
    * cotação deste envio é de peça autorizada e não há peça nova sem cotação / remoção junto. Para trocar o fornecedor
    * autorizado, o caminho continua sendo "cotação indisponível" na aba Compra. */
-  var registro = !parcial && cots.length > 0 && !rem.length && !semCot.length
+  // (revisão 07/10/2026) vale também no "Salvar parcial": cotação só de registro nunca move o card nem põe etiqueta
+  var registro = cots.length > 0 && !rem.length && !semCot.length
     && cots.every(function (c) { return autsAntes.some(function (a) { return a.chave === vd_chavePeca_(c.peca); }); });
+  if (registro) parcial = false;
   var novaDesc = card.desc;
   if (!nada) novaDesc = vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem);
   // enviar: toda peça precisa de cotação OU de justificativa para não cotar (salvar parcial não exige)
@@ -1373,7 +1375,7 @@ function vdf_salvarCompra(token, p) {
     var autChA = auts.map(function (a) { return a.chave; }), novasCh = compras.map(function (c) { return c.chave; });
     an.pecas.forEach(function (x) {
       var k = vd_chavePeca_(x);
-      if (naoCotadas.indexOf(k) >= 0 || novasCh.indexOf(k) >= 0) return;
+      if (x.naoComprar || naoCotadas.indexOf(k) >= 0 || novasCh.indexOf(k) >= 0) return;
       if (autChA.length && autChA.indexOf(k) < 0) return;
       if (!nomesA.some(function (nm) { return vd_casaItem_(nm, k); })) pendentesDepois.push(vd_nomePeca_(x));
     });
@@ -1425,7 +1427,7 @@ function vdf_salvarCompra(token, p) {
     var autCh = auts.map(function (a) { return a.chave; });
     an.pecas.forEach(function (x) {
       var k = vd_chavePeca_(x);
-      if (naoCotadas.indexOf(k) >= 0) return;
+      if (x.naoComprar || naoCotadas.indexOf(k) >= 0) return;
       if (autCh.length && autCh.indexOf(k) < 0) return;
       if (!nomes.some(function (nm) { return vd_casaItem_(nm, k); })) pendentes++;
     });

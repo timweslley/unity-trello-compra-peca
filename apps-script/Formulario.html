@@ -972,7 +972,7 @@ function montarAutorizacao(c) {
         + '<div class="dica">' + (p.particular ? '👤 Peça particular — quem autoriza é o consultor que a lançou' + (p.partPor ? ' (@' + esc(p.partPor) + ')' : '') : 'Peça da seguradora — quem autoriza é a diretoria') + '.</div>';
       div.innerHTML = h; div.dataset.fora = '1'; box.appendChild(div); return;
     }
-    if (ja) h += '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + (ja.quando ? ' ' + esc(ja.quando) : '') + ')' : '') + '</div>';
+    if (ja) { h += '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + (ja.quando ? ' ' + esc(ja.quando) : '') + ')' : '') + '</div>'; div.dataset.ja = JSON.stringify({ fornecedor: ja.fornecedor, valor: ja.valor }); }
     // diretoria marca aqui mesmo ➕ complemento / 🚫 não comprar, sem abrir o pedido do consultor (07/10/2026)
     if (c.diretoria) {
       div.dataset.comp = p.complemento ? '1' : '';
@@ -1039,13 +1039,16 @@ function escolhasAut() {
     if (nao && nao.checked) return;
     if (!r || r.value === '' || !item.dataset.cots) return;
     var q = JSON.parse(item.dataset.cots)[+r.value];
+    // já autorizada com essa mesma cotação (salva antes, parcial ou não): não reenvia (revisão 07/10/2026)
+    if (item.dataset.ja) { var ja = JSON.parse(item.dataset.ja); if (ja.fornecedor === q.fornecedor && Math.abs((+ja.valor || 0) - (+q.valor || 0)) < 0.005) return; }
     out.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, valor: q.valor });
   });
   return out;
 }
 function totalAut() {
-  var e = escolhasAut(), t = e.reduce(function (s, x) { return s + (+x.valor || 0); }, 0), n = Array.prototype.filter.call($('autItens').children, function (it) { return !it.dataset.fora; }).length;
-  $('autTotal').innerHTML = '<b>' + e.length + '</b> de ' + n + ' peça(s) marcada(s)' + (e.length < n ? ' · ' + (n - e.length) + ' sem autorização' : '') + '<br>Nesta autorização: ' + textoTotais(e);
+  var itens = Array.prototype.filter.call($('autItens').children, function (it) { return !it.dataset.fora; });
+  var e = escolhasAut(), n = itens.length, jaN = itens.filter(function (it) { return !!it.dataset.ja; }).length;
+  $('autTotal').innerHTML = '<b>' + e.length + '</b> peça(s) nova(s) nesta autorização' + (jaN ? ' · ' + jaN + ' já autorizada(s) antes' : '') + (e.length + jaN < n ? ' · ' + (n - e.length - jaN) + ' sem autorização' : '') + ' · ' + n + ' peça(s) no total<br>Nesta autorização: ' + textoTotais(e);
 }
 function enviarAutorizacao(parcial) {
   mostrar('erroComprador', false);
