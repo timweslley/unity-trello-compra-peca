@@ -7,7 +7,7 @@
  * Uso pelo formulário (diretoria): chamar('vdf_treinoLeitor', TOKEN, {reiniciar:true}) na 1ª vez, depois
  * chamar('vdf_treinoLeitor', TOKEN, {}) até devolver fim:true. Cada chamada roda ~4,5 min.
  */
-var TR = {
+var TRN = {
   PASTA_NOME: 'Treino do leitor de orçamento',
   LIMITE_MS: 240 * 1000,
   MAX_BYTES: 8 * 1024 * 1024,
@@ -21,8 +21,8 @@ function tr_pasta_() {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty('TR_PASTA');
   if (id) { try { return DriveApp.getFolderById(id); } catch (e) {} }
-  var p = DriveApp.createFolder(TR.PASTA_NOME);
-  TR.COMPARTILHAR.forEach(function (em) { try { p.addViewer(em); } catch (e) { console.log('treino/compartilhar: ' + e); } });
+  var p = DriveApp.createFolder(TRN.PASTA_NOME);
+  TRN.COMPARTILHAR.forEach(function (em) { try { p.addViewer(em); } catch (e) { console.log('treino/compartilhar: ' + e); } });
   props.setProperty('TR_PASTA', p.getId());
   return p;
 }
@@ -32,7 +32,7 @@ function tr_candidato_(a) {
   if (!a || !a.isUpload) return false;
   var nome = String(a.name || '') + ' ' + String(a.fileName || '');
   if (!/pdf/i.test(a.mimeType || '') && !/\.pdf$/i.test(nome)) return false;
-  if ((a.bytes || 0) > TR.MAX_BYTES || !(a.bytes || 0)) return false;
+  if ((a.bytes || 0) > TRN.MAX_BYTES || !(a.bytes || 0)) return false;
   if (/^(📦|📸|🛒|🚚)/.test(String(a.name || ''))) return false;
   if (/\b(NF|NFE|NF-E|NOTA|DANFE|BOLETO|CUPOM|RECIBO|COMPROVANTE|PIX|STATUS DO PEDIDO|PEDIDO DE COMPRA)\b/i.test(nome)) return false;
   return true;
@@ -47,7 +47,7 @@ function tr_listar_(board) {
     var cards = vd_api_('/boards/' + board + '/cards/all', { cru: true, query: q }) || [];
     if (!cards.length) break;
     cards.forEach(function (c) {
-      var ats = (c.attachments || []).filter(tr_candidato_).sort(function (x, y) { return String(x.date || '').localeCompare(String(y.date || '')); }).slice(0, TR.POR_CARD);
+      var ats = (c.attachments || []).filter(tr_candidato_).sort(function (x, y) { return String(x.date || '').localeCompare(String(y.date || '')); }).slice(0, TRN.POR_CARD);
       ats.forEach(function (a) { out.push({ card: c.id, nome: c.name, fechado: !!c.closed, lista: c.idList, shortLink: c.shortLink, att: a.id, anexo: a.name, arquivo: a.fileName, bytes: a.bytes, data: a.date, url: a.url }); });
     });
     pag++;
@@ -82,14 +82,14 @@ function vdf_treinoLeitor(token, p) {
   var lista = JSON.parse(DriveApp.getFileById(est.lista).getBlob().getDataAsString());
   var lote = [], n = 0;
   passo = 'anexos';
-  while (est.pos < lista.length && Date.now() - t0 < TR.LIMITE_MS && lote.length < TR.LOTE) {
+  while (est.pos < lista.length && Date.now() - t0 < TRN.LIMITE_MS && lote.length < TRN.LOTE) {
     var it = lista[est.pos];
     var reg = { card: it.card, nome: it.nome, fechado: it.fechado, shortLink: it.shortLink, att: it.att, anexo: it.anexo, arquivo: it.arquivo, bytes: it.bytes, data: it.data };
     try {
       var resp = qt_fetch_(it.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
       if (resp.getResponseCode() >= 300) throw new Error('Trello ' + resp.getResponseCode());
       var texto = vd_ocr_(resp.getBlob(), 'treino_' + it.att + '.pdf');
-      reg.texto = String(texto || '').slice(0, TR.TEXTO_MAX);
+      reg.texto = String(texto || '').slice(0, TRN.TEXTO_MAX);
       try {
         var orc = vd_lerOrcamento_(texto);
         reg.leitura = { origem: orc.origem, seguradora: orc.seguradora, oficina: orc.oficina.length, fo: orc.fo.length };
