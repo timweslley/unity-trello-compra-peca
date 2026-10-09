@@ -186,6 +186,8 @@ function sla_executar_(forcar) {
         if (vd_board_() !== VD.BOARD_PADRAO) usF = usF.filter(function (u) { return u !== 'timweslley'; });
         mencao = sla_mencao_(vd_board_() === VD.BOARD_PADRAO ? ['timweslley'] : usF);
         txt = '⏰ Card em **ENTREGUES** há ' + dias + ' dia(s) útil(eis) sem confirmação de faturamento (prazo: ' + et.dias + '). Depois de faturar, comente a palavra faturado no card — ele é arquivado.';
+        // 09/10/2026 (Weslley): complementar comprado antes da autorização e ainda sem confirmação da seguradora entra no lembrete
+        try { var cpP = vd_complPendentes_(vd_analisar_(c.desc, c.name)); if (cpP.length) txt += '\n⚠️ Complementar comprado **antes da autorização** e ainda sem confirmação da seguradora — verificar autorização e importação no Databox do item ' + vd_complPendTxt_(cpP) + ' (marcar na aba Compra do formulário).'; } catch (e) {}
       } else if (et.quem === 'cotar') {
         mencao = sla_mencao_(sla_users_('SLA_COTAR', 'comprasunity'));
         txt = '⏰ Card em **EM COTAÇÃO** há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + '). Lançar a cotação pelo anexo **💰 Cotação / Compra**.';

@@ -63,7 +63,9 @@ marca o pedido como RETORNO.
   pode marcar AUTORIZADO antes, na aba Autorizar (`marcas[].complStatus`). Peça comprada antecipada fica com
   "⚠️ comprado antes da autorização (liberado por NOME)" na vitrine até alguém marcar que a seguradora autorizou/importou
   (aba Compra, caixa "✔ seguradora autorizou…", enviada com `complementos[]`). Vale na linha da peça (`| COMPL: …`), não se
-  perde ao reenviar o pedido, e cada marcação gera comentário. Particular e retorno não têm isso.
+  perde ao reenviar o pedido, e cada marcação gera comentário. Particular e retorno não têm isso. **Robô**: o lembrete de
+  faturamento em ENTREGUES lista os complementares comprados antecipados ainda sem confirmação, e o comentário "faturado" **não
+  arquiva** o card enquanto houver um ("Não arquivei: … verificar autorização e importação no Databox do item X").
 - **NT**: fornecedor consultado que "não tem" a peça.
 - **d.u.**: dias úteis.
 

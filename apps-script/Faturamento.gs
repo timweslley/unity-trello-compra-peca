@@ -57,6 +57,13 @@ function fat_executar_() {
         vd_comentar_(c, '@' + quem + ' ' + FAT.MARCA + ' Card em **' + (lista || '?') + '** — só é arquivado como faturado em ' + FAT.LISTAS.join(' ou ') + '. O card continua no quadro.');
         return;
       }
+      // 09/10/2026 (Weslley): complementar comprado antes da autorização e ainda sem confirmação da seguradora não fatura
+      var cpP = [];
+      try { var cD = vd_api_('/cards/' + c.id, { query: { fields: 'name,desc' } }); cpP = vd_complPendentes_(vd_analisar_(cD.desc, cD.name)); } catch (e) {}   // desc completa (o card acima veio cru)
+      if (cpP.length) {
+        vd_comentar_(c, '@' + quem + ' ' + FAT.MARCA + ' Não arquivei: complementar comprado **antes da autorização** e ainda sem confirmação da seguradora — verificar autorização e importação no Databox do item ' + vd_complPendTxt_(cpP) + '. Depois de marcar na aba Compra do formulário, comente de novo.');
+        return;
+      }
       var falta = [];
       (c.checklists || []).forEach(function (k) { (k.checkItems || []).forEach(function (i) { if (i.state !== 'complete') falta.push(String(i.name).split(/\s+-\s+/)[0] + ' (' + k.name + ')'); }); });
       if (falta.length) {

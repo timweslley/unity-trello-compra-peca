@@ -475,6 +475,14 @@ function vd_complTxt_(p) {
   return ' · ⚠️ comprado antes da autorização' + (p.compPor ? ' (liberado por ' + vd_md_(p.compPor) + ')' : '');
 }
 
+/** Peças ➕ complemento compradas antes da autorização da seguradora e ainda sem confirmação (COMPL: ANTECIPADO). */
+function vd_complPendentes_(an) {
+  return (an && an.pecas || []).filter(function (p) { return p.complemento && !p.particular && p.compStatus === 'ANTECIPADO'; });
+}
+function vd_complPendTxt_(pecas) {
+  return pecas.map(function (p) { return vd_nomePeca_(p) + (p.compPor ? ' (liberado por ' + p.compPor + ')' : ''); }).join('; ');
+}
+
 /* ============================ MONTAR DESCRIÇÃO ============================ */
 
 function vd_linhaPeca_(p, i) {
