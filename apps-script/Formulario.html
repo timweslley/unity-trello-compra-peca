@@ -2522,31 +2522,43 @@ iniciar();
   .v2pc .cot.v2-sheet .v2-sheettopo::before { display:none; }
   .v2pc .v2-ler .linha { padding:6px 0; }
   .v2pc .v2-ler button { min-height:40px; }
-  /* peça compacta no computador (09/10/2026, Weslley: "espaço de cada peça muito grande"):
-     faixa de cima com nº, Complemento, Não comprar, Peça/Pneu e remover; linha 1 descrição · código · qtd · valor; linha 2 tipo · observação */
-  .v2pc #itens > .item, .v2pc #itensPart > .item { display:grid; grid-template-columns:minmax(0, 2.6fr) minmax(0, 1fr) 140px 120px; gap:6px 12px;
-    padding:0 14px 10px; margin:0 0 10px; border-radius:8px; border-width:1px 1px 1px 5px; box-shadow:0 1px 2px #091e4220; align-items:end; }
+  /* peça no computador (09/10/2026, Weslley: "muito grande" → "embaralhado"): lista limpa, títulos das colunas uma vez só em cima,
+     linha 1 = nº · descrição · código · qtd · valor; linha 2 = tipo + ações pequenas; observação só quando tem ou quando pede */
+  .v2pc #itens, .v2pc #itensPart { counter-reset:pc; }
+  .v2pc .v2pc-cab { display:grid; grid-template-columns:28px minmax(0, 2.6fr) minmax(0, 1fr) 112px 112px; gap:0 10px; padding:0 12px 4px 17px;
+    font-size:12px; font-weight:600; color:#626f86; border-bottom:2px solid #dcdfe4; }
+  .v2pc #itens > .item, .v2pc #itensPart > .item { counter-increment:pc; display:grid; grid-template-columns:28px minmax(0, 2.6fr) minmax(0, 1fr) 112px 112px;
+    gap:6px 10px; align-items:center; padding:10px 12px; margin:0; background:#fff; border:0; border-bottom:1px solid #dcdfe4; border-left:5px solid #8590a2;
+    border-radius:0; box-shadow:none; }
+  .v2pc #itens > .item:nth-child(even), .v2pc #itensPart > .item:nth-child(even) { background:#fafbfc; }
+  .v2pc #itens > .item::before, .v2pc #itensPart > .item::before { content:counter(pc); order:-3; grid-column:1; align-self:start; margin-top:6px;
+    width:24px; height:24px; border-radius:12px; background:#172b4d; color:#fff; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; }
   .v2pc #itens > .item > .v2-resumo, .v2pc #itensPart > .item > .v2-resumo { display:none !important; }
-  .v2pc #itens > .item > .item-topo, .v2pc #itensPart > .item > .item-topo { order:-2; grid-column:1 / -1; display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    margin:0 -14px 2px; padding:4px 14px; background:#f7f8f9; border-bottom:1px solid #dcdfe4; }
-  .v2pc .item > .item-topo .num { margin-right:auto; font-size:14px; }
-  .v2pc .item > .item-topo .chip { min-height:30px !important; padding:2px 10px !important; font-size:13px !important; }
-  .v2pc .item > .item-topo select { height:30px; min-height:30px; padding:2px 6px; font-size:13px; width:auto; }
-  .v2pc .item > .item-topo button { min-height:30px !important; padding:2px 8px !important; font-size:13px !important; }
   .v2pc #itens > .item > .grade, .v2pc #itensPart > .item > .grade { display:contents; }
-  .v2pc .item > .grade > div, .v2pc .item > .inteiro { margin:0 !important; }
-  .v2pc .item > .grade > .inteiro { grid-column:1 / -1; }
-  .v2pc .item > .grade > .inteiro:has(.f-desc) { order:-1; grid-column:auto; }
-  .v2pc .item > .grade > .inteiro:has(.f-tipo) { grid-column:span 2; }
-  .v2pc .item > .inteiro:has(.f-obs) { grid-column:span 2; }
-  .v2pc .item > .dica, .v2pc .item > .nao-motivo, .v2pc .item > .grade > .dica { grid-column:1 / -1; margin:0 !important; }
-  .v2pc .item label { font-size:12px !important; line-height:16px; margin:0 0 2px !important; color:#44546f; }
-  .v2pc .item label span[style] { display:none; }
+  .v2pc .item > .grade > div, .v2pc .item > .inteiro { margin:0 !important; min-width:0; }
+  .v2pc .item label:not(.chip) { display:none !important; }
+  .v2pc .item > .grade > .inteiro:has(.f-desc), .v2pc .item > .grade > div:has(.f-medida) { order:-1; grid-column:2; }
+  .v2pc .item > .grade > .inteiro:has(.f-desc) input { font-weight:600; }
+  .v2pc .item > .grade > .inteiro:has(.f-tipo), .v2pc .item > .grade > .inteiro:has(.f-marca) { order:1; grid-column:2 / 4; }
+  .v2pc .item > .item-topo { order:2; grid-column:4 / -1; display:flex; justify-content:flex-end; align-items:center; gap:2px; flex-wrap:wrap; margin:0; padding:0; background:none; border:0; }
+  .v2pc .item > .item-topo .num { display:none; }
+  .v2pc .item > .item-topo .chip { border:0 !important; background:transparent !important; min-height:28px !important; padding:2px 6px !important; font-size:12px !important; color:#44546f; box-shadow:none !important; }
+  .v2pc .item > .item-topo .chip.marcado { background:#e9f2ff !important; color:#0055cc; font-weight:700; }
+  .v2pc .item > .item-topo .chip-nao.marcado { background:#ffeceb !important; color:#ae2e24; }
+  .v2pc .item > .item-topo select { height:28px; min-height:28px; padding:0 4px; font-size:12px; width:auto; border-color:transparent; background:transparent; color:#44546f; }
+  .v2pc .item > .item-topo button { min-height:28px !important; padding:2px 6px !important; font-size:12px !important; }
+  .v2pc .item > .item-topo .v2-obstog { background:transparent !important; color:#0c66e4 !important; }
+  .v2pc .item > .inteiro:has(.f-obs) { order:3; grid-column:2 / -1; }
+  .v2pc .item:not(.v2-obs) > .inteiro:has(.f-obs:placeholder-shown) { display:none; }
+  .v2pc .item > .dica, .v2pc .item > .nao-motivo, .v2pc .item > .grade > .dica { order:4; grid-column:2 / -1; margin:0 !important; }
   .v2pc .item input[type=text], .v2pc .item input[type=number], .v2pc .item select { height:36px; min-height:36px; padding:4px 8px; font-size:14px; }
-  .v2pc .item .v2-qtd button { width:36px; min-height:36px; font-size:18px; }
-  .v2pc .item .v2-qtd input { margin:0 4px; font-size:15px !important; }
-  .v2pc .item .chips { gap:4px; flex-wrap:nowrap; }
-  .v2pc .item .chips .chip { min-height:36px; padding:4px 8px; font-size:12px; }
+  .v2pc .item .v2-qtd button { width:32px; min-height:36px; font-size:18px; }
+  .v2pc .item .v2-qtd input { margin:0 3px; font-size:15px !important; padding:4px 2px; }
+  .v2pc .item .chips { gap:4px; }
+  .v2pc .item .grade .chips .chip { min-height:30px; padding:2px 8px; font-size:12px; }
+  .v2pc .item.v2-pend { border-left-color:#c9372c !important; }
+  .v2pc .item.v2-ok { border-left-color:#1f845a !important; }
+  .v2pc .item.nao-comprar > .grade, .v2pc .item.nao-comprar > .grade > * { opacity:.6; }
   @media (max-width:960px) {
     .v2pc #form { grid-template-columns:minmax(0, 1fr); }
     .v2pc #v2lado { grid-column:1; grid-row:auto; position:static; margin-bottom:24px; }
@@ -2763,6 +2775,20 @@ iniciar();
     it.addEventListener('input', function () { pintarResumo(it); });
     it.addEventListener('change', function () { pintarResumo(it); });
     $$('input.f-qtd', it).forEach(prepararQtd);
+    if (PC) {
+      var topoIt = it.querySelector(':scope > .item-topo');
+      if (topoIt && it.querySelector('.f-obs')) {
+        var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'secundario v2-obstog'; ob.textContent = '📝 obs.';
+        ob.onclick = function () { it.classList.toggle('v2-obs'); if (it.classList.contains('v2-obs')) it.querySelector('.f-obs').focus(); };
+        topoIt.insertBefore(ob, topoIt.querySelector('select'));
+      }
+      var cx = it.parentNode;
+      if (cx && !(cx.previousElementSibling && cx.previousElementSibling.classList.contains('v2pc-cab'))) {
+        var cab = document.createElement('div'); cab.className = 'v2pc-cab';
+        cab.innerHTML = '<span>#</span><span>Descrição / tipo</span><span>Código</span><span>Qtd</span><span>Valor no orç.</span>';
+        cx.parentNode.insertBefore(cab, cx);
+      }
+    }
   }
   ['itens', 'itensPart'].forEach(function (id) {
     var cx = g(id); if (!cx) return;
