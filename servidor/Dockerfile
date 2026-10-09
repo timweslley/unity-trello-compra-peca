@@ -1,5 +1,5 @@
 # Compra de Peça — servidor próprio. Imagem para o Cloud Run.
-FROM node:22-slim AS base
+FROM mirror.gcr.io/library/node:22-slim AS base
 WORKDIR /app
 # leitura de documentos (fase 2): pdftotext/pdftoppm + Tesseract em português; fuso de São Paulo (os leitores do robô
 # montam datas no horário local)
