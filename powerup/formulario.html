@@ -2654,6 +2654,31 @@ iniciar();
   .v2pc .cot.v2-sheet .v2-sheettopo::before { display:none; }
   .v2pc .v2-ler .linha { padding:6px 0; }
   .v2pc .v2-ler button { min-height:40px; }
+  /* peça compacta no computador (09/10/2026, Weslley: "espaço de cada peça muito grande"):
+     faixa de cima com nº, Complemento, Não comprar, Peça/Pneu e remover; linha 1 descrição · código · qtd · valor; linha 2 tipo · observação */
+  .v2pc #itens > .item, .v2pc #itensPart > .item { display:grid; grid-template-columns:minmax(0, 2fr) minmax(0, 1.2fr) 150px 140px; gap:6px 12px;
+    padding:0 14px 10px; margin:0 0 10px; border-radius:8px; border-width:1px 1px 1px 5px; box-shadow:0 1px 2px #091e4220; align-items:end; }
+  .v2pc #itens > .item > .v2-resumo, .v2pc #itensPart > .item > .v2-resumo { display:none !important; }
+  .v2pc #itens > .item > .item-topo, .v2pc #itensPart > .item > .item-topo { order:-2; grid-column:1 / -1; display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    margin:0 -14px 2px; padding:4px 14px; background:#f7f8f9; border-bottom:1px solid #dcdfe4; }
+  .v2pc .item > .item-topo .num { margin-right:auto; font-size:14px; }
+  .v2pc .item > .item-topo .chip { min-height:30px !important; padding:2px 10px !important; font-size:13px !important; }
+  .v2pc .item > .item-topo select { height:30px; min-height:30px; padding:2px 6px; font-size:13px; width:auto; }
+  .v2pc .item > .item-topo button { min-height:30px !important; padding:2px 8px !important; font-size:13px !important; }
+  .v2pc #itens > .item > .grade, .v2pc #itensPart > .item > .grade { display:contents; }
+  .v2pc .item > .grade > div, .v2pc .item > .inteiro { margin:0 !important; }
+  .v2pc .item > .grade > .inteiro { grid-column:1 / -1; }
+  .v2pc .item > .grade > .inteiro:has(.f-desc) { order:-1; grid-column:auto; }
+  .v2pc .item > .grade > .inteiro:has(.f-tipo) { grid-column:span 2; }
+  .v2pc .item > .inteiro:has(.f-obs) { grid-column:span 2; }
+  .v2pc .item > .dica, .v2pc .item > .nao-motivo, .v2pc .item > .grade > .dica { grid-column:1 / -1; margin:0 !important; }
+  .v2pc .item label { font-size:12px !important; line-height:16px; margin:0 0 2px !important; color:#44546f; }
+  .v2pc .item label span[style] { display:none; }
+  .v2pc .item input[type=text], .v2pc .item input[type=number], .v2pc .item select { height:36px; min-height:36px; padding:4px 8px; font-size:14px; }
+  .v2pc .item .v2-qtd button { width:36px; min-height:36px; font-size:18px; }
+  .v2pc .item .v2-qtd input { margin:0 4px; font-size:15px !important; }
+  .v2pc .item .chips { gap:4px; flex-wrap:nowrap; }
+  .v2pc .item .chips .chip { min-height:36px; padding:4px 8px; font-size:12px; }
   @media (max-width:960px) {
     .v2pc #form { grid-template-columns:minmax(0, 1fr); }
     .v2pc #v2lado { grid-column:1; grid-row:auto; position:static; margin-bottom:24px; }
@@ -2857,7 +2882,7 @@ iniciar();
       + (r.falta ? ' <span class="falta">· ⚠️ ' + txt(r.falta) + '</span>' : '') + (it.dataset.nao === '1' ? ' <span class="selo-trava">não comprar</span>' : '') + '</div>'
       + '<span class="seta">' + (it.classList.contains('v2-fechada') ? 'Abrir ▾' : 'Fechar ▴') + '</span>';
   }
-  function abrirItem(it, sim) { it.classList.toggle('v2-fechada', !sim); pintarResumo(it); }
+  function abrirItem(it, sim) { it.classList.toggle('v2-fechada', !sim && !PC); pintarResumo(it); }   // computador: peça sempre aberta (linha compacta)
   function prepararItem(it) {
     if (it.dataset.v2) return; it.dataset.v2 = '1';
     var r = document.createElement('div'); r.className = 'v2-resumo';
@@ -2865,7 +2890,7 @@ iniciar();
     it.insertBefore(r, it.firstChild);
     // peça que veio pronta (do card ou do orçamento) começa fechada; peça nova ou com falta começa aberta
     var completa = !resumoDe(it).falta;
-    it.classList.toggle('v2-fechada', completa && !!(it.querySelector('.f-desc, .f-medida') || {}).value);
+    it.classList.toggle('v2-fechada', !PC && completa && !!(it.querySelector('.f-desc, .f-medida') || {}).value);
     pintarResumo(it);
     it.addEventListener('input', function () { pintarResumo(it); });
     it.addEventListener('change', function () { pintarResumo(it); });
