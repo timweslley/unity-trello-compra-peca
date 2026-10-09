@@ -75,6 +75,7 @@ DATABASE_URL — decisão do Weslley (dados passam a ficar nos EUA, como já fic
 - 07/10/2026 — **direção do projeto (Weslley):** o Trello será aposentado; até lá vira só visualização do fluxo. Todo o trabalho da equipe passa a ser feito pelo nosso sistema (formulário/telas) e pelas automações — o servidor e o banco podem (e devem) concentrar cada vez mais coisa.
 - 07/10/2026 — layout no celular (TESTE): aplicadas as 8 ideias — topo fixo com placa e etapa, pedido em 3 passos (Carro → Peças → Conferir), peça como cartão fechado, ajuda escondida em "❔ Ajuda", só a aba da etapa (outras em "⋯ Outras etapas"), botão grande de foto/PDF, quantidade com − e +, totais recolhidos, conferência antes de enviar e "👉 o que acontece agora" no fim. Só em tela até 640 px e só com `srv=1`.
 
+- 09/10/2026 — **duas interfaces (Weslley):** celular (até 640 px) em 3 passos; computador no modelo R7 da proposta visual — página única com seções em cartões, coluna lateral com resumo do card, etapas, o que falta e Enviar; tela do comprador com todas as abas à vista. Só no TESTE (`srv=1`). Barra extra do Power-Up tirada no TESTE (um título e um Fechar).
 - 07/10/2026 — falha achada no robô pode ser corrigida no robô principal e replicada no servidor (Weslley). Primeira: cor "CHASSI" (regra da cor).
 - 07/10/2026 — e-mail pelo servidor só liga na virada.
 - 07/10/2026 — velocidade é prioridade: otimizar no servidor assim que for viável.
