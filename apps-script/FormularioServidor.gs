@@ -364,12 +364,13 @@ var VD_CORES = ['BRANCO', 'BRANCA', 'PRETO', 'PRETA', 'PRATA', 'CINZA', 'VERMELH
   'BEGE', 'MARROM', 'DOURADO', 'DOURADA', 'LARANJA', 'VINHO', 'GRAFITE', 'ROXO', 'ROXA', 'BRONZE', 'CHAMPAGNE'];
 
 /** Separa o título "PLACA CARRO COR SEGURADORA" em partes (para editar no formulário). */
-var VD_LIXO_TITULO = ['TOL', 'TOLEDO', 'MCR', 'RONDON', 'MARECHAL', 'CVEL', 'CASCAVEL', 'CM', 'CMO', 'MOURAO', 'CAMPO', 'IMAGE', 'PNG', 'JPG', 'JPEG', 'PDF'];
+var VD_LIXO_TITULO = ['TOL', 'TOLEDO', 'MCR', 'RONDON', 'MARECHAL', 'CVEL', 'CASCAVEL', 'CM', 'CMO', 'MOURAO', 'CAMPO', 'IMAGE', 'PNG', 'JPG', 'JPEG', 'PDF', 'RETORNO', 'INTERNO', 'RETRABALHO', 'GARANTIA'];   // "ETIOS RETORNO INTERNO" -> carro ETIOS (09/10/2026)
 
 function vdf_partesTitulo_(nome, dados) {
   dados = dados || {};
   if (!vd_placaDoTexto_(nome)) nome = '';   // título fora do padrão (ex.: "image.png"): monta do zero
-  var ps0 = vd_semAcento_(nome).replace(/\b[A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2}\b/, ' ').replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(String);
+  // nº da ordem antes da placa ("4496 BBV0H58 ETIOS …", card criado à mão) não é parte do carro (09/10/2026)
+  var ps0 = vd_semAcento_(nome).replace(/^[\s\d]+(?=[A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2}\b)/, '').replace(/\b[A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2}\b/, ' ').replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(String);
   var ps = ps0.filter(function (t) { return VD_LIXO_TITULO.indexOf(t) < 0; });
   var r = { carro: '', cor: dados.cor || '', seguradora: dados.seguradora || '' };
   if (ps.length && !r.seguradora && (ps[ps.length - 1] === 'PARTICULAR' || ps[ps.length - 1] === 'RETORNO' || VD_SEGURADORAS.some(function (s) { return s[0] === ps[ps.length - 1]; }))) r.seguradora = ps.pop();
