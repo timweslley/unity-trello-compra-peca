@@ -2790,10 +2790,12 @@ iniciar();
     var un = g('unidade'); var unTxt = un && un.selectedIndex > 0 ? un.options[un.selectedIndex].text : '';
     var pecas = itensDoPedido().filter(function (it) { return it.style.display !== 'none'; });
     var nao = pecas.filter(function (it) { return it.dataset.nao === '1'; }).length;
-    var titulo = String((g('dicaTitulo') || {}).textContent || '').replace(/^.*?fica:\s*/i, '').trim();
-    if (/PLACA CARRO COR/.test(titulo)) titulo = '';
+    var dt = String((g('dicaTitulo') || {}).textContent || '');
+    var titulo = /fica:/i.test(dt) && !/PLACA CARRO COR/.test(dt) ? dt.replace(/^.*?fica:\s*/i, '').trim() : '';
+    var editando = !!window.CARD_EDICAO && window.CARD && window.CARD.nome;
+    if (!titulo && editando) titulo = window.CARD.nome;
     var kv = function (a, b) { return b ? '<div class="kv"><span>' + a + '</span><b>' + txt(b) + '</b></div>' : ''; };
-    var res = '<div class="cab"><span>O card vai se chamar</span><b>' + txt(titulo || v('placa').toUpperCase() || '—') + '</b></div>'
+    var res = '<div class="cab"><span>' + (editando && titulo === window.CARD.nome ? 'Card' : 'O card vai se chamar') + '</span><b>' + txt(titulo || v('placa').toUpperCase() || '—') + '</b></div>'
       + kv('Quem paga', tipo === 'PARTICULAR' ? 'Cliente (particular)' : tipo === 'RETORNO' ? 'Oficina (retorno)' : 'Seguradora')
       + kv('Unidade', unTxt) + kv('Oficina compra', (pecas.length - nao) + ' peça(s)') + (nao ? kv('Não comprar', String(nao)) : '');
     if (g('v2resumo').dataset.h !== res) { g('v2resumo').innerHTML = res; g('v2resumo').dataset.h = res; }
