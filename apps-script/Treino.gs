@@ -176,7 +176,7 @@ function vdf_treinoAmostrar(token, p) {
 /**
  * Avalia o leitor sobre os textos já coletados (sem OCR novo): roda vd_lerOrcamento_ em cada texto dos lotes e devolve
  * placar por classe + os casos suspeitos com um trecho do texto (a parte das peças), para ajustar o leitor fora daqui.
- * p = {lotes:[ids] (padrão: todos), maxCasos (padrão 15), classe (filtra), trecho (chars, padrão 3500), pular (n casos)}
+ * p = {lotes:[ids] (padrão: todos), maxCasos (padrão 15), classe (filtra), ano (filtra, ex.: 2026), trecho (chars, padrão 3500), pular (n casos)}
  */
 function vdf_treinoAvaliar(token, p) {
   var me = vdf_usuario_(token);
@@ -189,6 +189,7 @@ function vdf_treinoAvaliar(token, p) {
     lote.forEach(function (reg) {
       if (!reg.texto) return;
       var cl = tr_classe_(reg); if (p.classe && cl !== p.classe) return;
+      if (p.ano && String(reg.data || '').slice(0, 4) !== String(p.ano)) return;   // 08/10/2026, Weslley: só os de 2026 bastam
       total++;
       var r; try { r = vd_lerOrcamento_(reg.texto); } catch (e) { r = { origem: 'ERRO:' + e, oficina: [], fo: [] }; }
       var pz = placar[cl] = placar[cl] || { n: 0, origem: {}, semPeca: 0, suspeito: 0 };
@@ -198,7 +199,7 @@ function vdf_treinoAvaliar(token, p) {
       if (!itens.length) motivos.push('0 peças');
       itens.forEach(function (x) {
         var d = String(x.descricao || ''), c = String(x.codigo || '');
-        if (!x.pneu && d.length < 5) motivos.push('desc curta: ' + d);
+        if (!x.pneu && d.length < 4) motivos.push('desc curta: ' + d);   // CAPO (4) é normal
         if (/^(20\d\d|19\d\d)$/.test(c)) motivos.push('código=ano: ' + c);
         if (/\b(REPOSICAO|GENUIN[OA]|ORIGINAL|PARALEL[OA])\b/.test(d)) motivos.push('tipo na desc: ' + d.slice(0, 30));
         if (/\d{2}\/\d{2}\/\d{2}/.test(d)) motivos.push('data na desc: ' + d.slice(0, 30));

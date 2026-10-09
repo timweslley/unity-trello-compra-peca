@@ -67,7 +67,7 @@ function vd_limparDescricao_(d) {
     .replace(/[()]/g, ' ')
     .replace(/\s*\*\s*$/, '')
     .replace(/\s+/g, ' ')
-    .replace(/\b([A-ZÀ-Ü0-9]{3,})(?: \1\b)+/g, '$1')   // "PORTA PORTA PORTA DIANTEIRA" (Websoma repete a palavra, 08/10/2026)
+    .replace(/\b([A-ZÀ-Ü0-9][A-ZÀ-Ü0-9\-]{2,})(?: \1\b)+/g, '$1')   // "PORTA PORTA PORTA DIANTEIRA" (Websoma repete a palavra, 08/10/2026)
     .trim()
     .replace(/^.{8,}$/, vd_tirarRepeticao_)
     .slice(0, 70);
@@ -101,17 +101,50 @@ function vd_liquidoOrc_(unit, descPct) {
 function vd_websomaDetalhado_(corpo, lista, add) {
   var txt = vd_compactarCodigos_(corpo, '\u0001');
   var NUM = '(\\d{1,3}(?:\\.\\d{3})*,\\d{2})';
-  var re = new RegExp('\\u0001([^\\u0001]+)\\u0001' +
-    '|(?:\\b((?:[A-Z]{0,4}\\d[A-Z0-9\\-]{2,18}|\\d{5} \\d{5})) )?([A-Z(][A-Z0-9 .\\-\\/,()"]*?)(?: - VAL\\. \\d{2,4}\\/(?:\\d{2,4})?)?((?: [A-Z0-9][A-Z0-9.\\/]*)*?)(?: \\*)? (GENUIN[OA]|REPOSICAO|ORIGINAL|PARALEL[OA]|USAD[OA]|RECONDICIONAD[OA]) (\\d{1,3}) ' + NUM + ' ' + NUM + ' ' + NUM, 'g');
-  var fila = [], m;
-  while ((m = re.exec(txt))) {
-    if (m[1]) { fila.push(m[1]); continue; }
-    var desc = m[3], extra = String(m[4] || '').trim();
-    if (extra && (/^\(?PNEU/.test(desc) || !/\d/.test(extra)) && !/^(GENUIN|REPOSIC|ORIGINAL|PARALEL|USAD)/.test(extra) && desc.indexOf(extra) < 0) desc += ' ' + extra;   // cor/acabamento ("PRETO SATIN") e medida do pneu; "ATE 27/11/11" não
-    var codigo = m[2] ? m[2] : (fila.length ? fila.shift() : '');
-    var bruto = vd_numOrc_(m[7]), liq = vd_numOrc_(m[9]), calc = vd_liquidoOrc_(m[7], m[8]);
+  // 08/10/2026 (treino, relatórios da Porto): o PDF imprime em colunas e o OCR às vezes traz 2–3 itens seguidos e só
+  // depois os preços ("…(GRADE) - VAL. 2020/ C/ FRISO 26364110 (COB.INF…) GENUINO 1 355,73 … GENUINO 1 118,66 …").
+  // Por isso o texto é cortado em BLOCOS entre os preços; cada bloco vira um ou mais itens (fila) e cada preço sai
+  // para o item mais antigo. Dentro do bloco um item começa num código (solto, "93286309//", Toyota "64780 0A120 C0")
+  // ou em "NOME (DESCRIÇÃO" (nome curto + parêntese); códigos VW compactados (\u0001) entram na fila de códigos.
+  var rePreco = new RegExp('\\b(GENUIN[OA]|REPOSICAO|ORIGINAL|PARALEL[OA]|USAD[OA]|RECONDICIONAD[OA]) (\\d{1,3}) ' + NUM + ' ' + NUM + ' ' + NUM, 'g');
+  var COD = '(?:[A-Z]{0,4}\\d[A-Z0-9\\-]{4,18}\\/{0,2}|[A-Z]{1,2}\\d{3,8}|SOMA\\d+|0{2,}\\d+|\\d{5} [A-Z0-9]{5}(?: [A-Z0-9]{2}(?= \\())?)';   // "15X6" (medida) não é código
+  var reIni = new RegExp('\\u0001([^\\u0001]+)\\u0001|(?:^|\\s)(' + COD + ')(?=\\s[A-Z(])|(?:^|\\s)(?=(?:[A-Z][A-Z.\\-\\/]* ){0,2}\\()', 'g');
+  var filaCod = [], filaItem = [], m, pos = 0;
+  var fechar = function (it) {
+    if (!it) return;
+    var t = it.txt.replace(/\s*\*\s*$/, '').replace(/\s+/g, ' ').trim();
+    if (!/[A-Z]{3}/.test(t)) return;
+    if (/%|DEVOLU|DESC\. ?PECAS|DESCONTO/.test(t)) { filaItem.push({ pular: true }); return; }   // linha de ajuste de desconto: consome o preço e some
+    var p = t.match(/^(.*?)(?: - VAL\. \d{2,4}\/(?:\d{2,4})?(.*))?$/), desc = p[1], extra = (p[2] || '').replace(/\s*\*\s*$/, '').trim();
+    if (extra && (/^\(?PNEU/.test(desc) || !/\d/.test(extra)) && desc.indexOf(extra) < 0) desc += ' ' + extra;   // cor/acabamento ("PRETO SATIN", "C/ASSIST.EST.") e medida do pneu; "ATE 27/11/11" não
+    filaItem.push({ codigo: it.codigo || (filaCod.length ? filaCod.shift() : ''), desc: desc });
+  };
+  var bloco = function (s) {
+    s = s.replace(/^(?:\s*\d{1,3}(?:\.\d{3})*,\d{2})+/, '');   // sobras das colunas M.O./pintura do preço anterior ("0,50 0,00")
+    var atual = null, ult = 0, k;
+    reIni.lastIndex = 0;
+    while ((k = reIni.exec(s))) {
+      if (!k[0].length) reIni.lastIndex++;   // casamento vazio (início do bloco): avança para não travar
+      var antes = s.slice(ult, k.index);
+      if (atual) atual.txt += antes; else if (/[A-Z]{4}/.test(antes) && !k[1]) atual = { codigo: '', txt: antes };   // item sem código nem parêntese
+      ult = k.index + k[0].length;
+      if (k[1]) { filaCod.push(k[1]); continue; }
+      if (k[2]) { fechar(atual); atual = { codigo: k[2].replace(/\/+$/, '').replace(/\s+/g, ''), txt: '' }; continue; }
+      if (atual && !/- VAL\./.test(atual.txt)) { atual.txt += k[0]; continue; }   // "código (DESCRIÇÃO", "ESPELHO P (B) (ESPELHO EXT)": parêntese do mesmo item; só depois do "- VAL." um "NOME (" é item novo
+      fechar(atual); atual = { codigo: '', txt: '' };
+    }
+    var resto = s.slice(ult);
+    if (atual) atual.txt += resto; else if (/[A-Z]{4}/.test(resto)) atual = { codigo: '', txt: resto };
+    fechar(atual);
+  };
+  while ((m = rePreco.exec(txt))) {
+    bloco(txt.slice(pos, m.index));
+    pos = m.index + m[0].length;
+    var it = filaItem.shift();
+    if (!it || it.pular) continue;
+    var bruto = vd_numOrc_(m[3]), liq = vd_numOrc_(m[5]), calc = vd_liquidoOrc_(m[3], m[4]);
     var valor = (!isNaN(liq) && !isNaN(calc) && Math.abs(liq - calc) < 0.05) ? liq : (isNaN(calc) ? bruto : calc);
-    add(lista, codigo, desc, m[6], m[5], valor);
+    add(lista, it.codigo, it.desc, m[2], m[1], valor);
   }
 }
 
