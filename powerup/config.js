@@ -13,7 +13,11 @@ window.PU_CFG = {
   QUADROS_SERVIDOR: ['ZX4gRmnX'],
   /* 07/10/2026: no quadro PRINCIPAL, leituras de navegação (abrir, carregar card, buscar placa) pelo servidor próprio,
    * com volta automática ao Apps Script se ele não responder. Por usuário; 'todos' libera a equipe inteira. */
-  LEITURA_SERVIDOR: 'todos',   // 08/10/2026 23:20 — Weslley liberou para a equipe toda (antes: timweslley, christianfarias23)
+  /* 09/10/2026 16:10 — DESLIGADO até o servidor corrigir: o trabalhador do servidor guarda a aba TRAVA (descrição
+   * completa dos cards) em memória e nunca relê — devolvia cotações/autorizações velhas ao formulário (TBU8D71, BAT9F19:
+   * "sem cotação lançada" na aba Autorizar com a cotação já no card). Ver docs/LEITURA-PELO-SERVIDOR.md.
+   * Antes: 'todos' (08/10/2026 23:20). Para religar: 'todos' ou { usuarios: ['timweslley'] }. */
+  LEITURA_SERVIDOR: { usuarios: [] },
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:

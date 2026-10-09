@@ -60,3 +60,25 @@ servidor próprio (`PU_CFG.URL_SERVIDOR` = `…/api`), e só depois ao Apps Scri
   Resposta do card idêntica em tudo, exceto 1 linha do cadastro de fornecedores cujo **nome é uma data** na planilha
   (o Google devolve o texto da data, o servidor o número) — linha sem uso; corrigir na planilha se quiser.
   `vdf_salvar` com `?quadro=principal` → recusado (`ok:false`), como combinado.
+
+## ⚠️ Desligado em 09/10/2026 16:10 (sessão do formulário) — pedido para a sessão do servidor
+
+**Sintoma (2 cards hoje, TBU8D71 e BAT9F19):** a aba Autorizar mostrava "sem cotação lançada" com a cotação já no card.
+`vdf_carregarCard` pelo **servidor** (`?quadro=principal`) voltou `cotacoes: []`; a mesma chamada pelo **Apps Script** voltou as
+3 cotações; a aba TRAVA da planilha **tem** as cotações na coluna E (conferido pelo gviz às 16:08). Ou seja: o servidor lê uma
+cópia velha da descrição completa.
+
+**Causa provável:** `servidor/src/gas/trabalhador.ts` guarda as abas em memória (`const ABAS = new Map()` em `linhasDa`) e só
+chama `aba.ler` na primeira vez; se o trabalhador do principal vive entre chamadas, a TRAVA fica congelada. (A nota acima diz
+que memória e cache são zerados a cada chamada — na prática não está acontecendo, ou há outro cache no caminho `aba.ler` →
+`lerAbaPlanilha`.) O `CacheService` emulado também vive na memória do trabalhador por até 6 h — para esse, o Apps Script já
+guarda o hash da vitrine junto com a completa (`vd_completa_(cardId, vitrine)`, 09/10/2026) e descarta a cópia quando a
+vitrine do Trello mudou; mas isso não resolve a aba em memória.
+
+**Como reproduzir:** na página do formulário, no console:
+`fetch(PU_CFG.URL_SERVIDOR + '?quadro=principal', {method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'}, body: JSON.stringify({fn:'vdf_carregarCard', args:[TOKEN,'PikLFvQH']})}).then(r=>r.json()).then(j=>console.log(j.r.cotacoes))`
+e comparar com `chamarGoogle('vdf_carregarCard', [TOKEN,'PikLFvQH'])`.
+
+**O que precisa:** em modo só leitura do principal, reler a TRAVA (e a FORNECEDORES) a cada chamada — ou pelo menos a linha
+do card pedido — e zerar `ABAS`/`CACHE` do trabalhador por chamada de verdade. Quando estiver corrigido e conferido com um
+card que acabou de receber cotação, religar em `powerup/config.js` (`LEITURA_SERVIDOR: 'todos'`).
