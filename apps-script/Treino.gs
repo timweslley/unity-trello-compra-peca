@@ -12,7 +12,7 @@ var TRN = {
   LIMITE_MS: 240 * 1000,
   MAX_BYTES: 8 * 1024 * 1024,
   POR_CARD: 3,
-  TEXTO_MAX: 24000,
+  TEXTO_MAX: 14000,
   LOTE: 40,
   COMPARTILHAR: ['weslley.santos@unitycs.com.br']
 };
@@ -112,4 +112,112 @@ function vdf_treinoLeitor(token, p) {
   props.setProperty('TR_ESTADO', JSON.stringify(est));
   return { ok: true, total: est.total, pos: est.pos, feitos: est.feitos, erros: est.erros, nesta: n, lotes: est.lotes, fim: est.pos >= lista.length, pasta: pasta.getUrl(), listaId: est.lista };
   } catch (e) { console.log('treino/' + passo + ': ' + e); return { ok: false, erro: String((e && e.message) || e), passo: passo }; }
+}
+
+
+/** Classe do anexo pelo nome do arquivo (para amostrar por layout). */
+function tr_classe_(it) {
+  var n = String(it.anexo || '') + ' ' + String(it.arquivo || '');
+  if (/^📄 ORÇ/.test(String(it.anexo || ''))) return 'padronizado';
+  if (/relatorio\d+/i.test(n)) return 'cilia-relatorio';
+  if (/pdf_report/i.test(n)) return 'soma-pdfreport';
+  if (/cilia/i.test(n)) return 'cilia';
+  if (/websoma|soma/i.test(n)) return 'soma';
+  if (/hdi/i.test(n)) return 'hdi';
+  if (/or[çc]amento/i.test(n)) return 'orcamento';
+  if (/sinistro|laudo|vistoria/i.test(n)) return 'sinistro';
+  return 'outros';
+}
+function tr_estado_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('TR_ESTADO') || 'null'); } catch (e) { return null; } }
+function tr_lista_(est) { return JSON.parse(DriveApp.getFileById(est.lista).getBlob().getDataAsString()); }
+
+/** Resumo da lista de candidatos: quantos por classe × ano, abertos/arquivados, exemplos de nome por classe. */
+function vdf_treinoResumo(token) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
+  var est = tr_estado_(); if (!est) return { ok: false, erro: 'sem lista' };
+  var lista = tr_lista_(est), por = {}, fech = 0, ex = {};
+  lista.forEach(function (it) {
+    var c = tr_classe_(it), ano = String(it.data || '').slice(0, 4) || '?';
+    por[c] = por[c] || {}; por[c][ano] = (por[c][ano] || 0) + 1;
+    if (it.fechado) fech++;
+    ex[c] = ex[c] || []; if (ex[c].length < 6 && ex[c].indexOf(it.arquivo) < 0) ex[c].push(it.arquivo);
+  });
+  return { ok: true, total: lista.length, fechados: fech, porClasse: por, exemplos: ex, pos: est.pos };
+}
+
+/** Troca a lista pela amostra: até p.n por (classe × ano), espalhados no tempo; p.classes limita as classes. Zera o progresso. */
+function vdf_treinoAmostrar(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
+  p = p || {}; var n = +p.n || 40;
+  var est = tr_estado_(); if (!est) return { ok: false, erro: 'sem lista' };
+  var lista = tr_lista_(est), grupos = {};
+  lista.forEach(function (it) {
+    var c = tr_classe_(it); if (p.classes && p.classes.indexOf(c) < 0) return;
+    var k = c + '|' + (String(it.data || '').slice(0, 4) || '?');
+    (grupos[k] = grupos[k] || []).push(it);
+  });
+  var fora = [];
+  Object.keys(grupos).forEach(function (k) {
+    var g = grupos[k].sort(function (a, b) { return String(a.data).localeCompare(String(b.data)); });
+    if (g.length <= n) { fora = fora.concat(g); return; }
+    var passo = g.length / n;
+    for (var i = 0; i < n; i++) fora.push(g[Math.floor(i * passo)]);
+  });
+  fora.sort(function (a, b) { return String(b.data).localeCompare(String(a.data)); });   // mais recentes primeiro
+  var pasta = tr_pasta_();
+  var arq = pasta.createFile(Utilities.newBlob(JSON.stringify(fora), 'application/json', 'treino_amostra.json'));
+  est.lista = arq.getId(); est.total = fora.length; est.pos = 0; est.feitos = 0; est.erros = 0;
+  PropertiesService.getScriptProperties().setProperty('TR_ESTADO', JSON.stringify(est));
+  return { ok: true, total: fora.length, grupos: Object.keys(grupos).length };
+}
+
+/**
+ * Avalia o leitor sobre os textos já coletados (sem OCR novo): roda vd_lerOrcamento_ em cada texto dos lotes e devolve
+ * placar por classe + os casos suspeitos com um trecho do texto (a parte das peças), para ajustar o leitor fora daqui.
+ * p = {lotes:[ids] (padrão: todos), maxCasos (padrão 15), classe (filtra), trecho (chars, padrão 3500), pular (n casos)}
+ */
+function vdf_treinoAvaliar(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
+  p = p || {}; var est = tr_estado_(); if (!est) return { ok: false, erro: 'sem lista' };
+  var ids = p.lotes || est.lotes, maxCasos = +p.maxCasos || 15, tam = +p.trecho || 3500, pular = +p.pular || 0;
+  var placar = {}, casos = [], vistos = 0, total = 0;
+  ids.forEach(function (id) {
+    var lote; try { lote = JSON.parse(DriveApp.getFileById(id).getBlob().getDataAsString()); } catch (e) { return; }
+    lote.forEach(function (reg) {
+      if (!reg.texto) return;
+      var cl = tr_classe_(reg); if (p.classe && cl !== p.classe) return;
+      total++;
+      var r; try { r = vd_lerOrcamento_(reg.texto); } catch (e) { r = { origem: 'ERRO:' + e, oficina: [], fo: [] }; }
+      var pz = placar[cl] = placar[cl] || { n: 0, origem: {}, semPeca: 0, suspeito: 0 };
+      pz.n++; pz.origem[r.origem || '-'] = (pz.origem[r.origem || '-'] || 0) + 1;
+      var itens = (r.oficina || []).concat(r.fo || []);
+      var motivos = [];
+      if (!itens.length) motivos.push('0 peças');
+      itens.forEach(function (x) {
+        var d = String(x.descricao || ''), c = String(x.codigo || '');
+        if (!x.pneu && d.length < 5) motivos.push('desc curta: ' + d);
+        if (/^(20\d\d|19\d\d)$/.test(c)) motivos.push('código=ano: ' + c);
+        if (/\b(REPOSICAO|GENUIN[OA]|ORIGINAL|PARALEL[OA])\b/.test(d)) motivos.push('tipo na desc: ' + d.slice(0, 30));
+        if (/\d{2}\/\d{2}\/\d{2}/.test(d)) motivos.push('data na desc: ' + d.slice(0, 30));
+        if (/^(VAL|ATE|PRATA|PRETO|BRANCO)\b/.test(d)) motivos.push('desc estranha: ' + d.slice(0, 30));
+      });
+      var codigos = itens.map(function (x) { return x.codigo; }).filter(String);
+      if (codigos.length !== codigos.filter(function (c, i) { return codigos.indexOf(c) === i; }).length) motivos.push('código repetido');
+      if (!itens.length) pz.semPeca++;
+      if (motivos.length) {
+        pz.suspeito++;
+        vistos++;
+        if (vistos > pular && casos.length < maxCasos) {
+          var U = vd_normTexto_(reg.texto), i = U.search(/PECAS|PEÇAS|FORNECIMENTO|DESCRICAO/);
+          casos.push({ card: reg.nome, anexo: reg.anexo, arquivo: reg.arquivo, classe: cl, origem: r.origem, n: itens.length, motivos: motivos.slice(0, 6),
+            itens: itens.slice(0, 8).map(function (x) { return (x.codigo || '-') + ' | ' + (x.descricao || '') + ' | ' + (x.dica || '') + ' | ' + (x.valorOrc || ''); }),
+            trecho: U.slice(Math.max(0, i - 200), Math.max(0, i - 200) + tam) });
+        }
+      }
+    });
+  });
+  return { ok: true, total: total, placar: placar, suspeitos: vistos, casos: casos };
 }
