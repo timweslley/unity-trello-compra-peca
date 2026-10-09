@@ -1,7 +1,8 @@
 /* ============================ ORÇAMENTO COMPLEMENTAR ============================
  * Card que já está andando e recebe um orçamento novo (complemento da seguradora, com peças a mais):
  *  - compara o orçamento novo com o que o card já tem (lista de peças, checklists FORNECIMENTO/PAGAS
- *    e orçamentos anteriores já lidos) — por código e, sem código, por descrição;
+ *    e orçamentos anteriores já lidos) — por código e, sem código, por descrição; peça 🚫 não comprar da oficina
+ *    conta como conhecida (o consultor já decidiu por ela — 09/10/2026, STG3I57);
  *  - peças NOVAS da oficina entram na lista de peças marcadas "| COMPLEMENTO dd/mm"
  *    (depois das peças da seguradora, antes das particulares) — o consultor marca o tipo;
  *    na compra vão para o checklist PAGAS COMPLEMENTO;
@@ -48,7 +49,7 @@ function cp_orcDoCache_(idAnexo) {
 function cp_conhecidas_(card, excluirAnexo) {
   var chaves = {}, textos = [];
   var an = vd_analisar_(card.desc || '', card.name || '');
-  an.pecas.forEach(function (p) { cp_chaves_(p).forEach(function (k) { chaves[k] = 1; }); });
+  an.pecas.forEach(function (p) { cp_chaves_(p).forEach(function (k) { chaves[k] = 1; }); });   // 🚫 não comprar: ver cp_comparar_
   var foItens = [];
   (card.checklists || []).forEach(function (k) {
     if (!/^(PAGAS|FORNECIMENTO)/i.test(String(k.name || '').trim())) return;
@@ -124,6 +125,8 @@ function cp_comparar_(card, orc, excluirAnexo) {
   var pecasCard = conh.an.pecas || [];
   var porCodigo = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.codigo); if (k.length >= 4) porCodigo[k] = i; });
   var porDesc = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.descricao); if (k.length >= 4 && !c.pneu) porDesc[k] = i; });
+  // 🚫 não comprar: mesmo código ou mesma descrição = o consultor já decidiu por essa peça, não entra de novo (09/10/2026)
+  var naoComprar = {}; (conh.an.naoComprar || []).forEach(function (c) { cp_chaves_(c).forEach(function (k) { naoComprar[k] = 1; }); });
   var marcaAtualizar = function (i, p, codigoNovo) {
     var c = pecasCard[i], u = { chave: vd_chavePeca_(c), codigoAntigo: c.codigo || '' };
     var vOrc = vd_valorOrcTxt_(p.valorOrc), vCard = vd_valorOrcTxt_(c.valorOrc);
@@ -138,6 +141,7 @@ function cp_comparar_(card, orc, excluirAnexo) {
       var k = cp_chaves_(p).join('|');
       if (vistos[k]) return; vistos[k] = 1;
       var kc = cp_norm_(p.codigo || p.codigoOrc), kd = cp_norm_(p.descricao || p.descricaoOrc);
+      if (!ehFo && cp_chaves_(p).some(function (x) { return naoComprar[x]; })) { out.jaTinha++; return; }
       if (!ehFo && !p.pneu) {
         // mesma peça da oficina pelo código: já tem (valor do orçamento pode ter mudado)
         if (kc.length >= 4 && porCodigo[kc] !== undefined) { out.jaTinha++; marcaAtualizar(porCodigo[kc], p, ''); return; }

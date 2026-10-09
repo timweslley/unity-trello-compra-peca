@@ -1822,7 +1822,7 @@ function vdf_salvar(token, p) {
     } catch (e) {}
   }
 
-  var anexados = 0, capaOk = false, repetidos = [], idsSubidos = [];
+  var anexados = 0, capaOk = false, repetidos = [], idsSubidos = [], idsLidos = [];
   // anexos que já estão no card (mesmo nome e tamanho) não sobem de novo
   var jaNoCard = [];
   if (p.shortLink && (p.fileIds || []).length) {
@@ -1842,7 +1842,13 @@ function vdf_salvar(token, p) {
       var mp = { file: f.getBlob(), name: f.getName() };
       if (ehCapa) mp.setCover = 'true';
       var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: mp }, token);
-      if (at && at.id) idsSubidos.push(at.id);
+      if (at && at.id) {
+        idsSubidos.push(at.id);
+        // orçamento que o formulário já leu e importou: o robô do complementar não pode ler de novo (09/10/2026, STG3I57:
+        // PDF subido pelo formulário 65 min depois do card criado foi relido como "complementar" e repetiu peças)
+        var tipoArq = (infoArq[fid] || {}).tipo;
+        if (tipoArq === 'orc' || tipoArq === 'orc+') idsLidos.push(at.id);
+      }
       if (ehCapa && at && at.id) { try { vd_api_('/cards/' + card.id, { method: 'put', payload: { idAttachmentCover: at.id } }, token); capaOk = true; } catch (e2) {} }
       if (at && at.id) {
         try {
@@ -1858,7 +1864,9 @@ function vdf_salvar(token, p) {
     } catch (e) {}
   });
 
-  // orçamento complementar: o robô não precisa ler de novo o PDF que subiu agora; comentário no card
+  // orçamento que o formulário leu agora (original ou complementar): o robô não precisa ler de novo o PDF que subiu
+  if (idsLidos.length) { try { cp_marcarVistos_(idsLidos); } catch (e) {} }
+  // orçamento complementar: comentário no card
   var compOf = pecas.filter(function (x) { return x.complemento && x.compData === cp_hoje_() && (!posCot || an.novas.some(function (nv) { return vd_chavePeca_(nv) === vd_chavePeca_(x); })); });
   if (comp) {
     try { cp_marcarVistos_(idsSubidos); } catch (e) {}

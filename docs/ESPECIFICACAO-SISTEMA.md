@@ -388,7 +388,12 @@ Tesseract/serviço de OCR para imagem e PDF escaneado.
 
 Serviços e códigos internos (`^0{2,}\d+$`, `^SOMA\d+$`) ficam fora. Valor líquido unitário entra como `ORÇ R$`.
 Orçamento complementar (ORÇ+): compara com as peças existentes → ➕ oficina nova, 📦 FO nova, 🔁 já pedida,
-🔁 passou de FO para oficina (sai do checklist), 🔄 atualizada (código/descrição/valor).
+🔁 passou de FO para oficina (sai do checklist), 🔄 atualizada (código/descrição/valor). Peça da oficina marcada
+🚫 **não comprar** (mesmo código ou mesma descrição) conta como já conhecida e **não volta** como complemento — o
+consultor já decidiu por ela (09/10/2026, STG3I57: o robô repetiu dois alojamentos "não comprar"). O PDF de orçamento
+que o **formulário** leu e importou (`orc`/`orc+`) é marcado como já visto (`CP_VISTOS`) em todo salvamento, não só no
+complementar: antes, orçamento subido pelo formulário mais de 30 min depois do card criado era relido pelo robô como
+complementar.
 
 **Treino do leitor** (`Treino.gs`, 08/10/2026): o robô percorre os cards (quadro principal + sistema antigo + arquivados),
 pega os PDFs de orçamento anexados (ignora NF, 📸, 🛒, 🚚 e nomes de nota/boleto/comprovante), faz OCR e guarda o texto em
