@@ -2617,15 +2617,26 @@ iniciar();
   .v2 #v2conf ol { margin:6px 0 0 20px; padding:0; }
   .v2 #v2conf li { margin:4px 0; }
   .v2 #msgSucesso { font-size:17px; line-height:24px; }
+  /* computador (09/10/2026): mesma 2.0, centralizada na largura do formulário */
+  .v2pc #v2topo { padding-left:max(12px, calc(50% - 378px)); padding-right:max(12px, calc(50% - 378px)); }
+  .v2pc #v2topo .placa { font-size:24px; }
+  .v2pc header { padding-left:max(12px, calc(50% - 378px)); padding-right:max(12px, calc(50% - 378px)); }
+  .v2pc #v2nav { left:50%; right:auto; width:min(780px, 100%); transform:translateX(-50%); border-radius:12px 12px 0 0; border:1px solid #091e4224; border-bottom:0; }
+  .v2pc .cot.v2-sheet { left:50%; right:auto; bottom:auto; top:8vh; width:min(640px, calc(100% - 24px)); transform:translateX(-50%); border-radius:16px; max-height:84vh; }
+  .v2pc .cot.v2-sheet .v2-sheettopo::before { display:none; }
+  .v2pc #v2toast { left:50%; right:auto; width:420px; margin-left:-210px; }
+  .v2pc .v2-ler .linha { padding:6px 0; }
+  .v2pc .v2-ler button { min-height:40px; }
   .v2 #v2agora { margin-top:12px; padding:12px; border-radius:8px; background:#e9f2ff; font-size:16px; line-height:22px; color:#172b4d; font-weight:500; }
 </style>
 <script>
 (function () {
   if (!/[?&]srv=1(&|$)/.test(location.search)) return;          // só no quadro TESTE (servidor novo)
-  var estreito = window.matchMedia('(max-width:640px)');
-  if (!estreito.matches) return;                                  // computador: fica como está
+  /* 09/10/2026 (Weslley): a 2.0 vale também no computador — antes só até 640 px, e no PC sobrava o visual antigo
+     (título e Fechar repetidos, anexos numa linha embolada). Em tela larga ganha a classe v2pc (conteúdo centralizado). */
   var html = document.documentElement;
   html.classList.add('v2');
+  if (!window.matchMedia('(max-width:640px)').matches) html.classList.add('v2pc');
   function $$(s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); }
   function g(id) { return document.getElementById(id); }
   function visivel(el) { return !!el && !el.classList.contains('oculto') && el.offsetParent !== null; }

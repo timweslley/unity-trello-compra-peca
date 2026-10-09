@@ -79,7 +79,7 @@ function carregar2(token, tema) {
   url += '#token=' + token;
   $('titulo').textContent = ({ compras: 'Cotação / Compra / Recebimento', cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento', forn: 'Fornecimento', novo: 'Novo pedido de peça' })[MODO] ? ({ compras: 'Cotação / Compra / Recebimento', cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento', forn: 'Fornecimento', novo: 'Novo pedido de peça' })[MODO] + ' — Unity' : 'Editar/Incluir peça — Unity';
   $('tela').style.display = 'none';
-  $('barra').style.display = tema ? 'none' : 'flex';   // no tema novo o próprio formulário tem o Fechar
+  $('barra').style.display = (tema || SERVIDOR) ? 'none' : 'flex';   // no tema novo (e no TESTE, 2.0) o próprio formulário tem o Fechar
   $('frame').style.display = 'block';
   $('frame').src = url;
 }
