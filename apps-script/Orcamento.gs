@@ -101,13 +101,21 @@ function vd_liquidoOrc_(unit, descPct) {
  */
 function vd_websomaDetalhado_(corpo, lista, add) {
   var txt = vd_compactarCodigos_(corpo, '\u0001');
-  var NUM = '(\\d{1,3}(?:\\.\\d{3})*,\\d{2})';
+  // 08/10/2026 (treino 2025, "Orcamento_Detalhado.pdf" da Porto): mesmo relatório impresso com número no formato inglês
+  // ("1 1,528.39 14.00 1,314.42 0.50 4.00", "PAGE 1 OF 3"), sem coluna TIPO e com sub-itens de R&I por baixo da peça
+  // ("37417 FORRO DA PORTA DT LE 0.50 0.00 ... TOTAL: 0.50 0.00") que não são peças.
+  var en = /\d+\.\d{2} \d+\.\d{2} \d+\.\d{2}/.test(txt) && !/\d,\d{2} \d/.test(txt);
+  if (en) txt = txt.replace(/(?:(?:\d{5} [A-Z][A-Z0-9 .\/\-]*?|\([^()]*\)) \d+\.\d{2} \d+\.\d{2} )+TOTAL: \d+\.\d{2} \d+\.\d{2}/g, ' ');
+  var NUM = en ? '(\\d{1,3}(?:,\\d{3})*\\.\\d{2})' : '(\\d{1,3}(?:\\.\\d{3})*,\\d{2})';
+  var num = en ? function (x) { var n = parseFloat(String(x || '').replace(/,/g, '')); return isNaN(n) ? NaN : n; } : vd_numOrc_;
   // 08/10/2026 (treino, relatórios da Porto): o PDF imprime em colunas e o OCR às vezes traz 2–3 itens seguidos e só
   // depois os preços ("…(GRADE) - VAL. 2020/ C/ FRISO 26364110 (COB.INF…) GENUINO 1 355,73 … GENUINO 1 118,66 …").
   // Por isso o texto é cortado em BLOCOS entre os preços; cada bloco vira um ou mais itens (fila) e cada preço sai
   // para o item mais antigo. Dentro do bloco um item começa num código (solto, "93286309//", Toyota "64780 0A120 C0")
   // ou em "NOME (DESCRIÇÃO" (nome curto + parêntese); códigos VW compactados (\u0001) entram na fila de códigos.
-  var rePreco = new RegExp('\\b(GENUIN[OA]|REPOSICAO|ORIGINAL|PARALEL[OA]|USAD[OA]|RECONDICIONAD[OA]) (\\d{1,3}) ' + NUM + ' ' + NUM + ' ' + NUM, 'g');
+  var rePreco = en
+    ? new RegExp('(?:\\b(GENUIN[OA]|REPOSICAO|ORIGINAL|PARALEL[OA]|USAD[OA]|RECONDICIONAD[OA]) )?\\b(\\d{1,3}) ' + NUM + ' ' + NUM + ' ' + NUM + ' ' + NUM + ' ' + NUM, 'g')
+    : new RegExp('\\b(GENUIN[OA]|REPOSICAO|ORIGINAL|PARALEL[OA]|USAD[OA]|RECONDICIONAD[OA]) (\\d{1,3}) ' + NUM + ' ' + NUM + ' ' + NUM, 'g');
   var COD = '(?:[A-Z]{0,4}\\d[A-Z0-9\\-]{4,18}\\/{0,2}|[A-Z]{1,2}\\d{3,8}|SOMA\\d+|0{2,}\\d+|\\d{5} [A-Z0-9]{5}(?: [A-Z0-9]{2}(?= \\())?)';   // "15X6" (medida) não é código
   var reIni = new RegExp('\\u0001([^\\u0001]+)\\u0001|(?:^|\\s)(' + COD + ')(?=\\s[A-Z(])|(?:^|\\s)(?=(?:[A-Z][A-Z.\\-\\/]* ){0,2}\\()', 'g');
   var filaCod = [], filaItem = [], m, pos = 0;
@@ -143,9 +151,10 @@ function vd_websomaDetalhado_(corpo, lista, add) {
     pos = m.index + m[0].length;
     var it = filaItem.shift();
     if (!it || it.pular) continue;
-    var bruto = vd_numOrc_(m[3]), liq = vd_numOrc_(m[5]), calc = vd_liquidoOrc_(m[3], m[4]);
+    var bruto = num(m[3]), liq = num(m[5]), pct = num(m[4]);
+    var calc = isNaN(bruto) ? NaN : (isNaN(pct) || pct <= 0 || pct >= 100 ? bruto : bruto * (1 - pct / 100));
     var valor = (!isNaN(liq) && !isNaN(calc) && Math.abs(liq - calc) < 0.05) ? liq : (isNaN(calc) ? bruto : calc);
-    add(lista, it.codigo, it.desc, m[2], m[1], valor);
+    add(lista, it.codigo, it.desc, m[2], m[1] || '', valor);
   }
 }
 
