@@ -890,7 +890,7 @@ function tr_guardarLote_(itens) {
     if (k >= 0) sh.getRange(k + 2, 1, 1, linha.length).setValues([linha]);
     else { novos.push(linha.length === 5 ? linha : linha.concat([''])); ids.push(it.id); }
     if (comCompleta) {
-      try { if (it.completa.length < 90000) CacheService.getScriptCache().put('vd_cmp_' + it.id, '#' + it.completa, 21600); else CacheService.getScriptCache().remove('vd_cmp_' + it.id); } catch (e) {}
+      try { if (it.completa.length < 90000) CacheService.getScriptCache().put('vd_cmp_' + it.id, '#' + h + '|' + it.completa, 21600); else CacheService.getScriptCache().remove('vd_cmp_' + it.id); } catch (e) {}
       if (VD_CMP_MEM) VD_CMP_MEM[it.id] = it.completa;
     }
   });
@@ -2141,18 +2141,26 @@ var VD_CMP_MEM = null;   // id -> descrição completa (lida uma vez por execuç
 function vd_vitrineLigada_() { return vd_prop_('VD_VITRINE', 'SIM') !== 'NAO'; }
 
 /** Descrição completa guardada de um card ('' se o card ainda não foi convertido). */
-function vd_completa_(cardId) {
+function vd_completa_(cardId, vitrine) {
   if (!cardId) return '';
   if (VD_CMP_MEM && Object.prototype.hasOwnProperty.call(VD_CMP_MEM, cardId)) return VD_CMP_MEM[cardId];
+  // 09/10/2026 (TBU8D71): o cache guarda também o hash da vitrine a que a completa corresponde. Se a vitrine que veio do
+  // Trello é outra (o card mudou depois — cotação lançada pelo Apps Script enquanto o servidor próprio guardava a cópia
+  // antiga por até 6 h), o cache não vale e a completa é relida da planilha.
+  var hv = vitrine != null ? tr_hash_(vitrine) : '';
   var cache = CacheService.getScriptCache(), k = 'vd_cmp_' + cardId, v = cache.get(k);
-  if (v !== null) return v.slice(1);
-  var txt = '';
+  if (v !== null) {
+    var m = v.match(/^#([^|\n]*)\|([\s\S]*)$/);
+    if (m && (!hv || m[1] === hv)) return m[2];
+    if (!m && !hv) return v.slice(1);   // formato antigo (sem hash)
+  }
+  var txt = '', h = '';
   try {
     var sh = tr_aba_();
     var cel = sh.getRange('A:A').createTextFinder(cardId).matchEntireCell(true).findNext();
-    if (cel) txt = String(sh.getRange(cel.getRow(), 5).getValue() || '');
+    if (cel) { var lin = sh.getRange(cel.getRow(), 1, 1, 5).getValues()[0]; h = String(lin[1] || ''); txt = String(lin[4] || ''); }
   } catch (e) { console.log('vitrine/ler: ' + e); }
-  try { if (txt.length < 90000) cache.put(k, '#' + txt, 21600); } catch (e) {}
+  try { if (txt.length < 90000) cache.put(k, '#' + h + '|' + txt, 21600); } catch (e) {}
   return txt;
 }
 
@@ -2179,7 +2187,7 @@ function vd_trocarPelaCompleta_(r) {
     r.forEach(function (c) { if (c && c.id && typeof c.desc === 'string' && mapa[c.id]) c.desc = mapa[c.id]; });
     return r;
   }
-  if (r.id && typeof r.desc === 'string') { var t = vd_completa_(r.id); if (t) r.desc = t; }
+  if (r.id && typeof r.desc === 'string') { var t = vd_completa_(r.id, r.desc); if (t) r.desc = t; }
   return r;
 }
 

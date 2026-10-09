@@ -192,6 +192,12 @@ repete chamadas lentas em paralelo).
 Separador: linha `=== COTAÇÃO (compras) ===`. Acima, o **bloco do consultor**; abaixo, o **log de cotação/
 autorização** (só cresce).
 
+A completa fica na aba `TRAVA` da planilha (coluna E); no Trello aparece a **vitrine**. Toda leitura troca a vitrine
+pela completa (`vd_trocarPelaCompleta_`), com cache de 6 h **validado pelo hash da vitrine** (09/10/2026, TBU8D71): se a
+vitrine que veio do Trello mudou, o cache não vale e a completa é relida — sem isso o servidor próprio, que mantém o
+cache na memória dele, devolvia cotações velhas ao formulário por até 6 h. Na aba Autorizar, peça que já está no checklist
+`PAGAS` (card antigo migrado com a compra feita) aparece como "✔ já comprado" e fica fora da autorização.
+
 ```
 **MODELO:** …            **ANO:** …          **MOTOR/VERSÃO:** …
 **CHASSI:** …            **PLACA:** …        **TIPO:** PARTICULAR|RETORNO   (só nesses tipos)

@@ -979,6 +979,12 @@ function montarAutorizacao(c) {
     var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + seloOrc(p) + '</strong></div>';
     h += obsPedido(p);
     ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
+    // peça já comprada (PAGAS — ex.: card antigo migrado com a compra feita) não entra na autorização (09/10/2026, TBU8D71)
+    var jaPg = (c.pagas || []).filter(function (it) { return semAc(it.nome).indexOf(p.chave) >= 0; })[0];
+    if (jaPg) {
+      h += '<div class="comprado">✔ já comprado: ' + esc(jaPg.nome) + (jaPg.due ? ' — previsão ' + esc(jaPg.due) : '') + (jaPg.ok ? ' (recebido)' : '') + '</div>';
+      div.innerHTML = h; div.dataset.fora = '1'; box.appendChild(div); return;
+    }
     if (p.podeAut === false) {
       h += (ja ? '<div class="comprado">✅ já autorizado: ' + esc(ja.fornecedor) + ' — ' + esc(fmtValor(ja.valor)) + (ja.quem ? ' (' + esc(ja.quem) + ')' : '') + '</div>' : '')
         + '<div class="dica">' + (p.particular ? '👤 Peça particular — quem autoriza é o consultor que a lançou' + (p.partPor ? ' (@' + esc(p.partPor) + ')' : '') : 'Peça da seguradora — quem autoriza é a diretoria') + '.</div>';
