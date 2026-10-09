@@ -282,6 +282,7 @@
       <div class="chips" style="margin-bottom:12px">
         <label class="chip marcado"><input type="radio" name="tipoPedido" value="SEGURADORA" checked onchange="aoMudarTipo()"> Seguradora (orçamento autorizado)</label>
         <label class="chip"><input type="radio" name="tipoPedido" value="PARTICULAR" onchange="aoMudarTipo()"> <span id="rotuloPart">Particular (carro ainda não entrou / orçamento da oficina)</span></label>
+        <label class="chip"><input type="radio" name="tipoPedido" value="RETORNO" onchange="aoMudarTipo()"> 🔁 Retorno — oficina paga (retrabalho / garantia)</label>
       </div>
       <div class="aviso info oculto" id="avisoMisto"></div>
       <div class="grade">
@@ -520,15 +521,17 @@ function setTipoPedido(t) {
   aoMudarTipo();
 }
 function aoMudarTipo() {
-  var part = tipoPedido() === 'PARTICULAR';
+  var part = tipoPedido() === 'PARTICULAR', ret = tipoPedido() === 'RETORNO', semSeg = part || ret;   // RETORNO = oficina paga (09/10/2026)
   Array.prototype.forEach.call(document.querySelectorAll('input[name=tipoPedido]'), function (r) { r.parentNode.classList.toggle('marcado', r.checked); });
-  $('tituloDoc').innerHTML = part ? '2. Documento (opcional)' : '2. Orçamento autorizado <span class="obr">*</span>';
-  $('rotuloDoc').textContent = part
+  $('tituloDoc').innerHTML = semSeg ? '2. Documento (opcional)' : '2. Orçamento autorizado <span class="obr">*</span>';
+  $('rotuloDoc').textContent = ret
+    ? 'Retorno: a oficina paga as peças (retrabalho / garantia). Anexe o documento do carro ou o orçamento, se tiver. Quem autoriza a compra é a diretoria.'
+    : part
     ? 'Anexe o documento do carro ou o orçamento da oficina, se tiver. O sistema lê chassi, modelo e ano.'
     : 'Anexe o PDF do orçamento autorizado (Cilia, HDI ou Websoma). O sistema lê chassi, modelo, ano, cor e seguradora e já separa as peças da oficina das fornecidas pela seguradora.';
-  $('seguradora').closest('div').classList.toggle('oculto', part);
-  $('sinistro').closest('div').classList.toggle('oculto', part);
-  $('dicaTitulo').textContent = part ? 'O título do card fica: PLACA CARRO COR PARTICULAR.' : 'O título do card fica: PLACA CARRO COR SEGURADORA.';
+  $('seguradora').closest('div').classList.toggle('oculto', semSeg);
+  $('sinistro').closest('div').classList.toggle('oculto', semSeg);
+  $('dicaTitulo').textContent = ret ? 'O título do card fica: PLACA CARRO COR RETORNO.' : part ? 'O título do card fica: PLACA CARRO COR PARTICULAR.' : 'O título do card fica: PLACA CARRO COR SEGURADORA.';
   $('rotuloSeg').textContent = 'Seguradora';
   // card de seguradora já existente: "Particular" = pedido separado do cliente no MESMO card (mesmo carro)
   var misto = modoMisto(), pp = part && misto;
@@ -669,7 +672,7 @@ function carregarCard(sl) {
     mostrar('modoEdicao', true);
     POS = !!c.posCotacao; LISTA = c.lista || '';
     if (c.doOrcamento) ORC = ORC || { origem: c.origemOrc || 'ORÇAMENTO', fo: [] };
-    setTipoPedido(c.tipo === 'PARTICULAR' ? 'PARTICULAR' : 'SEGURADORA');
+    setTipoPedido(c.tipo === 'PARTICULAR' || c.tipo === 'RETORNO' ? c.tipo : 'SEGURADORA');
     var d = c.dados, t = c.titulo || {};
     $('carro').value = t.carro || ''; $('cor').value = t.cor || d.cor || '';
     $('seguradora').value = t.seguradora || d.seguradora || ''; $('sinistro').value = d.sinistro || '';
@@ -753,7 +756,7 @@ function telaComprador(c) {
   mostrar('telaCarregando', false); mostrar('form', false); mostrar('comprador', true);
   var pecas = pecasOficina(c);
   $('infoComprador').innerHTML = '<b>' + esc(c.nome) + '</b><span class="sep"> — </span>está em <b>' + esc(c.lista) + '</b>. ' + pecas.length + ' peça(s) pela oficina'
-    + (c.tipo === 'PARTICULAR' ? ' · pedido <b>particular</b>' : ' · pedido de <b>seguradora</b>')
+    + (c.tipo === 'PARTICULAR' ? ' · pedido <b>particular</b>' : c.tipo === 'RETORNO' ? ' · pedido de <b>retorno (oficina paga)</b>' : ' · pedido de <b>seguradora</b>')
     + (c.ordem ? ' · ordem nº <b>' + esc(c.ordem) + '</b>' : ' · <b>sem nº de ordem</b>')
     + '.<br><a href="' + esc(c.url) + '" target="_blank">Abrir o card</a> · <a href="#" onclick="guardar(\'vd_modo_pend\',null);location.href=CFG.urlApp+\'?card=\'+CARD_EDICAO;return false">Editar o pedido (consultor)</a>';
   $('infoComprador').innerHTML += linksAnexos(c);
@@ -1684,9 +1687,9 @@ function copiarCarro(sl) {
   chamar('vdf_carregarCard', TOKEN, sl).then(function (c) {
     CARD_EDICAO = ''; guardar('vd_card_pend', null); mostrar('modoEdicao', false);
     var d = c.dados || {}, t = c.titulo || {};
-    setTipoPedido(c.tipo === 'PARTICULAR' ? 'PARTICULAR' : 'SEGURADORA');
+    setTipoPedido('RETORNO');   // retorno interno: a oficina paga
     $('carro').value = t.carro || ''; $('cor').value = t.cor || d.cor || '';
-    $('seguradora').value = t.seguradora || d.seguradora || ''; $('sinistro').value = d.sinistro || '';
+    $('seguradora').value = ''; $('sinistro').value = '';
     if (d.placa) $('placa').value = d.placa;
     $('modelo').value = d.modelo || ''; $('ano').value = d.ano || ''; $('motor').value = d.motor || ''; $('chassi').value = d.chassi || '';
     $('unidade').value = c.unidadeId || ''; $('ordem').value = '';
@@ -1695,7 +1698,7 @@ function copiarCarro(sl) {
     var obs = String($('obs').value || '').trim();
     var linha = 'RETORNO INTERNO — card anterior: ' + c.nome + ' (https://trello.com/c/' + c.shortLink + ')';
     if (obs.indexOf('RETORNO INTERNO') < 0) $('obs').value = (obs ? obs + '\n' : '') + linha;
-    $('dicaPlaca').innerHTML = '✓ Dados do carro copiados de <b>' + esc(c.nome) + '</b>. Vai ser criado um <b>card novo</b>: informe o nº da ordem nova e as peças.';
+    $('dicaPlaca').innerHTML = '✓ Dados do carro copiados de <b>' + esc(c.nome) + '</b>. Vai ser criado um <b>card novo de RETORNO</b> (oficina paga): informe o nº da ordem nova e as peças.';
     $('dicaPlaca').className = 'dica boa';
     $('ordem').focus();
   }).catch(function (e) { $('dicaPlaca').textContent = 'Não consegui copiar os dados: ' + e.message; $('dicaPlaca').className = 'dica ruim'; });
@@ -1974,7 +1977,7 @@ function novoItem(tipo, dados) {
   if (dados.travada) div.dataset.travada = dados.travada;
   var caixa = dados.particular !== undefined ? caixaDe(!!dados.particular) : caixaDe(pedidoPart());
   // card da seguradora (existente, ou novo com orçamento importado): a peça pode ser marcada como COMPLEMENTO
-  var podeComp = (!!CARD_EDICAO || !!ORC) && caixa.id !== 'itensPart' && tipoPedido() !== 'PARTICULAR';
+  var podeComp = (!!CARD_EDICAO || !!ORC) && caixa.id !== 'itensPart' && tipoPedido() !== 'PARTICULAR' && tipoPedido() !== 'RETORNO';
   // peça incluída à mão num pedido que tem orçamento da seguradora: não está no orçamento -> já nasce como complemento
   // (07/10/2026, Weslley); quem incluir pode desmarcar
   var compAuto = false;
@@ -1999,7 +2002,7 @@ function novoItem(tipo, dados) {
       + '</div><input type="text" class="f-marca maiusc" placeholder="Marca (ex.: PIRELLI)" style="margin-top:8px" value="' + esc(dados.marca) + '" oninput="if(this.value)this.closest(\'.item\').querySelector(\'input[value=MARCA]\').checked=true;pintarChips(\'' + id + '\')"></div></div>';
   } else {
     h += '<div class="grade">'
-      + '<div><label>Código da peça ' + (caixa.id === 'itensPart' || tipoPedido() === 'PARTICULAR' ? '<span style="font-size:12px">(opcional)</span>' : '<span class="obr">*</span>') + '</label><input type="text" class="f-codigo maiusc" placeholder="Buscar no Cilia" value="' + esc(dados.codigo) + '"></div>'
+      + '<div><label>Código da peça ' + (caixa.id === 'itensPart' || tipoPedido() === 'PARTICULAR' || tipoPedido() === 'RETORNO' ? '<span style="font-size:12px">(opcional)</span>' : '<span class="obr">*</span>') + '</label><input type="text" class="f-codigo maiusc" placeholder="Buscar no Cilia" value="' + esc(dados.codigo) + '"></div>'
       + '<div><label>Quantidade</label><input type="number" min="1" class="f-qtd" value="' + esc(dados.qtd || 1) + '"></div>'
       + campoValorOrc(dados)
       + '<div class="inteiro"><label>Descrição <span class="obr">*</span></label><input type="text" class="f-desc maiusc" placeholder="FAROL ESQUERDO" value="' + esc(dados.descricao) + '"></div>'
@@ -2118,7 +2121,7 @@ function coletar() {
       var r = n + (desc ? ' (' + desc + ')' : '');
       var naoP = el.dataset.nao === '1', naoMotivoP = ((el.querySelector('.f-nao-motivo') || {}).value || '').trim();
       var foCss = css && !ehPart && !naoP;   // vai virar FO no servidor: não precisa de código nem tipo
-      if (!cod && tipoPedido() !== 'PARTICULAR' && !ehPart && !naoP && !foCss) faltas.push(r + ': falta o código (buscar no Cilia)');
+      if (!cod && tipoPedido() !== 'PARTICULAR' && tipoPedido() !== 'RETORNO' && !ehPart && !naoP && !foCss) faltas.push(r + ': falta o código (buscar no Cilia)');
       if (!desc) faltas.push(r + ': falta a descrição');
       if (!tipos.length && !naoP && !foCss) faltas.push(r + ': marque o tipo de peça');
       pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd, particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: naoP, naoMotivo: naoMotivoP, valorOrc: lerValorOrc(el), obs: lerObsPeca(el) });
@@ -2131,7 +2134,7 @@ function coletar() {
   };
   var carro = [];
   if (!$('unidade').value) carro.push('unidade');
-  var part = tipoPedido() === 'PARTICULAR' && !modoMisto();
+  var part = (tipoPedido() === 'PARTICULAR' && !modoMisto()) || tipoPedido() === 'RETORNO';   // retorno: mesmas exigências do particular
   var soPlacaCarro = modoMisto() || (!part && (!!ORC || POS));
   if (!placaOk(d.placa)) carro.push('placa');
   if (!$('carro').value.trim()) carro.push('carro (nome curto para o título)');
@@ -2512,7 +2515,7 @@ iniciar();
     var v = function (id) { return g(id) ? String(g(id).value || '').trim() : ''; };
     var tipo = (document.querySelector('input[name=tipoPedido]:checked') || {}).value || '';
     var un = g('unidade'); var unTxt = un && un.selectedIndex > 0 ? un.options[un.selectedIndex].text : '';
-    var linhas = [['Placa', v('placa')], ['Quem paga', tipo === 'PARTICULAR' ? 'Cliente (particular)' : 'Seguradora'], ['Carro', v('modelo')], ['Ano', v('ano')], ['Chassi', v('chassi')], ['Unidade', unTxt], ['Nº da ordem', v('ordem')]]
+    var linhas = [['Placa', v('placa')], ['Quem paga', tipo === 'PARTICULAR' ? 'Cliente (particular)' : tipo === 'RETORNO' ? 'Oficina (retorno)' : 'Seguradora'], ['Carro', v('modelo')], ['Ano', v('ano')], ['Chassi', v('chassi')], ['Unidade', unTxt], ['Nº da ordem', v('ordem')]]
       .filter(function (l) { return l[1]; });
     var pecas = itensDoPedido().filter(function (it) { return it.style.display !== 'none'; }).map(function (it) {
       var r = resumoDe(it); return '<li><b>' + txt(r.titulo) + '</b>' + (r.sub ? '<br><span style="color:#44546f">' + txt(r.sub) + '</span>' : '') + (it.dataset.nao === '1' ? ' <span class="selo-trava">não comprar</span>' : '') + '</li>';

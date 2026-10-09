@@ -372,7 +372,7 @@ function vdf_partesTitulo_(nome, dados) {
   var ps0 = vd_semAcento_(nome).replace(/\b[A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2}\b/, ' ').replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(String);
   var ps = ps0.filter(function (t) { return VD_LIXO_TITULO.indexOf(t) < 0; });
   var r = { carro: '', cor: dados.cor || '', seguradora: dados.seguradora || '' };
-  if (ps.length && !r.seguradora && (ps[ps.length - 1] === 'PARTICULAR' || VD_SEGURADORAS.some(function (s) { return s[0] === ps[ps.length - 1]; }))) r.seguradora = ps.pop();
+  if (ps.length && !r.seguradora && (ps[ps.length - 1] === 'PARTICULAR' || ps[ps.length - 1] === 'RETORNO' || VD_SEGURADORAS.some(function (s) { return s[0] === ps[ps.length - 1]; }))) r.seguradora = ps.pop();
   else if (ps.length && r.seguradora && ps[ps.length - 1] === vd_semAcento_(r.seguradora)) ps.pop();
   for (var k = ps.length - 1; k > 0; k--) {
     if (VD_CORES.indexOf(ps[k]) >= 0) { var c = ps.splice(k, 1)[0]; if (!r.cor) r.cor = c; break; }
@@ -1599,7 +1599,7 @@ function vdf_salvar(token, p) {
   var extra = {
     tipo: tipo,
     cor: String(n.cor || '').trim().toUpperCase(),
-    seguradora: particular ? 'PARTICULAR' : String(n.seguradora || '').trim().toUpperCase(),
+    seguradora: vd_rotuloSeguradora_(tipo, String(n.seguradora || '').trim().toUpperCase()),
     sinistro: String(n.sinistro || '').trim(),
     fo: fo,
     origemOrc: orc && orc.origem ? orc.origem : ''
@@ -1648,8 +1648,9 @@ function vdf_salvar(token, p) {
       var anOr = vd_analisar_(card.desc, card.name), cardOr = { name: card.name, labels: [] };
       var eraPart = vdf_ehParticular_(cardOr, anOr);
       var tNovo = vd_tipoNormPedido_(n.tipo);
-      if (anOr.pecas.length && tNovo && eraPart !== (tNovo === 'PARTICULAR'))
-        return { ok: false, faltas: ['Só a diretoria muda o tipo do pedido (seguradora / particular).'] };
+      var tVelho = anOr.dados.tipo || (eraPart ? 'PARTICULAR' : 'SEGURADORA');
+      if (anOr.pecas.length && tNovo && tVelho !== tNovo)
+        return { ok: false, faltas: ['Só a diretoria muda o tipo do pedido (seguradora / particular / retorno).'] };
       var orPor = {};
       anOr.pecas.forEach(function (x) { orPor[vd_chavePeca_(x)] = x; });
       var trocou = [];
@@ -1812,7 +1813,7 @@ function vdf_salvar(token, p) {
         try {
           var inf = infoArq[fid] || {}, ehImg = /^image\//i.test(f.getMimeType() || '') || /\.(jpe?g|png|webp|gif)$/i.test(f.getName());
           var nomeAx = ehCapa ? ax_nome_(AX.FOTO, d.placa, ['capa'])
-            : inf.tipo === 'orc' || inf.tipo === 'orc+' ? ax_nome_(inf.tipo === 'orc+' ? AX.ORC_MAIS : AX.ORC, d.placa, [extra.seguradora !== 'PARTICULAR' ? extra.seguradora : '', ax_origem_(inf.origem || extra.origemOrc)])
+            : inf.tipo === 'orc' || inf.tipo === 'orc+' ? ax_nome_(inf.tipo === 'orc+' ? AX.ORC_MAIS : AX.ORC, d.placa, [vd_semSeguradora_(extra.tipo) ? '' : extra.seguradora, ax_origem_(inf.origem || extra.origemOrc)])
             : ehImg ? ax_nome_(AX.FOTO, d.placa, []) : '';
           if (nomeAx) { at.name = ax_batizar_(card.id, at.id, nomeAx, jaNoCard, token, { semVersao: ehCapa || ehImg }); jaNoCard.push({ id: at.id, name: at.name, date: new Date().toISOString() }); }
         } catch (e3) { console.log('nome do anexo: ' + e3); }

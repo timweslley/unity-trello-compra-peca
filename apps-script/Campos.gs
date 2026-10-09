@@ -2,8 +2,8 @@
  * O robô cria (se faltar) e preenche os campos do card a partir do pedido — o título continua
  * PLACA CARRO COR SEGURADORA, só para leitura visual; os campos são o dado organizado
  * (filtros, visão Tabela/Painel do Trello e, no futuro, a migração para o sistema interno).
- *   Unidade (lista) · Seguradora (lista, aprende opção nova) · Tipo (SEGURADORA / PARTICULAR / MISTO)
- *   Placa · Consultor · Total seguradora · Total particular · Total seg+part · Nº Ordem (já usado no quadro; não é preenchido)
+ *   Unidade (lista) · Seguradora (lista, aprende opção nova) · Tipo (SEGURADORA / PARTICULAR / RETORNO / MISTO)
+ *   Placa · Consultor · Total seguradora · Total particular · Total retorno (oficina paga, 09/10/2026) · Total seg+part (soma dos três) · Nº Ordem (já usado no quadro; não é preenchido)
  * Totais (R$): valor de cada peça = o COMPRADO (checklists PAGAS*) quando já comprada; senão o AUTORIZADO.
  *   Peça particular (PAGAS PARTICULAR / "| PARTICULAR") vai no Total particular; o resto (inclusive complemento) no seguradora.
  * Atualiza depois de cada ação do formulário e quando o robô confere o card.
@@ -13,12 +13,13 @@ var CF = {
   CAMPOS: [
     // mesmos nomes do quadro principal (as regras do Butler que põem os membros da unidade esperam estes)
     { nome: 'Unidade', tipo: 'list', opcoes: ['TOLEDO', 'RONDON', 'CASCAVEL', 'MOURÃO'] },
-    { nome: 'Seguradora', tipo: 'list', opcoes: ['PARTICULAR'] },
-    { nome: 'Tipo', tipo: 'list', opcoes: ['SEGURADORA', 'PARTICULAR', 'MISTO'] },
+    { nome: 'Seguradora', tipo: 'list', opcoes: ['PARTICULAR', 'RETORNO'] },
+    { nome: 'Tipo', tipo: 'list', opcoes: ['SEGURADORA', 'PARTICULAR', 'RETORNO', 'MISTO'] },
     { nome: 'Placa', tipo: 'text' },
     { nome: 'Consultor', tipo: 'text' },
     { nome: 'Total seguradora', tipo: 'number' },
     { nome: 'Total particular', tipo: 'number' },
+    { nome: 'Total retorno', tipo: 'number' },
     { nome: 'Total seg+part', tipo: 'number', antigo: 'Total comprado' },
     { nome: 'Nº Ordem', tipo: 'text', naoPreencher: true }
   ]
@@ -81,9 +82,10 @@ function cf_opcao_(defs, campo, texto) {
 function vd_totais_(c) {
   var an = vd_analisar_(c.desc || '', c.name || '');
   var cardPart = an.dados.tipo === 'PARTICULAR' || (/\bPARTICULAR\b/i.test(c.name || '') && !an.pecas.some(function (p) { return !p.particular; }));
+  var cardRet = an.dados.tipo === 'RETORNO';   // oficina paga: grupo próprio (09/10/2026)
   var z = function () { return { cot: 0, aut: 0, comp: 0, valor: 0, nAut: 0, nComp: 0 }; };
-  var T = { seg: z(), part: z() };
-  var grupo = function (p) { return cardPart || p.particular ? 'part' : 'seg'; };
+  var T = { seg: z(), part: z(), ret: z() };
+  var grupo = function (p) { return cardPart || p.particular ? 'part' : cardRet ? 'ret' : 'seg'; };
   var cots = [], auts = [];
   try { cots = vd_cotacoesDaDescricao_(c.desc || '', an.pecas).cotacoes; } catch (e) {}
   try { auts = vd_autorizacoesDaDescricao_(c.desc || '', an.pecas); } catch (e) {}
@@ -108,10 +110,10 @@ function vd_totais_(c) {
     else if (a && !isNaN(a.valor)) g.valor += a.valor;
   });
   // compra que não casou com peça da lista (card antigo): entra pelo nome do checklist
-  itens.forEach(function (it) { if (it.usado) return; var g = T[cardPart || it.part ? 'part' : 'seg']; g.comp += it.valor; g.valor += it.valor; g.nComp++; });
+  itens.forEach(function (it) { if (it.usado) return; var g = T[cardPart || it.part ? 'part' : cardRet ? 'ret' : 'seg']; g.comp += it.valor; g.valor += it.valor; g.nComp++; });
   var r2 = function (v) { return Math.round(v * 100) / 100; };
-  ['seg', 'part'].forEach(function (k) { ['cot', 'aut', 'comp', 'valor'].forEach(function (f) { T[k][f] = r2(T[k][f]); }); });
-  T.tot = {}; ['cot', 'aut', 'comp', 'valor', 'nAut', 'nComp'].forEach(function (f) { T.tot[f] = r2(T.seg[f] + T.part[f]); });
+  ['seg', 'part', 'ret'].forEach(function (k) { ['cot', 'aut', 'comp', 'valor'].forEach(function (f) { T[k][f] = r2(T[k][f]); }); });
+  T.tot = {}; ['cot', 'aut', 'comp', 'valor', 'nAut', 'nComp'].forEach(function (f) { T.tot[f] = r2(T.seg[f] + T.part[f] + T.ret[f]); });
   T.temPart = cardPart || an.pecas.some(function (p) { return p.particular; });
   T.temSeg = !cardPart && an.pecas.some(function (p) { return !p.particular; });
   return T;
@@ -145,8 +147,8 @@ function cf_gravarUnidade_(cardId, idOpcao) {
 /** Valores calculados do card. */
 function cf_valores_(c) {
   var an = vd_analisar_(c.desc || '', c.name || '');
-  var tipo = an.dados.tipo === 'PARTICULAR' ? 'PARTICULAR' : (an.pecas.some(function (p) { return p.particular; }) ? 'MISTO' : 'SEGURADORA');
-  var seg = an.dados.tipo === 'PARTICULAR' ? 'PARTICULAR' : String(an.dados.seguradora || '').trim().toUpperCase();
+  var tipo = vd_semSeguradora_(an.dados.tipo) ? an.dados.tipo : (an.pecas.some(function (p) { return p.particular; }) ? 'MISTO' : 'SEGURADORA');
+  var seg = vd_rotuloSeguradora_(an.dados.tipo, String(an.dados.seguradora || '').trim().toUpperCase());
   if (!seg) { var mt = (c.name || '').trim().split(/\s+/); var ult = mt[mt.length - 1]; if (VD_SEGURADORAS.some(function (s) { return s[0] === ult; })) seg = ult; }
   var T = null; try { T = vd_totais_(c); } catch (e) { console.log('totais: ' + e); }
   var num = function (v) { return T && v ? v : ''; };
@@ -159,6 +161,7 @@ function cf_valores_(c) {
     'Placa': an.dados.placa || vd_placaDoTexto_(c.name || '') || '', 'Consultor': consultor ? '@' + consultor : '',
     'Total seguradora': T ? num(T.seg.valor) : undefined,
     'Total particular': T ? num(T.part.valor) : undefined,
+    'Total retorno': T ? num(T.ret.valor) : undefined,
     'Total seg+part': T ? num(T.tot.valor) : undefined
   };
 }

@@ -257,9 +257,13 @@ function vd_tipoNorm_(t) {
 function vd_tipoNormPedido_(t) {
   var s = vd_semAcento_(t).replace(/[^A-Z]/g, '');
   if (/^PART/.test(s)) return 'PARTICULAR';
+  if (/^RET/.test(s)) return 'RETORNO';   // 09/10/2026, Weslley: 3º tipo — retorno (oficina paga)
   if (/^SEG/.test(s)) return 'SEGURADORA';
   return '';
 }
+/** PARTICULAR e RETORNO não têm seguradora: sem orçamento obrigatório, código opcional; o lugar da seguradora no título/descrição leva o tipo. */
+function vd_semSeguradora_(t) { return t === 'PARTICULAR' || t === 'RETORNO'; }
+function vd_rotuloSeguradora_(tipo, seg) { return tipo === 'PARTICULAR' ? 'PARTICULAR' : tipo === 'RETORNO' ? 'RETORNO' : seg; }
 
 function vd_categPneu_(t) {
   var s = vd_semAcento_(t).replace(/\s+/g, ' ').trim();
@@ -359,15 +363,15 @@ function vd_analisar_(desc, nomeCard, opts) {
   var doOrcamento = /OR[ÇC]AMENTO IMPORTADO/i.test(vd_limpar_(bloco));
   var modoNova = !!opts.base;
   // tipo do pedido: linha TIPO, título ou etiqueta (PARTICULAR) — padrão SEGURADORA
-  if (!d.tipo) d.tipo = vd_tipoNormPedido_(opts.tipo || (/\bPARTICULAR\b/i.test(nomeCard || '') ? 'PARTICULAR' : ''));
-  var particular = d.tipo === 'PARTICULAR';
+  if (!d.tipo) d.tipo = vd_tipoNormPedido_(opts.tipo || (/\bPARTICULAR\b/i.test(nomeCard || '') ? 'PARTICULAR' : /\bRETORNO\b/i.test(nomeCard || '') ? 'RETORNO' : ''));
+  var particular = d.tipo === 'PARTICULAR', semSeg = vd_semSeguradora_(d.tipo);
 
   var faltas = [];
   if (!d.placa) faltas.push('placa');
   else if (!vd_placaValida_(d.placa)) faltas.push('placa inválida (' + d.placa + ')');
   if (!modoNova) {
-    if (particular) {
-      // particular (carro ainda não entrou): placa, modelo e chassi obrigatórios; ano opcional
+    if (semSeg) {
+      // particular (carro ainda não entrou) / retorno: placa, modelo e chassi obrigatórios; ano opcional
       if (!d.modelo) faltas.push('modelo do carro');
       if (!d.chassi) faltas.push('chassi');
     } else if (!doOrcamento) {
@@ -386,7 +390,7 @@ function vd_analisar_(desc, nomeCard, opts) {
   var baseSem = base.map(semComp);
   var pecas = [], novas = [], naoComprar = [];
   lp.linhas.forEach(function (l) {
-    var p = vd_analisarPeca_(l, pecas.length + 1, { codigoOpcional: particular });
+    var p = vd_analisarPeca_(l, pecas.length + 1, { codigoOpcional: semSeg });
     if (particular) p.particular = true;
     p.sig = vd_sigItem_(l);
     // "NÃO COMPRAR": fica só de registro — fora de cotação, autorização, compra, totais e coluna (como se não existisse)
@@ -495,7 +499,7 @@ function vd_montarBloco_(d, pecas, obs, rodape, extra) {
   if (d.motor) L.push('**MOTOR/VERSÃO:** ' + d.motor);
   if (d.chassi) L.push('**CHASSI:** ' + d.chassi);
   L.push('**PLACA:** ' + (d.placa || ''));
-  if (extra.tipo === 'PARTICULAR') L.push('**TIPO:** PARTICULAR');
+  if (vd_semSeguradora_(extra.tipo)) L.push('**TIPO:** ' + extra.tipo);
   if (extra.cor) L.push('**COR:** ' + extra.cor);
   if (extra.seguradora) L.push('**SEGURADORA:** ' + extra.seguradora);
   if (extra.sinistro) L.push('**SINISTRO:** ' + extra.sinistro);
@@ -1312,7 +1316,7 @@ function vd_conferirCard_(card, ctx) {
   var faltas = vd_agruparTipo_(an.faltas).concat(faltasExtra);
   // pedido de seguradora: o orçamento autorizado tem de estar no card (o robô importa as peças dele)
   var temOrc = an.doOrcamento || (lido && lido.orcamento);
-  if (!base && an.dados.tipo !== 'PARTICULAR' && !temOrc) {
+  if (!base && !vd_semSeguradora_(an.dados.tipo) && !temOrc) {
     faltas.unshift('orçamento autorizado da seguradora anexado no card (PDF do Cilia, HDI ou Websoma) — com ele o robô importa as peças sozinho; se for pedido de cliente particular, escreva PARTICULAR no título ou use o formulário');
   }
   if (an.doOrcamento && !base && !vdf_partesTitulo_(nome, an.dados).carro) faltas.unshift('carro (nome do carro no título do card)');
@@ -1392,7 +1396,7 @@ function vd_importarOrcamento_(card, an, lido, ctx) {
   } else {
     resto = VD.MARCADOR + (nota ? '\n' + nota : '');
   }
-  var partes = vdf_partesTitulo_(card.name, { modelo: d.modelo || (lido.modelo && lido.modelo.v) || '', cor: extra.cor, seguradora: d.tipo === 'PARTICULAR' ? 'PARTICULAR' : extra.seguradora });
+  var partes = vdf_partesTitulo_(card.name, { modelo: d.modelo || (lido.modelo && lido.modelo.v) || '', cor: extra.cor, seguradora: vd_rotuloSeguradora_(d.tipo, extra.seguradora) });
   extra.tipo = d.tipo;
   var titulo = partes.carro ? vd_titulo_(d.placa, partes.carro, partes.cor || extra.cor, partes.seguradora || extra.seguradora) : '';
   var texto = '📄 Orçamento ' + o.origem + ' importado: ' + o.oficina.length + ' peça(s) oficina' +
@@ -2197,7 +2201,7 @@ function vd_vitrine_(desc, nome, pagas) {
   if (d.ano && U(d.modelo).indexOf(U(d.ano).split('/')[0]) < 0) l1.push(d.ano);
   if (d.motor && !U(d.motor).split(/\s+/).every(function (w) { return U(d.modelo).indexOf(w) >= 0; })) l1.push(U(d.motor));
   if (d.cor) l1.push(U(d.cor));
-  l1.push(d.tipo === 'PARTICULAR' ? 'PARTICULAR' : U(d.seguradora));
+  l1.push(vd_rotuloSeguradora_(d.tipo, U(d.seguradora)));
   var l2 = [d.placa, d.chassi, d.sinistro ? 'SINISTRO ' + d.sinistro : ''];
   var L = ['**' + vd_md_(l1.filter(String).join(' · ')) + '**', vd_md_(l2.filter(String).join(' · '))];
 

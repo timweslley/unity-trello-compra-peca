@@ -39,8 +39,9 @@ function pn_atualizar() {
   lin(['Cards autorizados', cards(rec30, 'AUTORIZAÇÃO')]);
   lin(['Devoluções para cotação', conta(rec30, 'DEVOLUÇÃO')]);
   lin(['Peças compradas', compras30.length]);
-  lin(['Valor comprado — seguradora', soma(compras30, function (r) { return r[6] !== 'PARTICULAR' && r[8] !== 'SIM'; })], 'R$ #,##0.00');
+  lin(['Valor comprado — seguradora', soma(compras30, function (r) { return r[6] !== 'PARTICULAR' && r[6] !== 'RETORNO' && r[8] !== 'SIM'; })], 'R$ #,##0.00');
   lin(['Valor comprado — particular', soma(compras30, function (r) { return r[6] === 'PARTICULAR' || r[8] === 'SIM'; })], 'R$ #,##0.00');
+  lin(['Valor comprado — retorno (oficina paga)', soma(compras30, function (r) { return r[6] === 'RETORNO' && r[8] !== 'SIM'; })], 'R$ #,##0.00');
   lin(['Compras fora da autorização', compras30.filter(function (r) { return /FORA DA AUTORIZA/.test(r[14]); }).length]);
   lin(['Peças recebidas', conta(rec30, 'RECEBIMENTO')]);
   lin(['Recebidas no prazo', receb30.length ? noPrazo30 / receb30.length : ''], '0%');

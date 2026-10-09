@@ -201,8 +201,8 @@ function mg_converter_(card, comentarios) {
   };
   if (!d.ano && d.modelo) { var am = d.modelo.match(/\b(19[89]\d|20[0-4]\d)\b/g); if (am) { d.ano = am.slice(0, 2).join('/'); d.modelo = d.modelo.replace(/\s*\b(19[89]\d|20[0-4]\d)(\s*\/\s*(19[89]\d|20[0-4]\d))?\b\s*$/, '').trim(); } }
   var t = vdf_partesTitulo_(nome, { modelo: d.modelo });
-  var tipo = vd_tipoNormPedido_(vd_campo_(limpo, VD_ROT_EXTRA.tipo)) || (/\bPARTICULAR\b/i.test(nome) || /PARTICULAR/i.test((card.labels || []).map(function (l) { return l.name; }).join(' ')) ? 'PARTICULAR' : 'SEGURADORA');
-  var seguradora = vd_campo_(limpo, VD_ROT_EXTRA.seguradora) || (tipo === 'PARTICULAR' ? '' : t.seguradora);
+  var tipo = vd_tipoNormPedido_(vd_campo_(limpo, VD_ROT_EXTRA.tipo)) || (/\bPARTICULAR\b/i.test(nome) || /PARTICULAR/i.test((card.labels || []).map(function (l) { return l.name; }).join(' ')) ? 'PARTICULAR' : /\bRETORNO\b/i.test(nome) ? 'RETORNO' : 'SEGURADORA');
+  var seguradora = vd_campo_(limpo, VD_ROT_EXTRA.seguradora) || (vd_semSeguradora_(tipo) ? '' : t.seguradora);
   var sinistro = vd_campo_(limpo, VD_ROT_EXTRA.sinistro);
 
   // peças da oficina: checklist PAGAS* > bloco no texto

@@ -55,7 +55,7 @@ function ev_registrar_(evento, card, usuario, itens, extra) {
     card = card || {};
     var agora = new Date();
     var placa = vd_placaDoTexto_(card.name || '') || '';
-    var tipo = extra.tipo || (/\bPARTICULAR\b/i.test(card.name || '') ? 'PARTICULAR' : 'SEGURADORA');
+    var tipo = extra.tipo || (/\bPARTICULAR\b/i.test(card.name || '') ? 'PARTICULAR' : /\bRETORNO\b/i.test(card.name || '') ? 'RETORNO' : 'SEGURADORA');
     var base = function (it) {
       it = it || {};
       var prev = it.previsao ? new Date(it.previsao) : '';

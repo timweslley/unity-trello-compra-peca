@@ -31,8 +31,12 @@ Dois tipos de peça em cada card:
 - **Peça da oficina** — a oficina compra (cota → autoriza → compra → recebe).
 - **Peça FO (fornecida pela seguradora)** — a seguradora manda; só se acompanha fornecedor, previsão e chegada.
 
-E duas origens de pedido: **SEGURADORA** (precisa do orçamento aprovado em anexo) e **PARTICULAR** (cliente paga;
-pode ter peça particular dentro de um pedido de seguradora = pedido **MISTO**).
+E três origens de pedido: **SEGURADORA** (precisa do orçamento aprovado em anexo), **PARTICULAR** (cliente paga;
+pode ter peça particular dentro de um pedido de seguradora = pedido **MISTO**) e **RETORNO** (09/10/2026: retrabalho/garantia —
+a **oficina paga**; sem seguradora e sem orçamento obrigatório, código opcional como no particular; peças vão no checklist `PAGAS`
+comum e **quem autoriza é a diretoria**, como na seguradora; título `PLACA CARRO COR RETORNO`; `**TIPO:** RETORNO` na descrição;
+campo `Seguradora` = RETORNO, `Tipo` = RETORNO, total em `Total retorno`). O botão "🔁 card novo com os dados deste carro" já
+marca o pedido como RETORNO.
 
 ### 1.1 Componentes atuais
 
@@ -176,7 +180,7 @@ repete chamadas lentas em paralelo).
 
 ### 4.1 Título e etiquetas
 
-- Título: `PLACA CARRO COR SEGURADORA` (ex.: `RHV1E04 CRUZE PRATA SURA`); pedido particular → `… PARTICULAR`.
+- Título: `PLACA CARRO COR SEGURADORA` (ex.: `RHV1E04 CRUZE PRATA SURA`); pedido particular → `… PARTICULAR`; retorno → `… RETORNO`.
   Carro = nome curto digitado. Placa: `^[A-Z]{3}\d[A-Z0-9]\d{2}$` (antiga e Mercosul equivalentes).
 - Seguradoras conhecidas: HDI, PORTO, AZUL, ITAU, YELUM, SANCOR, BRADESCO, ALLIANZ, TOKIO, MAPFRE, SURA, ZURICH,
   SUHAI, MITSUI, EZZE, DARWIN, AMERICAS, SOMPO, GENERALI, ALFA, JUSTOS. No orçamento, vale primeiro o nome colado em
@@ -190,7 +194,7 @@ autorização** (só cresce).
 
 ```
 **MODELO:** …            **ANO:** …          **MOTOR/VERSÃO:** …
-**CHASSI:** …            **PLACA:** …        **TIPO:** PARTICULAR   (só se particular)
+**CHASSI:** …            **PLACA:** …        **TIPO:** PARTICULAR|RETORNO   (só nesses tipos)
 **COR:** …               **SEGURADORA:** …   **SINISTRO:** …
 
 **PEÇAS:**
@@ -296,8 +300,8 @@ do endereço (sem recarregar) — a biblioteca guarda o contexto lido na abertur
 
 ### 4.6 Campos personalizados
 
-`Unidade` (lista), `Seguradora` (lista, aprende), `Tipo` (SEGURADORA/PARTICULAR/MISTO), `Placa`, `Consultor`
-(@criador), `Total seguradora`, `Total particular`, `Total seg+part` (por peça: valor comprado, senão autorizado),
+`Unidade` (lista), `Seguradora` (lista, aprende), `Tipo` (SEGURADORA/PARTICULAR/RETORNO/MISTO), `Placa`, `Consultor`
+(@criador), `Total seguradora`, `Total particular`, `Total retorno`, `Total seg+part` (soma dos três; por peça: valor comprado, senão autorizado),
 `Nº Ordem` (só pelo formulário, dígitos).
 
 ### 4.7 Planilha (hoje) → tabelas (futuro)
