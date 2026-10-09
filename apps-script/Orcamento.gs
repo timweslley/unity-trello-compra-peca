@@ -39,6 +39,8 @@ function vd_tipoOrcamento_(t) {
 function vd_pneuDaDescricao_(desc) {
   var d = String(desc || '');
   if (!/\bPNEU/.test(d)) return null;
+  // 08/10/2026 (treino): "VALVULA DE AR DO PNEU", "SENSOR DE PRESSAO DO PNEU" não são pneu — só quando começa com PNEU ou tem medida
+  if (!/^\s*(JOGO DE |KIT )?PNEUS?\b/.test(d) && !/\d{3}\s*[\/ ]\s*\d{2}\s*Z?R\s*\d{2}/.test(d)) return null;
   // "195/65R15", "195/ 55 R15" e também "185 70 R14" (Soma/Porto escreve sem a barra)
   var m = d.match(/(\d{3})\s*[\/ ]\s*(\d{2})\s*Z?R\s*(\d{2})/);
   var medida = m ? m[1] + '/' + m[2] + 'R' + m[3] : '';
@@ -55,8 +57,11 @@ function vd_pneuDaDescricao_(desc) {
 function vd_limparDescricao_(d) {
   return String(d || '')
     .replace(/^\(A\)\s*/, '')
-    .replace(/^(?:\d{5,}\s+)+/, '')              // 2º código numérico do Cilia (ex.: 1632439)
+    .replace(/^(?:\d{3,}\s+)+/, '')              // 2º código numérico do Cilia (ex.: 1632439, 4310)
+    .replace(/^\d{5,}(?=[A-Z]{3})/, '')           // 2º código colado na descrição ("951450JOGO DE FAROIS")
     .replace(/^(?:PPG|PPC|PPO|PRO|PAR)\s+/, '')   // sigla de tipo do Cilia (PPG/PPC = paralela; PPO = original)
+    .replace(/^(?:PPG|PPC|PPO|GENUINA|ORIGINAL)(?=[A-Z])/, '')   // sigla/tipo colado na descrição pelo OCR ("PPOFAROL", "GENUINAFAROL") — 08/10/2026
+    .replace(/([A-Z]{4,})(DIANT|TRAS|DIR|ESQ|SUP|INF)\b/g, '$1 $2')   // OCR da HDI cola palavras ("PARALAMADIANT DIR", "RODADIANT")
     .replace(/^\((.*)\)$/, '$1')
     .replace(/\s*-\s*VAL\.\s*[\d\/ ]*$/, '')
     .replace(/[()]/g, ' ')
@@ -82,18 +87,28 @@ function vd_liquidoOrc_(unit, descPct) {
  * Os códigos entram numa fila e cada descrição que aparece consome o próximo código da fila.
  */
 function vd_websomaDetalhado_(corpo, lista, add) {
-  // "5U4/ 831055/D /CTR" -> "\u0001 5U4/831055/D/CTR \u0001" (partes vazias somem)
-  var txt = corpo.replace(/\b([A-Z0-9]{2,4})\/ ?([A-Z0-9]{4,8})\/ ?([A-Z0-9]{0,3}) ?\/ ?([A-Z0-9]{0,4})(?=\s|$)/g, function (_, a, b, c, d) { return ' \u0001' + [a, b, c, d].filter(String).join('/') + '\u0001 '; });
-  var re = /\u0001([^\u0001]+)\u0001|(\([^)]+\)|[A-Z][A-Z0-9 .\-\/,]*?)(?: - VAL\. \d{4}\/\d{4})?((?: [A-Z0-9][A-Z0-9.\/]*)*?) (GENUIN[OA]|REPOSICAO|ORIGINAL|PARALEL[OA]|USAD[OA]|RECONDICIONAD[OA]) (\d{1,3}) (\d{1,3}(?:\.\d{3})*,\d{2}) (\d{1,3}(?:\.\d{3})*,\d{2}) (\d{1,3}(?:\.\d{3})*,\d{2})/g;
+  var txt = vd_compactarCodigos_(corpo, '\u0001');
+  var NUM = '(\\d{1,3}(?:\\.\\d{3})*,\\d{2})';
+  var re = new RegExp('\\u0001([^\\u0001]+)\\u0001' +
+    '|(?:\\b((?:[A-Z]{0,4}\\d[A-Z0-9\\-]{2,18}|\\d{5} \\d{5})) )?([A-Z(][A-Z0-9 .\\-\\/,()"]*?)(?: - VAL\\. \\d{2,4}\\/(?:\\d{2,4})?)?((?: [A-Z0-9][A-Z0-9.\\/]*)*?)(?: \\*)? (GENUIN[OA]|REPOSICAO|ORIGINAL|PARALEL[OA]|USAD[OA]|RECONDICIONAD[OA]) (\\d{1,3}) ' + NUM + ' ' + NUM + ' ' + NUM, 'g');
   var fila = [], m;
   while ((m = re.exec(txt))) {
     if (m[1]) { fila.push(m[1]); continue; }
-    var desc = m[2], extra = String(m[3] || '').trim();
-    if (extra && !/\d/.test(extra) && !/^(GENUIN|REPOSIC|ORIGINAL|PARALEL|USAD)/.test(extra)) desc += ' ' + extra;   // cor/acabamento ("PRETO SATIN"); "ATE 27/11/11" não
-    var bruto = vd_numOrc_(m[6]), liq = vd_numOrc_(m[8]), calc = vd_liquidoOrc_(m[6], m[7]);
+    var desc = m[3], extra = String(m[4] || '').trim();
+    if (extra && (/^\(?PNEU/.test(desc) || !/\d/.test(extra)) && !/^(GENUIN|REPOSIC|ORIGINAL|PARALEL|USAD)/.test(extra) && desc.indexOf(extra) < 0) desc += ' ' + extra;   // cor/acabamento ("PRETO SATIN") e medida do pneu; "ATE 27/11/11" não
+    var codigo = m[2] ? m[2] : (fila.length ? fila.shift() : '');
+    var bruto = vd_numOrc_(m[7]), liq = vd_numOrc_(m[9]), calc = vd_liquidoOrc_(m[7], m[8]);
     var valor = (!isNaN(liq) && !isNaN(calc) && Math.abs(liq - calc) < 0.05) ? liq : (isNaN(calc) ? bruto : calc);
-    add(lista, fila.length ? fila.shift() : '', desc, m[5], m[4], valor);
+    add(lista, codigo, desc, m[6], m[5], valor);
   }
+}
+
+/** "5U4/ 831055/D /CTR" -> "5U4/831055/D/CTR" (partes vazias somem); com marca, envolve o código em \u0001 para o leitor em fila. */
+function vd_compactarCodigos_(txt, marca) {
+  return String(txt || '').replace(/\b([A-Z0-9]{2,4})\/ ?([A-Z0-9]{3,8})\/ ?([A-Z0-9]{0,3}) ?\/ ?([A-Z0-9]{0,4})(?=\s|$)/g, function (_, a, b, c, d) {
+    var cod = [a, b, c, d].filter(String).join('/');
+    return marca ? ' ' + marca + cod + marca + ' ' : cod;
+  });
 }
 
 /** Recorta o texto entre um início e o primeiro dos finais. */
@@ -139,6 +154,8 @@ function vd_lerOrcamento_(texto) {
     // OCR do Cilia às vezes gruda o código na descrição ("100260230EMBLEMA DA GRADE"): separa (RHV1E04, 05/10/2026)
     var mg = desc.match(/^(\d{6,})([A-Z].*)$/);
     if (mg && (!codigo || vd_codigoInterno_(codigo.replace(/\s/g, '')))) { codigo = mg[1]; desc = mg[2].trim(); }
+    var mc = codigo.match(/^(\d{6,})([A-Z][A-Z\-]{2,})$/);   // "52181025PARACHOQUE" veio como código (08/10/2026)
+    if (mc) { codigo = mc[1]; desc = vd_limparDescricao_(mc[2] + ' ' + desc); }
     var pneu = vd_pneuDaDescricao_(desc);
     if (!desc || vd_ehServico_(desc)) return;
     // código interno (000000x / SOMA00x) = peça sem código de fábrica: consultor completa pelo Cilia
@@ -155,13 +172,17 @@ function vd_lerOrcamento_(texto) {
   // ---------- HDI ----------
   if (/PECAS FORNECIDAS PELA (HDI|OFICINA)/.test(U)) {
     r.origem = 'HDI';
-    var reHdi = /([A-Z0-9]{3,20})\*? (?:\(A\) )?(.+?) (\d{1,3}) (\d{1,3}(?:\.\d{3})*,\d{2}) (\d{1,3}(?:\.\d{3})*,\d{2}) (\d{1,3},\d{2}|\?)/g;   // qtd, unit, total, desconto %
+    // 08/10/2026 (treino): código Ford espaçado ("E3B5/ 17757/AG/XWA") compactado antes; página cortada no OCR
+    // ("1 1.020,00 1.020,0", sem total/desconto) ainda lê a peça com o valor unitário
+    var reHdi = /([A-Z0-9][A-Z0-9\/\-]{2,24})\*? (?:\(A\) )?(.+?) (\d{1,3}) (\d{1,3}(?:\.\d{3})*,\d{2})(?: (\d{1,3}(?:\.\d{3})*,\d{1,2}))?(?: (\d{1,3},\d{2}|\?))?/g;
     var fimHdi = [/PECAS FORNECIDAS PELA/, /OPERACOES/, /RESUMO/, /SERVICOS ADICIONAIS/];
     var secO = vd_secao_(U, /PECAS FORNECIDAS PELA OFICINA/, fimHdi);
     var secF = vd_secao_(U, /PECAS FORNECIDAS PELA HDI/, fimHdi);
     [[secO, r.oficina], [secF, r.fo]].forEach(function (par) {
-      var sec = par[0].replace(/^.*?DESCONTO \(%\)/, '');
-      while ((m = reHdi.exec(sec))) add(par[1], m[1], m[2], m[3], '', vd_liquidoOrc_(m[4], m[6]));
+      var sec = par[0];
+      sec = /DESCONTO \(%\)/.test(sec) ? sec.replace(/^.*?DESCONTO \(%\)/, '') : sec.replace(/^.*?(?:TOTAL \(R\$?\)?|\bTOTA\b)/, '');   // cabeçalho (às vezes cortado no OCR)
+      sec = vd_compactarCodigos_(sec);
+      while ((m = reHdi.exec(sec))) add(par[1], m[1], m[2], m[3], '', m[6] ? vd_liquidoOrc_(m[4], m[6]) : vd_numOrc_(m[4]));
     });
     return r;
   }
@@ -179,10 +200,12 @@ function vd_lerOrcamento_(texto) {
     secs.forEach(function (sec) {
       var ehFO = /^PECAS - TROCA \(FORNECIDAS PELA SEGURADORA\)|^LISTA DAS PECAS FORNECIDAS PELA SEGURADORA/.test(sec);
       var corpo = vd_secao_(sec, /PECAS - TROCA|LISTA DAS PECAS FORNECIDAS/, fimWs).replace(/^.*?PINTURA /, '');
-      // 08/10/2026 (ATP5105, Porto): o PDF detalhado traz código VW espaçado ("5U4/ 831055/D /CTR"), descrição entre
-      // parênteses, "- Val. aaaa/aaaa", complemento (cor) e, às vezes, vários códigos seguidos das descrições — o leitor
-      // geral lia "2011 ATE 27/11/11". Esse layout tem leitor próprio.
-      if (/\b[A-Z0-9]{2,4}\/ [A-Z0-9]{4,8}\//.test(corpo)) { vd_websomaDetalhado_(corpo, ehFO ? r.fo : r.oficina, add); return; }
+      // 08/10/2026 (ATP5105 + treino com cards antigos): leitor sequencial — código VW espaçado ("5U4/ 831055/D /CTR"),
+      // descrição entre parênteses, "- Val. aaaa/aaaa" (ou "00/"), complemento (cor), "*" antes do tipo e vários códigos
+      // seguidos das descrições (casados em fila). Se não achar nada, volta ao leitor antigo (layout clássico).
+      var lista = ehFO ? r.fo : r.oficina, antes = lista.length;
+      vd_websomaDetalhado_(corpo, lista, add);
+      if (lista.length > antes) return;
       while ((m = reWs.exec(corpo))) {
         // colunas: Vlr (bruto) · Desc. (%) · Vlr (líquido). Se o 3º número bate com bruto - desconto, é o líquido; senão calcula.
         var bruto = vd_numOrc_(m[5]), liq = vd_numOrc_(m[7]), calc = vd_liquidoOrc_(m[5], m[6]);
@@ -193,15 +216,40 @@ function vd_lerOrcamento_(texto) {
     return r;
   }
 
+  // ---------- "Orçamento - N" com coluna DESCRICAO/CODIGO (08/10/2026, treino — MVU1552 F250 Tokio) ----------
+  // "T R&I 0,50 1.00 ESPELHO RETROVISOR INTERNO COD: XC3A17700AA OFICINA R$ 194,00 % 13,00 R$ 168,78"; "CLIENTE - - -" = o
+  // cliente fornece (não entra); "SEGURADORA" = FO. Linhas só R&I/R/P (sem T) não são troca.
+  if (/DESCRICAO\/CODIGO FORNECIMENTO/.test(U) && /\bCOD: /.test(U)) {
+    r.origem = /TOKIO/.test(U) ? 'TOKIO' : (/CILIA/.test(U) ? 'CILIA' : 'ORCAMENTO');
+    var reDc = /\bT (?:R&I \d+,\d{2} )?(?:R \d+,\d{2} )?(?:P \d+,\d{2} )?(\d+(?:[.,]\d+)?) (.+?) COD: ?([A-Z0-9][A-Z0-9\-.\/]*)? ?(OFICINA|CLIENTE|SEGURADORA) (?:R\$ ?(\d{1,3}(?:\.\d{3})*,\d{2}) (?:% (\d{1,3},\d{2})|-) R\$ ?(\d{1,3}(?:\.\d{3})*,\d{2})|- - -)/g;
+    while ((m = reDc.exec(U))) {
+      if (m[4] === 'CLIENTE') continue;
+      var qtdDc = String(m[1]).replace(/[.,]00$/, '');
+      add(m[4] === 'SEGURADORA' ? r.fo : r.oficina, m[3] || '', m[2], qtdDc, '', m[7] ? vd_numOrc_(m[7]) : (m[5] ? vd_numOrc_(m[5]) : NaN));   // preço líquido (último R$)
+    }
+    return r;
+  }
+
   // ---------- Cilia ----------
   if (/FORNECIMENTO/.test(U) && /\bT (?:-|\d+,\d{2})/.test(U)) {
     r.origem = 'CILIA';
-    var reCi = /\bT (?:-|\d+,\d{2})(?: P \d+,\d{2})? (\d{1,3}) ([A-Z0-9]{4,20}) (?:\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?(.+?) ?(OFICINA|SEGURADORA) (?:R\$(?: ?(\d{1,3}(?:\.\d{3})*,\d{2})(?: ?(?:R\$ ?)?(\d{1,3}(?:\.\d{3})*,\d{2})(?! ?%))?(?: ?(\d{1,3},\d{2}) ?%)?)?|-)/g;   // número seguido de % é desconto, não total (07/10/2026)
+    // 08/10/2026 (treino com cards antigos): no PDF do Cilia dois itens podem vir seguidos e só depois os dois preços
+    // ("…FAROL DIREITO (…) T 0,50 1 8117098010 GENUINAFAROL ESQUERDO (…) SEGURADORA R$ 804,47 - - SEGURADORA R$ 761,13 - -").
+    // Por isso o leitor anda em fila: cada ITEM entra numa fila e cada PREÇO (OFICINA/SEGURADORA …) sai para o item mais
+    // antigo sem preço. O tipo pode vir colado ("GENUINAFAROL", "PPOJOGO") — vd_limparDescricao_ tira.
+    var PROX = '\\bT (?:-|\\d+,\\d{2})(?: P \\d+,\\d{2})? \\d{1,3} [A-Z0-9]{4,20}\\b';
+    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P \\d+,\\d{2})? (\\d{1,3}) ([A-Z0-9]{4,20}) (?:\\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
+      '|(OFICINA|SEGURADORA) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(\\d{1,3},\\d{2}) ?%)?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
+    var filaCi = [];
     while ((m = reCi.exec(U))) {
-      var tipo = m[3] || m[4] || '';
+      if (m[2]) { filaCi.push({ qtd: m[1], codigo: m[2], tipo: m[3] || m[4] || '', desc: m[5] }); continue; }
+      var it = filaCi.shift();
+      if (!it) continue;   // preço sem item antes (cabeçalho, serviços): ignora
       // Cilia: "OFICINA R$ unit [R$ total] [desc %]" — o valor unitário líquido; formato confirmado no 1º PDF real (05/10/2026)
-      add(m[6] === 'SEGURADORA' ? r.fo : r.oficina, m[2], m[5], m[1], tipo, m[7] ? vd_liquidoOrc_(m[7], m[9]) : NaN);
+      add(m[6] === 'SEGURADORA' ? r.fo : r.oficina, it.codigo, it.desc, it.qtd, it.tipo, m[7] ? vd_liquidoOrc_(m[7], m[9]) : NaN);
     }
+    // item que ficou sem preço (fim do texto cortado): entra como da oficina, sem valor
+    filaCi.forEach(function (it) { add(r.oficina, it.codigo, it.desc, it.qtd, it.tipo, NaN); });
     return r;
   }
   return r;
