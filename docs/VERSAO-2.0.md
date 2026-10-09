@@ -79,3 +79,20 @@ DATABASE_URL — decisão do Weslley (dados passam a ficar nos EUA, como já fic
 - 07/10/2026 — falha achada no robô pode ser corrigida no robô principal e replicada no servidor (Weslley). Primeira: cor "CHASSI" (regra da cor).
 - 07/10/2026 — e-mail pelo servidor só liga na virada.
 - 07/10/2026 — velocidade é prioridade: otimizar no servidor assim que for viável.
+
+## Auditoria das regras no TESTE 2.0 (09/10/2026)
+
+Corrigido (3450318, ad304bd): avisos de regra voltaram a aparecer sempre (card já autorizado → peça nova volta para EM COTAÇÃO;
+cotação devolvida e motivo; sem nº de ordem; obs. do pedido; peça já autorizada; quem autoriza; tipos pedidos); ajustes de layout
+do computador valem só para as peças do pedido (Autorizar/Compra/Recebimento/Fornecimento voltaram a mostrar opções, rótulos e
+botões de arquivo); Peça/Pneu de volta; "o que falta" (coluna lateral, cor da peça, passos do celular) vem da conferência do
+próprio formulário (`coletar()`); mensagem final certa quando o card vai para FALTA DADOS; servidor com 1 instância.
+
+Em aberto:
+1. **Robô de ciclo não roda no TESTE** (fase 4): travas de descrição/checklist/coluna, prazos e etiquetas (ATRASADO, PARADO, SLA),
+   arquivamento por "faturado", recriação de card excluído e leitura de anexo subido à mão — no TESTE nada disso acontece hoje.
+2. Propriedades do script no servidor nascem vazias (compradores, autorizadores, financeiro, dias úteis extras usam o padrão do código) —
+   copiar as reais do Apps Script.
+3. Planilha (FORNECEDORES/TRAVA/EVENTOS) copiada uma vez; depois diverge do principal (aceitável no laboratório).
+4. Rascunho do celular não guarda "não comprar"/motivo, complemento e valor do orçamento.
+5. Dicas menores escondidas no 2.0 (erro de envio da capa, nomes dos arquivos enviados, explicação Salvar parcial/Enviar/Devolver).
