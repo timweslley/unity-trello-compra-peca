@@ -162,10 +162,12 @@ function vd_lerOrcamento_(texto) {
   // na cotação/autorização e serve de base para a comparação com a cotação (economia < 20% vermelho, 20–30 amarelo, > 30 verde)
   var add = function (lista, codigo, desc, qtd, tipo, valor) {
     codigo = String(codigo || '').replace(/\s+/g, ' ').trim();
+    // OCR do Cilia às vezes gruda (ou põe antes) o código na descrição ("100260230EMBLEMA DA GRADE", "1632439 FAROL"):
+    // se o código da coluna é interno (0000001) ou vazio, esse número é o código (RHV1E04, 05/10/2026) — antes da limpeza,
+    // que apaga esses dígitos (08/10/2026)
+    var mg = String(desc || '').trim().match(/^(\d{6,}) ?([A-Z(].*)$/);
+    if (mg && (!codigo || vd_codigoInterno_(codigo.replace(/\s/g, '')))) { codigo = mg[1]; desc = mg[2]; }
     desc = vd_limparDescricao_(desc);
-    // OCR do Cilia às vezes gruda o código na descrição ("100260230EMBLEMA DA GRADE"): separa (RHV1E04, 05/10/2026)
-    var mg = desc.match(/^(\d{6,})([A-Z].*)$/);
-    if (mg && (!codigo || vd_codigoInterno_(codigo.replace(/\s/g, '')))) { codigo = mg[1]; desc = mg[2].trim(); }
     var mc = codigo.match(/^(\d{6,})([A-Z][A-Z\-]{2,})$/);   // "52181025PARACHOQUE" veio como código (08/10/2026)
     if (mc) { codigo = mc[1]; desc = vd_limparDescricao_(mc[2] + ' ' + desc); }
     var pneu = vd_pneuDaDescricao_(desc);
