@@ -2520,8 +2520,8 @@ iniciar();
   .v2 .v2-ler .nome { flex:1; min-width:0; font-size:15px; line-height:20px; font-weight:600; color:#172b4d; text-decoration:none; overflow-wrap:anywhere; }
   .v2 .v2-ler .nome small { display:block; font-weight:400; color:#0c66e4; font-size:13px; }
   .v2 .v2-ler button { min-height:48px; flex:0 0 auto; padding:8px 14px !important; font-size:16px !important; }
-  .v2 #modoEdicao, .v2 #infoComprador { display:none; }
-  .v2.v2-detalhes #modoEdicao:not(.oculto), .v2.v2-detalhes #infoComprador { display:block; }
+  /* 09/10/2026 (auditoria das regras): #modoEdicao e #infoComprador ficam SEMPRE à vista — trazem avisos de regra (card já autorizado:
+     peça nova volta para EM COTAÇÃO; cotação devolvida e o motivo; sem nº de ordem) */
   .v2 .dica:not(.ruim):not(.boa):not([id]):not(.item .dica), .v2 #painelCot > .item > div:first-child, .v2 #painelAut > .item > div:first-child,
   .v2 #painelCompra > .item > div:first-child, .v2 #dicaTitulo, .v2 #dicaCapa, .v2 #rotuloDoc { display:none; }
   .v2.v2-ajuda .dica:not(.ruim):not(.boa):not([id]):not(.item .dica), .v2.v2-ajuda #painelCot > .item > div:first-child, .v2.v2-ajuda #painelAut > .item > div:first-child,
@@ -2535,8 +2535,7 @@ iniciar();
   .v2 .v2-fora { display:none !important; }
   .v2 #v2nav { position:fixed; left:0; right:0; bottom:0; z-index:7; background:#fff; border-top:1px solid #091e4224; padding:10px 12px 14px; display:flex; gap:10px; box-shadow:0 -2px 8px #091e4214; }
   .v2 #form { padding-bottom:84px; }
-  .v2 #comprador .item .dica:not(.ruim):not(.boa):not([id]) { display:none; }
-  .v2.v2-ajuda #comprador .item .dica:not(.ruim):not(.boa):not([id]) { display:block; }
+  /* (09/10/2026) dicas dentro das peças do comprador NÃO são escondidas: trazem obs. do pedido, peça já autorizada, quem autoriza, tipos pedidos */
   /* peças bem separadas (07/10/2026, Weslley: "separação fraca"): fundo cinza, cada peça um cartão com faixa de título e cor de situação */
   .v2 body, .v2 main { background:#eef0f3 !important; }
   .v2 section { background:transparent; }
@@ -2667,41 +2666,40 @@ iniciar();
     width:24px; height:24px; border-radius:12px; background:#172b4d; color:#fff; font-size:13px; font-weight:800; display:flex; align-items:center; justify-content:center; }
   .v2pc #itens > .item > .v2-resumo, .v2pc #itensPart > .item > .v2-resumo { display:none !important; }
   .v2pc #itens > .item > .grade, .v2pc #itensPart > .item > .grade { display:contents; }
-  .v2pc .item > .grade > div, .v2pc .item > .inteiro { margin:0 !important; min-width:0; }
-  .v2pc .item label:not(.chip) { display:none !important; }
-  .v2pc .item > .grade > .inteiro:has(.f-desc), .v2pc .item > .grade > div:has(.f-medida) { order:-1; grid-column:2; }
-  .v2pc .item > .grade > .inteiro:has(.f-desc) input { font-weight:600; }
-  .v2pc .item > .grade > .inteiro:has(.f-tipo), .v2pc .item > .grade > .inteiro:has(.f-marca) { order:1; grid-column:2 / 4; }
-  .v2pc .item > .item-topo { order:2; grid-column:4 / -1; display:flex; justify-content:flex-end; align-items:center; gap:2px; flex-wrap:nowrap; white-space:nowrap; margin:0; padding:0; background:none; border:0; }
-  .v2pc .item > .item-topo .num { display:none; }
-  .v2pc .item > .item-topo .chip { border:0 !important; background:transparent !important; min-height:28px !important; padding:2px 6px !important; font-size:12px !important; color:#44546f; box-shadow:none !important; }
-  .v2pc .item > .item-topo .chip.marcado { background:#e9f2ff !important; color:#0055cc; font-weight:700; }
-  .v2pc .item > .item-topo .chip-nao.marcado { background:#ffeceb !important; color:#ae2e24; }
-  .v2pc .item > .item-topo select { height:28px; min-height:28px; padding:0 4px; font-size:12px; width:auto; border-color:transparent; background:transparent; color:#44546f; }
-  .v2pc .item > .item-topo button { min-height:28px !important; padding:2px 6px !important; font-size:12px !important; }
-  .v2pc .item > .item-topo .v2-obstog { background:transparent !important; color:#0c66e4 !important; }
-  .v2pc .item > .inteiro:has(.f-obs) { order:3; grid-column:2 / -1; }
-  .v2pc .item:not(.v2-obs) > .inteiro:has(.f-obs:placeholder-shown) { display:none; }
-  .v2pc .item > .dica, .v2pc .item > .nao-motivo, .v2pc .item > .grade > .dica { order:4; grid-column:2 / -1; margin:0 !important; }
-  .v2pc .item input[type=text], .v2pc .item input[type=number], .v2pc .item select { height:36px; min-height:36px; padding:4px 8px; font-size:14px; }
-  .v2pc .item .v2-qtd button { width:32px; min-height:36px; font-size:18px; }
-  .v2pc .item .v2-qtd input { margin:0 3px; font-size:15px !important; padding:4px 2px; }
-  .v2pc .item .chips { gap:4px; }
-  .v2pc .item .grade .chips .chip { min-height:30px; padding:2px 8px; font-size:12px; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > div, .v2pc :is(#itens, #itensPart) > .item > .inteiro { margin:0 !important; min-width:0; }
+  .v2pc :is(#itens, #itensPart) > .item label:not(.chip) { display:none !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc), .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(.f-medida) { order:-1; grid-column:2; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc) input { font-weight:600; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-tipo), .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-marca) { order:1; grid-column:2 / 4; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo { order:2; grid-column:4 / -1; display:flex; justify-content:flex-end; align-items:center; gap:2px; flex-wrap:wrap; white-space:nowrap; margin:0; padding:0; background:none; border:0; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .num { display:none; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip { border:0 !important; background:transparent !important; min-height:28px !important; padding:2px 6px !important; font-size:12px !important; color:#44546f; box-shadow:none !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip.marcado { background:#e9f2ff !important; color:#0055cc; font-weight:700; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado { background:#ffeceb !important; color:#ae2e24; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo select { height:28px; min-height:28px; padding:0 4px; font-size:12px; width:auto; border-color:transparent; background:transparent; color:#44546f; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button { min-height:28px !important; padding:2px 6px !important; font-size:12px !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .v2-obstog { background:transparent !important; color:#0c66e4 !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .inteiro:has(.f-obs) { order:3; grid-column:2 / -1; }
+  .v2pc :is(#itens, #itensPart) > .item:not(.v2-obs) > .inteiro:has(.f-obs:placeholder-shown) { display:none; }
+  .v2pc :is(#itens, #itensPart) > .item > .dica, .v2pc :is(#itens, #itensPart) > .item > .nao-motivo, .v2pc :is(#itens, #itensPart) > .item > .grade > .dica { order:4; grid-column:2 / -1; margin:0 !important; }
+  .v2pc :is(#itens, #itensPart) > .item input[type=text], .v2pc :is(#itens, #itensPart) > .item input[type=number], .v2pc :is(#itens, #itensPart) > .item select { height:36px; min-height:36px; padding:4px 8px; font-size:14px; }
+  .v2pc :is(#itens, #itensPart) > .item .v2-qtd button { width:32px; min-height:36px; font-size:18px; }
+  .v2pc :is(#itens, #itensPart) > .item .v2-qtd input { margin:0 3px; font-size:15px !important; padding:4px 2px; }
+  .v2pc :is(#itens, #itensPart) > .item .chips { gap:4px; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip { min-height:30px; padding:2px 8px; font-size:12px; }
   /* sem quadradinho: o próprio botão fica azul quando marcado (Genuíno… e Complemento / Não comprar) */
-  .v2pc .item .chip input[type=checkbox], .v2pc .item .chip input[type=radio] { position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
-  .v2pc .item .chip { position:relative; cursor:pointer; }
-  .v2pc .item .grade .chips .chip.marcado { background:#0c66e4 !important; border-color:#0c66e4 !important; color:#fff !important; }
-  .v2pc .item .grade .chips .chip.desab { opacity:.45; }
-  .v2pc .item .grade .chips .chip:has(input:focus-visible), .v2pc .item .item-topo .chip:has(input:focus-visible) { outline:2px solid #388bff; outline-offset:1px; }
-  .v2pc .item > .item-topo select { display:none; }
-  .v2pc .item > .item-topo button.perigo { font-size:0 !important; padding:2px 4px !important; }
-  .v2pc .item > .item-topo button.perigo::after { content:"✕"; font-size:14px; }
-  .v2pc .item > .item-topo .chip { padding:2px 4px !important; }
-  .v2pc .item .grade .chips { flex-wrap:nowrap; }
-  .v2pc .item.v2-pend { border-left-color:#c9372c !important; }
-  .v2pc .item.v2-ok { border-left-color:#1f845a !important; }
-  .v2pc .item.nao-comprar > .grade, .v2pc .item.nao-comprar > .grade > * { opacity:.6; }
+  .v2pc :is(#itens, #itensPart) > .item .chip input[type=checkbox], .v2pc :is(#itens, #itensPart) > .item .chip input[type=radio] { position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
+  .v2pc :is(#itens, #itensPart) > .item .chip { position:relative; cursor:pointer; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip.marcado { background:#0c66e4 !important; border-color:#0c66e4 !important; color:#fff !important; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip.desab { opacity:.45; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input:focus-visible), .v2pc :is(#itens, #itensPart) > .item .item-topo .chip:has(input:focus-visible) { outline:2px solid #388bff; outline-offset:1px; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { font-size:0 !important; padding:2px 4px !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo::after { content:"✕"; font-size:14px; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip { padding:2px 4px !important; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips { flex-wrap:nowrap; }
+  .v2pc :is(#itens, #itensPart) > .item.v2-pend { border-left-color:#c9372c !important; }
+  .v2pc :is(#itens, #itensPart) > .item.v2-ok { border-left-color:#1f845a !important; }
+  .v2pc :is(#itens, #itensPart) > .item.nao-comprar > .grade, .v2pc :is(#itens, #itensPart) > .item.nao-comprar > .grade > * { opacity:.6; }
   /* espaçamentos menores no computador (Weslley 09/10: "espaço entre o texto e a borda muito grande") */
   .v2pc #form > section { padding:10px 14px !important; margin:0 0 10px !important; }
   .v2pc #form > section h2 { margin:0 0 6px !important; font-size:16px; }
@@ -2812,18 +2810,22 @@ iniciar();
     var conf = document.createElement('div'); conf.id = 'v2conf';
     secoes[4].insertBefore(conf, secoes[4].firstChild);
   }
+  /* 09/10/2026 (auditoria): o que falta vem da MESMA conferência do envio (coletar() do formulário) — antes o 2.0 tinha regras
+     próprias (não cobrava código, categoria/marca do pneu nem a exceção CSS; exigia modelo/ano/chassi quando o formulário dispensa) */
+  function tipoPedidoV2() { try { return tipoPedido(); } catch (e) { return ''; } }
+  function faltasDoForm() { try { return coletar().faltas || []; } catch (e) { return []; } }
+  function ehFaltaCarro(f) { return /^(Dados do carro|Pedido de seguradora)/.test(f); }
+  function faltasDoItem(it, fs) {
+    var n = ((it.querySelector('.num') || {}).textContent || '').trim(); if (!n) return [];
+    var re = new RegExp('^' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\s\\(|:)');
+    return (fs || faltasDoForm()).filter(function (f) { return re.test(f); }).map(function (f) { return f.replace(/^.*?\):\s*|^[^:]*:\s*/, ''); });
+  }
   function camposObrigatorios(s) {
-    // campos com * visíveis neste passo (o resto o formulário confere ao enviar)
-    var faltam = [];
-    ['placa', 'modelo', 'ano', 'chassi', 'unidade', 'carro'].forEach(function (id) {
-      var el = g(id); if (!el || s.indexOf(el.closest('section')) < 0) return;
-      var bloco = el.closest('div'); if (bloco && bloco.offsetParent === null) return;
-      if (!String(el.value || '').trim()) faltam.push(((bloco && bloco.querySelector('label')) || {}).textContent || id);
-    });
-    return faltam.map(function (f) { return f.replace(/\*/g, '').replace(/\(.*?\)/g, '').trim(); });
+    return faltasDoForm().filter(ehFaltaCarro).map(function (f) { return f.replace(/^Dados do carro: falta /, ''); });
   }
   function itensDoPedido() { return $$('#itens > .item, #itensPart > .item'); }
   function faltaNasPecas() {
+    return faltasDoForm().filter(function (f) { return !ehFaltaCarro(f); });
     var f = [];
     itensDoPedido().forEach(function (it, i) {
       if (it.dataset.nao === '1' || it.offsetParent === null) return;
@@ -2891,7 +2893,7 @@ iniciar();
       + kv('Unidade', unTxt) + kv('Oficina compra', (pecas.length - nao) + ' peça(s)') + (nao ? kv('Não comprar', String(nao)) : '');
     if (g('v2resumo').dataset.h !== res) { g('v2resumo').innerHTML = res; g('v2resumo').dataset.h = res; }
     var f1 = camposObrigatorios(PASSOS[0].s.map(function (i) { return secoes[i]; }));
-    var f2 = faltaNasPecas(); if (!pecas.length) f2.push('Inclua pelo menos uma peça');
+    var f2 = faltaNasPecas();
     var et = [['Orçamento e carro', f1.length ? 'falta ' + f1[0].toLowerCase() : ''], ['Peças', f2[0] || ''], ['Enviar', '']];
     var atual = f1.length ? 0 : f2.length ? 1 : 2;
     var eh = et.map(function (e, i) {
@@ -2932,9 +2934,9 @@ iniciar();
     var tipos = $$('.f-tipo:checked', it).map(function (c) { return c.value.charAt(0) + c.value.slice(1).toLowerCase(); });
     if (it.dataset.tipo === 'pneu') {
       var cat = (it.querySelector('input[type=radio]:checked') || {}).value || '';
-      return { titulo: 'PNEU ' + (q('.f-medida') || '?'), sub: [cat === 'MARCA' ? q('.f-marca') : cat, 'qtd ' + (q('.f-qtd') || 1)].filter(String).join(' · '), falta: q('.f-medida') ? '' : 'falta a medida' };
+      var fp = faltasDoItem(it); return { titulo: 'PNEU ' + (q('.f-medida') || '?'), sub: [cat === 'MARCA' ? q('.f-marca') : cat, 'qtd ' + (q('.f-qtd') || 1)].filter(String).join(' · '), falta: fp.length ? fp[0] : '' };
     }
-    var falta = !q('.f-desc') ? 'falta a descrição' : (!tipos.length ? 'falta o tipo' : '');
+    var fi = faltasDoItem(it); var falta = fi.length ? fi[0] : '';
     return { titulo: q('.f-desc') || 'Peça sem descrição', sub: [q('.f-codigo'), tipos.join(' / '), 'qtd ' + (q('.f-qtd') || 1)].filter(String).join(' · '), falta: falta };
   }
   function pintarResumo(it) {
@@ -2970,7 +2972,7 @@ iniciar();
       var cx = it.parentNode;
       if (cx && !(cx.previousElementSibling && cx.previousElementSibling.classList.contains('v2pc-cab'))) {
         var cab = document.createElement('div'); cab.className = 'v2pc-cab';
-        cab.innerHTML = '<span>#</span><span>Descrição / tipo</span><span>Código</span><span>Qtd</span><span>Valor no orç.</span>';
+        cab.innerHTML = '<span>#</span><span>Descrição * · tipo * (até 2)</span><span>Código' + (cx.id === 'itensPart' || /PARTICULAR|RETORNO/.test(tipoPedidoV2()) ? '' : ' *') + '</span><span>Qtd</span><span>Valor no orç.</span>';
         cx.parentNode.insertBefore(cab, cx);
       }
     }
@@ -3045,7 +3047,7 @@ iniciar();
   if (suc) new MutationObserver(function () {
     if (g('v2agora') && suc.contains(g('v2agora'))) return;
     var t = suc.textContent || '', m = t.match(/est[áa] em ([A-ZÇÃÕÁÉÍÓÚ\/. ]+?)\.?(\s|$)/);
-    var lista = m ? m[1].trim().replace(/\.$/, '') : (/Card criado/.test(t) ? 'EM COTAÇÃO' : '');
+    var lista = m ? m[1].trim().replace(/\.$/, '') : /FALTA DADOS/i.test(t) ? 'FALTA DADOS PARA COTAR' : (/Card criado/.test(t) ? 'EM COTAÇÃO' : '');
     var frase = AGORA[lista] || AGORA[lista + '.'] || '';
     if (frase) suc.insertAdjacentHTML('beforeend', '<div id="v2agora">👉 ' + txt(frase) + '</div>');
   }).observe(suc, { childList: true });
