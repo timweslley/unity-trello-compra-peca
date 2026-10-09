@@ -2461,7 +2461,7 @@ iniciar();
   .v2 .item.v2-fechada > :not(.v2-resumo) { display:none !important; }
   .v2 .item:not(.v2-fechada) > .v2-resumo { border-bottom:1px solid #091e4224; padding-bottom:8px; margin-bottom:10px; }
   /* abas */
-  .v2 .abas:not(.v2-todas) .aba:not(.marcada):not(#v2outras) { display:none; }
+  .v2 .abas:not(.v2-todas):not(.v2pc-abas) .aba:not(.marcada):not(#v2outras) { display:none; }
   .v2 #v2outras { flex:0 0 auto; min-height:48px; }
   .v2 #v2outras::before { display:none; }
   /* arquivo */
@@ -2493,6 +2493,7 @@ iniciar();
   .v2pc #v2topo, .v2pc header { padding-left:max(24px, calc(50% - 566px)); padding-right:max(24px, calc(50% - 566px)); }
   .v2pc #v2topo .placa { font-size:24px; }
   .v2pc main { max-width:1180px; padding:20px 24px 40px; }
+  .v2pc:has(#comprador:not(.oculto)) #v2topo, .v2pc:has(#comprador:not(.oculto)) header { padding-left:max(24px, calc(50% - 418px)); padding-right:max(24px, calc(50% - 418px)); }
   .v2pc main:has(> #comprador:not(.oculto)), .v2pc main:has(> #telaSucesso:not(.oculto)) { max-width:860px; }
   .v2pc #form { display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:0 20px; align-items:start; padding-bottom:0; }
   .v2pc #form > :not(#v2lado) { grid-column:1; }
@@ -2749,7 +2750,8 @@ iniciar();
 
   /* ---------- 5. só a aba da etapa ---------- */
   var abas = document.querySelector('#comprador .abas');
-  if (abas) {
+  if (abas && PC) abas.classList.add('v2pc-abas');     // computador: todas as abas à vista, como no verso do card
+  else if (abas) {
     var outras = document.createElement('button'); outras.type = 'button'; outras.className = 'aba'; outras.id = 'v2outras'; outras.textContent = '⋯ Outras etapas';
     outras.onclick = function () { abas.classList.toggle('v2-todas'); outras.textContent = abas.classList.contains('v2-todas') ? '✕ Fechar' : '⋯ Outras etapas'; };
     abas.appendChild(outras);
