@@ -816,6 +816,7 @@ function carregarCard(sl, pronto) {
     $('motor').value = d.motor || ''; $('chassi').value = d.chassi || ''; $('obs').value = c.obs || '';
     $('ordem').value = c.ordem || ''; $('unidade').value = c.unidadeId || '';
     conferirChassi();
+    if (!d.modelo && !d.chassi && placaOk(d.placa)) puxarCarroDaPlaca(d.placa, c.shortLink);   // card criado à mão (retorno interno): puxa o carro do outro card da placa (09/10/2026)
     $('itens').innerHTML = ''; $('itensPart').innerHTML = '';
     (c.pecas || []).forEach(function (p) { novoItem(p.pneu ? 'pneu' : 'peca', p); });
     if (!c.padrao) {
@@ -1813,6 +1814,32 @@ function aoMudarPlaca() {
 
 /** Retorno interno: copia carro, cor, modelo, ano, motor, chassi, seguradora, sinistro e unidade do card que já roda;
  *  nº da ordem e peças ficam em branco (é ordem nova) e a observação ganha o link do card anterior. Não entra em edição. */
+/** Card aberto pelo Power-Up sem dados do carro (ex.: criado à mão como retorno interno): procura outro card aberto da
+ *  mesma placa e preenche só o que está vazio (modelo, ano, motor, chassi, cor, carro, unidade). Não muda tipo nem peças. */
+function puxarCarroDaPlaca(placa, meuSl) {
+  chamar('vdf_buscarPlaca', TOKEN, placa).then(function (lista) {
+    lista = lista.filter(function (x) { return x.shortLink !== meuSl; });
+    if (!lista.length) return;
+    var i = 0;
+    var tentar = function () {
+      if (i >= lista.length || i >= 3) return;
+      var sl = lista[i++].shortLink;
+      chamar('vdf_carregarCard', TOKEN, sl).then(function (o) {
+        var d = o.dados || {}, t = o.titulo || {};
+        if (!d.chassi && !d.modelo) return tentar();   // esse também não tem o carro: tenta o próximo
+        var poe = function (id, v) { if (v && !String($(id).value || '').trim()) $(id).value = v; };
+        poe('modelo', d.modelo); poe('ano', d.ano); poe('motor', d.motor); poe('chassi', d.chassi);
+        poe('cor', t.cor || d.cor); poe('carro', t.carro); poe('unidade', o.unidadeId);
+        __chassiBuscado = String($('chassi').value || '').toUpperCase().replace(/[\s.\-]/g, '');
+        conferirChassi();
+        $('dicaPlaca').innerHTML = '✓ Dados do carro puxados de <b>' + esc(o.nome) + '</b> (mesma placa). Confira antes de enviar.';
+        $('dicaPlaca').className = 'dica boa';
+      }).catch(function () { tentar(); });
+    };
+    tentar();
+  }).catch(function () {});
+}
+
 function copiarCarro(sl) {
   $('cardsPlaca').innerHTML = '';
   $('dicaPlaca').textContent = 'Copiando os dados do carro…'; $('dicaPlaca').className = 'dica';
