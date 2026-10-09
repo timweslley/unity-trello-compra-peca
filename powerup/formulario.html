@@ -2119,7 +2119,7 @@ function importarComplemento(o, anexoId) {
 /* ---------- itens ---------- */
 
 /** Editando card de seguradora: o tipo "Particular" lá em cima vira um pedido separado do cliente no mesmo card. */
-function modoMisto() { return !!(CARD_EDICAO && CARD && CARD.tipo !== 'PARTICULAR'); }
+function modoMisto() { return !!(CARD_EDICAO && CARD && CARD.tipo !== 'PARTICULAR' && CARD.tipo !== 'RETORNO'); }   // misto = peça particular dentro de card de SEGURADORA; retorno não tem isso
 function pedidoPart() { return tipoPedido() === 'PARTICULAR' && modoMisto(); }
 function caixaDe(part) { return part && modoMisto() ? $('itensPart') : $('itens'); }
 function contarPecas() {}
