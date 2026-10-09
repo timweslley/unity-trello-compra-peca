@@ -90,3 +90,7 @@ Causa real: não era a aba em memória (`ABAS` já era zerada a cada chamada) �
 execução; no servidor o trabalhador vive entre chamadas e elas guardavam o valor da primeira leitura. Agora o trabalhador guarda o
 valor inicial de cada global do robô e o devolve antes de toda execução (TESTE e principal) — `servidor/src/gas/trabalhador.ts`,
 teste `variável global do robô nasce de novo` em `servidor/test/gas.test.ts`.
+
+**Conferido 09/10/2026 16:25** (versão `f72afe5`): `vdf_carregarCard` em 10 cards do principal mexidos hoje (inclusive BAT9F19), servidor ×
+Google: cotações, peças, autorizações e totais **iguais**. Única diferença: `anexos[].lido` (o servidor não enxerga as propriedades
+`VD_ANX3_` do Apps Script) — só muda o texto "(pode levar alguns segundos)" ao reler um anexo. **Religado para todos** em `powerup/config.js`.

@@ -16,8 +16,11 @@ window.PU_CFG = {
   /* 09/10/2026 16:10 — DESLIGADO até o servidor corrigir: o trabalhador do servidor guarda a aba TRAVA (descrição
    * completa dos cards) em memória e nunca relê — devolvia cotações/autorizações velhas ao formulário (TBU8D71, BAT9F19:
    * "sem cotação lançada" na aba Autorizar com a cotação já no card). Ver docs/LEITURA-PELO-SERVIDOR.md.
-   * Antes: 'todos' (08/10/2026 23:20). Para religar: 'todos' ou { usuarios: ['timweslley'] }. */
-  LEITURA_SERVIDOR: { usuarios: [] },
+   * Antes: 'todos' (08/10/2026 23:20). Para religar: 'todos' ou { usuarios: ['timweslley'] }.
+   * 09/10/2026 16:30 — RELIGADO para todos: causa achada e corrigida no servidor (f72afe5 — variáveis globais do robô,
+   * como VD_CMP_MEM, agora nascem de novo a cada chamada); 10 cards do principal conferidos, cotações iguais ao Google.
+   * Para desligar de novo: { usuarios: [] }. */
+  LEITURA_SERVIDOR: 'todos',
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
