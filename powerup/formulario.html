@@ -2617,6 +2617,9 @@ iniciar();
   .v2 #v2conf ol { margin:6px 0 0 20px; padding:0; }
   .v2 #v2conf li { margin:4px 0; }
   .v2 #msgSucesso { font-size:17px; line-height:24px; }
+  .v2 .v2-fotos { border-top:1px solid #dcdfe4; }
+  .v2 .v2-fotos summary { cursor:pointer; padding:10px 0; font-size:15px; font-weight:600; color:#0c66e4; min-height:44px; display:flex; align-items:center; }
+  .v2 .v2-fotos[open] summary { color:#44546f; }
   /* computador (09/10/2026): mesma 2.0, centralizada na largura do formulário */
   .v2pc #v2topo { padding-left:max(12px, calc(50% - 378px)); padding-right:max(12px, calc(50% - 378px)); }
   .v2pc #v2topo .placa { font-size:24px; }
@@ -3035,17 +3038,23 @@ iniciar();
         lista = document.createElement('div'); lista.className = 'v2-ler'; box._v2lista = lista;
         if (onde) onde(lista); else box.insertAdjacentElement('beforebegin', lista);
       }
-      var linhas = lers.map(function (l, i) {
+      var docs = [], fotos = [];
+      lers.forEach(function (l, i) {
         var a = l.previousElementSibling; while (a && a.tagName !== 'A') a = a.previousElementSibling;
         var nome = a ? a.textContent.trim() : 'Anexo ' + (i + 1), url = a && a.href && !/#$/.test(a.href) ? a.href : '';
         var orc = /ORÇ|OR[CÇ]AMENTO|\.pdf|📄|Cilia|HDI|Soma|Status/i.test(nome), foto = /📸|\.(jpe?g|png|webp)/i.test(nome) && !orc;
         var de = /novo/i.test(l.textContent);
-        return '<div class="linha"><span class="ico">' + (orc ? '📄' : foto ? '📸' : '📎') + '</span>'
+        var h = '<div class="linha"><span class="ico">' + (orc ? '📄' : foto ? '📸' : '📎') + '</span>'
           + (url ? '<a class="nome" href="' + txt(url) + '" target="_blank" rel="noopener">' : '<span class="nome">') + txt(nome.replace(/^[📄📸🚚📦🔗]\s*/u, ''))
           + (url ? '<small>abrir o arquivo</small></a>' : '</span>')
           + '<button type="button" class="' + (orc ? 'principal' : 'secundario') + '" data-i="' + i + '">' + (de ? '🔄 Ler de novo' : '📖 Ler') + '</button></div>';
+        (foto ? fotos : docs).push(h);
       });
-      lista.innerHTML = '<h4>' + titulo + '</h4>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + linhas.join('');
+      // 09/10/2026: documentos primeiro; fotos (às vezes 10+) agrupadas e recolhidas — antes enchiam a tela
+      var htmlFotos = fotos.length > 2
+        ? '<details class="v2-fotos"><summary>📸 ' + fotos.length + ' fotos do carro — mostrar</summary>' + fotos.join('') + '</details>'
+        : fotos.join('');
+      lista.innerHTML = '<h4>' + titulo + '</h4>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + docs.join('') + htmlFotos;
       $$('button', lista).forEach(function (b) { b.onclick = function () { var l = lers[+b.dataset.i]; b.disabled = true; b.textContent = '⏳ Lendo…'; l.click(); }; });
       // o que não é "ler" (links e outros anexos) continua aparecendo embaixo
       box.classList.add('v2-orig');
