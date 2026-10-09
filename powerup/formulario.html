@@ -1799,9 +1799,38 @@ function aoMudarPlaca() {
     lista.forEach(function (c) {
       h += '<button type="button" class="secundario" onclick="carregarCard(\'' + esc(c.shortLink) + '\')">Atualizar: <b>' + esc(c.nome) + '</b> — ' + esc(c.lista) + '</button>';
     });
-    h += '<button type="button" class="secundario" onclick="$(\'cardsPlaca\').innerHTML=\'\'">Não, criar um card novo</button></div></div>';
+    // 09/10/2026, Weslley: ordem de retorno interno — card novo já com os dados do carro do card que está rodando
+    lista.forEach(function (c) {
+      h += '<button type="button" class="secundario" onclick="copiarCarro(\'' + esc(c.shortLink) + '\')">🔁 Card novo com os dados deste carro (retorno interno): <b>' + esc(c.nome) + '</b></button>';
+    });
+    h += '<button type="button" class="secundario" onclick="$(\'cardsPlaca\').innerHTML=\'\'">Não, criar um card novo em branco</button></div></div>';
     $('cardsPlaca').innerHTML = h;
   }).catch(function () { $('dicaPlaca').textContent = ''; });
+}
+
+/** Retorno interno: copia carro, cor, modelo, ano, motor, chassi, seguradora, sinistro e unidade do card que já roda;
+ *  nº da ordem e peças ficam em branco (é ordem nova) e a observação ganha o link do card anterior. Não entra em edição. */
+function copiarCarro(sl) {
+  $('cardsPlaca').innerHTML = '';
+  $('dicaPlaca').textContent = 'Copiando os dados do carro…'; $('dicaPlaca').className = 'dica';
+  chamar('vdf_carregarCard', TOKEN, sl).then(function (c) {
+    CARD_EDICAO = ''; guardar('vd_card_pend', null); mostrar('modoEdicao', false);
+    var d = c.dados || {}, t = c.titulo || {};
+    setTipoPedido(c.tipo === 'PARTICULAR' ? 'PARTICULAR' : 'SEGURADORA');
+    $('carro').value = t.carro || ''; $('cor').value = t.cor || d.cor || '';
+    $('seguradora').value = t.seguradora || d.seguradora || ''; $('sinistro').value = d.sinistro || '';
+    if (d.placa) $('placa').value = d.placa;
+    $('modelo').value = d.modelo || ''; $('ano').value = d.ano || ''; $('motor').value = d.motor || ''; $('chassi').value = d.chassi || '';
+    $('unidade').value = c.unidadeId || ''; $('ordem').value = '';
+    __chassiBuscado = String($('chassi').value || '').toUpperCase().replace(/[\s.\-]/g, '');
+    conferirChassi();
+    var obs = String($('obs').value || '').trim();
+    var linha = 'RETORNO INTERNO — card anterior: ' + c.nome + ' (https://trello.com/c/' + c.shortLink + ')';
+    if (obs.indexOf('RETORNO INTERNO') < 0) $('obs').value = (obs ? obs + '\n' : '') + linha;
+    $('dicaPlaca').innerHTML = '✓ Dados do carro copiados de <b>' + esc(c.nome) + '</b>. Vai ser criado um <b>card novo</b>: informe o nº da ordem nova e as peças.';
+    $('dicaPlaca').className = 'dica boa';
+    $('ordem').focus();
+  }).catch(function (e) { $('dicaPlaca').textContent = 'Não consegui copiar os dados: ' + e.message; $('dicaPlaca').className = 'dica ruim'; });
 }
 
 /* ---------- chassi ---------- */
