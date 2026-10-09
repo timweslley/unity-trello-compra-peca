@@ -1596,7 +1596,7 @@ function vdf_salvar(token, p) {
     if (p.complemento && (p.complemento.oficina || []).length) { var cc = vd_orcCss_(p.complemento, 'ZACARIAS'); p.complemento = { origem: p.complemento.origem, oficina: [], fo: cc.fo }; }
   }
   var tipo = vd_tipoNormPedido_(n.tipo) || 'SEGURADORA';
-  var particular = tipo === 'PARTICULAR';
+  var particular = tipo === 'PARTICULAR', semSeguradora = vd_semSeguradora_(tipo);   // RETORNO também dispensa orçamento (09/10/2026)
   var extra = {
     tipo: tipo,
     cor: String(n.cor || '').trim().toUpperCase(),
@@ -1683,8 +1683,8 @@ function vdf_salvar(token, p) {
   if (!pecas.length && !fo.length && !compFo.length && !temFoNoCard) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora). Se a peça não vai ser comprada, marque 🚫 Não comprar em vez de remover.'] };
   var temOrcNoCard = !!(card && vd_analisar_(card.desc, card.name).doOrcamento);
   var soAcrescentaParticular = !!card && (p.pecas || []).some(function (x) { return x.particular; });
-  if (!particular && !posCot && !(orc && orc.origem) && !temOrcNoCard && !soAcrescentaParticular && !comp) {
-    return { ok: false, faltas: ['Pedido de seguradora: anexe o orçamento autorizado (PDF do Cilia, HDI ou Websoma) na seção Documento — o formulário importa as peças dele. Se for cliente particular, marque "Particular" no tipo do pedido.'] };
+  if (!semSeguradora && !posCot && !(orc && orc.origem) && !temOrcNoCard && !soAcrescentaParticular && !comp) {
+    return { ok: false, faltas: ['Pedido de seguradora: anexe o orçamento autorizado (PDF do Cilia, HDI ou Websoma) na seção Documento — o formulário importa as peças dele. Se for cliente particular ou retorno (oficina paga), marque isso no tipo do pedido.'] };
   }
   // card existente: mantém as linhas de FORNECIMENTO que já estavam no bloco
   if (card) extra.foLinhas = vd_dividir_(card.desc).bloco.split('\n').filter(function (l) { return /^FORNECIMENTO\b/i.test(vd_limpar_(l).trim()); });
