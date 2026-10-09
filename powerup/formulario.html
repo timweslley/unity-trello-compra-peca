@@ -2657,9 +2657,9 @@ iniciar();
   /* peça no computador (09/10/2026, Weslley: "muito grande" → "embaralhado"): lista limpa, títulos das colunas uma vez só em cima,
      linha 1 = nº · descrição · código · qtd · valor; linha 2 = tipo + ações pequenas; observação só quando tem ou quando pede */
   .v2pc #itens, .v2pc #itensPart { counter-reset:pc; }
-  .v2pc .v2pc-cab { display:grid; grid-template-columns:28px minmax(0, 2.6fr) minmax(0, 1fr) 112px 112px; gap:0 10px; padding:0 12px 4px 17px;
+  .v2pc .v2pc-cab { display:grid; grid-template-columns:28px minmax(0, 1fr) 130px 104px 104px; gap:0 10px; padding:0 12px 4px 17px;
     font-size:12px; font-weight:600; color:#626f86; border-bottom:2px solid #dcdfe4; }
-  .v2pc #itens > .item, .v2pc #itensPart > .item { counter-increment:pc; display:grid; grid-template-columns:28px minmax(0, 2.6fr) minmax(0, 1fr) 112px 112px;
+  .v2pc #itens > .item, .v2pc #itensPart > .item { counter-increment:pc; display:grid; grid-template-columns:28px minmax(0, 1fr) 130px 104px 104px;
     gap:6px 10px; align-items:center; padding:10px 12px; margin:0; background:#fff; border:0; border-bottom:1px solid #dcdfe4; border-left:5px solid #8590a2;
     border-radius:0; box-shadow:none; }
   .v2pc #itens > .item:nth-child(even), .v2pc #itensPart > .item:nth-child(even) { background:#fafbfc; }
@@ -2671,8 +2671,8 @@ iniciar();
   .v2pc .item label:not(.chip) { display:none !important; }
   .v2pc .item > .grade > .inteiro:has(.f-desc), .v2pc .item > .grade > div:has(.f-medida) { order:-1; grid-column:2; }
   .v2pc .item > .grade > .inteiro:has(.f-desc) input { font-weight:600; }
-  .v2pc .item > .grade > .inteiro:has(.f-tipo), .v2pc .item > .grade > .inteiro:has(.f-marca) { order:1; grid-column:2 / 4; }
-  .v2pc .item > .item-topo { order:2; grid-column:4 / -1; display:flex; justify-content:flex-end; align-items:center; gap:2px; flex-wrap:wrap; margin:0; padding:0; background:none; border:0; }
+  .v2pc .item > .grade > .inteiro:has(.f-tipo), .v2pc .item > .grade > .inteiro:has(.f-marca) { order:1; grid-column:2; }
+  .v2pc .item > .item-topo { order:2; grid-column:3 / -1; display:flex; justify-content:flex-end; align-items:center; gap:2px; flex-wrap:nowrap; white-space:nowrap; margin:0; padding:0; background:none; border:0; }
   .v2pc .item > .item-topo .num { display:none; }
   .v2pc .item > .item-topo .chip { border:0 !important; background:transparent !important; min-height:28px !important; padding:2px 6px !important; font-size:12px !important; color:#44546f; box-shadow:none !important; }
   .v2pc .item > .item-topo .chip.marcado { background:#e9f2ff !important; color:#0055cc; font-weight:700; }
@@ -2688,6 +2688,12 @@ iniciar();
   .v2pc .item .v2-qtd input { margin:0 3px; font-size:15px !important; padding:4px 2px; }
   .v2pc .item .chips { gap:4px; }
   .v2pc .item .grade .chips .chip { min-height:30px; padding:2px 8px; font-size:12px; }
+  /* sem quadradinho: o próprio botão fica azul quando marcado (Genuíno… e Complemento / Não comprar) */
+  .v2pc .item .chip input[type=checkbox], .v2pc .item .chip input[type=radio] { position:absolute; opacity:0; width:1px; height:1px; pointer-events:none; }
+  .v2pc .item .chip { position:relative; cursor:pointer; }
+  .v2pc .item .grade .chips .chip.marcado { background:#0c66e4 !important; border-color:#0c66e4 !important; color:#fff !important; }
+  .v2pc .item .grade .chips .chip.desab { opacity:.45; }
+  .v2pc .item .grade .chips .chip:has(input:focus-visible), .v2pc .item .item-topo .chip:has(input:focus-visible) { outline:2px solid #388bff; outline-offset:1px; }
   .v2pc .item.v2-pend { border-left-color:#c9372c !important; }
   .v2pc .item.v2-ok { border-left-color:#1f845a !important; }
   .v2pc .item.nao-comprar > .grade, .v2pc .item.nao-comprar > .grade > * { opacity:.6; }
