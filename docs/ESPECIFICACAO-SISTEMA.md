@@ -56,6 +56,14 @@ marca o pedido como RETORNO.
 - **Chave da peça**: código (ou descrição, sem código) que liga peça ↔ cotação ↔ autorização ↔ item do checklist.
 - **PAGAS / FORNECIMENTO**: checklists do card com as peças compradas pela oficina / fornecidas pela seguradora.
 - **Complemento**: orçamento complementar da seguradora (peças a mais que o orçamento original).
+  **Situação do complementar na seguradora** (09/10/2026, Weslley): peça ➕ complemento de pedido de **seguradora** só é
+  comprada com uma das duas situações informadas — `COMPL: AUTORIZADO` (seguradora autorizou o complementar e ele foi
+  importado na ordem do Databox) ou `COMPL: ANTECIPADO NOME` (compra antes da autorização, liberada pelo orçamentista — diz
+  quem). Compras marca na aba Compra (obrigatório ao escolher fornecedor; `vdf_salvarCompra` recusa sem isso); a diretoria
+  pode marcar AUTORIZADO antes, na aba Autorizar (`marcas[].complStatus`). Peça comprada antecipada fica com
+  "⚠️ comprado antes da autorização (liberado por NOME)" na vitrine até alguém marcar que a seguradora autorizou/importou
+  (aba Compra, caixa "✔ seguradora autorizou…", enviada com `complementos[]`). Vale na linha da peça (`| COMPL: …`), não se
+  perde ao reenviar o pedido, e cada marcação gera comentário. Particular e retorno não têm isso.
 - **NT**: fornecedor consultado que "não tem" a peça.
 - **d.u.**: dias úteis.
 
@@ -204,7 +212,7 @@ cache na memória dele, devolvia cotações velhas ao formulário por até 6 h. 
 **COR:** …               **SEGURADORA:** …   **SINISTRO:** …
 
 **PEÇAS:**
-1. CÓDIGO | DESCRIÇÃO | TIPO[/TIPO2][ | QTD n][ | COMPLEMENTO dd/mm][ | PARTICULAR @user][ | NÃO COMPRAR: motivo][ | ORÇ R$ 1.234,56][ | OBS: texto]
+1. CÓDIGO | DESCRIÇÃO | TIPO[/TIPO2][ | QTD n][ | COMPLEMENTO dd/mm][ | COMPL: AUTORIZADO|ANTECIPADO nome][ | PARTICULAR @user][ | NÃO COMPRAR: motivo][ | ORÇ R$ 1.234,56][ | OBS: texto]
 2. PNEU | 195/65R15 | IMPORTADO|1ª LINHA|<marca>[ mesmos sufixos]
    (ou "_nenhuma peça pela oficina — somente fornecimento da seguradora_")
 
