@@ -2732,6 +2732,15 @@ iniciar();
   .v2pc #v2topo { padding-top:6px; padding-bottom:6px; }
   .v2pc main { padding-top:12px; }
   .v2pc #comprador section { padding:10px 14px; }
+  /* aba Cotação no computador (Weslley 09/10): "Sem cotação", "+ Observação" e "Não vou cotar" lado a lado; ao clicar abre a linha */
+  .v2pc #cotItens > .item { display:flex; flex-wrap:wrap; align-items:center; gap:6px 16px; padding:0 12px 10px; margin-bottom:12px; }
+  .v2pc #cotItens > .item > * { flex:0 0 100%; min-width:0; }
+  .v2pc #cotItens > .item > .item-topo { margin-bottom:4px !important; padding:8px 12px !important; }
+  .v2pc #cotItens > .item > .dica.ruim, .v2pc #cotItens > .item > .dica.boa, .v2pc #cotItens > .item > .v2-obsbtn,
+  .v2pc #cotItens > .item > .semcot-box:not(.v2-aberto) { flex:0 0 auto; margin:0 !important; }
+  .v2pc #cotItens > .item > .v2-obsbtn, .v2pc #cotItens .semcot-box .v2-semcotbtn { min-height:30px !important; font-size:14px !important; padding:2px 0 !important; }
+  .v2pc #cotItens > .item > .cot-novas:empty { display:none; }
+  .v2pc #cotItens .semcot-box:not(.v2-aberto) { padding:0 !important; border:0 !important; background:none !important; }
   @media (max-width:960px) {
     .v2pc #form { grid-template-columns:minmax(0, 1fr); }
     .v2pc #v2lado { grid-column:1; grid-row:auto; position:static; margin-bottom:24px; }
