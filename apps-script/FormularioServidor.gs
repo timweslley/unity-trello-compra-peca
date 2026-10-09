@@ -326,7 +326,7 @@ function vdf_montarCard_(c, lista, me) {
     shortLink: c.shortLink, url: c.shortUrl, nome: c.name, lista: lista, posCotacao: vdf_ehPosCotacao_(lista),
     dados: an.dados, obs: obs,
     pecas: (function () {
-      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', complemento: !!p.complemento, compData: p.compData || '', valorOrc: vd_valorOrcTxt_(p.valorOrc), obs: p.obs || '', travada: vdf_travaPeca_(p, autorizadas, c), podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; })
+      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', complemento: !!p.complemento, compData: p.compData || '', compStatus: p.compStatus || '', compPor: p.compPor || '', valorOrc: vd_valorOrcTxt_(p.valorOrc), obs: p.obs || '', travada: vdf_travaPeca_(p, autorizadas, c), podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; })
         // peças "não comprar": o formulário de edição mostra (chip marcado); cotação/autorização/compra não (sem chave)
         .concat((an.naoComprar || []).map(function (p) { return { pneu: p.pneu, codigo: p.codigo, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: false, partPor: '', complemento: !!p.complemento, compData: p.compData || '', naoComprar: true, naoMotivo: p.naoMotivo || '', valorOrc: vd_valorOrcTxt_(p.valorOrc), obs: p.obs || '', travada: '', podeAut: false, chave: '', nome: vd_nomePeca_(p) }; }));
     })(),
@@ -1128,6 +1128,7 @@ function vdf_autorizar(token, p) {
     var peca = m && porChave[m.chave]; if (!peca) return;
     if (m.naoComprar) { peca.naoComprar = true; peca.naoMotivo = String(m.motivo || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 80); peca.complemento = false; peca.compData = ''; }
     else if (m.complemento !== undefined) { if (!!peca.complemento === !!m.complemento) return; peca.complemento = !!m.complemento; peca.compData = m.complemento ? cp_hoje_() : ''; }
+    else if (m.complStatus) { if (!peca.complemento) return; var stN = vdf_complNorm_(m.complStatus, m.complPor); if (!stN || (peca.compStatus === stN.status && (peca.compPor || '') === stN.por)) return; peca.compStatus = stN.status; peca.compPor = stN.por; }
     else return;
     var linhaNova = vd_linhaPeca_(peca, 0).replace(/^1\. /, ''), feito = false;
     blocoNovo = blocoNovo.split('\n').map(function (l) {
@@ -1158,7 +1159,8 @@ function vdf_autorizar(token, p) {
     try { if (naos.length) ev_registrar_('PEDIDO EDITADO', card, me.username, naos.map(ev_peca_), { detalhe: 'NÃO COMPRAR (autorização): ' + naos.map(function (x) { return x.naoMotivo; }).filter(String).join('; ') }); } catch (e) {}
     var txtM = (comps.length ? '\n➕ **Complemento** (vai no orçamento complementar; compra em PAGAS COMPLEMENTO): ' + comps.map(cp_nome_).join('; ') : '')
       + (descomp.length ? '\n➖ Deixou de ser complemento: ' + descomp.map(cp_nome_).join('; ') : '')
-      + (naos.length ? '\n🚫 **Não comprar**: ' + naos.map(function (x) { return cp_nome_(x) + (x.naoMotivo ? ' (' + x.naoMotivo + ')' : ''); }).join('; ') : '');
+      + (naos.length ? '\n🚫 **Não comprar**: ' + naos.map(function (x) { return cp_nome_(x) + (x.naoMotivo ? ' (' + x.naoMotivo + ')' : ''); }).join('; ') : '')
+      + marcadas.filter(function (x) { return x.m.complStatus; }).map(function (x) { return '\n' + (x.peca.compStatus === 'AUTORIZADO' ? '✅ Complementar autorizado pela seguradora e importado no Databox: ' : '⚠️ **Comprado antes da autorização do complementar** — liberado por ' + x.peca.compPor + ': ') + cp_nome_(x.peca); }).join('');
     if (!linhas.length) {
       // só marcas, sem autorização nova: comentário próprio; a coluna é reavaliada (card pode ter ficado sem peça da oficina)
       try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✏️ **Peças marcadas na autorização** — ' + me.fullName + txtM + obsL.texto } }, token); } catch (e) {}
@@ -1349,7 +1351,7 @@ function vdf_salvarCompra(token, p) {
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
   var cotLidas = vd_cotacoesDaDescricao_(card.desc, an.pecas), lidas = cotLidas.cotacoes;
   var naoCotadas = (cotLidas.semCot || []).map(function (x) { return x.chave; });   // justificadas: não ficam esperando compra
-  var faltas = [], compras = [];
+  var faltas = [], compras = [], complMarcas = [];
   /* 07/10/2026 (Weslley): "Salvar parcial" registra o que já comprou e o card fica em AUTORIZADO COMPRA;
    * "Enviar compra" exige toda peça autorizada comprada (pode vir sem compra nova, só para fechar) */
   var parcial = !!p.parcial;
@@ -1366,7 +1368,22 @@ function vdf_salvarCompra(token, p) {
     if (qc && String(qc.dias == null ? '' : qc.dias) !== '' && String(c.dias == null ? '' : c.dias).trim() !== '' && +c.dias !== +qc.dias && !String(c.just || '').trim())
       { faltas.push(rot + ': prazo ' + c.dias + ' d.u. diferente do cotado (' + qc.dias + ' d.u.) — escreva o motivo.'); return; }
     if (!ok) { faltas.push(rot + ': escolha uma cotação lançada no card (' + forn + ' ' + vd_valorBR_(valor) + ' não está na descrição)'); return; }
+    // 09/10/2026 (Weslley): peça ➕ complemento de pedido de seguradora só é comprada com a situação do complementar informada:
+    // AUTORIZADO (seguradora autorizou e foi importado no Databox) ou ANTECIPADO (compra antes da autorização, liberada pelo orçamentista — quem)
+    if (vdf_complExige_(peca, card, an)) {
+      var stC = vdf_complNorm_(c.compl, c.complPor);
+      if (!peca.compStatus && !stC) { faltas.push(rot + ': complemento — marque se a seguradora já autorizou o complementar (e ele foi importado no Databox) ou se a compra é antes da autorização, liberada pelo orçamentista (informe quem).'); return; }
+      if (stC && stC.status === 'ANTECIPADO' && !stC.por) { faltas.push(rot + ': compra antes da autorização do complementar — informe quem liberou (orçamentista).'); return; }
+      if (stC && (stC.status !== peca.compStatus || stC.por !== (peca.compPor || ''))) complMarcas.push({ peca: peca, status: stC.status, por: stC.por });
+    }
     compras.push({ chave: c.chave, codigo: peca.pneu ? '' : peca.codigo, descricao: peca.pneu ? vd_nomePeca_(peca) : peca.descricao, fornecedor: forn, valor: valor, dias: String(c.dias == null ? '' : c.dias).trim(), particular: vdf_pecaParticular_(peca, card, an) && !vdf_ehParticular_(card, an), complemento: !!peca.complemento, just: String(c.just || '').replace(/\s*\n\s*/g, ' ').trim(), anexos: c.anexos || [] });
+  });
+  // situação do complementar marcada em peça já comprada (ex.: comprada antecipada, agora a seguradora autorizou)
+  (p.complementos || []).forEach(function (m) {
+    var peca = m && porChave[m.chave]; if (!peca || !peca.complemento) return;
+    var stM = vdf_complNorm_(m.status, m.por); if (!stM) return;
+    if (stM.status === 'ANTECIPADO' && !stM.por) { faltas.push(vd_nomePeca_(peca) + ': compra antes da autorização do complementar — informe quem liberou.'); return; }
+    if (stM.status !== peca.compStatus || stM.por !== (peca.compPor || '')) complMarcas.push({ peca: peca, status: stM.status, por: stM.por });
   });
   /* 08/10/2026 (Weslley): print/arquivo da negociação e forma de pagamento, por peça — TUDO o que foi colado no formulário vai
    * para o card (nome "🛒 COMPRA · PLACA · FORN · PEÇA · dd/MM"), menos cópia idêntica do que já está lá. Arquivo de peça
@@ -1374,8 +1391,23 @@ function vdf_salvarCompra(token, p) {
   var arqs = [];
   compras.forEach(function (c) { (c.anexos || []).forEach(function (a) { if (a && a.fileId) arqs.push({ fileId: a.fileId, nome: a.nome, forn: c.fornecedor, peca: vd_nomePeca_(porChave[c.chave]) }); }); });
   (p.anexosExtra || []).forEach(function (a) { if (a && a.fileId) arqs.push({ fileId: a.fileId, nome: a.nome, forn: '', peca: porChave[a.chave] ? vd_nomePeca_(porChave[a.chave]) : '' }); });
-  if (!compras.length && !faltas.length && parcial && !arqs.length) faltas.push('Escolha o fornecedor de pelo menos uma peça para salvar.');
+  if (!compras.length && !faltas.length && parcial && !arqs.length && !complMarcas.length) faltas.push('Escolha o fornecedor de pelo menos uma peça para salvar.');
   if (faltas.length) return { ok: false, faltas: faltas };
+  // grava a situação do complementar na linha da peça (antes do resto, para a vitrine e o comentário já saírem certos)
+  var txtCompl = '';
+  if (complMarcas.length) {
+    try {
+      complMarcas.forEach(function (x) { x.peca.compStatus = x.status; x.peca.compPor = x.por; });
+      vdf_regravarLinhasPeca_(card, complMarcas.map(function (x) { return x.peca; }), token);
+      card.desc = vd_api_('/cards/' + card.id, { query: { fields: 'desc' } }).desc;
+      txtCompl = '\n' + complMarcas.map(function (x) { return (x.status === 'AUTORIZADO' ? '✅ Complementar autorizado pela seguradora e importado no Databox: ' : '⚠️ **Comprado antes da autorização do complementar** — liberado por ' + x.por + ': ') + vd_nomePeca_(x.peca); }).join('\n');
+    } catch (e) { console.log('compl/compra: ' + e); }
+  }
+  if (!compras.length && parcial && !arqs.length && complMarcas.length) {
+    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '📝 **COMPLEMENTAR** — ' + me.fullName + txtCompl } }, token); } catch (e) {}
+    try { vd_marcar_(card); } catch (e) {}
+    return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, pagas: 0, pendentes: 0, foraAut: [], anexos: [], repetidos: [], lista: vdf_nomeLista_(ctx, card.idList) };
+  }
 
   // fora da autorização: não bloqueia, mas exige justificativa por peça e fica registrado no card
   var auts = vd_autorizacoesDaDescricao_(card.desc, an.pecas), foraAut = [], semJust = [];
@@ -1459,7 +1491,7 @@ function vdf_salvarCompra(token, p) {
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +
       (parcial ? '💾 **COMPRA PARCIAL salva** — ' : '🛒 **COMPRA** — ') + me.fullName + ' · ' + n + ' item(ns)' + (movido ? ' → **' + movido + '**' : '') +
       (pendentes ? '\n⏳ Falta comprar: ' + pendentes + ' peça(s)' : '') + (parcial && !pendentes ? '\nTudo comprado — envie a compra para o card seguir.' : '') +
-      (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') + vdf_txtAnexosCompra_(axC) } }, token);
+      (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') + txtCompl + vdf_txtAnexosCompra_(axC) } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, parcial: parcial, url: card.shortUrl, nome: card.name, pagas: n, pendentes: pendentes, foraAut: foraAut, anexos: axC.anexados, repetidos: axC.repetidos, lista: movido || vdf_nomeLista_(ctx, card.idList) };
@@ -1595,6 +1627,8 @@ function vdf_salvar(token, p) {
     if (paraFo.length) { fo = fo.concat(paraFo); orc = orc || { origem: 'CSS' }; }
     if (p.complemento && (p.complemento.oficina || []).length) { var cc = vd_orcCss_(p.complemento, 'ZACARIAS'); p.complemento = { origem: p.complemento.origem, oficina: [], fo: cc.fo }; }
   }
+  // situação do complementar na seguradora (COMPL:) já gravada no card não se perde quando o pedido é reenviado (09/10/2026)
+  if (card) { try { var anC = vd_analisar_(card.desc, card.name), mapC = {}; anC.pecas.forEach(function (o) { mapC[vd_chavePeca_(o)] = o; }); pecas.forEach(function (x) { var o = mapC[vd_chavePeca_(x)]; if (o && o.compStatus && x.complemento && !x.compStatus) { x.compStatus = o.compStatus; x.compPor = o.compPor; } }); } catch (e) {} }
   var tipo = vd_tipoNormPedido_(n.tipo) || 'SEGURADORA';
   var particular = tipo === 'PARTICULAR', semSeguradora = vd_semSeguradora_(tipo);   // RETORNO também dispensa orçamento (09/10/2026)
   var extra = {
@@ -1962,4 +1996,38 @@ function vdf_cotacaoIndisponivel(token, p) {
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
+
+
+/* ---------- complementar na seguradora (09/10/2026) ---------- */
+/** Peça ➕ complemento de pedido de SEGURADORA (não particular, não retorno): a compra exige a situação do complementar. */
+function vdf_complExige_(peca, card, an) {
+  if (!peca || !peca.complemento || peca.particular) return false;
+  if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
+  return true;
+}
+/** Normaliza {status, por} vindo do formulário: AUTORIZADO | ANTECIPADO (+ quem liberou). '' -> null. */
+function vdf_complNorm_(status, por) {
+  var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
+  if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
+  return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
+}
+/** Regrava só as linhas dessas peças no bloco do consultor (resto da descrição igual) e mantém a base de "peça nova". */
+function vdf_regravarLinhasPeca_(card, pecas, token) {
+  var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
+  pecas.forEach(function (peca) {
+    var linhaNova = vd_linhaPeca_(peca, 0).replace(/^1\. /, ''), feito = false;
+    bloco = bloco.split('\n').map(function (l) {
+      if (feito || vd_sigItem_(l) !== peca.sig) return l;
+      feito = true; mexeu = true;
+      var mNum = l.match(/^(\s*\d+\s*[.)\-]\s*)/);
+      return (mNum ? mNum[1] : '') + linhaNova;
+    }).join('\n');
+  });
+  if (!mexeu) return false;
+  var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
+  var novaDesc = bloco.replace(/\s+$/, '') + '\n\n' + resto;
+  vd_gravarDesc_(card.id, novaDesc, token);
+  try { vd_pkSet_(card.id, vd_linhasConsultor_(bloco).map(vd_sigItem_)); } catch (e) {}
+  return true;
 }

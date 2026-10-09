@@ -997,6 +997,12 @@ function montarAutorizacao(c) {
       h += '<div class="chips" style="margin:4px 0 6px"><label class="chip chip-comp' + (p.complemento ? ' marcado' : '') + '" title="Peça fora do orçamento autorizado: vai no orçamento complementar; a compra entra em PAGAS COMPLEMENTO"><input type="checkbox" class="a-comp"' + (p.complemento ? ' checked' : '') + ' onchange="autMarca(this)"> ➕ Complemento' + (p.compData ? ' ' + esc(p.compData) : '') + '</label>'
         + '<label class="chip chip-nao" title="A oficina não vai comprar (recuperar, cliente já tem…): sai da cotação, da autorização, da compra e dos totais"><input type="checkbox" class="a-nao" onchange="autMarca(this)"> 🚫 Não comprar</label></div>'
         + '<div class="nao-motivo oculto"><input type="text" class="a-nao-motivo maiusc" placeholder="Motivo de não comprar (vai para o card)"></div>';
+      // situação do complementar na seguradora (09/10/2026): a diretoria pode marcar aqui; compras exige na compra
+      if (complExige(p, c)) {
+        if (p.compStatus === 'AUTORIZADO') h += '<div class="comprado">✅ complementar autorizado pela seguradora e importado no Databox</div>';
+        else h += (p.compStatus === 'ANTECIPADO' ? '<div class="dica ruim" style="margin:4px 0">⚠️ Comprado antes da autorização do complementar' + (p.compPor ? ' — liberado por ' + esc(p.compPor) : '') + '.</div>' : '')
+          + '<label class="chip" style="margin:2px 0 6px"><input type="checkbox" class="a-compl"> ✔ seguradora autorizou o complementar e ele foi importado no Databox</label>';
+      }
     }
     var semA = ((c.cotacoes && c.cotacoes.semCot) || []).filter(function (o) { return o.chave === p.chave; });
     if (!minhas.length) h += '<div class="dica ruim">' + (semA.length ? 'Não cotada — motivo do comprador: ' + esc(semA[semA.length - 1].texto) : 'Sem cotação lançada para esta peça.') + '</div>';
@@ -1033,6 +1039,8 @@ function marcasAut() {
     var comp = item.querySelector('.a-comp'), nao = item.querySelector('.a-nao');
     if (nao && nao.checked) { out.push({ chave: item.dataset.chave, naoComprar: true, motivo: ((item.querySelector('.a-nao-motivo') || {}).value || '').trim() }); return; }
     if (comp && !!comp.checked !== (item.dataset.comp === '1')) out.push({ chave: item.dataset.chave, complemento: comp.checked });
+    var cpl = item.querySelector('.a-compl');
+    if (cpl && cpl.checked) out.push({ chave: item.dataset.chave, complStatus: 'AUTORIZADO' });
   });
   return out;
 }
@@ -1308,6 +1316,43 @@ function enviarCotacao(parcial) {
 }
 
 var COMPRA_ANEXOS = {};   // chave da peça → [{fileId, nome}] — print/arquivo da negociação e pagamento (08/10/2026)
+/* ---------- complementar na seguradora (09/10/2026, Weslley) ----------
+ * Peça ➕ complemento de pedido de seguradora só é comprada com a situação do complementar: AUTORIZADO (seguradora autorizou
+ * e foi importado no Databox) ou ANTECIPADO (compra antes da autorização, liberada pelo orçamentista — diz quem). */
+function complExige(p, c) { return !!p.complemento && !p.particular && c.tipo !== 'PARTICULAR' && c.tipo !== 'RETORNO'; }
+function complTroca(r) {
+  var item = r.closest('.item'), por = item.querySelector('.k-compl-por');
+  var ant = item.querySelector('.k-compl[value=ANTECIPADO]');
+  if (por) { por.classList.toggle('oculto', !(ant && ant.checked)); if (ant && ant.checked) por.focus(); }
+}
+function complBloco(p, c) {
+  if (!complExige(p, c)) return '';
+  if (p.compStatus === 'AUTORIZADO') return '<div class="comprado">✅ complementar autorizado pela seguradora e importado no Databox</div>';
+  var h = '';
+  if (p.compStatus === 'ANTECIPADO') {
+    h += '<div class="dica ruim" style="margin:4px 0">⚠️ Comprado antes da autorização do complementar' + (p.compPor ? ' — liberado por ' + esc(p.compPor) : '') + '.</div>'
+      + '<label class="chip" style="margin:2px 0"><input type="checkbox" class="k-compl-ok"> ✔ seguradora autorizou o complementar e ele foi importado no Databox</label>';
+    return h;
+  }
+  var nm = 'compl_' + p.chave.replace(/[^A-Za-z0-9]/g, '');
+  h += '<div class="compl-box" style="margin:6px 0;padding:8px 10px;border:1px dashed #6554c0;border-radius:8px">'
+    + '<div style="font-weight:600;margin-bottom:4px">➕ Complemento — situação na seguradora <span class="obr">*</span></div>'
+    + '<label style="display:block;margin:3px 0"><input type="radio" name="' + nm + '" class="k-compl" value="AUTORIZADO" onchange="complTroca(this)"> Seguradora autorizou o complementar e ele foi importado no Databox</label>'
+    + '<label style="display:block;margin:3px 0"><input type="radio" name="' + nm + '" class="k-compl" value="ANTECIPADO" onchange="complTroca(this)"> Compra antes da autorização — liberada pelo orçamentista</label>'
+    + '<input type="text" class="k-compl-por maiusc oculto" style="margin-top:4px" placeholder="Quem liberou (orçamentista) — obrigatório">'
+    + '</div>';
+  return h;
+}
+/** Situação do complementar marcada no item da aba Compra: {status, por} ou null; erro em texto se incompleta. */
+function complDoItem(item, nome) {
+  var ok = item.querySelector('.k-compl-ok');
+  if (ok) return ok.checked ? { status: 'AUTORIZADO', por: '' } : null;
+  var r = item.querySelector('.k-compl:checked');
+  if (!r) return item.querySelector('.k-compl') ? { falta: nome + ': complemento — marque se a seguradora já autorizou o complementar (e foi importado no Databox) ou se a compra é antes da autorização, liberada pelo orçamentista.' } : null;
+  var por = ((item.querySelector('.k-compl-por') || {}).value || '').trim();
+  if (r.value === 'ANTECIPADO' && !por) return { falta: nome + ': compra antes da autorização do complementar — informe quem liberou (orçamentista).' };
+  return { status: r.value, por: r.value === 'ANTECIPADO' ? por : '' };
+}
 function montarCompra(c) {
   var box = $('compraItens'); box.innerHTML = ''; COMPRA_ANEXOS = {};
   var lidas = (c.cotacoes && c.cotacoes.cotacoes) || [];
@@ -1325,6 +1370,7 @@ function montarCompra(c) {
       h += '<div class="comprado">✔ já comprado: ' + esc(ja.nome) + (ja.due ? ' — previsão ' + esc(ja.due) : '') + (ja.ok ? ' (recebido)' : '') + '</div>';
       var rv = (c.recebiveis || []).filter(function (r) { return /^PAGAS/.test(r.lista) && semAc(r.nome).indexOf(p.chave) >= 0; })[0];
       if (rv && !rv.ok) h += botaoPrev('PAGAS', rv.id, rv.dueIso, 'data');
+      h += complBloco(p, c);
     }
     else if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça — lance na aba Cotação.</div>';
     else {
@@ -1332,6 +1378,7 @@ function montarCompra(c) {
       var cotAut = aut ? minhas.filter(function (q) { return mesmaCot(q, aut); })[0] : null;
       if (aut) h += '<div class="comprado">✅ autorizado: ' + esc(aut.fornecedor) + ' — ' + esc(fmtValor(aut.valor)) + linkCot(cotAut) + '</div>' + botaoPrev('COT', p.chave, '', 'dias');
       else if ((c.autorizadas || []).length) h += '<div class="dica ruim">⚠️ Peça sem autorização — não comprar.</div>';
+      h += complBloco(p, c);
       h += '<select class="k-sel" onchange="avisoForaAut(this);totalCompra()"><option value="">— ainda não comprar —</option>' + minhas.map(function (q, j) { return '<option value="' + j + '"' + (mesmaCot(q, aut) ? ' selected' : '') + '>' + esc(rotuloCot(q)) + selosPeca(minhas)(q, true) + (mesmaCot(q, aut) ? ' ✅ autorizado' : '') + '</option>'; }).join('') + '</select><div class="alerta k-aviso oculto"></div>'
         + '<input type="text" class="k-just oculto" style="margin-top:6px" placeholder="Motivo da compra fora da autorização (obrigatório)">'
         // print/arquivo da negociação e forma de pagamento (08/10/2026): vai para o card junto com a compra
@@ -1584,26 +1631,33 @@ function avisoForaAut(sel) {
 }
 function enviarCompra(parcial) {
   mostrar('erroComprador', false);
-  var compras = [], semJust = [];
+  var compras = [], semJust = [], complementos = [];
   Array.prototype.forEach.call($('compraItens').children, function (item) {
-    var sel = item.querySelector('.k-sel');
-    if (!sel || !sel.value) return;
+    var sel = item.querySelector('.k-sel'), nomeIt = (item.querySelector('.item-topo strong') || {}).textContent || '';
+    var cpl = complDoItem(item, nomeIt);
+    if (!sel || !sel.value) {
+      // sem compra nova: só a situação do complementar marcada (peça já comprada antecipada, ou registro antes de comprar)
+      if (cpl && cpl.status) complementos.push({ chave: item.dataset.chave, status: cpl.status, por: cpl.por });
+      return;
+    }
     var q = JSON.parse(item.dataset.cots)[+sel.value];
     var just = ((item.querySelector('.k-just') || {}).value || '').trim();
-    if (foraDaAut(item, q) && !just) semJust.push(item.querySelector('.item-topo strong').textContent + ': compra fora da autorização — escreva o motivo.');
-    compras.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, tipo: q.tipo, marca: q.marca, valor: q.valor, dias: q.dias, just: just, anexos: COMPRA_ANEXOS[item.dataset.chave] || [] });
+    if (foraDaAut(item, q) && !just) semJust.push(nomeIt + ': compra fora da autorização — escreva o motivo.');
+    if (cpl && cpl.falta) semJust.push(cpl.falta);
+    compras.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, tipo: q.tipo, marca: q.marca, valor: q.valor, dias: q.dias, just: just, anexos: COMPRA_ANEXOS[item.dataset.chave] || [], compl: cpl && cpl.status ? cpl.status : '', complPor: cpl && cpl.por ? cpl.por : '' });
   });
   // arquivo colado em peça ainda sem compra escolhida: vai para o card mesmo assim (regra 08/10: tudo o que foi colado é anexado)
   var anexosExtra = [], comCompra = compras.map(function (c) { return c.chave; });
   Object.keys(COMPRA_ANEXOS).forEach(function (k) { if (comCompra.indexOf(k) < 0) (COMPRA_ANEXOS[k] || []).forEach(function (a) { anexosExtra.push({ chave: k, fileId: a.fileId, nome: a.nome }); }); });
-  if (!compras.length && parcial && !anexosExtra.length) return errosComprador(['Escolha o fornecedor de pelo menos uma peça para salvar.']);
+  if (!compras.length && parcial && !anexosExtra.length && !complementos.length) return errosComprador(['Escolha o fornecedor de pelo menos uma peça para salvar.']);
   if (semJust.length) return errosComprador(semJust);
   var botoes = [$('btnCompra'), $('btnCompraParcial')];
   botoes.forEach(function (b) { if (b) b.disabled = true; }); mostrar('enviandoCompra', true);
-  chamar('vdf_salvarCompra', TOKEN, { shortLink: CARD_EDICAO, compras: compras, parcial: !!parcial, anexosExtra: anexosExtra }).then(function (r) {
+  chamar('vdf_salvarCompra', TOKEN, { shortLink: CARD_EDICAO, compras: compras, parcial: !!parcial, anexosExtra: anexosExtra, complementos: complementos }).then(function (r) {
     botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoCompra', false);
     if (!r.ok) return errosComprador(r.faltas);
     COMPRA_ANEXOS = {};
+    if (!r.pagas && r.parcial && !(r.anexos && r.anexos.length) && complementos.length) return sucesso('📝 Situação do complementar registrada no card <b>' + esc(r.nome) + '</b> (' + complementos.length + ' peça(s)).<br>O card continua em <b>' + esc(r.lista) + '</b>.', r.url, 'Voltar ao card');
     var txtAx = (r.anexos && r.anexos.length ? '<br>📎 Anexado no card: ' + esc(r.anexos.join(' · ')) : '') + (r.repetidos && r.repetidos.length ? '<br>🗑️ Não anexado (já estava no card): ' + esc(r.repetidos.join(' · ')) : '');
     if (!r.pagas && r.parcial && r.anexos && r.anexos.length) return sucesso('📎 Arquivo(s) da negociação anexado(s) no card <b>' + esc(r.nome) + '</b>.' + txtAx + '<br>Nenhuma compra registrada ainda — o card continua em <b>' + esc(r.lista) + '</b>.', r.url, 'Voltar ao card');
     if (r.parcial) return sucesso('💾 Compra parcial salva no card <b>' + esc(r.nome) + '</b>: ' + r.pagas + ' item(ns) no checklist PAGAS.' + (r.pendentes ? '<br>' + r.pendentes + ' peça(s) ainda sem compra.' : '<br>Todas as peças compradas — clique em <b>Enviar compra</b> para o card seguir.') + (r.foraAut && r.foraAut.length ? '<br>⚠️ Fora da autorização (avisado no card): ' + esc(r.foraAut.join('; ')) + '.' : '') + txtAx + '<br>O card continua em <b>' + esc(r.lista) + '</b>.', r.url, 'Voltar ao card');
