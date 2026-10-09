@@ -2488,16 +2488,43 @@ iniciar();
   .v2 .v2-fotos { border-top:1px solid #dcdfe4; }
   .v2 .v2-fotos summary { cursor:pointer; padding:10px 0; font-size:15px; font-weight:600; color:#0c66e4; min-height:44px; display:flex; align-items:center; }
   .v2 .v2-fotos[open] summary { color:#44546f; }
-  /* computador (09/10/2026): mesma 2.0, centralizada na largura do formulário */
-  .v2pc #v2topo { padding-left:max(12px, calc(50% - 378px)); padding-right:max(12px, calc(50% - 378px)); }
+  /* ===== computador (09/10/2026, Weslley: "2 interfaces, uma pro celular outra pro computador") — modelo R7 da proposta visual:
+     página única (sem passos), seções em cartões brancos, coluna lateral com resumo, etapas, o que falta e o botão Enviar ===== */
+  .v2pc #v2topo, .v2pc header { padding-left:max(24px, calc(50% - 566px)); padding-right:max(24px, calc(50% - 566px)); }
   .v2pc #v2topo .placa { font-size:24px; }
-  .v2pc header { padding-left:max(12px, calc(50% - 378px)); padding-right:max(12px, calc(50% - 378px)); }
-  .v2pc #v2nav { left:50%; right:auto; width:min(780px, 100%); transform:translateX(-50%); border-radius:12px 12px 0 0; border:1px solid #091e4224; border-bottom:0; }
+  .v2pc main { max-width:1180px; padding:20px 24px 40px; }
+  .v2pc main:has(> #comprador:not(.oculto)), .v2pc main:has(> #telaSucesso:not(.oculto)) { max-width:860px; }
+  .v2pc #form { display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:0 20px; align-items:start; padding-bottom:0; }
+  .v2pc #form > :not(#v2lado) { grid-column:1; }
+  .v2pc #form > section { background:#fff; border:1px solid #091e4224; border-radius:8px; padding:16px 20px; margin:0 0 16px; }
+  .v2pc #form > section h2 { margin-top:0; }
+  .v2pc #v2lado { grid-column:2; grid-row:1 / span 40; position:sticky; top:76px; display:flex; flex-direction:column; gap:12px; }
+  .v2pc .v2card { background:#fff; border:1px solid #091e4224; border-radius:8px; }
+  .v2pc #v2resumo .cab { padding:12px 14px 8px; display:flex; flex-direction:column; gap:2px; }
+  .v2pc #v2resumo .cab span { font-size:13px; color:#626f86; }
+  .v2pc #v2resumo .cab b { font-size:17px; line-height:22px; overflow-wrap:anywhere; }
+  .v2pc #v2resumo .kv { display:flex; justify-content:space-between; gap:8px; padding:8px 14px; border-top:1px solid #091e4224; font-size:14px; }
+  .v2pc #v2resumo .kv span { color:#626f86; }
+  .v2pc #v2etapas { padding:8px; }
+  .v2pc #v2etapas .et { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:6px; font-weight:600; color:#626f86; flex-wrap:wrap; }
+  .v2pc #v2etapas .et .n { width:26px; height:26px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; background:#dcdfe4; color:#44546f; }
+  .v2pc #v2etapas .et.atual { background:#e9f2ff; color:#172b4d; }
+  .v2pc #v2etapas .et.atual .n { background:#0c66e4; color:#fff; }
+  .v2pc #v2etapas .et.feito { color:#172b4d; }
+  .v2pc #v2etapas .et.feito .n { background:#1f845a; color:#fff; }
+  .v2pc #v2etapas .et .d { margin-left:auto; font-size:13px; font-weight:400; color:#ae2e24; }
+  .v2pc #v2falta { background:#fff7d6; border:1px solid #f5cd47; color:#172b4d; margin:0 !important; }
+  .v2pc #v2lado .rodape { margin:0 !important; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .v2pc #v2lado #btnEnviar { width:100%; min-height:48px; font-size:16px; }
+  .v2pc #v2toast { left:auto; right:24px; width:380px; }
   .v2pc .cot.v2-sheet { left:50%; right:auto; bottom:auto; top:8vh; width:min(640px, calc(100% - 24px)); transform:translateX(-50%); border-radius:16px; max-height:84vh; }
   .v2pc .cot.v2-sheet .v2-sheettopo::before { display:none; }
-  .v2pc #v2toast { left:50%; right:auto; width:420px; margin-left:-210px; }
   .v2pc .v2-ler .linha { padding:6px 0; }
   .v2pc .v2-ler button { min-height:40px; }
+  @media (max-width:960px) {
+    .v2pc #form { grid-template-columns:minmax(0, 1fr); }
+    .v2pc #v2lado { grid-column:1; grid-row:auto; position:static; margin-bottom:24px; }
+  }
   .v2 #v2agora { margin-top:12px; padding:12px; border-radius:8px; background:#e9f2ff; font-size:16px; line-height:22px; color:#172b4d; font-weight:500; }
 </style>
 <script>
@@ -2553,7 +2580,9 @@ iniciar();
   var nav = document.createElement('div'); nav.id = 'v2nav';
   nav.innerHTML = '<button type="button" class="secundario" id="v2voltar">Voltar</button><button type="button" class="principal" id="v2seguir">Continuar</button>';
   var rodapeEnviar = g('btnEnviar') ? g('btnEnviar').closest('.rodape') : null;
-  if (form && secoes.length >= 5) {
+  var PC = html.classList.contains('v2pc');
+  if (form && secoes.length >= 5 && PC) montarLado();
+  else if (form && secoes.length >= 5) {
     form.insertBefore(barra, form.firstChild);
     form.insertBefore(errPasso, barra.nextSibling);
     form.appendChild(nav);
@@ -2584,7 +2613,7 @@ iniciar();
   }
   function secaoAtiva(s) { return !s.classList.contains('oculto') && s.style.display !== 'none'; }
   function mostrarPasso(n, dir) {
-    if (!form || secoes.length < 5) return;
+    if (!form || secoes.length < 5 || PC) return;     // computador: tudo numa página só, sem passos
     // passo sem nenhuma seção em uso neste modo (ex.: só falta o tipo das peças): pula
     while (n > 0 && n < 2 && !PASSOS[n].s.some(function (i) { return secaoAtiva(secoes[i]); })) n += (dir || 1);
     if (n === 0 && !PASSOS[0].s.some(function (i) { return secaoAtiva(secoes[i]); })) n = 1;
@@ -2615,6 +2644,41 @@ iniciar();
     };
     $$('#v2passos .p').forEach(function (p) { p.onclick = function () { var i = +p.dataset.i; if (i < passo) mostrarPasso(i); }; });
   }
+  /* ---------- computador (09/10/2026, modelo R7 da proposta visual): página única + coluna lateral ---------- */
+  function montarLado() {
+    var lado = document.createElement('aside'); lado.id = 'v2lado';
+    lado.innerHTML = '<div class="v2card" id="v2resumo"></div><div class="v2card" id="v2etapas"></div><div id="v2falta" class="aviso oculto"></div>';
+    form.appendChild(lado);
+    if (rodapeEnviar) lado.appendChild(rodapeEnviar);
+  }
+  function atualizarLado() {
+    if (!PC || !g('v2lado') || !visivel(form)) return;
+    var v = function (id) { return g(id) ? String(g(id).value || '').trim() : ''; };
+    var tipo = (document.querySelector('input[name=tipoPedido]:checked') || {}).value || '';
+    var un = g('unidade'); var unTxt = un && un.selectedIndex > 0 ? un.options[un.selectedIndex].text : '';
+    var pecas = itensDoPedido().filter(function (it) { return it.style.display !== 'none'; });
+    var nao = pecas.filter(function (it) { return it.dataset.nao === '1'; }).length;
+    var titulo = String((g('dicaTitulo') || {}).textContent || '').replace(/^.*?fica:\s*/i, '').trim();
+    if (/PLACA CARRO COR/.test(titulo)) titulo = '';
+    var kv = function (a, b) { return b ? '<div class="kv"><span>' + a + '</span><b>' + txt(b) + '</b></div>' : ''; };
+    var res = '<div class="cab"><span>O card vai se chamar</span><b>' + txt(titulo || v('placa').toUpperCase() || '—') + '</b></div>'
+      + kv('Quem paga', tipo === 'PARTICULAR' ? 'Cliente (particular)' : tipo === 'RETORNO' ? 'Oficina (retorno)' : 'Seguradora')
+      + kv('Unidade', unTxt) + kv('Oficina compra', (pecas.length - nao) + ' peça(s)') + (nao ? kv('Não comprar', String(nao)) : '');
+    if (g('v2resumo').dataset.h !== res) { g('v2resumo').innerHTML = res; g('v2resumo').dataset.h = res; }
+    var f1 = camposObrigatorios(PASSOS[0].s.map(function (i) { return secoes[i]; }));
+    var f2 = faltaNasPecas(); if (!pecas.length) f2.push('Inclua pelo menos uma peça');
+    var et = [['Orçamento e carro', f1.length ? 'falta ' + f1[0].toLowerCase() : ''], ['Peças', f2[0] || ''], ['Enviar', '']];
+    var atual = f1.length ? 0 : f2.length ? 1 : 2;
+    var eh = et.map(function (e, i) {
+      var cl = i < atual ? 'feito' : i === atual ? 'atual' : '';
+      return '<div class="et ' + cl + '"><span class="n">' + (i < atual ? '✓' : i + 1) + '</span><span class="t">' + e[0] + '</span>' + (i === atual && e[1] ? '<span class="d">' + txt(e[1]) + '</span>' : '') + '</div>';
+    }).join('');
+    if (g('v2etapas').dataset.h !== eh) { g('v2etapas').innerHTML = eh; g('v2etapas').dataset.h = eh; }
+    var falta = f1.concat(f2);
+    g('v2falta').classList.toggle('oculto', !falta.length);
+    g('v2falta').innerHTML = falta.length ? '<b>Falta acertar:</b> ' + txt(falta.slice(0, 3).join(' · ')) + (falta.length > 3 ? ' …' : '') : '';
+  }
+
   function montarConferencia() {
     var v = function (id) { return g(id) ? String(g(id).value || '').trim() : ''; };
     var tipo = (document.querySelector('input[name=tipoPedido]:checked') || {}).value || '';
@@ -2934,6 +2998,7 @@ iniciar();
 
   /* ---------- ligar tudo ---------- */
   function varrer() {
+    try { atualizarLado(); } catch (e) {}
     cartaoLeitura(g('anexosCard'), '📎 Já está no card', 'Toque em <b>Ler</b> para o sistema preencher o carro e as peças.', function (lista) {
       var sec = g('anexosCard').closest('section'); var h2 = sec && sec.querySelector('h2');
       if (h2) h2.insertAdjacentElement('afterend', lista); else g('anexosCard').insertAdjacentElement('beforebegin', lista);
