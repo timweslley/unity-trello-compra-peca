@@ -67,9 +67,21 @@ function vd_limparDescricao_(d) {
     .replace(/[()]/g, ' ')
     .replace(/\s*\*\s*$/, '')
     .replace(/\s+/g, ' ')
-    .replace(/\b([A-ZÀ-Ü0-9]{3,}) \1\b/g, '$1')   // "PORTA PORTA DIANTEIRA" (Websoma repete a palavra, 08/10/2026)
+    .replace(/\b([A-ZÀ-Ü0-9]{3,})(?: \1\b)+/g, '$1')   // "PORTA PORTA PORTA DIANTEIRA" (Websoma repete a palavra, 08/10/2026)
     .trim()
+    .replace(/^.{8,}$/, vd_tirarRepeticao_)
     .slice(0, 70);
+}
+
+// Websoma imprime a descrição em duas colunas e o OCR junta as duas: "PORTA DIANTEIRA LE PORTA DIANT",
+// "LAT. EXT. COMPLETO LE LAT. EXT. COMPLETO LE". Se o fim repete o começo (mesmo cortado), fica só o começo.
+function vd_tirarRepeticao_(d) {
+  var ws = String(d).split(' ');
+  for (var i = Math.ceil(ws.length / 2); i < ws.length; i++) {
+    var a = ws.slice(0, i).join(' '), b = ws.slice(i).join(' ');
+    if (b.length >= 4 && a.indexOf(b) === 0) return a;
+  }
+  return d;
 }
 
 /** "1.234,56" -> 1234.56 */
@@ -188,7 +200,7 @@ function vd_lerOrcamento_(texto) {
   }
 
   // ---------- Websoma / Porto ----------
-  if (/PECAS - TROCA/.test(U)) {
+  if (/PECAS - TROCA|LISTA DAS PECAS FORNECIDAS PELA SEGURADORA/.test(U)) {   // só FO (sem "PECAS - TROCA") também é Websoma (08/10/2026)
     r.origem = 'WEBSOMA';
     // Dois layouts: Websoma clássico ("PECAS - TROCA (FORNECIDAS PELA SEGURADORA)") e o ORÇAMENTO DETALHADO do
     // Soma/Porto/Azul (05/10/2026): "PECAS - TROCA (COMPRA PELA OFICINA)", "LISTA DAS PECAS FORNECIDAS PELA SEGURADORA"

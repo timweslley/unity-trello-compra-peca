@@ -354,7 +354,11 @@ Tesseract/serviço de OCR para imagem e PDF escaneado.
 |---|---|---|
 | Orçamento **HDI** | seções `PEÇAS FORNECIDAS PELA OFICINA` / `PELA HDI`; `VEICULO: … ANO PLACA:` | código, descrição, qtd, unitário, desconto % → líquido; placa, chassi, ano, modelo, cor, sinistro; FO |
 | Orçamento **Websoma/Soma/Porto** | `PEÇAS - TROCA (…)`, `LISTA DAS PEÇAS FORNECIDAS PELA SEGURADORA`, `LICENCA:` | código, descrição, tipo (REPOSIÇÃO/GENUÍNO…), qtd, bruto, desconto, líquido; FO com fornecedor/prazo da tabela STATUS DE ENTREGA |
-| Orçamento **Websoma/Porto detalhado** (08/10/2026, ATP5105) | mesma seção, códigos VW espaçados (`5U4/ 831055/D /CTR`) | leitor próprio `vd_websomaDetalhado_`: compacta o código (`5U4/831055/D/CTR`), descrição entre parênteses ou não, ignora `- Val. aaaa/aaaa`, junta complemento sem número (cor: "PRETO SATIN"), e quando vários códigos vêm seguidos antes das descrições casa-os em fila. Palavra repetida na descrição ("PORTA PORTA DIANTEIRA") vira uma. Nome curto do carro pula NOVO/NOVA ("NOVO GOL" → GOL) |
+| Orçamento **Websoma/Porto detalhado** (08/10/2026, ATP5105) | mesma seção (ou só `LISTA DAS PEÇAS FORNECIDAS PELA SEGURADORA`, quando o PDF é só a lista de FO), códigos VW espaçados (`5U4/ 831055/D /CTR`) | leitor próprio `vd_websomaDetalhado_`: compacta o código (`5U4/831055/D/CTR`), descrição entre parênteses ou não, ignora `- Val. aaaa/aaaa` e `*` antes do tipo, junta complemento sem número (cor: "PRETO SATIN"), e quando vários códigos vêm seguidos antes das descrições casa-os em fila (código solto na linha também vale). Palavra repetida ("PORTA PORTA PORTA DIANTEIRA") vira uma e descrição impressa em duas colunas ("PORTA DIANTEIRA LE PORTA DIANT", "LAT. EXT. COMPLETO LE LAT. EXT. COMPLETO LE") fica só a primeira. Nome curto do carro pula NOVO/NOVA ("NOVO GOL" → GOL) |
+| Orçamento **Tokio/Cilia layout DESCRICAO/CODIGO** (08/10/2026) | `DESCRICAO/CODIGO FORNECIMENTO` + `COD:` | linhas `T … qtd descrição COD: código OFICINA/SEGURADORA/CLIENTE R$ bruto % desc R$ líquido`; CLIENTE fica fora; valor = líquido |
+| Orçamento **Cilia** em fila (08/10/2026) | idem Cilia | quando o OCR imprime dois itens e depois os dois preços, cada preço (`OFICINA`/`SEGURADORA`) casa com o item mais antigo da fila; tipo colado no código e 2º código colado na descrição são separados |
+| Orçamento **HDI** (08/10/2026) | idem HDI | aceita código Ford com espaços, página cortada (sem total), cabeçalho até `DESCONTO (%)`; OCR que cola palavras ("PARALAMADIANT") é separado. PDF "Exibir Sinistro" salvo do navegador vem com texto ilegível (fonte quebrada) → **não lê**; a equipe deve anexar o print |
+| **Pneu** | só quando a descrição começa com `PNEU(S)`/`JOGO DE PNEUS`/`KIT PNEUS` ou traz medida (`185/65R15`) | medida, marca, categoria — "CALOTA DA RODA" ou "RODA DE AÇO" não viram pneu (08/10/2026) |
 | Orçamento **Cilia** | `FORNECIMENTO` + coluna T; `CASCO - MARCA - MODELO (..) ANO` | idem; `OFICINA`/`SEGURADORA` separa oficina/FO; siglas de tipo (GENUINA, ORIGINAL, PRO, PPO, PPG, PPC, PAR…); valor líquido = preço × (1 − desconto %) (número seguido de % é desconto, 07/10/2026) |
 | **Peças do sinistro** (portal HDI, PDF ou print) | `PEÇAS DO SINISTRO` / `Peças do Laudo` | tabela sem código: descrição, Prev.Entrega, Entrega, Fornecedor (tel./e-mail); linhas "Fornecido pela Oficina" ignoradas; casa com os itens FO do card **pela descrição** (`cp_similar_`); aceita texto em linha ou em colunas; ícones de ordenação do portal (☐ □ ▸) e rodapé (SAIR/FECHAR/INTRANET) ignorados; vários fornecedores numa linha só são separados por contato; data na linha de baixo é da peça de cima (07/10/2026, BXZ4J84 print) |
 | **Status do Pedido** (Cilia) | `STATUS DAS PEÇAS|PREVISÃO DE ENTREGA|STATUS DO PEDIDO` | por peça: código (`^[A-Z0-9]{6,20}$`, ≥4 dígitos), descrição, fornecedor (linha com " / " ou após "FORNECEDOR"; palavras de STATUS nunca viram fornecedor), previsão (só datas sem hora), entregue/data |
@@ -365,6 +369,14 @@ Tesseract/serviço de OCR para imagem e PDF escaneado.
 Serviços e códigos internos (`^0{2,}\d+$`, `^SOMA\d+$`) ficam fora. Valor líquido unitário entra como `ORÇ R$`.
 Orçamento complementar (ORÇ+): compara com as peças existentes → ➕ oficina nova, 📦 FO nova, 🔁 já pedida,
 🔁 passou de FO para oficina (sai do checklist), 🔄 atualizada (código/descrição/valor).
+
+**Treino do leitor** (`Treino.gs`, 08/10/2026): o robô percorre os cards (quadro principal + sistema antigo + arquivados),
+pega os PDFs de orçamento anexados (ignora NF, 📸, 🛒, 🚚 e nomes de nota/boleto/comprovante), faz OCR e guarda o texto em
+lotes JSON na pasta `Treino do leitor de orçamento` do Drive do robô (compartilhada só com a diretoria — nunca no
+repositório, que é público). Funções: `vdf_treinoLeitor` (coleta por rodadas de 4 min, retoma de onde parou),
+`vdf_treinoResumo` (quantos por tipo e ano), `vdf_treinoAmostrar` (amostra estratificada por tipo × ano),
+`vdf_treinoAvaliar` (roda o leitor atual sobre os textos e aponta os suspeitos: sem peça, sem código, valor zero,
+descrição curta). Serve para testar o leitor em todos os layouts antes de publicar uma mudança.
 
 ---
 
