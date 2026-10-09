@@ -1937,15 +1937,19 @@ function pz_executar_() {
       });
     });
     var melhor = null;
-    (pend.length ? pend : todos).forEach(function (it) { var t = new Date(it.due).getTime(); if (melhor === null || t > melhor) melhor = t; });
+    // 09/10/2026 (TBU8D71): "todas recebidas -> a maior de todas" só vale em coluna concluída; card que voltou ao fluxo com peça
+    // nova (sem item no checklist ainda) não pode herdar a previsão velha — cai na regra de entrada na coluna + N d.u.
+    (pend.length ? pend : (concluida ? todos : [])).forEach(function (it) { var t = new Date(it.due).getTime(); if (melhor === null || t > melhor) melhor = t; });
     var mudou = false, atual = c.due ? new Date(c.due).getTime() : 0, upd = {};
     if (melhor !== null) {
       // prazo do card = maior previsão entre as peças pendentes (todas recebidas: a maior de todas)
       if (Math.abs(atual - melhor) > 43200000) upd.due = new Date(melhor).toISOString();
-    } else if (!c.due || trocouColuna) {
+    } else if (!c.due || trocouColuna || !concluida) {
       // sem previsão de peça: N dias úteis a partir da entrada na coluna (07/10/2026)
       var entrada = pz_entradaColuna_(c, props), alvo = new Date(du_somarUteis_(PZ.DIAS_SEM_PREVISAO, entrada)).getTime();
-      if (Math.abs(atual - alvo) > 43200000) upd.due = new Date(alvo).toISOString();
+      // sem troca de coluna, só mexe quando o prazo atual é anterior à entrada na coluna (prazo velho de card que voltou)
+      var velho = !!c.due && atual < new Date(entrada).getTime();
+      if ((!c.due || trocouColuna || velho) && Math.abs(atual - alvo) > 43200000) upd.due = new Date(alvo).toISOString();
     }
     // concluído = card em ENCERRADO/ENTREGUES/PENDÊNCIA; volta para trás = desconcluído
     if ((c.due || upd.due) && !!c.dueComplete !== concluida) upd.dueComplete = concluida;
