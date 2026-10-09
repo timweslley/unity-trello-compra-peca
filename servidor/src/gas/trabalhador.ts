@@ -297,13 +297,30 @@ Object.assign(globalThis, {
   Logger, Utilities, PropertiesService, CacheService, UrlFetchApp, SpreadsheetApp, DriveApp, Drive, DocumentApp,
   LockService, MailApp, ScriptApp, ContentService, HtmlService, Session,
 });
+const ANTES = new Set(Object.keys(globalThis));
 vm.runInThisContext(readFileSync(arquivo, 'utf8'), { filename: 'formulario.gs.js' });
 const G = globalThis as unknown as Record<string, (...a: unknown[]) => unknown>;
+
+// 09/10/2026 — no Apps Script as variáveis globais do robô (VD_CMP_MEM, VD_ACOES, DU_CACHE, QT_PARTES…) nascem de novo a cada
+// execução; aqui o trabalhador vive entre chamadas e elas ficavam com valor velho (ex.: VD_CMP_MEM guardava a descrição completa
+// lida horas antes → cotações sumiam na aba Autorizar do principal, TBU8D71/BAT9F19). Guardamos o valor inicial de cada uma e
+// devolvemos antes de cada execução, como o Google faz.
+const INICIAIS = new Map<string, unknown>();
+for (const k of Object.keys(globalThis)) {
+  if (ANTES.has(k)) continue;
+  const v = (globalThis as Record<string, unknown>)[k];
+  if (typeof v === 'function') continue;
+  try { INICIAIS.set(k, structuredClone(v)); } catch { /* valor que não se copia: fica como está */ }
+}
+function renascerGlobais() {
+  for (const [k, v] of INICIAIS) (globalThis as Record<string, unknown>)[k] = v !== null && typeof v === 'object' ? structuredClone(v) : v;
+}
 
 parentPort!.on('message', (m: { id: number; tipo: 'post' | 'chamar' | 'gatilho'; corpo?: string; fn?: string; args?: unknown[] }) => {
   const t0 = Date.now();
   // leitura do quadro principal (07/10/2026): nada guardado de uma execução para outra — a planilha e o Trello são lidos de novo
   if (somenteLeitura) { ABAS.clear(); CACHE.clear(); }
+  renascerGlobais();
   try {
     let r: unknown;
     if (m.tipo === 'post') r = (G.doPost({ postData: { contents: m.corpo } }) as { texto: string }).texto;

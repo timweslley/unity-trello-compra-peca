@@ -16,6 +16,8 @@ function teste_escrita(card) {
 function teste_cache() { CacheService.getScriptCache().put('k', 'v', 60); return CacheService.getScriptCache().get('k'); }
 function teste_digest() { return Utilities.base64Encode(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, 'abc', Utilities.Charset.UTF_8)); }
 function teste_data() { return Utilities.formatDate(new Date(Date.UTC(2026, 9, 7, 15, 4, 5)), 'America/Sao_Paulo', "dd/MM/yyyy 'às' HH:mm:ss"); }
+var MEM_TESTE = null;
+function teste_global() { var antes = MEM_TESTE === null ? 'vazio' : MEM_TESTE.n; MEM_TESTE = { n: 'velho' }; return antes; }
 function teste_erro() { throw new Error('falhou de propósito'); }
 function doPost(e) {
   var out;

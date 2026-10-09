@@ -82,3 +82,11 @@ e comparar com `chamarGoogle('vdf_carregarCard', [TOKEN,'PikLFvQH'])`.
 **O que precisa:** em modo só leitura do principal, reler a TRAVA (e a FORNECEDORES) a cada chamada — ou pelo menos a linha
 do card pedido — e zerar `ABAS`/`CACHE` do trabalhador por chamada de verdade. Quando estiver corrigido e conferido com um
 card que acabou de receber cotação, religar em `powerup/config.js` (`LEITURA_SERVIDOR: 'todos'`).
+
+### Corrigido 09/10/2026 (sessão do servidor)
+
+Causa real: não era a aba em memória (`ABAS` já era zerada a cada chamada) — eram as **variáveis globais do robô**. No Apps Script
+`VD_CMP_MEM` (descrição completa "lida uma vez por execução"), `VD_ACOES`, `DU_CACHE`, `QT_PARTES` etc. nascem de novo a cada
+execução; no servidor o trabalhador vive entre chamadas e elas guardavam o valor da primeira leitura. Agora o trabalhador guarda o
+valor inicial de cada global do robô e o devolve antes de toda execução (TESTE e principal) — `servidor/src/gas/trabalhador.ts`,
+teste `variável global do robô nasce de novo` em `servidor/test/gas.test.ts`.

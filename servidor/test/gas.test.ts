@@ -61,6 +61,13 @@ describe.skipIf(!BANCO || !existsSync(DIST))('serviços do Google imitados', () 
     expect((await lp('teste_escrita', 'sAAAAAAA')).r).toMatch(/^403:servidor: no quadro principal o servidor só lê/);
     expect(ponte.LEITURAS_PRINCIPAL).toEqual(['vdf_iniciar', 'vdf_abrir', 'vdf_buscarPlaca', 'vdf_carregarCard']);
   });
+  it('variável global do robô nasce de novo a cada execução (como no Apps Script)', async () => {
+    expect((await post('teste_global')).r).toBe('vazio');
+    expect((await post('teste_global')).r).toBe('vazio');
+    const lp = async (fn: string) => JSON.parse(await ponte.executarLeituraPrincipal(JSON.stringify({ fn, args: [] })));
+    expect((await lp('teste_global')).r).toBe('vazio');
+    expect((await lp('teste_global')).r).toBe('vazio');
+  });
   it('erro do código do robô volta como {ok:false, erro}', async () => {
     expect(await post('teste_erro')).toEqual({ ok: false, erro: 'falhou de propósito' });
   });
