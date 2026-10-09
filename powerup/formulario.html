@@ -917,7 +917,10 @@ function telaComprador(c) {
   // quem não tem permissão vê a aba, mas só para consulta
   if (!c.podeAutorizar) somenteLeitura('painelAut', 'Só quem autoriza pode mexer aqui: diretoria (peças da seguradora) ou o consultor que lançou a peça particular.');
   var foItens = (c.recebiveis || []).filter(function (i) { return /^FORNECIMENTO/.test(i.lista); });
-  mostrar('abaForn', foItens.length > 0 || ABA_INICIAL === 'forn'); mostrar('fornAtalho', true); montarFornecimento(c, foItens);   // 07/10/2026: o botão 📎 Ler fica sempre (status de peça pode chegar antes do checklist)
+  // 07/10/2026: o botão 📎 Ler fica sempre (status de peça pode chegar antes do checklist); 09/10/2026 (Weslley): em card
+  // PARTICULAR ou RETORNO não há seguradora — bloco e aba de fornecimento escondidos (salvo se já houver item FO no card)
+  var semSeg = (c.tipo === 'PARTICULAR' || c.tipo === 'RETORNO') && !foItens.length;
+  mostrar('abaForn', !semSeg && (foItens.length > 0 || ABA_INICIAL === 'forn')); mostrar('fornAtalho', !semSeg); montarFornecimento(c, foItens);
   if (!COMPRADOR) {
     somenteLeitura('painelCot', 'Só o setor de compras (ou a diretoria) lança cotação.');
     somenteLeitura('painelCompra', 'Só o setor de compras (ou a diretoria) registra compra.');
