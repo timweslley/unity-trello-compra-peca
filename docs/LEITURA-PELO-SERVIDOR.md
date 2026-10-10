@@ -94,3 +94,12 @@ teste `variável global do robô nasce de novo` em `servidor/test/gas.test.ts`.
 **Conferido 09/10/2026 16:25** (versão `f72afe5`): `vdf_carregarCard` em 10 cards do principal mexidos hoje (inclusive BAT9F19), servidor ×
 Google: cotações, peças, autorizações e totais **iguais**. Única diferença: `anexos[].lido` (o servidor não enxerga as propriedades
 `VD_ANX3_` do Apps Script) — só muda o texto "(pode levar alguns segundos)" ao reler um anexo. **Religado para todos** em `powerup/config.js`.
+
+## Propriedades reais do principal (10/10/2026, Weslley autorizou)
+
+O contexto do principal no servidor usava as Propriedades do banco do TESTE — as sugestões de **local de estoque** e **quem retira**
+(abas Recebimento/Retirada, novas de 10/10) vinham vazias. Agora o Apps Script tem `vdf_propsServidor` (só leitura, só as chaves de
+`VDF_PROPS_SERVIDOR`, nunca token; exige membro do quadro) e o servidor pede a ele, guarda 5 min e entrega ao trabalhador a cada
+chamada. Diagnóstico: `/tarefas/execucoes` → `propsPrincipal`. Conferido 10/10 13:50: 4 cards do principal iguais ao Google
+(locais 8/8, quem retira 2/2; só `anexos[].lido` difere), `vdf_iniciar` igual. No principal só existem hoje RC_LOCAIS, RC_QUEM,
+TST_CARDS e VD_FIXO — compradores, autorizadores e financeiro usam o padrão do código (igual nos dois).
