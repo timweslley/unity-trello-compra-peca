@@ -2619,6 +2619,7 @@ iniciar();
 <script>
 (function () {
   if (!/[?&]srv=1(&|$)/.test(location.search)) return;          // só no quadro TESTE (servidor novo)
+  if (/[?&]v2=0(&|$)/.test(location.search)) return;            // conferência: abre a tela clássica (sem a camada 2.0) para comparar
   /* 09/10/2026 (Weslley): a 2.0 vale também no computador — antes só até 640 px, e no PC sobrava o visual antigo
      (título e Fechar repetidos, anexos numa linha embolada). Em tela larga ganha a classe v2pc (conteúdo centralizado). */
   var html = document.documentElement;
