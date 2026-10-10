@@ -423,10 +423,21 @@ function cp_doAnexo_(c, a, ctx) {
   var lp = vd_linhasPecas_(an.div.bloco);
   // nome padronizado para o anexo subido à mão (05/10/2026): orçamento (complementar se o card já tem peças) ou Status do Pedido
   ax_batizarLido_(card, a, r, !!(lp.linhas.length || (card.attachments || []).some(function (x) { return String(x.name || '').indexOf(AX.ORC + AX.SEP) === 0; })));
-  if (!r.orcamento) return false;
-  if (!lp.linhas.length && !lp.semOficina) return false;   // card sem lista: a importação normal cuida
   var placa = an.dados.placa;
-  if (!placa || !(r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) return false;
+  // 10/10/2026 (revisão): leitura que não serve não fica mais em silêncio — PDF em card que espera orçamento e não foi
+  // reconhecido, ou orçamento de OUTRA placa, ganham um comentário (uma vez por anexo; o anexo é marcado visto)
+  var listaNome = ''; try { listaNome = vd_nomeColuna_(vdf_nomeLista_(ctx, card.idList)); } catch (e) {}
+  if (!r.orcamento) {
+    if (/pdf/i.test(a.mimeType || '') && /FALTA DADOS/i.test(listaNome)) {
+      try { vd_comentar_(card, '📄 Li o anexo «' + a.name + '» mas não reconheci um orçamento de seguradora (Cilia, HDI ou Websoma/Porto)' + (r.doc ? ' — parece ' + (r.docNome || 'outro documento') : '') + '. Se for o orçamento, anexe o PDF original do sistema da seguradora (ou um print legível da lista de peças).'); } catch (e) {}
+    }
+    return false;
+  }
+  if (!lp.linhas.length && !lp.semOficina) return false;   // card sem lista: a importação normal cuida
+  if (!placa || !(r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) {
+    if (placa && (r.placas || []).length) { try { vd_comentar_(card, '📄 O anexo «' + a.name + '» é um orçamento (' + r.orcamento + ') da placa **' + r.placas.join(' / ') + '**, não deste card (' + placa + ') — não importei. Se for outro carro, anexe no card certo.'); } catch (e) {} }
+    return false;
+  }
   var orc = r.orcFull || (r.orc ? { oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : null);
   if (!orc) return false;
   orc = vd_orcCss_(orc, card.name);   // CSS (Zacarias): tudo é FO (08/10/2026)

@@ -132,13 +132,19 @@ function ck_executar_() {
     acts.forEach(function (a) { var d = a.data || {}; [d.card && d.card.id, d.card && d.card.shortLink, d.checklist && d.checklist.id].forEach(function (i) { if (i && ids.indexOf('ck_' + i) < 0) ids.push('ck_' + i); }); });
     cache = CacheService.getScriptCache().getAll(ids);
   } catch (e) {}
-  var avisos = {}, tocados = [], n = 0;
+  var avisos = {}, tocados = [], n = 0, manuais = {};
   acts.slice().reverse().forEach(function (a) {
     var cardId = a.data && a.data.card && a.data.card.id;
     if (!cardId) return;
     if (vd_legado_(cardId)) return;   // card antigo: segue o jeito antigo
     if (tocados.indexOf(cardId) < 0) tocados.push(cardId);
     if (ck_licenciada_(a, cache)) return;
+    // 10/10/2026 (revisão, 36 ✔ desfeitos em 5 dias): ✔ marcado direto no Trello num item PAGAS*/FORNECIMENTO* por quem pode
+    // receber vale como recebimento de hoje (comentário, evento, coluna) em vez de ser desfeito — ck_aceitarManual_
+    if (a.type === 'updateCheckItemStateOnCard' && a.data.checkItem && a.data.checkItem.state === 'complete' && /^(PAGAS|FORNECIMENTO)/i.test(String((a.data.checklist || {}).name || '').trim()) && vd_prop_('CK_ACEITA_OK', 'SIM') !== 'NAO') {
+      var quemM = a.memberCreator ? a.memberCreator.username : '';
+      if (quemM) { (manuais[cardId] = manuais[cardId] || { card: a.data.card, quem: quemM, nome: (a.memberCreator && a.memberCreator.fullName) || quemM, itens: [], acoes: [] }).itens.push(a.data.checkItem); manuais[cardId].acoes.push(a); return; }
+    }
     var txt = '';
     try { txt = ck_desfazer_(a); } catch (e) { txt = /\b404\b/.test(String(e.message || e)) ? '' : 'não consegui desfazer (' + String(e.message || e).slice(0, 60) + ')'; }   // 404 = o item já sumiu (checklist apagado antes): nada a desfazer
     if (!txt) return;
@@ -149,6 +155,21 @@ function ck_executar_() {
     try { ev_registrar_('CHECKLIST DESFEITO', { name: a.data.card.name, shortLink: a.data.card.shortLink, labels: [] }, quem || '?', null, { detalhe: txt }); } catch (e) {}
   });
   vd_marcaSet_('CK_DESDE', acts[0].id);
+  // ✔ manual aceito como recebimento (quem não pode receber: desfeito como antes)
+  Object.keys(manuais).forEach(function (id) {
+    var m = manuais[id], aceitos = [];
+    try { aceitos = ck_aceitarManual_(id, m); } catch (e) { console.log('✔ manual: ' + e); }
+    m.acoes.forEach(function (a) {
+      if (aceitos.indexOf(a.data.checkItem.id) >= 0) return;
+      var txt = '';
+      try { txt = ck_desfazer_(a); } catch (e) { txt = /\b404\b/.test(String(e.message || e)) ? '' : 'não consegui desfazer (' + String(e.message || e).slice(0, 60) + ')'; }
+      if (!txt) return;
+      n++;
+      var av = avisos[id] || (avisos[id] = { card: a.data.card, quem: m.quem, itens: [] });
+      av.itens.push(txt);
+      try { ev_registrar_('CHECKLIST DESFEITO', { name: a.data.card.name, shortLink: a.data.card.shortLink, labels: [] }, m.quem || '?', null, { detalhe: txt }); } catch (e) {}
+    });
+  });
   Object.keys(avisos).forEach(function (id) {
     var av = avisos[id];
     try {

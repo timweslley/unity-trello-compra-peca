@@ -107,7 +107,7 @@ function vdf_alterarPrevisao(token, p) {
 
 /** "CÓDIGO DESCRIÇÃO" de um item do FORNECIMENTO (tira fornecedor e situação do fim). */
 function pv_baseFo_(nome, lista) {
-  var b = String(nome || '').replace(/\s+[-—]\s+(EM COTA[ÇC][ÃA]O.*|B\.?O\.?\b.*)$/i, '').trim();
+  var b = rc_semMarcas_(nome).replace(/\s+[-—]\s+(EM COTA[ÇC][ÃA]O.*|B\.?O\.?\b.*)$/i, '').trim();   // sem 📍/✋ (10/10/2026)
   b = b.replace(/^(\d{5,})(?=[A-Z])/i, '$1 ');   // código grudado na descrição (OCR do Cilia, 05/10/2026: "100260230EMBLEMA ...")
   // sufixo " - FORNECEDOR": testa do pedaço mais comprido para o mais curto, porque o fornecedor lido do
   // portal pode ter " - " e "/" dentro ("MEDIADORA - PRISMATEC / DUNA FIAT", 05/10/2026)
@@ -169,9 +169,10 @@ function vdf_atualizarFornecimento(token, p) {
       querNome = true; txt.push('código → ' + codNovo);
     }
     if (querNome) {
-      var antigoForn = (String(it.name).slice(baseOrig.length).match(/^\s+-\s+([^-—]+?)(?:\s+[-—]|$)/) || [])[1] || '';
-      var nm = nomeNovo(base, { fornecedor: x.fornecedor !== undefined ? x.fornecedor : antigoForn, situacao: x.situacao });
-      if (nm !== it.name) { mud.name = nm; txt.push(nm.slice(base.length).replace(/^\s+[-—]\s+/, '') || 'sem fornecedor'); }
+      var marcasIt = rc_marcas_(it.name);   // 📍 local / ✋ retirada no fim do nome ficam (10/10/2026)
+      var antigoForn = (marcasIt.base.slice(baseOrig.length).match(/^\s+-\s+([^-—]+?)(?:\s+[-—]|$)/) || [])[1] || '';
+      var nm = rc_comMarcas_(nomeNovo(base, { fornecedor: x.fornecedor !== undefined ? x.fornecedor : antigoForn, situacao: x.situacao }), marcasIt);
+      if (nm !== it.name) { mud.name = nm; txt.push(rc_semMarcas_(nm).slice(base.length).replace(/^\s+[-—]\s+/, '') || 'sem fornecedor'); }
     }
     if (x.previsao) {
       var nova = pv_data_(x.previsao), velha = it.due || '';

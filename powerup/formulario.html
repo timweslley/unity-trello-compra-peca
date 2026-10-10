@@ -491,8 +491,14 @@
     <div id="painelRec" class="oculto">
       <section>
         <h2>Recebimento — marque o que chegou</h2>
-        <div class="dica" style="margin-bottom:10px">Marque cada peça que chegou, confira a data e, se precisar, escreva uma observação e anexe foto ou nota <b>da peça</b>. A chegada é comparada com a previsão (dias úteis) e fica registrada no card. Quando tudo chegar, o card segue sozinho.</div>
+        <div class="dica" style="margin-bottom:10px">Marque cada peça que chegou, confira a data, diga <b>onde guardou</b> (prateleira) e, se precisar, escreva uma observação e anexe foto ou nota <b>da peça</b>. A chegada é comparada com a previsão (dias úteis) e fica registrada no card. Quando tudo chegar, o card segue sozinho.</div>
         <div id="recItens"></div>
+        <datalist id="dlLocais"></datalist>
+      </section>
+      <section id="secRecebidas" class="oculto">
+        <h2>Peças já recebidas — local, retirada, devolução</h2>
+        <div class="dica" style="margin-bottom:10px">Para cada peça que já chegou: onde está guardada (📍), quem a retirou e quando (✋ — funileiro, outra unidade, montagem), ou se voltou ao fornecedor (↩️ — peça errada, avariada, incompatível). Devolução de peça comprada cancela a compra: a peça volta a aparecer como autorizada e precisa de compra nova.</div>
+        <div id="recJa"></div>
       </section>
       <section>
         <h2>Nota fiscal ou fotos de várias peças</h2>
@@ -1248,19 +1254,41 @@ function montarRecebimento(c) {
       box.appendChild(g);
     }
     var d = document.createElement('div'); d.className = 'item'; d.dataset.id = it.id;
-    d.innerHTML = '<div class="item-topo"><label class="chip"><input type="checkbox" class="r-ok" onchange="this.parentNode.classList.toggle(\'marcado\', this.checked)"> Chegou</label> <strong style="margin-left:6px">' + esc(it.nome) + '</strong></div>'
+    d.innerHTML = '<div class="item-topo"><label class="chip"><input type="checkbox" class="r-ok" onchange="this.parentNode.classList.toggle(\'marcado\', this.checked)"> Chegou</label> <strong style="margin-left:6px">' + esc(it.base || it.nome) + '</strong>' + (it.devolvida ? ' <span class="selo preco">↩️ devolvida ' + esc(it.devolvida) + '</span>' : '') + '</div>'
       + '<div class="grade" style="margin-top:6px"><div><label>Data da chegada</label><input type="date" class="r-data" value="' + hojeISO() + '" max="' + hojeISO() + '"></div>'
       + '<div><label>Previsão</label><div class="dica" style="padding-top:10px">' + (it.dueTxt ? esc(it.dueTxt) : 'sem previsão') + '</div></div>'
-      + '<div class="inteiro"><label>Observação da peça (opcional)</label><input type="text" class="r-obs" placeholder="Ex.: veio sem suporte; cor diferente"></div>'
+      + '<div><label>📍 Onde guardou (prateleira)</label><input type="text" class="r-local maiusc" list="dlLocais" maxlength="16" placeholder="Ex.: D3"></div>'
+      + '<div><label>Observação da peça (opcional)</label><input type="text" class="r-obs" placeholder="Ex.: veio sem suporte; cor diferente"></div>'
       + '<div class="inteiro"><label>Foto / nota só desta peça (opcional)</label><input type="file" multiple accept="image/*,application/pdf,.xml" onchange="recAnexar(this, \'' + it.id + '\')"><div class="dica r-arqs"></div></div></div>';
     box.appendChild(d);
   });
-  if (ja.length) {
-    var j = document.createElement('div'); j.className = 'dica'; j.style.marginTop = '10px';
-    j.innerHTML = '✔ Já recebidas: ' + ja.map(function (i) { return esc(i.nome.split(' - ')[0]); }).join(' · ');
-    box.appendChild(j);
-  }
+  // locais já usados (sugestão)
+  var dl = $('dlLocais'); if (dl) dl.innerHTML = (c.locais || []).map(function (l) { return '<option value="' + esc(l) + '">'; }).join('');
+  // peças já recebidas: local, retirada, devolução (10/10/2026)
+  var jaBox = $('recJa'); jaBox.innerHTML = '';
+  mostrar('secRecebidas', ja.length > 0);
+  ja.forEach(function (it) {
+    var d = document.createElement('div'); d.className = 'item'; d.dataset.id = it.id;
+    var nm = 'rj_' + it.id;
+    d.innerHTML = '<div class="item-topo"><strong>✔ ' + esc(it.base || it.nome) + '</strong>' + (it.local ? ' <span class="selo preco">📍 ' + esc(it.local) + '</span>' : '') + (it.retirada ? ' <span class="selo preco">✋ ' + esc(it.retirada) + '</span>' : '') + '</div>'
+      + '<div class="chips" style="margin-top:6px">'
+      + '<label class="chip"><input type="radio" name="' + nm + '" class="j-acao" value="" checked onchange="recJaTroca(this)"> nada a mudar</label>'
+      + '<label class="chip"><input type="radio" name="' + nm + '" class="j-acao" value="local" onchange="recJaTroca(this)"> 📍 local</label>'
+      + (it.retirada ? '' : '<label class="chip"><input type="radio" name="' + nm + '" class="j-acao" value="retirada" onchange="recJaTroca(this)"> ✋ retirada</label>')
+      + '<label class="chip"><input type="radio" name="' + nm + '" class="j-acao" value="devolvida" onchange="recJaTroca(this)"> ↩️ devolvida ao fornecedor</label></div>'
+      + '<div class="grade j-local oculto" style="margin-top:6px"><div><label>📍 Onde está guardada</label><input type="text" class="r-local maiusc" list="dlLocais" maxlength="16" value="' + esc(it.local || '') + '"></div></div>'
+      + '<div class="grade j-ret oculto" style="margin-top:6px"><div><label>Quem retirou <span class="obr">*</span></label><input type="text" class="r-quem maiusc" maxlength="24" placeholder="Ex.: LEOMAR; CASCAVEL; MONTAGEM"></div><div><label>Quando</label><input type="date" class="r-rdata" value="' + hojeISO() + '" max="' + hojeISO() + '"></div></div>'
+      + '<div class="grade j-dev oculto" style="margin-top:6px"><div class="inteiro"><label>Motivo da devolução <span class="obr">*</span></label><input type="text" class="r-motivo" placeholder="Ex.: veio o lado errado; chegou avariada; incompatível com o carro"></div></div>';
+    jaBox.appendChild(d);
+  });
   dicasColar();
+}
+function recJaTroca(r) {
+  var d = r.closest('.item'), v = r.value;
+  Array.prototype.forEach.call(d.querySelectorAll('.j-acao'), function (x) { x.parentNode.classList.toggle('marcado', x.checked); });
+  d.querySelector('.j-local').classList.toggle('oculto', v !== 'local');
+  var jr = d.querySelector('.j-ret'); if (jr) jr.classList.toggle('oculto', v !== 'retirada');
+  d.querySelector('.j-dev').classList.toggle('oculto', v !== 'devolvida');
 }
 function recAnexar(inp, idItem) {
   var files = Array.prototype.slice.call(inp.files || []);
@@ -1294,19 +1322,32 @@ function recMarcarAnexo(cb) {
 }
 function enviarRecebimento() {
   mostrar('erroComprador', false);
-  var itens = [];
+  var itens = [], locais = [], retiradas = [], devolucoes = [], faltas = [];
   Array.prototype.forEach.call($('recItens').querySelectorAll('.item'), function (d) {
     if (!d.querySelector('.r-ok').checked) return;
-    itens.push({ id: d.dataset.id, data: d.querySelector('.r-data').value, obs: d.querySelector('.r-obs').value.trim() });
+    itens.push({ id: d.dataset.id, data: d.querySelector('.r-data').value, obs: d.querySelector('.r-obs').value.trim(), local: ((d.querySelector('.r-local') || {}).value || '').trim() });
   });
-  if (!itens.length && !REC_ANEXOS.length) return errosComprador(['Marque pelo menos uma peça que chegou (ou anexe a nota/foto).']);
+  // peças já recebidas: local / retirada / devolução (10/10/2026)
+  Array.prototype.forEach.call($('recJa').querySelectorAll('.item'), function (d) {
+    var a = (d.querySelector('.j-acao:checked') || {}).value || '', nome = d.querySelector('.item-topo strong').textContent.slice(0, 50);
+    if (a === 'local') { var l = d.querySelector('.j-local .r-local').value.trim(); if (!l) faltas.push(nome + ': escreva o local.'); else locais.push({ id: d.dataset.id, local: l }); }
+    else if (a === 'retirada') { var q = d.querySelector('.r-quem').value.trim(); if (!q) faltas.push(nome + ': informe quem retirou.'); else retiradas.push({ id: d.dataset.id, quem: q, data: d.querySelector('.r-rdata').value }); }
+    else if (a === 'devolvida') { var m = d.querySelector('.r-motivo').value.trim(); if (!m) faltas.push(nome + ': escreva o motivo da devolução.'); else devolucoes.push({ id: d.dataset.id, motivo: m }); }
+  });
+  if (faltas.length) return errosComprador(faltas);
+  if (!itens.length && !REC_ANEXOS.length && !locais.length && !retiradas.length && !devolucoes.length) return errosComprador(['Marque pelo menos uma peça que chegou (ou anexe a nota/foto, ou informe local / retirada / devolução de uma peça já recebida).']);
   var semPeca = REC_ANEXOS.filter(function (a) { return !a.ids.length; });
   if (semPeca.length) return errosComprador(['Marque a quais peças se refere: ' + semPeca.map(function (a) { return a.nome; }).join(', ')]);
+  if (devolucoes.length && !confirm('Devolver ' + devolucoes.length + ' peça(s) ao fornecedor? Peça comprada tem a compra cancelada e precisa de compra nova.')) return;
   $('btnRec').disabled = true; mostrar('enviandoRec', true);
-  chamar('vdf_salvarRecebimento', TOKEN, { shortLink: CARD_EDICAO, itens: itens, anexos: REC_ANEXOS, geral: $('recGeral').value.trim() }).then(function (r) {
+  chamar('vdf_salvarRecebimento', TOKEN, { shortLink: CARD_EDICAO, itens: itens, anexos: REC_ANEXOS, geral: $('recGeral').value.trim(), locais: locais, retiradas: retiradas, devolucoes: devolucoes }).then(function (r) {
     $('btnRec').disabled = false; mostrar('enviandoRec', false);
     if (!r.ok) return errosComprador(r.faltas);
-    sucesso('📦 Recebimento registrado no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s)' + (r.anexos ? ', ' + r.anexos + ' anexo(s)' : '') + '.' + (r.faltam ? '<br>Ainda falta chegar ' + r.faltam + ' item(ns).' : '<br>✅ Todas as peças chegaram.') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+    var extras = [];
+    if (r.locais) extras.push(r.locais + ' local(is) de estoque');
+    if (r.retiradas) extras.push(r.retiradas + ' retirada(s)');
+    if (r.devolucoes) extras.push(r.devolucoes + ' devolução(ões)');
+    sucesso('📦 Registrado no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s) recebida(s)' + (r.anexos ? ', ' + r.anexos + ' anexo(s)' : '') + (extras.length ? ', ' + extras.join(', ') : '') + '.' + (r.faltam ? '<br>Ainda falta chegar ' + r.faltam + ' item(ns).' : '<br>✅ Todas as peças chegaram.') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
   }).catch(function (e) { $('btnRec').disabled = false; mostrar('enviandoRec', false); errosComprador([e.message]); });
 }
 
@@ -1504,7 +1545,7 @@ function montarCompra(c) {
     if (ja) {
       h += '<div class="comprado">✔ já comprado: ' + esc(ja.nome) + (ja.due ? ' — previsão ' + esc(ja.due) : '') + (ja.ok ? ' (recebido)' : '') + '</div>';
       var rv = (c.recebiveis || []).filter(function (r) { return /^PAGAS/.test(r.lista) && semAc(r.nome).indexOf(p.chave) >= 0; })[0];
-      if (rv && !rv.ok) h += botaoPrev('PAGAS', rv.id, rv.dueIso, 'data');
+      if (rv && !rv.ok) h += botaoPrev('PAGAS', rv.id, rv.dueIso, 'data') + botaoCancelar(rv.id);
       h += complBloco(p, c);
     }
     else if (!minhas.length) h += '<div class="dica ruim">Sem cotação lançada para esta peça — lance na aba Cotação.</div>';
@@ -1568,6 +1609,25 @@ function botaoPrev(tipo, ref, atual, campo) {
     + '<button type="button" class="principal" style="margin-top:8px" onclick="enviarPrev(this)">Salvar previsão</button></div>';
 }
 function abrirPrev(btn) { var b = btn.parentNode.nextElementSibling; b.classList.toggle('oculto'); }
+/* compra cancelada (10/10/2026): fornecedor cancelou / compra desfeita antes de a peça chegar — o item PAGAS sai, a peça volta a
+ * aparecer como autorizada e o card volta para AUTORIZADO COMPRA. Peça que já chegou e voltou: aba 📦 Recebimento → ↩️ devolvida. */
+function botaoCancelar(idItem) {
+  return '<div style="margin-top:6px"><button type="button" class="mini" onclick="abrirPrev(this)">❌ compra cancelada</button></div>'
+    + '<div class="cancel oculto" data-id="' + esc(idItem) + '" style="margin-top:8px;padding:10px;border:1px dashed #c9372c;border-radius:8px">'
+    + '<label>Motivo (obrigatório)</label><input type="text" class="c-motivo" placeholder="Ex.: fornecedor cancelou o pedido; sem estoque; pagamento não aprovado">'
+    + '<div class="dica" style="margin-top:4px">A peça volta a aparecer como autorizada, sem compra; registre a compra nova nesta aba depois.</div>'
+    + '<button type="button" class="principal" style="margin-top:8px" onclick="enviarCancelamento(this)">Confirmar cancelamento</button></div>';
+}
+function enviarCancelamento(btn) {
+  var box = btn.closest('.cancel'), motivo = box.querySelector('.c-motivo').value.trim();
+  if (!motivo) return errosComprador(['Escreva o motivo do cancelamento — vai para o card.']);
+  btn.disabled = true; btn.textContent = 'Cancelando…';
+  chamar('vdf_cancelarCompra', TOKEN, { shortLink: CARD_EDICAO, id: box.dataset.id, motivo: motivo }).then(function (r) {
+    btn.disabled = false; btn.textContent = 'Confirmar cancelamento';
+    if (!r.ok) return errosComprador(r.faltas);
+    sucesso('❌ Compra cancelada no card <b>' + esc(r.nome) + '</b>.' + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+  }).catch(function (e) { btn.disabled = false; btn.textContent = 'Confirmar cancelamento'; errosComprador([e.message]); });
+}
 function enviarPrev(btn) {
   var box = btn.closest('.prev'), tipo = box.dataset.tipo, motivo = box.querySelector('.p-motivo').value.trim();
   var item = { tipo: tipo, motivo: motivo };
@@ -1583,7 +1643,9 @@ function enviarPrev(btn) {
 }
 
 /* ---------- fornecimento da seguradora (FO) ---------- */
-function baseFo(nome) { return String(nome || '').replace(/\s+[-—]\s+(EM COTA[ÇC][ÃA]O.*|B\.?O\.?\b.*)$/i, ''); }
+/* marcas 📍 local / ✋ retirada / ↩️ devolvida no fim do nome do item (10/10/2026) ficam fora da leitura do fornecedor/situação */
+function semMarcas(nome) { return String(nome || '').replace(/\s*·\s*(?:📍|✋|↩️)\s*[^·]*/g, '').trim(); }
+function baseFo(nome) { return semMarcas(nome).replace(/\s+[-—]\s+(EM COTA[ÇC][ÃA]O.*|B\.?O\.?\b.*)$/i, ''); }
 function montarFornecimento(c, itens) {
   var box = $('fornItens'); box.innerHTML = '';
   // anexos que já estão no card (PDF/foto): lê sem subir de novo (05/10/2026)
@@ -1597,7 +1659,7 @@ function montarFornecimento(c, itens) {
     if (it.lista !== grupo) { grupo = it.lista; var g = document.createElement('div'); g.className = 'grupo part'; g.textContent = grupo === 'FORNECIMENTO' ? '📦 Fornecimento (FO)' : '📦➕ Fornecimento — complemento'; box.appendChild(g); }
     var b = baseFo(it.nome), m = b.match(/^(.*\S)\s+-\s+([^-]+)$/);
     var forn = m && !/\d{4,}/.test(m[2]) ? m[2].trim() : '';
-    var sit = /EM COTA/i.test(it.nome) ? 'EM COTAÇÃO' : (/B\.?O\.?/.test(it.nome.replace(b, '')) ? 'BO' : '');
+    var sit = /EM COTA/i.test(it.nome) ? 'EM COTAÇÃO' : (/B\.?O\.?/.test(semMarcas(it.nome).replace(b, '')) ? 'BO' : '');
     // peça já recebida com data: a previsão fica como está (só fornecedor/código/descrição atualizam) — 06/10/2026
     var fechada = !!(it.ok && it.dueIso);
     var d = document.createElement('div'); d.className = 'item'; d.dataset.id = it.id; d.dataset.due = it.dueIso || ''; d.dataset.forn = forn; d.dataset.sit = sit; d.dataset.ok = it.ok ? '1' : '';

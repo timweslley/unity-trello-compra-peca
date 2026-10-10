@@ -344,6 +344,7 @@ function vdf_montarCard_(c, lista, me) {
     podeDevolver: vdf_podeDevolver_(me, c, an),
     fornecedores: fo_paraFormulario_(),
     recebiveis: (function () { try { return vdf_itensRecebimento_(c).map(function (i) { i.dueTxt = i.due ? vd_dataCurta_(i.due) : ''; i.dueIso = i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : ''; return i; }); } catch (e) { return []; } })(),
+    locais: rc_locais_(),   // locais de estoque já usados (sugestão na aba Recebimento, 10/10/2026)
     particular: vdf_ehParticular_(c, an),
     diretoria: vdf_ehAutorizador_(me), podeComprar: vdf_podeComprar_(me), podeReceber: vdf_podeReceber_(me, c), ordemAut: vdf_temOrdemAut_(c), solicitante: criador || '',
     ordem: vdf_ordemDoCard_(c), unidadeId: vdf_unidadeDoCard_(c),

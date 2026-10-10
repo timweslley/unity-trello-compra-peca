@@ -142,8 +142,11 @@ sinistro e importa as peças do orçamento (seção 6).
   entra na ESPERA vindo de coluna livre (10/10/2026 — antes ficava para sempre e devolvia o card indevidamente numa
   passagem seguinte).
 - **Descrição** (`tr_executar_`): edição manual é restaurada da cópia oficial; aviso no máximo 1×/h por card.
-- **Checklist** (`ck_executar_`): ✔, nome, data, item ou checklist alterado à mão é desfeito. O ✔ de chegada só
-  pela aba Recebimento.
+- **Checklist** (`ck_executar_`): nome, data, item ou checklist alterado à mão é desfeito. **✔ marcado à mão** num item
+  PAGAS*/FORNECIMENTO* por quem pode receber naquele card vale como **recebimento de hoje** (10/10/2026, 36 ✔ desfeitos em
+  5 dias): comentário "📦 RECEBIMENTO — Fulano (✔ marcado no Trello)" com atraso x previsão e a dica da aba, evento
+  RECEBIMENTO, coluna reavaliada (`ck_aceitarManual_`; `CK_ACEITA_OK = NAO` volta a desfazer). Quem não pode receber (ex.:
+  consultor em Toledo) continua tendo o ✔ desfeito. Desmarcar ✔ à mão continua sendo desfeito.
 - **Exclusão**: ver 2.2. Para tirar um card do quadro, **arquivar**.
 
 ### 2.5 Prazos, etiquetas e avisos automáticos
@@ -378,7 +381,8 @@ Trello do usuário (guardado no navegador).
 | 💰 Cotação | `vdf_salvarCotacao` (`parcial` true/false) | por peça: fornecedor (autocompleta do cadastro), tipo/marca, valor, prazo d.u., link, obs, "sem cotação: motivo"; NT por fornecedor; remover cotação. Dois botões: **Salvar parcial** (guarda aos poucos, card fica em EM COTAÇÃO) e **Enviar cotação** (exige cobertura total; card anda) |
 | ✅ Autorizar | `vdf_autorizar` (`escolhas`, `marcas`, `parcial`), `vdf_devolverCotacao` | por peça: escolher cotação (menor preço pré-marcada; selos 💲 menor preço / ⏱ menor prazo; valor do orçamento e economia), não autorizar, obs; obs geral; devolver com motivo. **Diretoria** também marca ➕ complemento / 🚫 não comprar (com motivo) direto na aba (07/10/2026): troca só a linha da peça na descrição, atualiza a base de peça nova, comenta; só marcas sem autorização reavalia a coluna. Peça já autorizada com a mesma cotação marcada **não é reenviada** (revisão 07/10/2026) |
 | 🛒 Compra | `vdf_salvarCompra` (`parcial`, `compras[].anexos`, `anexosExtra`), `vdf_cotacaoIndisponivel`, `vdf_marcarOrdemAutorizada`, `vdf_avisarSolicitante`, `vdf_alterarPrevisao` | marcar peças compradas (previsão por data ou d.u.), links 🔗 dos anúncios informados na cotação (na linha da autorizada e abaixo da lista, 07/10/2026), **print/arquivo da negociação e pagamento por peça** (escolher arquivo ou Ctrl+V na peça; sobe na hora, vai para o card no Salvar parcial/Enviar como `🛒 COMPRA · …`, mesmo em peça ainda sem compra escolhida; 08/10/2026), justificar fora da autorização, cotação indisponível + nova cotação, ordem autorizada, aviso ao solicitante (Databox), alterar prazo autorizado com motivo |
-| 📦 Recebimento | `vdf_salvarRecebimento` | ✔ por item com data, obs, foto/NF da peça; obs geral |
+| 📦 Recebimento | `vdf_salvarRecebimento` | ✔ por item com data (data futura é erro), **📍 onde guardou** (prateleira; sugere os locais já usados — `RC_LOCAIS`), obs, foto/NF da peça; obs geral. Bloco **Peças já recebidas** (10/10/2026): por peça, **📍 local**, **✋ retirada** (quem levou — funileiro, unidade, montagem — e quando) ou **↩️ devolvida ao fornecedor** (motivo): peça PAGAS devolvida tem a **compra cancelada** (item sai do checklist, evento COMPRA CANCELADA, card volta para AUTORIZADO COMPRA, precisa de compra nova); peça FO devolvida volta a pendente com a marca "↩️ DEVOLVIDA dd/MM" (evento DEVOLUÇÃO FO). Local e retirada ficam no fim do nome do item (`· 📍 D3 · ✋ LEOMAR 10/10`), aparecem na vitrine ao lado do 🛒 e geram evento RETIRADA |
+| 🛒 Compra — **❌ compra cancelada** | `vdf_cancelarCompra` (10/10/2026) | peça comprada ainda não recebida: motivo obrigatório; item PAGAS sai, evento COMPRA CANCELADA, comentário "❌ COMPRA CANCELADA … verificar compra do item", card em FALTA CHEGAR volta para AUTORIZADO COMPRA (`rc_reavaliarColuna_` com `semCompra`) |
 | 🚚 Fornecimento | `vdf_atualizarFornecimento`, `vdf_lerFornecimento`, `vdf_lerFornecimentoAnexo` | por item FO: fornecedor, previsão, situação (em cotação / B.O.), motivo (só se adiar); leitura de "Status do Pedido" (Cilia/HDI/Soma) por upload ou de anexo já no card; peças FO novas do documento |
 | Todas as abas | — | links 📎 dos anexos originais; atalho de upload do fornecimento; **colar com Ctrl+V** (print, foto, PDF ou arquivo copiado) vai para o campo de anexo mais próximo do último clique, senão para o da aba aberta (07/10/2026) |
 
@@ -416,7 +420,11 @@ Orçamento complementar (ORÇ+): compara com as peças existentes → ➕ oficin
 consultor já decidiu por ela (09/10/2026, STG3I57: o robô repetiu dois alojamentos "não comprar"). O PDF de orçamento
 que o **formulário** leu e importou (`orc`/`orc+`) é marcado como já visto (`CP_VISTOS`) em todo salvamento, não só no
 complementar: antes, orçamento subido pelo formulário mais de 30 min depois do card criado era relido pelo robô como
-complementar.
+complementar. Leitura que não serve não fica em silêncio (10/10/2026): PDF anexado em card em FALTA DADOS que não é
+reconhecido como orçamento → "📄 Li o anexo «x» mas não reconheci um orçamento…"; orçamento de **outra placa** → "📄 O anexo
+«x» é um orçamento da placa Y, não deste card" (uma vez por anexo).
+
+Tipos de evento novos (10/10/2026): RETIRADA, COMPRA CANCELADA, DEVOLUÇÃO FO.
 
 **Treino do leitor** (`Treino.gs`, 08/10/2026): o robô percorre os cards (quadro principal + sistema antigo + arquivados),
 pega os PDFs de orçamento anexados (ignora NF, 📸, 🛒, 🚚 e nomes de nota/boleto/comprovante), faz OCR e guarda o texto em
