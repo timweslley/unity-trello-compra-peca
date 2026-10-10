@@ -49,7 +49,7 @@ function st_executar_() {
   var ls = vd_listas_(board), nome = {};
   Object.keys(ls).forEach(function (k) { nome[ls[k]] = k; });
   var inicio = ST.INICIO.map(function (n) { return ls[n]; }).filter(String);
-  var fim = Date.now() + ST.LIMITE_MS, desfeitos = 0, vistos = {};
+  var fim = vd_prazo_(ST.LIMITE_MS), desfeitos = 0, vistos = {};
   var parou = false;
   acoes.reverse().forEach(function (a) {
     if (parou || Date.now() > fim) { parou = true; return; }
@@ -57,13 +57,18 @@ function st_executar_() {
     if (!a.data || !a.data.card || !a.data.listAfter || !a.data.listBefore) return;
     var cardId = a.data.card.id, para = a.data.listAfter.id, de = a.data.listBefore.id;
     if (vd_legado_(cardId)) return;   // card antigo: segue o jeito antigo
-    if (st_temLicenca_(cardId, para)) { try { CacheService.getScriptCache().remove(ST.PREFIXO_OK + cardId + '_' + para); } catch (e) {} return; }
-    if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
     var nPara = nome[para] || vd_nomeColuna_(a.data.listAfter.name);
     var nDe = nome[de] || vd_nomeColuna_(a.data.listBefore.name);
     var motivo = '', ESP = 'ESPERA/NÃO AUTORIZADO', kEsp = 'ST_ESP_' + cardId;
+    // 10/10/2026 (revisão): a marca "veio de X para a ESPERA" só era gravada e nunca apagada — card que saía da ESPERA
+    // por licença (devolver para cotação) ou por outra coluna carregava a marca velha e era devolvido indevidamente na
+    // passagem seguinte. Agora: saiu da ESPERA por qualquer caminho aceito = marca apagada; entrou na ESPERA vindo de
+    // coluna livre = marca apagada.
+    var tiraMarca = function () { try { props.deleteProperty(kEsp); } catch (e) {} };
+    if (st_temLicenca_(cardId, para)) { try { CacheService.getScriptCache().remove(ST.PREFIXO_OK + cardId + '_' + para); } catch (e) {} if (nDe === ESP) tiraMarca(); return; }
+    if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
     // card estacionado em ESPERA: guarda de onde veio; pode voltar só para lá
-    if (nPara === ESP && ST.TRAVADAS[nDe]) { props.setProperty(kEsp, nDe); return; }
+    if (nPara === ESP) { if (ST.TRAVADAS[nDe]) props.setProperty(kEsp, nDe); else tiraMarca(); return; }
     // Butler "todos os checklists completos em FALTA CHEGAR -> ENCERRADO": é a mesma regra do sistema, aceita
     if (nDe === 'FALTA CHEGAR' && nPara === 'ENCERRADO COMPRAS/FORNEC.') {
       try {
@@ -78,7 +83,7 @@ function st_executar_() {
     }
     else if (ST.TRAVADAS[nPara]) motivo = 'O card não pode ser movido à mão para **' + nPara + '**: ele vai sozinho ' + ST.TRAVADAS[nPara] + '.';
     else if (inicio.indexOf(para) >= 0 && ST.TRAVADAS[nDe]) motivo = 'Card que já passou da cotação não volta à mão para **' + nPara + '**: para refazer a cotação use **↩️ Devolver para cotação** (aba ✅ Autorizar); para pedir peça nova, **✏️ Editar peças** — o card volta sozinho.';
-    if (!motivo) return;
+    if (!motivo) { if (nDe === ESP) tiraMarca(); return; }   // saiu da ESPERA para coluna livre: aceito, marca apagada
     if (vistos[cardId]) return;   // vários movimentos seguidos: trata uma vez, devolvendo para a origem do primeiro
     vistos[cardId] = 1;
     var c;
@@ -122,7 +127,12 @@ function st_executar_() {
  * O aviso se repete a cada 2 dias úteis enquanto continuar atrasado. Roda de hora em hora, em dia útil,
  * das 8h às 18h. Prazos: SLA_DIAS_COTAR, SLA_DIAS_AUTORIZAR, SLA_DIAS_RECEBER. Desligar: SLA_LIGADO = NAO.
  */
-var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, LIMITE_MS: 40 * 1000 };
+var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, REPETIR_FATURAR_DU: 5, LIMITE_MS: 40 * 1000, RESUMO_MAX: 120 };
+/* 10/10/2026 (revisão, dados de 05–09/10): o lembrete de faturamento saía por card, todo dia, em 85 cards (256 comentários em
+ * 5 dias, ~70 notificações/dia ao financeiro) e só alcançava parte dos 369 cards de ENTREGUES (corte de 40 s + 1 chamada ao
+ * histórico por card). Agora: entrada na coluna vem do cache PZ_COL_ (pz_entradaColuna_), o lembrete no card sai na 1ª vez
+ * (7 d.u.) e depois a cada SLA_REPETIR_FATURAR d.u. (padrão 5), e UM resumo por dia útil (sla_resumoFaturamento_) lista
+ * todos os cards vencidos, por idade, no card fixo do quadro — uma notificação em vez de dezenas. Desligar o resumo: FAT_RESUMO = NAO. */
 
 function sla_dia_(d) { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); }
 function sla_mais_(d, n) { d = sla_dia_(d); var g = 0; while (n > 0 && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) n--; } return d; }
@@ -131,10 +141,33 @@ function sla_users_(prop, padrao) { if (vd_board_() === VD.BOARD_PADRAO) padrao 
 function sla_mencao_(us) { return us.filter(function (u, i) { return u && us.indexOf(u) === i; }).map(function (u) { return '@' + u; }).join(' '); }
 
 /** Já avisou desta pendência há menos de 2 dias úteis? (chave por card+etapa+entrada ou por item+previsão) */
-function sla_podeAvisar_(props, chave, hoje) {
+function sla_podeAvisar_(props, chave, hoje, repetirDu) {
   var ult = props.getProperty(chave);
   if (!ult) return true;
-  return sla_mais_(new Date(ult), SLA.REPETIR_DU) <= hoje;
+  return sla_mais_(new Date(ult), repetirDu || SLA.REPETIR_DU) <= hoje;
+}
+
+/** Resumo diário do faturamento pendente (um comentário no card fixo do quadro, mencionando quem fatura). */
+function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
+  if (vd_prop_('FAT_RESUMO', 'SIM') === 'NAO' || !itens.length) return false;
+  var kDia = 'FAT_RESUMO_DIA', dia = Utilities.formatDate(hoje, 'America/Sao_Paulo', 'yyyy-MM-dd');
+  if (props.getProperty(kDia) === dia) return false;
+  var g = String(props.getProperty('VD_FIXO') || '').split('|');
+  if (!g[0]) { console.log('resumo de faturamento: sem card fixo'); return false; }
+  itens.sort(function (a, b) { return b.dias - a.dias; });
+  var mostra = itens.slice(0, SLA.RESUMO_MAX);
+  var usF = fat_usuarios_();
+  if (vd_board_() !== VD.BOARD_PADRAO) usF = usF.filter(function (u) { return u !== 'timweslley'; });
+  var mencao = sla_mencao_(vd_board_() === VD.BOARD_PADRAO ? ['timweslley'] : usF);
+  var txt = mencao + ' 🧾 **Faturamento pendente — ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM') + '**: ' + itens.length +
+    ' card(s) em ENTREGUES há mais de ' + diasPrazo + ' dia(s) útil(eis), do mais antigo para o mais novo. Depois de faturar, comente «faturado» no card (ou arquive) — ele sai da lista.\n' +
+    mostra.map(function (x) { return '- ' + x.dias + ' d.u. · [' + x.nome + '](' + x.url + ')' + (x.compl ? ' ⚠️ complementar antecipado sem confirmação' : ''); }).join('\n') +
+    (itens.length > mostra.length ? '\n- … e mais ' + (itens.length - mostra.length) + ' card(s)' : '');
+  try {
+    vd_api_('/cards/' + g[0] + '/actions/comments', { method: 'post', payload: { text: txt.slice(0, 16000) } });
+    props.setProperty(kDia, dia);
+    return true;
+  } catch (e) { console.log('resumo de faturamento: ' + e); return false; }
 }
 
 function sla_executar_(forcar) {
@@ -151,7 +184,7 @@ function sla_executar_(forcar) {
     if (Date.now() - (+props.getProperty('SLA_ULTIMA') || 0) < SLA.INTERVALO_MS) return 0;
   }
   props.setProperty('SLA_ULTIMA', String(Date.now()));
-  var fim = Date.now() + SLA.LIMITE_MS, n = 0;
+  var fim = vd_prazo_(SLA.LIMITE_MS), n = 0, resumoFat = [], fatCompleto = true;
   var board = vd_board_(), ls = vd_listas_(board);
   var etapas = [
     { lista: 'EM COTAÇÃO', dias: +vd_prop_('SLA_DIAS_COTAR', 2), quem: 'cotar' },
@@ -164,30 +197,30 @@ function sla_executar_(forcar) {
     var idL = ls[et.lista];
     if (!idL || Date.now() > fim) return;
     vd_api_('/lists/' + idL + '/cards', { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels' } }).forEach(function (c) {
-      if (Date.now() > fim) return;
+      if (Date.now() > fim) { if (et.quem === 'faturar') fatCompleto = false; return; }
       if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '')) return;
       if (et.quem !== 'faturar' && vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo (menos a cobrança do faturamento)
-      var acs = vd_api_('/cards/' + c.id + '/actions', { cru: true, query: { filter: 'updateCard:idList,createCard,copyCard,moveCardToBoard', limit: 20 } }) || [];
-      var ent = null;
-      for (var i = 0; i < acs.length && !ent; i++) {
-        var a = acs[i];
-        if (a.type !== 'updateCard' || (a.data && a.data.listAfter && a.data.listAfter.id === idL)) ent = a.date;
-      }
-      if (!ent) ent = new Date(1000 * parseInt(c.id.substring(0, 8), 16)).toISOString();
+      // entrada na coluna: cache PZ_COL_ (1 chamada ao histórico só na 1ª vez por coluna — 10/10/2026; antes era 1 por card por hora)
+      var ent = pz_entradaColuna_(c, props);
       var limite = sla_mais_(ent, et.dias);
       if (hoje < limite) return;
-      var chave = 'SLA_' + c.id + '_' + idL + '_' + ent.slice(0, 16);
-      if (!sla_podeAvisar_(props, chave, hoje)) return;
       var dias = 0, d = sla_dia_(ent), g = 0;
       while (d < hoje && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) dias++; }
+      var cpP = [];
+      if (et.quem === 'faturar') {
+        try { cpP = vd_complPendentes_(vd_analisar_(c.desc, c.name)); } catch (e) {}
+        resumoFat.push({ nome: c.name, url: c.shortUrl, dias: dias, compl: cpP.length > 0 });
+      }
+      var chave = 'SLA_' + c.id + '_' + idL + '_' + ent.slice(0, 16);
+      if (!sla_podeAvisar_(props, chave, hoje, et.quem === 'faturar' ? +vd_prop_('SLA_REPETIR_FATURAR', SLA.REPETIR_FATURAR_DU) : 0)) return;
       var mencao, txt;
       if (et.quem === 'faturar') {
         var usF = fat_usuarios_();
         if (vd_board_() !== VD.BOARD_PADRAO) usF = usF.filter(function (u) { return u !== 'timweslley'; });
         mencao = sla_mencao_(vd_board_() === VD.BOARD_PADRAO ? ['timweslley'] : usF);
-        txt = '⏰ Card em **ENTREGUES** há ' + dias + ' dia(s) útil(eis) sem confirmação de faturamento (prazo: ' + et.dias + '). Depois de faturar, comente a palavra faturado no card — ele é arquivado.';
+        txt = '⏰ Card em **ENTREGUES** há ' + dias + ' dia(s) útil(eis) sem confirmação de faturamento (prazo: ' + et.dias + '). Depois de faturar, comente a palavra faturado no card (ou arquive) — ele é arquivado.';
         // 09/10/2026 (Weslley): complementar comprado antes da autorização e ainda sem confirmação da seguradora entra no lembrete
-        try { var cpP = vd_complPendentes_(vd_analisar_(c.desc, c.name)); if (cpP.length) txt += '\n⚠️ Complementar comprado **antes da autorização** e ainda sem confirmação da seguradora — verificar autorização e importação no Databox do item ' + vd_complPendTxt_(cpP) + ' (marcar na aba Compra do formulário).'; } catch (e) {}
+        if (cpP.length) txt += '\n⚠️ Complementar comprado **antes da autorização** e ainda sem confirmação da seguradora — verificar autorização e importação no Databox do item ' + vd_complPendTxt_(cpP) + ' (marcar na aba Compra do formulário).';
       } else if (et.quem === 'cotar') {
         mencao = sla_mencao_(sla_users_('SLA_COTAR', 'comprasunity'));
         txt = '⏰ Card em **EM COTAÇÃO** há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + '). Lançar a cotação pelo anexo **💰 Cotação / Compra**.';
@@ -213,6 +246,8 @@ function sla_executar_(forcar) {
       } catch (e) { console.log('sla: ' + e); }
     });
   });
+  // resumo diário do faturamento (só quando a coluna inteira foi vista — senão a lista sairia pela metade)
+  if (!silencioso && fatCompleto && resumoFat.length) { try { if (sla_resumoFaturamento_(props, resumoFat, hoje, +vd_prop_('SLA_DIAS_FATURAR', 7))) n++; } catch (e) { console.log('resumo faturamento: ' + e); } }
   // 2) peça comprada / FO sem recebimento 1 d.u. depois da previsão
   var folga = +vd_prop_('SLA_DIAS_RECEBER', 1);
   var cards = vd_api_('/boards/' + board + '/cards', { cru: true, query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checklist_fields: 'name', checkItem_fields: 'name,state,due' } });

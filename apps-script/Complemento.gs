@@ -370,7 +370,7 @@ function cp_executar_() {
     if (!antigo) return 0;
   }
   var vistos = []; try { vistos = JSON.parse(props.getProperty('CP_VISTOS') || '[]'); } catch (e) {}
-  var prazo = Date.now() + 60 * 1000;
+  var prazo = vd_prazo_(60 * 1000);   // não passa do fim do ciclo (10/10/2026)
   var ctx = vd_contexto_();
   // anexos cuja leitura falhou (OCR do Google fora do ar na hora): tenta de novo nos ciclos seguintes, até 3 vezes (07/10/2026)
   var retry = []; try { retry = JSON.parse(props.getProperty('CP_RETRY') || '[]'); } catch (e) {}

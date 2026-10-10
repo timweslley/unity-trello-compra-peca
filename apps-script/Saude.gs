@@ -130,14 +130,29 @@ function sd_propriedades() {
 /** Limpeza diária: apaga as propriedades por card (VD_PK2_, VD_AT_, VD_SIG_, PZ_AT_, SLA_, ...) de cards que
  *  não estão mais abertos no quadro em uso (arquivados, apagados, ou de outro quadro depois da virada)
  *  e de cards antigos (anteriores à virada), que o robô não acompanha. */
-var SD_PREF_CARD = /^(?:VD_PK2_|VD_AT_|VD_SIG_|VD_NOVAS_|VD_DESC_AV_|PZ_AT_|ST_ESP_)([0-9a-f]{24})$|^SLA_([0-9a-f]{24})_/;
+var SD_PREF_CARD = /^(?:VD_PK2_|VD_AT_|VD_SIG_|VD_NOVAS_|VD_DESC_AV_|PZ_AT_|PZ_COL_|PZ_SEMPREV_|ST_ESP_)([0-9a-f]{24})$|^SLA_([0-9a-f]{24})_/;
+// 10/10/2026 (revisão): o cache de leitura de anexos (VD_ANX3_<anexo>, até 8,5 KB cada) e os avisos por item de checklist
+// (SLA_I_<item>_<data>) nunca saíam — eram o que mais crescia. Anexo de card fechado e aviso de item com data há mais de
+// 30 dias também são apagados. Passar de 500 KB derrubava o núcleo inteiro (setProperty lança erro).
+var SD_PREF_ANEXO = /^VD_ANX3_([0-9a-f]{24})$/, SD_PREF_ITEM = /^SLA_I_[0-9a-f]{24}_(\d{4}-\d{2}-\d{2})/;
 function sd_limparPropriedades_() {
-  var p = PropertiesService.getScriptProperties(), all = p.getKeys(), abertos = {};
-  vd_api_('/boards/' + vd_board_() + '/cards', { cru: true, query: { fields: 'id' } }).forEach(function (c) { abertos[c.id] = 1; });
+  var p = PropertiesService.getScriptProperties(), all = p.getKeys(), abertos = {}, anexos = {};
+  vd_api_('/boards/' + vd_board_() + '/cards', { cru: true, query: { fields: 'id', attachments: 'true', attachment_fields: 'id' } }).forEach(function (c) {
+    abertos[c.id] = 1;
+    (c.attachments || []).forEach(function (a) { anexos[a.id] = 1; });
+  });
   if (Object.keys(abertos).length < 5) return 0;   // leitura estranha: não apaga nada
-  var n = 0;
-  all.forEach(function (k) { var m = k.match(SD_PREF_CARD), id = m && (m[1] || m[2]); if (id && (!abertos[id] || vd_legado_(id))) { p.deleteProperty(k); n++; } });
-  if (n) console.log('propriedades: ' + n + ' de cards fechados apagadas');
+  var n = 0, limiteItem = Utilities.formatDate(new Date(Date.now() - 30 * 864e5), 'America/Sao_Paulo', 'yyyy-MM-dd');
+  var recente = Date.now() / 1000 - 2 * 86400;   // anexo subido nas últimas 48 h fica (card pode ainda não estar na lista)
+  all.forEach(function (k) {
+    var m = k.match(SD_PREF_CARD), id = m && (m[1] || m[2]);
+    if (id) { if (!abertos[id] || vd_legado_(id)) { p.deleteProperty(k); n++; } return; }
+    var ma = k.match(SD_PREF_ANEXO);
+    if (ma) { if (!anexos[ma[1]] && parseInt(ma[1].slice(0, 8), 16) < recente) { p.deleteProperty(k); n++; } return; }
+    var mi = k.match(SD_PREF_ITEM);
+    if (mi && mi[1] < limiteItem) { p.deleteProperty(k); n++; }
+  });
+  if (n) console.log('propriedades: ' + n + ' de cards fechados/anexos antigos apagadas');
   return n;
 }
 

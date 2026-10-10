@@ -22,7 +22,8 @@ var VD = {
   TIPOS: ['GENUÍNO', 'ORIGINAL', 'PARALELO', 'USADO'],
   CATEG_PNEU: ['IMPORTADO', '1ª LINHA'],
   MARCADOR: '=== COTAÇÃO (compras) ===',
-  LIMITE_MS: 4.5 * 60 * 1000,
+  LIMITE_MS: 3 * 60 * 1000,      // núcleo (10/10/2026: era 4,5 min; o ciclo inteiro agora tem 5 min — ver vd_cicloIniciar_)
+  CICLO_MS: 5 * 60 * 1000,       // prazo global do acionador de 1 min: o Google mata a execução aos 6 min sem avisar
   MAX_ANEXOS_CARD: 6,
   MAX_BYTES_ANEXO: 15 * 1024 * 1024,
   // formulário estático no GitHub Pages (abre em <1 s; chama o web app por fetch). O link
@@ -32,6 +33,16 @@ var VD = {
   // colunas onde vale a regra de peça nova (todas depois de EM COTAÇÃO)
   LISTAS_FORA: ['ESPERA/NÃO AUTORIZADO', 'EM COTAÇÃO', 'FALTA DADOS PARA COTAR']
 };
+
+/* ============================ PRAZO GLOBAL DO CICLO (10/10/2026) ============================
+ * Cada parte do ciclo de 1 min (núcleo, complemento, prazos, SLA) tinha o seu próprio limite e, somados, passavam dos
+ * 6 min em que o Google mata a execução — sem finally, sem alarme. Agora o acionador abre um prazo único (VD.CICLO_MS)
+ * e cada parte recebe o menor entre o seu limite e o que resta do ciclo; parte com menos de 30 s fica para o próximo. */
+var VD_CICLO_FIM = 0;
+function vd_cicloIniciar_(ms) { VD_CICLO_FIM = Date.now() + (ms || VD.CICLO_MS); }
+/** Prazo (ms desde a época) para uma parte que quer `ms`: nunca passa do fim do ciclo. Fora do ciclo (formulário) = só `ms`. */
+function vd_prazo_(ms, reserva) { var p = Date.now() + ms; return VD_CICLO_FIM ? Math.min(p, VD_CICLO_FIM - (reserva || 0)) : p; }
+function vd_restante_() { return VD_CICLO_FIM ? VD_CICLO_FIM - Date.now() : Infinity; }
 
 /* ============================ CONFIG ============================ */
 
@@ -120,7 +131,9 @@ var VD_ACOES = null;   // histórico do quadro desta execução: { board, desde 
  */
 function vd_acoesQuadro_(board, q) {
   q = q || {};
-  var direto = function () { return vd_api_('/boards/' + board + '/actions', { cru: true, query: q }) || []; };
+  // 10/10/2026: com `since`, o Trello devolve as N mais NOVAS — com limit 100 e o quadro parado por horas, as ações mais antigas
+  // da janela ficavam para trás e os marcadores (ST/FAT/CK) pulavam por cima delas. Direto no Trello o limite sobe para 1000.
+  var direto = function () { var qq = {}; Object.keys(q).forEach(function (k) { qq[k] = q[k]; }); if (qq.since && qq.limit && qq.limit < 1000) qq.limit = 1000; return vd_api_('/boards/' + board + '/actions', { cru: true, query: qq }) || []; };
   try {
     if (vd_prop_('VD_ACOES_COMPARTILHADAS', 'SIM') === 'NAO') return direto();
     if (!VD_ACOES || VD_ACOES.board !== board) {
@@ -153,7 +166,7 @@ function vd_acoesQuadro_(board, q) {
       if (!isNaN(beforeMs) && !(t < beforeMs)) return false;
       return tipos[0] === 'all' || tipos.some(function (f) { return vd_acaoBate_(a, f); });
     });
-    return q.limit ? out.slice(0, q.limit) : out;
+    return (q.limit && !q.since) ? out.slice(0, q.limit) : out;   // com `since` vai tudo o que há na janela (ver `direto`)
   } catch (e) { console.log('ações compartilhadas: ' + e); return direto(); }
 }
 /** "updateCard:idList" = updateCard em que data.old.idList existe (regra do filtro do Trello). */
@@ -714,7 +727,9 @@ function vd_lerAnexoTrello_(a, opt) {
     r.v = VD_ANX_V;
     var js = JSON.stringify(r);
     if (js.length > 8500 && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
-    props.setProperty(chave, js.length > 8500 ? JSON.stringify({ v: VD_ANX_V, chassis: r.chassis, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor }) : js);
+    // cache cheio (limite de 500 KB das propriedades) não pode derrubar a leitura: segue sem guardar (10/10/2026)
+    try { props.setProperty(chave, js.length > 8500 ? JSON.stringify({ v: VD_ANX_V, chassis: r.chassis, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor }) : js); }
+    catch (e) { console.log('cache do anexo ' + a.name + ': ' + e); }
     if (orcFull) r.orcFull = orcFull;
   }
   return r;
@@ -960,8 +975,14 @@ function vd_gravarDesc_(cardId, desc, token, extra) {
     vit = vd_vitrine_(desc, payload.name || c.name, itensPg);
   } catch (e) { console.log('vitrine: ' + e); vit = null; }
   payload.desc = vit === null ? desc : vit;
+  // 10/10/2026 (revisão): a cópia oficial (TRAVA) ia DEPOIS do Trello e o erro era engolido — quando a planilha falhava, a vitrine
+  // nova ficava no card sem a completa por trás: a cotação recém-lançada sumia do formulário e a trava desfazia a vitrine culpando
+  // quem salvou ("🔒 ALTERAÇÃO NÃO PERMITIDA"). Agora a TRAVA é gravada ANTES; se falhar, nada muda no card e quem salvou vê o erro.
+  // (Se o Trello falhar depois, a trava de descrição repõe a vitrine nova a partir da cópia oficial no ciclo seguinte.)
+  if (desc.length > 45000) { try { vd_avisarDescGrande_(cardId, desc.length); } catch (e) {} }
+  try { tr_guardarLote_([{ id: cardId, desc: payload.desc, completa: vit === null ? '' : desc }]); }
+  catch (e) { console.log('trava: ' + e); throw new Error('Não consegui guardar a descrição na planilha de controle (' + String((e && e.message) || e).slice(0, 120) + '). Nada foi alterado no card — tente de novo em alguns segundos.'); }
   vd_api_('/cards/' + cardId, { method: 'put', payload: payload }, token);
-  try { tr_guardarLote_([{ id: cardId, desc: payload.desc, completa: vit === null ? '' : desc }]); } catch (e) { console.log('trava: ' + e); }
   // 1ª vez com vitrine: o texto antigo fora do padrão vai para um comentário (não se perde de vista)
   if (vit !== null && !jaTinha) {
     try {
@@ -973,6 +994,17 @@ function vd_gravarDesc_(cardId, desc, token, extra) {
       }
     } catch (e) { console.log('vitrine/legado: ' + e); }
   }
+}
+
+/** Descrição completa perto do limite da célula da planilha (50.000 caracteres): avisa a diretoria uma vez por dia por card. */
+function vd_avisarDescGrande_(cardId, tam) {
+  var cache = CacheService.getScriptCache(), k = 'vd_grande_' + cardId;
+  if (cache.get(k)) return;
+  cache.put(k, '1', 21600);
+  var c = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name,shortUrl' } });
+  MailApp.sendEmail(SD.EMAIL, 'Trello: descrição do card ' + (c.name || cardId) + ' muito grande (' + tam + ' caracteres)',
+    'A descrição completa do card ' + (c.name || '') + ' (' + (c.shortUrl || cardId) + ') tem ' + tam + ' caracteres — o limite da planilha de controle é 50.000.\n' +
+    'Acima disso o salvamento passa a falhar. Caminho: arquivar o histórico antigo de cotações do card (ou abrir um card novo para o que falta).');
 }
 
 /** Redesenha a vitrine de um card a partir da completa guardada (ex.: depois de uma compra). */
@@ -1536,7 +1568,7 @@ function vd_contexto_() {
     board: board,
     listas: vd_listas_(board),
     modoAtivo: vd_modo_() === 'ATIVO',
-    prazo: Date.now() + VD.LIMITE_MS,
+    prazo: vd_prazo_(VD.LIMITE_MS, 90 * 1000),   // deixa 90 s para complemento, prazos e SLA
     urlForm: url
   };
 }
@@ -1768,6 +1800,8 @@ function validarDadosPedido() {
       try { instalarAcionador(); vd_instalarAcionador(); pp.setProperty('VD_ACIONADORES_1MIN', 'SIM'); } catch (e) { console.log('acionadores: ' + e); }
     }
     var rodar = function () {
+      vd_cicloIniciar_(VD.CICLO_MS);   // prazo único do ciclo (10/10/2026)
+      var cabe = function (nome, fn) { if (vd_restante_() < 30 * 1000) { SD_TEMPOS.push(nome + ' pulado (ciclo cheio)'); return; } return sd_parte_(nome, fn); };
       sd_parte_('trava de descrição', tr_executar_);   // antes de tudo: desfaz edição manual
       sd_parte_('trava de colunas', st_executar_);     // e movimento manual fora do fluxo
       sd_parte_('trava de checklist', ck_executar_);   // e checklist mexido à mão
@@ -1777,9 +1811,9 @@ function validarDadosPedido() {
       qt_parte_('núcleo');
       try { out = vd_executarNucleo_(); } finally { qt_parte_(''); }
       if (Date.now() - t0n > 1500) SD_TEMPOS.push('núcleo ' + ((Date.now() - t0n) / 1000).toFixed(1) + 's');
-      sd_parte_('complemento', cp_executar_);          // orçamento complementar anexado no card
-      if (new Date().getMinutes() % 5 === 0) sd_parte_('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
-      sd_parte_('prazos por etapa', sla_executar_);
+      cabe('complemento', cp_executar_);          // orçamento complementar anexado no card
+      if (new Date().getMinutes() % 5 === 0) cabe('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
+      cabe('prazos por etapa', sla_executar_);
       sd_parte_('relatório', rel_instalarSeFaltar_);
       sd_parte_('links', function () { return vd_garantirLinks_(); });
       sd_parte_('alarme diário', sd_instalarSeFaltar_);
@@ -1922,7 +1956,7 @@ function pz_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
   var board = vd_board_();
   var props = PropertiesService.getScriptProperties();
-  var fim = Date.now() + PZ.LIMITE_MS;
+  var fim = vd_prazo_(PZ.LIMITE_MS);
   var listas = vd_listas_(board);
   var fora = PZ.LISTAS_FORA.map(function (n) { return listas[n]; }).filter(String);
   var concluidas = PZ.LISTAS_CONCLUIDAS.map(function (n) { return listas[vd_nomeColuna_(n)] || listas[n]; }).filter(String);

@@ -309,7 +309,8 @@ var LISTA_ENCERRADO = 'ENCERRADO COMPRAS/FORNEC.';
 var DIAS_ENCERRADO = 15;
 var LBL_PARADO = 'PARADO';
 var LBL_CONFERIR = 'CONFERIR FATURAMENTO';
-var MENCAO = '@financeirounity @christianfarias23';
+var MENCAO = '@financeirounity @christianfarias23';   // só reserva: a menção vem de FAT_USUARIOS (mencaoFat_, 10/10/2026)
+function mencaoFat_() { try { return fat_usuarios_().filter(function (u) { return u !== 'timweslley' || vd_board_() === VD.BOARD_PADRAO; }).map(function (u) { return '@' + u; }).join(' ') || MENCAO; } catch (e) { return MENCAO; } }
 
 function rotinaDiariaNucleo_() {
   var listas = api_('/boards/' + BOARD_ID + '/lists', { fields: 'name' });
@@ -338,17 +339,18 @@ function rotinaDiariaNucleo_() {
     if (alvo1.indexOf(c.idList) > -1) {
       if (dias > DIAS_PARADO && !temParado) {
         api_('/cards/' + c.id + '/idLabels', { value: idParado }, 'post');
-        api_('/cards/' + c.id + '/actions/comments', { text: '🔴 ' + MENCAO + ' card parado há mais de ' + DIAS_PARADO + ' dias nesta coluna — verificar faturamento.' }, 'post');
+        api_('/cards/' + c.id + '/actions/comments', { text: '🔴 ' + mencaoFat_() + ' card parado há mais de ' + DIAS_PARADO + ' dias nesta coluna — verificar faturamento.' }, 'post');
         nParado++;
       }
     } else if (temParado) {
       api_('/cards/' + c.id + '/idLabels/' + idParado, {}, 'delete'); nLimpa++;
     }
 
+    // 10/10/2026 (revisão): só a etiqueta CONFERIR FATURAMENTO; o comentário de cobrança saía em dobro com o SLA de
+    // ENTREGUES (Fluxo.gs), que agora tem o resumo diário — este bloco não comenta mais
     if (c.idList === idEnt) {
       if (dias > DIAS_ENTREGUES && !temConferir) {
         api_('/cards/' + c.id + '/idLabels', { value: idConferir }, 'post');
-        api_('/cards/' + c.id + '/actions/comments', { text: MENCAO + ' conferência de faturamento pendente — card há mais de ' + DIAS_ENTREGUES + ' dias em ENTREGUES.' }, 'post');
         nConf++;
       }
     } else if (temConferir) {
@@ -356,7 +358,9 @@ function rotinaDiariaNucleo_() {
     }
   });
 
-  var nPrazo = atualizarPrazos_(porNome[LISTA_FALTA_CHEGAR]);
+  // 10/10/2026: o prazo do card é do pz_executar_ (Validacao.gs); esta rotina antiga calculava com outra regra (lia datas de
+  // comentários) e brigava com ela — desligada (ligar de novo: propriedade ROT_PRAZOS_ANTIGOS = SIM)
+  var nPrazo = vd_prop_('ROT_PRAZOS_ANTIGOS', 'NAO') === 'SIM' ? atualizarPrazos_(porNome[LISTA_FALTA_CHEGAR]) : 0;
   var nMov = moverEncerrados_(porNome[LISTA_ENCERRADO], idEnt, porNome[LISTA_FALTA_CHEGAR]);
   console.log('parado: ' + nParado + ' | conferir faturamento: ' + nConf + ' | etiquetas removidas: ' + nLimpa + ' | prazos definidos: ' + nPrazo + ' | movidos de encerrado: ' + nMov);
 }
