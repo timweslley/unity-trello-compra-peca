@@ -109,6 +109,7 @@ function validadeMemoria(url: string): number {
   if (/^\/members\/me$/.test(c)) return 10 * 60_000;                                     // quem é o usuário (por token)
   if (/^\/boards\/[A-Za-z0-9]+$/.test(c)) return 60 * 60_000;                           // id / nome do quadro
   if (/^\/boards\/[A-Za-z0-9]+\/(lists|labels|customFields|members)$/.test(c)) return 60_000;   // estrutura do quadro
+  if (/^\/lists\/[a-f0-9]{24}$/.test(c)) return 10 * 60_000;                           // nome da lista (10/10/2026)
   return 0;
 }
 
@@ -116,7 +117,8 @@ function validadeMemoria(url: string): number {
 // O card do Trello (com checklists, anexos, campos) e as listas de cards do quadro ficam guardados. Antes de usar, o servidor
 // confere com UMA consulta leve se mudou algo (data da última atividade + última ação do card/quadro + campos personalizados).
 // Mudou ou não conferiu → lê ao vivo, como antes. Nada disso vale para o TESTE (que grava).
-type Carimbo = { valor: string; ultima: number };
+type Carimbo = { valor: string; ultima: number; id?: string; shortLink?: string };
+const apelidoCard = new Map<string, string>();   // shortLink → id (a mesma conferência vale para os dois)
 const guardadoPrincipal = new Map<string, { carimbo: string; em: number; r: Resposta }>();
 const conferidosNaExecucao = new WeakMap<Execucao, Map<string, Promise<Carimbo | null>>>();
 const IDADE_MAX_GUARDADO = 15 * 60_000;
@@ -135,16 +137,17 @@ function alvoDoPrincipal(url: string): { tipo: 'card' | 'quadro'; ref: string } 
 /** Consulta leve que diz se o card/quadro mudou: devolve um "carimbo" que muda a cada alteração. */
 async function carimboAoVivo(tipo: 'card' | 'quadro', ref: string, auth: { key: string; token: string }): Promise<Carimbo | null> {
   const base = 'https://api.trello.com/1/' + (tipo === 'card' ? 'cards/' : 'boards/') + ref;
-  const q = new URLSearchParams({ key: auth.key, token: auth.token, fields: tipo === 'card' ? 'dateLastActivity,idList,closed' : 'dateLastActivity',
+  const q = new URLSearchParams({ key: auth.key, token: auth.token, fields: tipo === 'card' ? 'id,shortLink,dateLastActivity,idList,closed' : 'dateLastActivity',
     actions: 'all', actions_limit: '1', action_fields: 'id,date' });
   if (tipo === 'card') q.set('customFieldItems', 'true');
   const r = await fetch(base + '?' + q.toString(), { signal: AbortSignal.timeout(8000) });
   if (r.status !== 200) return null;
-  const j = await r.json() as { dateLastActivity?: string; idList?: string; closed?: boolean; actions?: Array<{ id: string; date: string }>; customFieldItems?: unknown };
+  const j = await r.json() as { id?: string; shortLink?: string; dateLastActivity?: string; idList?: string; closed?: boolean; actions?: Array<{ id: string; date: string }>; customFieldItems?: unknown };
   const ultimaAcao = j.actions && j.actions[0];
   const valor = [j.dateLastActivity, j.idList, j.closed, ultimaAcao?.id, JSON.stringify(j.customFieldItems ?? null)].join('|');
   const ultima = Math.max(Date.parse(j.dateLastActivity || '') || 0, Date.parse(ultimaAcao?.date || '') || 0);
-  return { valor, ultima };
+  if (j.id && j.shortLink) apelidoCard.set(j.shortLink, j.id);
+  return { valor, ultima, id: j.id, shortLink: j.shortLink };
 }
 
 async function buscarPrincipal(p: Pedido, ctx: Contexto): Promise<Resposta | null> {
@@ -156,8 +159,14 @@ async function buscarPrincipal(p: Pedido, ctx: Contexto): Promise<Resposta | nul
   if (!auth.key || !auth.token) return null;
   let conferidos = conferidosNaExecucao.get(ex);
   if (!conferidos) { conferidos = new Map(); conferidosNaExecucao.set(ex, conferidos); }
-  const chaveAlvo = alvo.tipo + ':' + alvo.ref;
-  if (!conferidos.has(chaveAlvo)) conferidos.set(chaveAlvo, carimboAoVivo(alvo.tipo, alvo.ref, auth).catch(() => null));
+  const ref = alvo.tipo === 'card' ? (apelidoCard.get(alvo.ref) || alvo.ref) : alvo.ref;
+  const chaveAlvo = alvo.tipo + ':' + ref;
+  if (!conferidos.has(chaveAlvo)) {
+    const pr = carimboAoVivo(alvo.tipo, ref, auth).catch(() => null);
+    conferidos.set(chaveAlvo, pr);
+    const mapa = conferidos;
+    void pr.then((c) => { if (c && c.id) { mapa.set('card:' + c.id, pr); if (c.shortLink) mapa.set('card:' + c.shortLink, pr); } });
+  }
   const carimbo = await conferidos.get(chaveAlvo)!;
   if (carimbo) ex.ultimaAtividade = Math.max(ex.ultimaAtividade || 0, carimbo.ultima);
   const chave = p.url;
