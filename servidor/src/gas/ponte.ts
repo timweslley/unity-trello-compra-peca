@@ -112,9 +112,95 @@ function validadeMemoria(url: string): number {
   return 0;
 }
 
+// ---------- leituras do PRINCIPAL guardadas, sempre conferidas (velocidade, 10/10/2026 — pedido da sessão do formulário) ----------
+// O card do Trello (com checklists, anexos, campos) e as listas de cards do quadro ficam guardados. Antes de usar, o servidor
+// confere com UMA consulta leve se mudou algo (data da última atividade + última ação do card/quadro + campos personalizados).
+// Mudou ou não conferiu → lê ao vivo, como antes. Nada disso vale para o TESTE (que grava).
+type Carimbo = { valor: string; ultima: number };
+const guardadoPrincipal = new Map<string, { carimbo: string; em: number; r: Resposta }>();
+const conferidosNaExecucao = new WeakMap<Execucao, Map<string, Promise<Carimbo | null>>>();
+const IDADE_MAX_GUARDADO = 15 * 60_000;
+
+function alvoDoPrincipal(url: string): { tipo: 'card' | 'quadro'; ref: string } | null {
+  let u: URL; try { u = new URL(url); } catch { return null; }
+  if (u.host !== 'api.trello.com') return null;
+  const c = u.pathname.replace(/^\/1/, '');
+  let m = c.match(/^\/cards\/([A-Za-z0-9]{8}|[a-f0-9]{24})(\/(actions|checklists|attachments|customFieldItems|labels))?$/);
+  if (m) return { tipo: 'card', ref: m[1] };
+  m = c.match(/^\/boards\/([A-Za-z0-9]{8}|[a-f0-9]{24})\/(cards|checklists|actions)(\/[a-z]+)?$/);
+  if (m) return { tipo: 'quadro', ref: m[1] };
+  return null;
+}
+
+/** Consulta leve que diz se o card/quadro mudou: devolve um "carimbo" que muda a cada alteração. */
+async function carimboAoVivo(tipo: 'card' | 'quadro', ref: string, auth: { key: string; token: string }): Promise<Carimbo | null> {
+  const base = 'https://api.trello.com/1/' + (tipo === 'card' ? 'cards/' : 'boards/') + ref;
+  const q = new URLSearchParams({ key: auth.key, token: auth.token, fields: tipo === 'card' ? 'dateLastActivity,idList,closed' : 'dateLastActivity',
+    actions: 'all', actions_limit: '1', action_fields: 'id,date' });
+  if (tipo === 'card') q.set('customFieldItems', 'true');
+  const r = await fetch(base + '?' + q.toString(), { signal: AbortSignal.timeout(8000) });
+  if (r.status !== 200) return null;
+  const j = await r.json() as { dateLastActivity?: string; idList?: string; closed?: boolean; actions?: Array<{ id: string; date: string }>; customFieldItems?: unknown };
+  const ultimaAcao = j.actions && j.actions[0];
+  const valor = [j.dateLastActivity, j.idList, j.closed, ultimaAcao?.id, JSON.stringify(j.customFieldItems ?? null)].join('|');
+  const ultima = Math.max(Date.parse(j.dateLastActivity || '') || 0, Date.parse(ultimaAcao?.date || '') || 0);
+  return { valor, ultima };
+}
+
+async function buscarPrincipal(p: Pedido, ctx: Contexto): Promise<Resposta | null> {
+  const alvo = alvoDoPrincipal(p.url);
+  const ex = ctx.atual;
+  if (!alvo || !ex || !ex.usarGuardado) return null;
+  const u = new URL(p.url);
+  const auth = { key: u.searchParams.get('key') || '', token: u.searchParams.get('token') || '' };
+  if (!auth.key || !auth.token) return null;
+  let conferidos = conferidosNaExecucao.get(ex);
+  if (!conferidos) { conferidos = new Map(); conferidosNaExecucao.set(ex, conferidos); }
+  const chaveAlvo = alvo.tipo + ':' + alvo.ref;
+  if (!conferidos.has(chaveAlvo)) conferidos.set(chaveAlvo, carimboAoVivo(alvo.tipo, alvo.ref, auth).catch(() => null));
+  const carimbo = await conferidos.get(chaveAlvo)!;
+  if (carimbo) ex.ultimaAtividade = Math.max(ex.ultimaAtividade || 0, carimbo.ultima);
+  const chave = p.url;
+  const g = guardadoPrincipal.get(chave);
+  if (carimbo && g && g.carimbo === carimbo.valor && Date.now() - g.em < IDADE_MAX_GUARDADO) {
+    ex.guardado = (ex.guardado || 0) + 1;
+    return g.r;
+  }
+  const r = await buscarRede(p);
+  ex.aoVivo = (ex.aoVivo || 0) + 1;
+  if (carimbo && r.status === 200) {
+    if (guardadoPrincipal.size > 3000) guardadoPrincipal.clear();
+    guardadoPrincipal.set(chave, { carimbo: carimbo.valor, em: Date.now(), r });
+  }
+  return r;
+}
+
+/* Abas da planilha lidas ao vivo no principal (TRAVA = descrição completa, FORNECEDORES = cadastro): guardadas em memória.
+   TRAVA só vale se foi lida DEPOIS da última atividade do card desta execução (o robô grava a TRAVA antes do Trello) e por no
+   máximo 2 min; FORNECEDORES por 5 min. */
+const abasGuardadas = new Map<string, { em: number; v: unknown[][] }>();
+async function abaDoPrincipal(nome: string, ex: Execucao | null): Promise<unknown[][]> {
+  const g = abasGuardadas.get(nome);
+  const idadeMax = nome === 'TRAVA' ? 2 * 60_000 : 5 * 60_000;
+  const depoisDaAtividade = nome !== 'TRAVA' || !ex || !ex.ultimaAtividade || (g && g.em > ex.ultimaAtividade + 10_000);
+  if (g && Date.now() - g.em < idadeMax && depoisDaAtividade) {
+    if (ex) ex.guardado = (ex.guardado || 0) + 1;
+    return g.v;
+  }
+  const em = Date.now();
+  const v = (await lerAbaPlanilha(CFG.planilhaId, nome)).map(reviverData(ABAS_COPIADAS[nome] || []));
+  abasGuardadas.set(nome, { em, v });
+  if (ex) ex.aoVivo = (ex.aoVivo || 0) + 1;
+  return v;
+}
+
 async function buscar(p: Pedido, ctx: Contexto) {
   if (ctx.somenteLeitura && p.metodo !== 'GET') {
     return { status: 403, cab: { 'content-type': 'text/plain' }, corpo: new TextEncoder().encode('servidor: no quadro principal o servidor só lê') };
+  }
+  if (ctx.nome === 'principal' && p.metodo === 'GET') {
+    const r = await buscarPrincipal(p, ctx);
+    if (r) return r;
   }
   const ttl = p.metodo === 'GET' ? validadeMemoria(p.url) : 0;
   const chave = ttl ? p.url + '|' + (p.cabecalhos.Authorization || p.cabecalhos.authorization || '') : '';
@@ -192,6 +278,7 @@ async function atenderLeitura(op: string, d: any, ctx: Contexto): Promise<unknow
     case 'aba.lista': return ['backup', ...ABAS_AO_VIVO];
     case 'aba.ler': {
       if (!ABAS_AO_VIVO.includes(d) || !CFG.planilhaId) return [];
+      if (ctx.nome === 'principal' && ctx.atual?.usarGuardado) return abaDoPrincipal(d, ctx.atual);
       return (await lerAbaPlanilha(CFG.planilhaId, d)).map(reviverData(ABAS_COPIADAS[d] || []));
     }
     default: return atender(op, d, ctx);
@@ -259,6 +346,8 @@ export interface Execucao {
   ops: Record<string, { n: number; ms: number }>;
   /** chamadas de rede por destino (host + 1º trecho do caminho) */
   rede: Record<string, { n: number; ms: number }>;
+  /** principal: respostas servidas da memória (conferidas) × lidas ao vivo; última atividade vista nos cards conferidos */
+  guardado?: number; aoVivo?: number; ultimaAtividade?: number; usarGuardado?: boolean;
 }
 const execucoes: Execucao[] = [];
 export function ultimasExecucoes(): Execucao[] { return execucoes.slice().reverse(); }
@@ -385,10 +474,10 @@ class Contexto {
     return this.pronto;
   }
 
-  enviar(msg: Record<string, unknown>): Promise<unknown> {
+  enviar(msg: Record<string, unknown>, opcoes: { usarGuardado?: boolean } = {}): Promise<unknown> {
     // uma execução por vez em cada quadro, como no Google para o mesmo usuário (e o trabalhador é síncrono)
     const chegou = Date.now();
-    const ex: Execucao = { ...descrever(msg), quadro: this.nome, chegou: new Date(chegou).toISOString(), filaMs: 0, ops: {}, rede: {} };
+    const ex: Execucao = { ...descrever(msg), quadro: this.nome, chegou: new Date(chegou).toISOString(), filaMs: 0, ops: {}, rede: {}, ...(opcoes.usarGuardado ? { usarGuardado: true } : {}) };
     const p = this.fila.then(async () => {
       ex.filaMs = Date.now() - chegou;
       execucoes.push(ex); if (execucoes.length > 60) execucoes.shift();
@@ -429,6 +518,6 @@ export function retratoDoCard(shortLink: string): Promise<unknown> { return RETR
 /** O doPost do robô: recebe o corpo `{fn, args, rid}` do formulário e devolve o texto JSON da resposta. */
 export function executarPost(corpo: string): Promise<string> { return TESTE.enviar({ tipo: 'post', corpo }) as Promise<string>; }
 /** Leitura de navegação do quadro principal (só as funções de LEITURAS_PRINCIPAL; quem chama confere). */
-export function executarLeituraPrincipal(corpo: string): Promise<string> { return PRINCIPAL.enviar({ tipo: 'post', corpo }) as Promise<string>; }
+export function executarLeituraPrincipal(corpo: string, usarGuardado = false): Promise<string> { return PRINCIPAL.enviar({ tipo: 'post', corpo }, { usarGuardado }) as Promise<string>; }
 /** Chama uma função do robô direto (gatilhos, diagnóstico) — quadro do servidor. */
 export function chamar(fn: string, args: unknown[]): Promise<unknown> { return TESTE.chamar(fn, args); }

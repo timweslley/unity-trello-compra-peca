@@ -154,7 +154,8 @@ export function criarApp() {
       try { pedido = JSON.parse(corpo); } catch { /* o robô responde o erro */ }
       if ((req.query as Record<string, string>)?.quadro === 'principal' || pedido.quadro === 'principal') {
         if (!LEITURAS_PRINCIPAL.includes(String(pedido.fn))) return JSON.stringify({ ok: false, erro: 'servidor: no quadro principal o servidor só faz leitura (' + String(pedido.fn) + ' fica no Apps Script)' });
-        return await executarLeituraPrincipal(corpo);
+        // 10/10/2026: ?guardado=1 → leituras do Trello/planilha guardadas e conferidas (mais rápido); o formulário liga por usuário
+        return await executarLeituraPrincipal(corpo, (req.query as Record<string, string>)?.guardado === '1' || process.env.GUARDADO_PRINCIPAL === 'todos');
       }
       return await executarPost(corpo);
     } catch (e) {
