@@ -110,13 +110,13 @@ var FO_SEMENTE = [
   ["ZACARIAS TOLEDO", "ZACARIAS – TOLEDO", "38", "79.138.608/0008-03", "ZACARIAS VEICULOS"]
 ];
 
-// Complemento.gs:83
+// Complemento.gs:84
 var CP_PAL_FRACA = /^(DE|DO|DA|DOS|DAS|COM|SEM|PARA|MOTOR|MANUAL|AUTOMATICO|AUTOMATICA|COMPLETO|COMPLETA|KIT|JOGO|UNIDADE|PCS|PECA)$/;
 
-// Complemento.gs:85
+// Complemento.gs:86
 var CP_POSICAO = { DIR: 'D', DIREITO: 'D', DIREITA: 'D', LD: 'D', ESQ: 'E', ESQUERDO: 'E', ESQUERDA: 'E', LE: 'E', DIANT: 'F', DIANTEIRO: 'F', DIANTEIRA: 'F', FRENTE: 'F', TRAS: 'T', TRASEIRO: 'T', TRASEIRA: 'T', SUP: 'S', SUPERIOR: 'S', INF: 'I', INFERIOR: 'I' };
 
-// Complemento.gs:86
+// Complemento.gs:87
 var CP_EIXO = { D: 1, E: 1, F: 2, T: 2, S: 3, I: 3 };
 
 // Orcamento.gs:9
@@ -129,19 +129,19 @@ var VD_SEGURADORAS = [
   ['JUSTOS', /\bJUSTOS\b/], ['PORTO', /\bPORTO\b/]
 ];
 
-// Complemento.gs:21
+// Complemento.gs:22
 function cp_norm_(s) { return vd_semAcento_(s).replace(/[^A-Z0-9]/g, ''); }
 
-// Complemento.gs:87
+// Complemento.gs:88
 function cp_palavras_(s) { return vd_semAcento_(s).replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 2; }); }
 
-// Complemento.gs:88
+// Complemento.gs:89
 function cp_posicoes_(pal) { var o = {}; pal.forEach(function (w) { var c = CP_POSICAO[w]; if (c) o[CP_EIXO[c]] = c; }); return o; }
 
-// Complemento.gs:89
+// Complemento.gs:90
 function cp_fortes_(pal) { return pal.filter(function (w) { return w.length >= 3 && !CP_PAL_FRACA.test(w) && !CP_POSICAO[w]; }); }
 
-// Complemento.gs:92
+// Complemento.gs:93
 function cp_similar_(descA, descB) {
   var pa = cp_palavras_(descA), fa = cp_fortes_(pa), xa = cp_posicoes_(pa);
   var pb = cp_palavras_(descB), fb = cp_fortes_(pb), xb = cp_posicoes_(pb);
@@ -152,13 +152,13 @@ function cp_similar_(descA, descB) {
   return n >= 0.5 ? n : 0;
 }
 
-// FormularioServidor.gs:592
+// FormularioServidor.gs:598
 function vd_dataCurta_(s) {
   var iso = vd_dataBR_(s);
   return iso ? Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM') : String(s || '');
 }
 
-// FormularioServidor.gs:598
+// FormularioServidor.gs:604
 function vd_dataBR_(s) {
   var iso = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3], 12, 0, 0).toISOString();
@@ -170,7 +170,7 @@ function vd_dataBR_(s) {
   return isNaN(d.getTime()) ? '' : d.toISOString();
 }
 
-// FormularioServidor.gs:610
+// FormularioServidor.gs:616
 function vd_valorNum_(s) {
   s = String(s == null ? '' : s).replace(/R\$/i, '').replace(/\s/g, '');
   if (!s) return NaN;
@@ -179,7 +179,7 @@ function vd_valorNum_(s) {
   return parseFloat(s);
 }
 
-// FormularioServidor.gs:619
+// FormularioServidor.gs:625
 function vd_valorBR_(v) {
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   if (isNaN(n)) return '';
@@ -221,15 +221,18 @@ function vd_ehServico_(desc) {
 // Orcamento.gs:31
 function vd_tipoOrcamento_(t) {
   t = String(t || '').toUpperCase();
-  if (/^GENU/.test(t)) return 'GENUÍNA';
+  if (/^GENU|^GE$/.test(t)) return 'GENUÍNA';   // Cilia abrevia: GE = genuína, OR = original (AYI7869, 08/10/2026)
   if (/^REPOSI/.test(t)) return 'REPOSIÇÃO';
+  if (t === 'OR') return 'ORIGINAL';
   return t;
 }
 
-// Orcamento.gs:39
+// Orcamento.gs:40
 function vd_pneuDaDescricao_(desc) {
   var d = String(desc || '');
   if (!/\bPNEU/.test(d)) return null;
+  // 08/10/2026 (treino): "VALVULA DE AR DO PNEU", "SENSOR DE PRESSAO DO PNEU" não são pneu — só quando começa com PNEU ou tem medida
+  if (!/^\s*(JOGO DE |KIT )?PNEUS?\b/.test(d) && !/\d{3}\s*[\/ ]\s*\d{2}\s*Z?R\s*\d{2}/.test(d)) return null;
   // "195/65R15", "195/ 55 R15" e também "185 70 R14" (Soma/Porto escreve sem a barra)
   var m = d.match(/(\d{3})\s*[\/ ]\s*(\d{2})\s*Z?R\s*(\d{2})/);
   var medida = m ? m[1] + '/' + m[2] + 'R' + m[3] : '';
@@ -243,32 +246,115 @@ function vd_pneuDaDescricao_(desc) {
   return { pneu: true, medida: medida, marca: marca, categoria: categoria };
 }
 
-// Orcamento.gs:55
+// Orcamento.gs:58
 function vd_limparDescricao_(d) {
   return String(d || '')
     .replace(/^\(A\)\s*/, '')
-    .replace(/^(?:\d{5,}\s+)+/, '')              // 2º código numérico do Cilia (ex.: 1632439)
-    .replace(/^(?:PPG|PPC|PPO|PRO|PAR)\s+/, '')   // sigla de tipo do Cilia (PPG/PPC = paralela; PPO = original)
+    .replace(/^(?:\d{3,}\s+)+/, '')              // 2º código numérico do Cilia (ex.: 1632439, 4310)
+    .replace(/^\d{5,}(?=[A-Z]{3})/, '')           // 2º código colado na descrição ("951450JOGO DE FAROIS")
+    .replace(/^(?:PPG|PPC|PPO|PRO|PAR|PG|PO|OR|GE)\s+/, '')   // sigla de tipo do Cilia (PPG/PPC = paralela; PPO = original)
+    .replace(/^(?:PPG|PPC|PPO|GENUINA|ORIGINAL)(?=[A-Z])/, '')   // sigla/tipo colado na descrição pelo OCR ("PPOFAROL", "GENUINAFAROL") — 08/10/2026
+    .replace(/([A-Z]{4,})(DIANT|TRAS|DIR|ESQ|SUP|INF)\b/g, '$1 $2')   // OCR da HDI cola palavras ("PARALAMADIANT DIR", "RODADIANT")
     .replace(/^\((.*)\)$/, '$1')
     .replace(/\s*-\s*VAL\.\s*[\d\/ ]*$/, '')
     .replace(/[()]/g, ' ')
     .replace(/\s*\*\s*$/, '')
     .replace(/\s+/g, ' ')
+    .replace(/\b([A-ZÀ-Ü0-9][A-ZÀ-Ü0-9\-]{2,})(?: \1\b)+/g, '$1')   // "PORTA PORTA PORTA DIANTEIRA" (Websoma repete a palavra, 08/10/2026)
     .trim()
+    .replace(/^.{8,}$/, vd_tirarRepeticao_)
     .slice(0, 70);
 }
 
-// Orcamento.gs:70
+// Orcamento.gs:79
+function vd_tirarRepeticao_(d) {
+  var ws = String(d).split(' ');
+  for (var i = Math.ceil(ws.length / 2); i < ws.length; i++) {
+    var a = ws.slice(0, i).join(' '), b = ws.slice(i).join(' ');
+    if (b.length >= 4 && a.indexOf(b) === 0) return a;
+  }
+  return d;
+}
+
+// Orcamento.gs:89
 function vd_numOrc_(s) { var n = parseFloat(String(s || '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? NaN : n; }
 
-// Orcamento.gs:72
+// Orcamento.gs:91
 function vd_liquidoOrc_(unit, descPct) {
   var u = vd_numOrc_(unit), d = vd_numOrc_(descPct);
   if (isNaN(u)) return NaN;
   return isNaN(d) || d <= 0 || d >= 100 ? u : u * (1 - d / 100);
 }
 
-// Orcamento.gs:79
+// Orcamento.gs:102
+function vd_websomaDetalhado_(corpo, lista, add) {
+  var txt = vd_compactarCodigos_(corpo, '\u0001');
+  // 08/10/2026 (treino 2025, "Orcamento_Detalhado.pdf" da Porto): mesmo relatório impresso com número no formato inglês
+  // ("1 1,528.39 14.00 1,314.42 0.50 4.00", "PAGE 1 OF 3"), sem coluna TIPO e com sub-itens de R&I por baixo da peça
+  // ("37417 FORRO DA PORTA DT LE 0.50 0.00 ... TOTAL: 0.50 0.00") que não são peças.
+  var en = /\d+\.\d{2} \d+\.\d{2} \d+\.\d{2}/.test(txt) && !/\d,\d{2} \d/.test(txt);
+  if (en) txt = txt.replace(/(?:(?:\d{5} [A-Z][A-Z0-9 .\/\-]*?|\([^()]*\)) \d+\.\d{2} \d+\.\d{2} )+TOTAL: \d+\.\d{2} \d+\.\d{2}/g, ' ');
+  var NUM = en ? '(\\d{1,3}(?:,\\d{3})*\\.\\d{2})' : '(\\d{1,3}(?:\\.\\d{3})*,\\d{2})';
+  var num = en ? function (x) { var n = parseFloat(String(x || '').replace(/,/g, '')); return isNaN(n) ? NaN : n; } : vd_numOrc_;
+  // 08/10/2026 (treino, relatórios da Porto): o PDF imprime em colunas e o OCR às vezes traz 2–3 itens seguidos e só
+  // depois os preços ("…(GRADE) - VAL. 2020/ C/ FRISO 26364110 (COB.INF…) GENUINO 1 355,73 … GENUINO 1 118,66 …").
+  // Por isso o texto é cortado em BLOCOS entre os preços; cada bloco vira um ou mais itens (fila) e cada preço sai
+  // para o item mais antigo. Dentro do bloco um item começa num código (solto, "93286309//", Toyota "64780 0A120 C0")
+  // ou em "NOME (DESCRIÇÃO" (nome curto + parêntese); códigos VW compactados (\u0001) entram na fila de códigos.
+  var rePreco = en
+    ? new RegExp('(?:\\b(GENUIN[OA]|REPOSICAO|ORIGINAL|PARALEL[OA]|USAD[OA]|RECONDICIONAD[OA]) )?\\b(\\d{1,3}) ' + NUM + ' ' + NUM + ' ' + NUM + ' ' + NUM + ' ' + NUM, 'g')
+    : new RegExp('\\b(GENUIN[OA]|REPOSICAO|ORIGINAL|PARALEL[OA]|USAD[OA]|RECONDICIONAD[OA]) (\\d{1,3}) ' + NUM + ' ' + NUM + ' ' + NUM, 'g');
+  var COD = '(?:[A-Z]{0,4}\\d[A-Z0-9\\-]{4,18}\\/{0,2}|[A-Z]{1,2}\\d{3,8}|SOMA\\d+|0{2,}\\d+|\\d{5} [A-Z0-9]{5}(?: [A-Z0-9]{2}(?= \\())?)';   // "15X6" (medida) não é código
+  var reIni = new RegExp('\\u0001([^\\u0001]+)\\u0001|(?:^|\\s)(' + COD + ')(?=\\s[A-Z(])|(?:^|\\s)(?=(?:[A-Z][A-Z.\\-\\/]* ){0,2}\\()', 'g');
+  var filaCod = [], filaItem = [], m, pos = 0;
+  var fechar = function (it) {
+    if (!it) return;
+    var t = it.txt.replace(/\s*\*\s*$/, '').replace(/\s+/g, ' ').trim();
+    if (!/[A-Z]{3}/.test(t)) return;
+    if (/%|DEVOLU|DESC\. ?PECAS|DESCONTO/.test(t)) { filaItem.push({ pular: true }); return; }   // linha de ajuste de desconto: consome o preço e some
+    var p = t.match(/^(.*?)(?: - VAL\. \d{2,4}\/(?:\d{2,4})?(.*))?$/), desc = p[1], extra = (p[2] || '').replace(/\s*\*\s*$/, '').trim();
+    if (extra && (/^\(?PNEU/.test(desc) || !/\d/.test(extra)) && desc.indexOf(extra) < 0) desc += ' ' + extra;   // cor/acabamento ("PRETO SATIN", "C/ASSIST.EST.") e medida do pneu; "ATE 27/11/11" não
+    filaItem.push({ codigo: it.codigo || (filaCod.length ? filaCod.shift() : ''), desc: desc });
+  };
+  var bloco = function (s) {
+    s = s.replace(/^(?:\s*\d{1,3}(?:\.\d{3})*,\d{2})+/, '');   // sobras das colunas M.O./pintura do preço anterior ("0,50 0,00")
+    var atual = null, ult = 0, k;
+    reIni.lastIndex = 0;
+    while ((k = reIni.exec(s))) {
+      if (!k[0].length) reIni.lastIndex++;   // casamento vazio (início do bloco): avança para não travar
+      var antes = s.slice(ult, k.index);
+      if (atual) atual.txt += antes; else if (/[A-Z]{4}/.test(antes) && !k[1]) atual = { codigo: '', txt: antes };   // item sem código nem parêntese
+      ult = k.index + k[0].length;
+      if (k[1]) { filaCod.push(k[1]); continue; }
+      if (k[2]) { fechar(atual); atual = { codigo: k[2].replace(/\/+$/, '').replace(/\s+/g, ''), txt: '' }; continue; }
+      if (atual && !/- VAL\./.test(atual.txt)) { atual.txt += k[0]; continue; }   // "código (DESCRIÇÃO", "ESPELHO P (B) (ESPELHO EXT)": parêntese do mesmo item; só depois do "- VAL." um "NOME (" é item novo
+      fechar(atual); atual = { codigo: '', txt: '' };
+    }
+    var resto = s.slice(ult);
+    if (atual) atual.txt += resto; else if (/[A-Z]{4}/.test(resto)) atual = { codigo: '', txt: resto };
+    fechar(atual);
+  };
+  while ((m = rePreco.exec(txt))) {
+    bloco(txt.slice(pos, m.index));
+    pos = m.index + m[0].length;
+    var it = filaItem.shift();
+    if (!it || it.pular) continue;
+    var bruto = num(m[3]), liq = num(m[5]), pct = num(m[4]);
+    var calc = isNaN(bruto) ? NaN : (isNaN(pct) || pct <= 0 || pct >= 100 ? bruto : bruto * (1 - pct / 100));
+    var valor = (!isNaN(liq) && !isNaN(calc) && Math.abs(liq - calc) < 0.05) ? liq : (isNaN(calc) ? bruto : calc);
+    add(lista, it.codigo, it.desc, m[2], m[1] || '', valor);
+  }
+}
+
+// Orcamento.gs:162
+function vd_compactarCodigos_(txt, marca) {
+  return String(txt || '').replace(/\b([A-Z0-9]{2,4})\/ ?([A-Z0-9]{3,8})\/ ?([A-Z0-9]{0,3}) ?\/ ?([A-Z0-9]{0,4})(?=\s|$)/g, function (_, a, b, c, d) {
+    var cod = [a, b, c, d].filter(String).join('/');
+    return marca ? ' ' + marca + cod + marca + ' ' : cod;
+  });
+}
+
+// Orcamento.gs:170
 function vd_secao_(U, inicio, finais) {
   var i = U.search(inicio);
   if (i < 0) return '';
@@ -281,7 +367,7 @@ function vd_secao_(U, inicio, finais) {
   return resto.slice(0, fim);
 }
 
-// Orcamento.gs:91
+// Orcamento.gs:182
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
   var r = { origem: '', oficina: [], fo: [], seguradora: '', cor: '', sinistro: '' };
@@ -308,10 +394,14 @@ function vd_lerOrcamento_(texto) {
   // na cotação/autorização e serve de base para a comparação com a cotação (economia < 20% vermelho, 20–30 amarelo, > 30 verde)
   var add = function (lista, codigo, desc, qtd, tipo, valor) {
     codigo = String(codigo || '').replace(/\s+/g, ' ').trim();
+    // OCR do Cilia às vezes gruda (ou põe antes) o código na descrição ("100260230EMBLEMA DA GRADE", "1632439 FAROL"):
+    // se o código da coluna é interno (0000001) ou vazio, esse número é o código (RHV1E04, 05/10/2026) — antes da limpeza,
+    // que apaga esses dígitos (08/10/2026)
+    var mg = String(desc || '').trim().match(/^(\d{6,}) ?([A-Z(].*)$/);
+    if (mg && (!codigo || vd_codigoInterno_(codigo.replace(/\s/g, '')))) { codigo = mg[1]; desc = mg[2]; }
     desc = vd_limparDescricao_(desc);
-    // OCR do Cilia às vezes gruda o código na descrição ("100260230EMBLEMA DA GRADE"): separa (RHV1E04, 05/10/2026)
-    var mg = desc.match(/^(\d{6,})([A-Z].*)$/);
-    if (mg && (!codigo || vd_codigoInterno_(codigo.replace(/\s/g, '')))) { codigo = mg[1]; desc = mg[2].trim(); }
+    var mc = codigo.match(/^(\d{6,})([A-Z][A-Z\-]{2,})$/);   // "52181025PARACHOQUE" veio como código (08/10/2026)
+    if (mc) { codigo = mc[1]; desc = vd_limparDescricao_(mc[2] + ' ' + desc); }
     var pneu = vd_pneuDaDescricao_(desc);
     if (!desc || vd_ehServico_(desc)) return;
     // código interno (000000x / SOMA00x) = peça sem código de fábrica: consultor completa pelo Cilia
@@ -326,21 +416,27 @@ function vd_lerOrcamento_(texto) {
   };
 
   // ---------- HDI ----------
-  if (/PECAS FORNECIDAS PELA (HDI|OFICINA)/.test(U)) {
+  // 08/10/2026 (treino, BDG4H83 Sprinter): PDF do Cilia também pode citar "PEÇAS FORNECIDAS PELA OFICINA" no resumo —
+  // se tem o cabeçalho de tabela do Cilia (TITULO FORNECIMENTO PRECO), não é HDI
+  if (/PECAS FORNECIDAS PELA (HDI|OFICINA)/.test(U) && !/TITULO FORNECIMENTO PRECO|FORNECIMENTO PRECO DESCONTO PRECO LIQUIDO/.test(U)) {
     r.origem = 'HDI';
-    var reHdi = /([A-Z0-9]{3,20})\*? (?:\(A\) )?(.+?) (\d{1,3}) (\d{1,3}(?:\.\d{3})*,\d{2}) (\d{1,3}(?:\.\d{3})*,\d{2}) (\d{1,3},\d{2}|\?)/g;   // qtd, unit, total, desconto %
+    // 08/10/2026 (treino): código Ford espaçado ("E3B5/ 17757/AG/XWA") compactado antes; página cortada no OCR
+    // ("1 1.020,00 1.020,0", sem total/desconto) ainda lê a peça com o valor unitário
+    var reHdi = /([A-Z0-9][A-Z0-9\/\-]{2,24})\*? (?:\(A\) )?(.+?) (\d{1,3}) (\d{1,3}(?:\.\d{3})*,\d{2})(?: (\d{1,3}(?:\.\d{3})*,\d{1,2}))?(?: (\d{1,3},\d{2}|\?))?/g;
     var fimHdi = [/PECAS FORNECIDAS PELA/, /OPERACOES/, /RESUMO/, /SERVICOS ADICIONAIS/];
     var secO = vd_secao_(U, /PECAS FORNECIDAS PELA OFICINA/, fimHdi);
     var secF = vd_secao_(U, /PECAS FORNECIDAS PELA HDI/, fimHdi);
     [[secO, r.oficina], [secF, r.fo]].forEach(function (par) {
-      var sec = par[0].replace(/^.*?DESCONTO \(%\)/, '');
-      while ((m = reHdi.exec(sec))) add(par[1], m[1], m[2], m[3], '', vd_liquidoOrc_(m[4], m[6]));
+      var sec = par[0];
+      sec = /DESCONTO \(%\)/.test(sec) ? sec.replace(/^.*?DESCONTO \(%\)/, '') : sec.replace(/^.*?(?:TOTAL \(R\$?\)?|\bTOTA\b)/, '');   // cabeçalho (às vezes cortado no OCR)
+      sec = vd_compactarCodigos_(sec);
+      while ((m = reHdi.exec(sec))) add(par[1], m[1], m[2], m[3], '', m[6] ? vd_liquidoOrc_(m[4], m[6]) : vd_numOrc_(m[4]));
     });
     return r;
   }
 
   // ---------- Websoma / Porto ----------
-  if (/PECAS - TROCA/.test(U)) {
+  if (/PECAS - TROCA|LISTA DAS PECAS FORNECIDAS PELA SEGURADORA/.test(U)) {   // só FO (sem "PECAS - TROCA") também é Websoma (08/10/2026)
     r.origem = 'WEBSOMA';
     // Dois layouts: Websoma clássico ("PECAS - TROCA (FORNECIDAS PELA SEGURADORA)") e o ORÇAMENTO DETALHADO do
     // Soma/Porto/Azul (05/10/2026): "PECAS - TROCA (COMPRA PELA OFICINA)", "LISTA DAS PECAS FORNECIDAS PELA SEGURADORA"
@@ -352,6 +448,12 @@ function vd_lerOrcamento_(texto) {
     secs.forEach(function (sec) {
       var ehFO = /^PECAS - TROCA \(FORNECIDAS PELA SEGURADORA\)|^LISTA DAS PECAS FORNECIDAS PELA SEGURADORA/.test(sec);
       var corpo = vd_secao_(sec, /PECAS - TROCA|LISTA DAS PECAS FORNECIDAS/, fimWs).replace(/^.*?PINTURA /, '');
+      // 08/10/2026 (ATP5105 + treino com cards antigos): leitor sequencial — código VW espaçado ("5U4/ 831055/D /CTR"),
+      // descrição entre parênteses, "- Val. aaaa/aaaa" (ou "00/"), complemento (cor), "*" antes do tipo e vários códigos
+      // seguidos das descrições (casados em fila). Se não achar nada, volta ao leitor antigo (layout clássico).
+      var lista = ehFO ? r.fo : r.oficina, antes = lista.length;
+      vd_websomaDetalhado_(corpo, lista, add);
+      if (lista.length > antes) return;
       while ((m = reWs.exec(corpo))) {
         // colunas: Vlr (bruto) · Desc. (%) · Vlr (líquido). Se o 3º número bate com bruto - desconto, é o líquido; senão calcula.
         var bruto = vd_numOrc_(m[5]), liq = vd_numOrc_(m[7]), calc = vd_liquidoOrc_(m[5], m[6]);
@@ -362,15 +464,40 @@ function vd_lerOrcamento_(texto) {
     return r;
   }
 
+  // ---------- "Orçamento - N" com coluna DESCRICAO/CODIGO (08/10/2026, treino — MVU1552 F250 Tokio) ----------
+  // "T R&I 0,50 1.00 ESPELHO RETROVISOR INTERNO COD: XC3A17700AA OFICINA R$ 194,00 % 13,00 R$ 168,78"; "CLIENTE - - -" = o
+  // cliente fornece (não entra); "SEGURADORA" = FO. Linhas só R&I/R/P (sem T) não são troca.
+  if (/DESCRICAO\/CODIGO FORNECIMENTO/.test(U) && /\bCOD: /.test(U)) {
+    r.origem = /TOKIO/.test(U) ? 'TOKIO' : (/CILIA/.test(U) ? 'CILIA' : 'ORCAMENTO');
+    var reDc = /\bT (?:R&I \d+,\d{2} )?(?:R \d+,\d{2} )?(?:P \d+,\d{2} )?(\d+(?:[.,]\d+)?) (.+?) COD: ?([A-Z0-9][A-Z0-9\-.\/]*)? ?(OFICINA|CLIENTE|SEGURADORA) (?:R\$ ?(\d{1,3}(?:\.\d{3})*,\d{2}) (?:% (\d{1,3},\d{2})|-) R\$ ?(\d{1,3}(?:\.\d{3})*,\d{2})|- - -)/g;
+    while ((m = reDc.exec(U))) {
+      if (m[4] === 'CLIENTE') continue;
+      var qtdDc = String(m[1]).replace(/[.,]00$/, '');
+      add(m[4] === 'SEGURADORA' ? r.fo : r.oficina, m[3] || '', m[2], qtdDc, '', m[7] ? vd_numOrc_(m[7]) : (m[5] ? vd_numOrc_(m[5]) : NaN));   // preço líquido (último R$)
+    }
+    return r;
+  }
+
   // ---------- Cilia ----------
   if (/FORNECIMENTO/.test(U) && /\bT (?:-|\d+,\d{2})/.test(U)) {
     r.origem = 'CILIA';
-    var reCi = /\bT (?:-|\d+,\d{2})(?: P \d+,\d{2})? (\d{1,3}) ([A-Z0-9]{4,20}) (?:\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?(.+?) ?(OFICINA|SEGURADORA) (?:R\$(?: ?(\d{1,3}(?:\.\d{3})*,\d{2})(?: ?(?:R\$ ?)?(\d{1,3}(?:\.\d{3})*,\d{2})(?! ?%))?(?: ?(\d{1,3},\d{2}) ?%)?)?|-)/g;   // número seguido de % é desconto, não total (07/10/2026)
+    // 08/10/2026 (treino com cards antigos): no PDF do Cilia dois itens podem vir seguidos e só depois os dois preços
+    // ("…FAROL DIREITO (…) T 0,50 1 8117098010 GENUINAFAROL ESQUERDO (…) SEGURADORA R$ 804,47 - - SEGURADORA R$ 761,13 - -").
+    // Por isso o leitor anda em fila: cada ITEM entra numa fila e cada PREÇO (OFICINA/SEGURADORA …) sai para o item mais
+    // antigo sem preço. O tipo pode vir colado ("GENUINAFAROL", "PPOJOGO") — vd_limparDescricao_ tira.
+    var PROX = '\\bT (?:-|\\d+,\\d{2})(?: P \\d+,\\d{2})? \\d{1,3} [A-Z0-9]{4,20}\\b';
+    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P \\d+,\\d{2})? (\\d{1,3}) ([A-Z0-9]{4,20}) (?:\\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
+      '|(OFICINA|SEGURADORA) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(\\d{1,3},\\d{2}) ?%)?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
+    var filaCi = [];
     while ((m = reCi.exec(U))) {
-      var tipo = m[3] || m[4] || '';
+      if (m[2]) { filaCi.push({ qtd: m[1], codigo: m[2], tipo: m[3] || m[4] || '', desc: m[5] }); continue; }
+      var it = filaCi.shift();
+      if (!it) continue;   // preço sem item antes (cabeçalho, serviços): ignora
       // Cilia: "OFICINA R$ unit [R$ total] [desc %]" — o valor unitário líquido; formato confirmado no 1º PDF real (05/10/2026)
-      add(m[6] === 'SEGURADORA' ? r.fo : r.oficina, m[2], m[5], m[1], tipo, m[7] ? vd_liquidoOrc_(m[7], m[9]) : NaN);
+      add(m[6] === 'SEGURADORA' ? r.fo : r.oficina, it.codigo, it.desc, it.qtd, it.tipo, m[7] ? vd_liquidoOrc_(m[7], m[9]) : NaN);
     }
+    // item que ficou sem preço (fim do texto cortado): entra como da oficina, sem valor
+    filaCi.forEach(function (it) { add(r.oficina, it.codigo, it.desc, it.qtd, it.tipo, NaN); });
     return r;
   }
   return r;
@@ -379,10 +506,10 @@ function vd_lerOrcamento_(texto) {
 // Previsao.gs:14
 function pv_mesmoDia_(a, b) { return !!a && !!b && vd_dataCurta_(a) === vd_dataCurta_(b) && new Date(a).getFullYear() === new Date(b).getFullYear(); }
 
-// Previsao.gs:242
+// Previsao.gs:255
 function pv_diaNum_(d) { try { return +Utilities.formatDate(new Date(d), 'America/Sao_Paulo', 'yyyyMMdd'); } catch (e) { return 0; } }
 
-// Previsao.gs:248
+// Previsao.gs:261
 function pv_datas_(t, semHora) {
   var out = [], m, re = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b(\s*-?\s*\d{1,2}:\d{2})?/g;
   while ((m = re.exec(t))) {
@@ -394,7 +521,7 @@ function pv_datas_(t, semHora) {
   return out;
 }
 
-// Previsao.gs:260
+// Previsao.gs:273
 function pv_fornecedor_(janela, lista) {
   var U = vd_semAcento_(janela);
   var m = U.match(/FORNECEDOR\s*[:\-]?\s*([A-Z0-9][A-Z0-9 .&\/\-]{2,40}?)(?=\s{2,}|\s+\d{1,2}\/\d|\s+PREV|\s+DATA|\s+R\$|$)/);
@@ -417,7 +544,7 @@ function pv_fornecedor_(janela, lista) {
   return '';
 }
 
-// Previsao.gs:284
+// Previsao.gs:297
 function pv_fornecedorCurto_(txt, lista) {
   var t = vd_semAcento_(txt).replace(/\s+/g, ' ').trim();
   if (t.indexOf('/') >= 0) t = t.split('/').pop().trim();
@@ -430,7 +557,7 @@ function pv_fornecedorCurto_(txt, lista) {
   return r.nome;
 }
 
-// Previsao.gs:306
+// Previsao.gs:319
 function pv_lerStatusCilia_(texto, lista) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   if (!/STATUS DAS PECAS|PREVISAO DE ENTREGA|STATUS DO PEDIDO/.test(U)) return null;
@@ -518,7 +645,7 @@ function pv_lerStatusCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:406
+// Previsao.gs:419
 function pv_lerPareceresCilia_(texto) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   var reCab = /FLUXO:\s*\d+\s*\|.*?DATA DE CRIACAO:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/g;
@@ -574,7 +701,7 @@ function pv_lerPareceresCilia_(texto) {
   return out;
 }
 
-// Previsao.gs:462
+// Previsao.gs:475
 function pv_ultimaAtualizacaoCilia_(texto) {
   var m = vd_semAcento_(String(texto || '')).match(/ULTIMA ATUALIZACAO\s*\(?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/);
   if (!m) return null;
@@ -583,7 +710,7 @@ function pv_ultimaAtualizacaoCilia_(texto) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Previsao.gs:474
+// Previsao.gs:487
 function pv_aplicarPareceres_(achados, texto, alvos) {
   var pareceres = pv_lerPareceresCilia_(texto);
   if (!pareceres.length) return 0;
@@ -626,7 +753,7 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
   return n;
 }
 
-// Previsao.gs:527
+// Previsao.gs:540
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
@@ -703,7 +830,7 @@ function pv_lerHdiPecas_(texto, lista) {
   return pecas.length ? pecas : null;
 }
 
-// Previsao.gs:603
+// Previsao.gs:616
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
@@ -785,7 +912,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:685
+// Previsao.gs:698
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
@@ -796,53 +923,53 @@ function pv_enriquecerFo_(texto, fo) {
   return n;
 }
 
-// Validacao.gs:183
+// Validacao.gs:199
 function vd_semAcento_(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 }
 
-// Validacao.gs:214
+// Validacao.gs:230
 function vd_normPlaca_(p) {
   return String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-// Validacao.gs:218
+// Validacao.gs:234
 function vd_placaMercosul_(p) {
   p = vd_normPlaca_(p);
   if (/^[A-Z]{3}\d{4}$/.test(p)) return p.slice(0, 4) + 'ABCDEFGHIJ'.charAt(+p.charAt(4)) + p.slice(5);
   return p;
 }
 
-// Validacao.gs:223
+// Validacao.gs:239
 function vd_mesmaPlaca_(a, b) {
   return !!a && !!b && vd_placaMercosul_(a) === vd_placaMercosul_(b);
 }
 
-// Validacao.gs:229
+// Validacao.gs:245
 function vd_placaDoTexto_(s) {
   var m = String(s || '').toUpperCase().match(/\b([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/);
   return m ? m[1] + m[2] : '';
 }
 
-// Validacao.gs:234
+// Validacao.gs:250
 function vd_normChassi_(c) {
   return String(c || '').toUpperCase().replace(/[\s.\-]/g, '');
 }
 
-// Validacao.gs:237
+// Validacao.gs:253
 function vd_chassiValido_(c) {
   c = vd_normChassi_(c);
   return /^[A-HJ-NPR-Z0-9]{17}$/.test(c) && /[A-Z]/.test(c) && /\d{4}$/.test(c);
 }
 
-// Validacao.gs:475
+// Validacao.gs:514
 function vd_valorOrcTxt_(v) {
   if (v == null || v === '') return '';
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   return isNaN(n) || n <= 0 ? '' : vd_valorBR_(n);
 }
 
-// Validacao.gs:575
+// Validacao.gs:614
 function vd_motorDoModelo_(m) {
   var s = String(m || '');
   var d = s.match(/\b\d\.\d\b/);
@@ -852,7 +979,7 @@ function vd_motorDoModelo_(m) {
   return [d[0]].concat(tk.filter(function (t, i) { return tk.indexOf(t) === i; })).join(' ');
 }
 
-// Validacao.gs:583
+// Validacao.gs:622
 function vd_extrair_(texto) {
   var T = String(texto || '').replace(/\r/g, '');
   var U = vd_semAcento_(T).replace(/[\s\u00a0]+/g, ' ');
@@ -902,7 +1029,7 @@ function vd_extrair_(texto) {
   return r;
 }
 
-// Validacao.gs:779
+// Validacao.gs:820
 function vd_dicaNorm_(t) {
   var s = vd_semAcento_(t);
   if (/^GENU/.test(s)) return 'GENUÍNO';
@@ -913,14 +1040,14 @@ function vd_dicaNorm_(t) {
   return '';
 }
 
-// Validacao.gs:815
+// Validacao.gs:856
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
 
-// Validacao.gs:820
+// Validacao.gs:878
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4
@@ -929,4 +1056,4 @@ function vd_orcExpandir_(lista) {
   });
 }
 
-export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_semAcento_, vd_tipoOrcamento_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_ };
+export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };
