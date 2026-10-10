@@ -282,6 +282,35 @@ function descrever(msg: Record<string, unknown>): { fn: string; rid?: string } {
 // ---------- trabalhadores: um por quadro ----------
 // TESTE: o formulário inteiro (lê e grava, com a proteção de escrita). PRINCIPAL (07/10/2026): só as leituras de navegação
 // (abrir, carregar card, buscar placa) — VD_BOARD do principal, nenhuma gravação no Trello, no banco nem na planilha.
+/* Propriedades do quadro PRINCIPAL (10/10/2026, Weslley autorizou): as listas e configurações do robô (locais de estoque, quem
+   retira, compradores, autorizadores, feriados extras…) só existem nas Propriedades do Script do Apps Script. O servidor pede a
+   ele (vdf_propsServidor — só leitura, só chaves da lista, nunca token) e guarda por 5 min; sem resposta, usa a última que tem. */
+const URL_APP = process.env.URL_APP
+  || 'https://script.google.com/macros/s/AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew/exec';
+let propsPrinc: { v: Record<string, string>; em: number } | null = null;
+let buscandoProps: Promise<void> | null = null;
+let erroProps = '';
+async function buscarPropsPrincipal(): Promise<void> {
+  const r = await fetch(URL_APP, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn: 'vdf_propsServidor', args: [CFG.trello.token] }), signal: AbortSignal.timeout(10_000) });
+  const j = await r.json() as { ok?: boolean; r?: Record<string, string>; erro?: string };
+  if (!j || !j.ok || !j.r || typeof j.r !== 'object') throw new Error(j?.erro || 'resposta inválida do Apps Script');
+  propsPrinc = { v: Object.fromEntries(Object.entries(j.r).map(([k, v]) => [k, String(v)])), em: Date.now() };
+  erroProps = '';
+}
+async function propsDoPrincipal(): Promise<Record<string, string>> {
+  const velho = !propsPrinc || Date.now() - propsPrinc.em > 5 * 60_000;
+  if (velho && !buscandoProps) {
+    buscandoProps = buscarPropsPrincipal().catch((e) => { erroProps = (e as Error).message; console.error('props do principal:', erroProps); })
+      .finally(() => { buscandoProps = null; });
+  }
+  if (!propsPrinc && buscandoProps) await Promise.race([buscandoProps, new Promise((ok) => setTimeout(ok, 5_000))]);
+  return propsPrinc?.v || {};
+}
+export function estadoPropsPrincipal() {
+  return { chaves: propsPrinc ? Object.keys(propsPrinc.v) : [], idadeSeg: propsPrinc ? Math.round((Date.now() - propsPrinc.em) / 1000) : null, erro: erroProps || null };
+}
+
 async function propsIniciais(): Promise<Record<string, string>> {
   const rs = await consulta<{ chave: string; valor: string }>(`SELECT chave, valor FROM gas_propriedade`);
   return Object.fromEntries(rs.map((r) => [r.chave, r.valor]));
@@ -313,7 +342,7 @@ class Contexto {
   private iniciar(): Promise<void> {
     if (this.pronto) return this.pronto;
     this.pronto = (async () => {
-      const props = await propsIniciais();
+      const props = this.nome === 'principal' ? {} : await propsIniciais();   // principal: vêm do Apps Script a cada chamada
       const sinal = new SharedArrayBuffer(4);
       const flag = new Int32Array(sinal);
       const { port1, port2 } = new MessageChannel();
@@ -356,8 +385,9 @@ class Contexto {
       try {
         if (!this.trabalhador) ex.frio = true;
         await this.iniciar();
+        const extra = this.nome === 'principal' ? { props: await propsDoPrincipal() } : {};
         const id = ++this.seq;
-        const r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg }); });
+        const r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg, ...extra }); });
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
         return r;

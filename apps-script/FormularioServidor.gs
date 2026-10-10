@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -59,6 +59,20 @@ function doPost(e) {
     try { if (out.ok && txt.length < 90000) cache.put(rid, txt, 600); else cache.remove(rid); } catch (e2) {}
   }
   return ContentService.createTextOutput(txt).setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ---------- servidor próprio (10/10/2026, Weslley autorizou) ----------
+   O servidor próprio LÊ o quadro principal (abrir formulário, carregar card) e precisa das listas e configurações que só
+   existem aqui nas Propriedades do Script — sem elas, por exemplo, as sugestões de local de estoque e de quem retira vinham
+   vazias. Só leitura, só as chaves abaixo (nunca token/chave do Trello), e só para quem é membro do quadro. */
+var VDF_PROPS_SERVIDOR = ['RC_LOCAIS', 'RC_QUEM', 'VD_COMPRADORES', 'VD_AUTORIZADORES', 'FAT_USUARIOS', 'DU_EXTRAS', 'DU_REMOVER',
+  'VD_DIAS_UTEIS', 'SLA_DIAS_COTAR', 'SLA_DIAS_AUTORIZAR', 'SLA_DIAS_RECEBER', 'SLA_DIAS_FATURAR', 'SLA_REPETIR_DU', 'TST_CARDS',
+  'VD_FIXO', 'VD_VITRINE', 'VD_TRAVA_DESC'];
+function vdf_propsServidor(token) {
+  vdf_usuario_(token);
+  var p = PropertiesService.getScriptProperties(), out = {};
+  VDF_PROPS_SERVIDOR.forEach(function (k) { var v = p.getProperty(k); if (v !== null) out[k] = v; });
+  return out;
 }
 
 /* ---------- segurança: token do consultor precisa ser membro do quadro ---------- */
