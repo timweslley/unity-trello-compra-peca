@@ -423,3 +423,36 @@ function tst_principal() {
   PropertiesService.getScriptProperties().setProperty('TST_PRINCIPAL_REL', rel.join('\n').slice(0, 8000));
   return rel;
 }
+
+/* ============================ TESTE COMPLETO NO QUADRO PRINCIPAL (10/10/2026) ============================
+ * Card de teste = placa fictícia ZZT9xxx no título, ou id na lista TST_CARDS (vdf_testeMarcar). Em card de teste
+ * NINGUÉM é notificado: toda menção que não seja do Weslley vira "👤nome" (vd_api_ chama tst_filtrarMencoes_ em todo
+ * comentário postado — formulário e robô). O teste em si é dirigido pelo formulário (mesmas funções vdf_*). */
+var TST_RE_PLACA = /\bZZT\d[A-Z0-9]\d\d\b/;
+function tst_ehCardTeste_(idOuSl) {
+  if (!idOuSl) return false;
+  var lista = []; try { lista = JSON.parse(PropertiesService.getScriptProperties().getProperty('TST_CARDS') || '[]'); } catch (e) {}
+  if (lista.indexOf(idOuSl) >= 0) return true;
+  var cache = CacheService.getScriptCache(), k = 'tst_nome_' + idOuSl, nome = cache.get(k);
+  if (nome === null) {
+    try { nome = String(vd_api_('/cards/' + idOuSl, { cru: true, query: { fields: 'name' } }).name || ''); } catch (e) { nome = ''; }
+    try { cache.put(k, nome.slice(0, 200), 21600); } catch (e) {}
+  }
+  return TST_RE_PLACA.test(nome) || /🧪/.test(nome);
+}
+function tst_filtrarMencoes_(caminho, txt) {
+  var m = String(caminho || '').match(/^\/cards\/([^\/?]+)\/actions\/comments/);
+  if (!m || !tst_ehCardTeste_(m[1])) return txt;
+  return String(txt).replace(/(^|[^A-Za-z0-9_.])@([A-Za-z0-9_.\-]{3,})/g, function (x, pre, u) { return u.toLowerCase() === 'timweslley' ? x : pre + '👤' + u; });
+}
+/** Diretoria: marca/desmarca um card como de teste (menções silenciadas). p = {shortLink, ligar} */
+function vdf_testeMarcar(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) throw new Error('Só a diretoria.');
+  var c = vd_api_('/cards/' + p.shortLink, { cru: true, query: { fields: 'id,shortLink,name' } });
+  var props = PropertiesService.getScriptProperties(), l = []; try { l = JSON.parse(props.getProperty('TST_CARDS') || '[]'); } catch (e) {}
+  l = l.filter(function (x) { return x !== c.id && x !== c.shortLink; });
+  if (p.ligar !== false) l.push(c.id, c.shortLink);
+  props.setProperty('TST_CARDS', JSON.stringify(l.slice(-40)));
+  return { ok: true, id: c.id, nome: c.name, teste: p.ligar !== false };
+}

@@ -88,7 +88,10 @@ function vd_api_(caminho, opts, tokenUsuario) {
   if (opts.multipart) {
     params.payload = opts.multipart;
   } else if (opts.payload) {
-    if (params.method === 'post' && /\/actions\/comments/.test(caminho) && opts.payload.text) { try { opts.payload.text = es_filtrarMencoes_(opts.payload.text); } catch (e) {} }
+    if (params.method === 'post' && /\/actions\/comments/.test(caminho) && opts.payload.text) {
+      try { opts.payload.text = es_filtrarMencoes_(opts.payload.text); } catch (e) {}
+      try { opts.payload.text = tst_filtrarMencoes_(caminho, opts.payload.text); } catch (e) {}   // card do teste completo: ninguém é notificado
+    }
     params.contentType = 'application/json';
     params.payload = JSON.stringify(opts.payload);
   }
