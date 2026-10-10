@@ -290,23 +290,34 @@ const URL_APP = process.env.URL_APP
 let propsPrinc: { v: Record<string, string>; em: number } | null = null;
 let buscandoProps: Promise<void> | null = null;
 let erroProps = '';
+let ultimaTentativa = 0;
+let lidoDoBanco = false;
 async function buscarPropsPrincipal(): Promise<void> {
+  ultimaTentativa = Date.now();
+  // o Apps Script às vezes demora (partida a frio): 30 s de prazo, sempre em segundo plano — nunca segura a abertura do card
   const r = await fetch(URL_APP, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ fn: 'vdf_propsServidor', args: [CFG.trello.token] }), signal: AbortSignal.timeout(10_000) });
+    body: JSON.stringify({ fn: 'vdf_propsServidor', args: [CFG.trello.token] }), signal: AbortSignal.timeout(30_000) });
   const j = await r.json() as { ok?: boolean; r?: Record<string, string>; erro?: string };
   if (!j || !j.ok || !j.r || typeof j.r !== 'object') throw new Error(j?.erro || 'resposta inválida do Apps Script');
   propsPrinc = { v: Object.fromEntries(Object.entries(j.r).map(([k, v]) => [k, String(v)])), em: Date.now() };
   erroProps = '';
+  await consulta(`INSERT INTO guardado (nome, valor, em) VALUES ('props_principal', $1, now())
+                  ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`, [JSON.stringify(propsPrinc.v)]).catch(() => null);
 }
 async function propsDoPrincipal(): Promise<Record<string, string>> {
   if (!URL_APP) return {};   // testes (URL_APP vazio): não sai para a rede
+  if (!propsPrinc && !lidoDoBanco) {   // depois de reiniciar: a última cópia guardada no banco vale até chegar a nova
+    lidoDoBanco = true;
+    const [g] = await consulta<{ valor: Record<string, string>; em: Date }>(`SELECT valor, em FROM guardado WHERE nome = 'props_principal'`).catch(() => []);
+    if (g) propsPrinc = { v: g.valor, em: new Date(g.em).getTime() };
+  }
   const velho = !propsPrinc || Date.now() - propsPrinc.em > 5 * 60_000;
-  if (velho && !buscandoProps) {
+  const podeTentar = Date.now() - ultimaTentativa > (erroProps ? 60_000 : 0);   // depois de erro, tenta de novo só a cada 1 min
+  if (velho && podeTentar && !buscandoProps) {
     buscandoProps = buscarPropsPrincipal().catch((e) => { erroProps = (e as Error).message; console.error('props do principal:', erroProps); })
       .finally(() => { buscandoProps = null; });
   }
-  if (!propsPrinc && buscandoProps) await Promise.race([buscandoProps, new Promise((ok) => setTimeout(ok, 5_000))]);
-  return propsPrinc?.v || {};
+  return propsPrinc?.v || {};   // nunca espera: sem cópia ainda, usa o padrão do código (como antes)
 }
 export function estadoPropsPrincipal() {
   return { chaves: propsPrinc ? Object.keys(propsPrinc.v) : [], idadeSeg: propsPrinc ? Math.round((Date.now() - propsPrinc.em) / 1000) : null, erro: erroProps || null };
@@ -412,7 +423,7 @@ const PRINCIPAL = new Contexto('principal', true, QUADRO_PRINCIPAL_SL, true);
 /** Retrato dos pedidos do TESTE no banco (versão 2.0, passo 1): lê o card como o formulário lê, sem gravar nada. */
 const RETRATO = new Contexto('retrato', true, CFG.trello.quadro);
 /** Liga os trabalhadores do TESTE e do principal assim que o servidor sobe. */
-export function aquecerTrabalhadores(): Promise<unknown> { return Promise.all([TESTE.aquecer(), PRINCIPAL.aquecer()]); }
+export function aquecerTrabalhadores(): Promise<unknown> { void propsDoPrincipal(); return Promise.all([TESTE.aquecer(), PRINCIPAL.aquecer()]); }
 export function retratoDoCard(shortLink: string): Promise<unknown> { return RETRATO.chamar('vdf_carregarCard', [CFG.trello.token, shortLink]); }
 
 /** O doPost do robô: recebe o corpo `{fn, args, rid}` do formulário e devolve o texto JSON da resposta. */
