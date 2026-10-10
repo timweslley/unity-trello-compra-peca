@@ -2092,8 +2092,14 @@ function pz_executar_() {
       var tem = (c.idLabels || []).indexOf(idAtrasado) >= 0;
       if (vencidosFO.length && !tem) {
         vd_api_('/cards/' + c.id + '/idLabels', { method: 'post', payload: { value: idAtrasado } });
-        vd_comentar_(c, '⏰ Fornecimento atrasado — verificar prazo do item ' +
-          vencidosFO.map(function (it) { return it.name + ' (previsão ' + pz_fmt_(it.due) + ')'; }).join(', ') + '.');
+        // 10/10/2026: comenta só o item + previsão ainda não avisado (etiqueta tirada e posta de novo não repete o aviso)
+        var kFo = 'PZ_FOAV_' + c.id, jaAv = []; try { jaAv = JSON.parse(props.getProperty(kFo) || '[]'); } catch (e) {}
+        var novosFO = vencidosFO.filter(function (it) { return jaAv.indexOf(it.id + '|' + String(it.due).slice(0, 10)) < 0; });
+        if (novosFO.length) {
+          vd_comentar_(c, '⏰ Fornecimento atrasado — verificar prazo do item ' +
+            novosFO.map(function (it) { return it.name + ' (previsão ' + pz_fmt_(it.due) + ')'; }).join(', ') + '.');
+          try { props.setProperty(kFo, JSON.stringify(jaAv.concat(novosFO.map(function (it) { return it.id + '|' + String(it.due).slice(0, 10); })).slice(-40))); } catch (e) {}
+        }
         mudou = true;
       } else if (!vencidosFO.length && tem) {
         vd_api_('/cards/' + c.id + '/idLabels/' + idAtrasado, { method: 'delete' });

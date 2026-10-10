@@ -130,7 +130,7 @@ function sd_propriedades() {
 /** Limpeza diária: apaga as propriedades por card (VD_PK2_, VD_AT_, VD_SIG_, PZ_AT_, SLA_, ...) de cards que
  *  não estão mais abertos no quadro em uso (arquivados, apagados, ou de outro quadro depois da virada)
  *  e de cards antigos (anteriores à virada), que o robô não acompanha. */
-var SD_PREF_CARD = /^(?:VD_PK2_|VD_AT_|VD_SIG_|VD_NOVAS_|VD_DESC_AV_|PZ_AT_|PZ_COL_|PZ_SEMPREV_|ST_ESP_)([0-9a-f]{24})$|^SLA_([0-9a-f]{24})_/;
+var SD_PREF_CARD = /^(?:VD_PK2_|VD_AT_|VD_SIG_|VD_NOVAS_|VD_DESC_AV_|PZ_AT_|PZ_COL_|PZ_SEMPREV_|PZ_FOAV_|ST_ESP_)([0-9a-f]{24})$|^SLA_([0-9a-f]{24})_/;
 // 10/10/2026 (revisão): o cache de leitura de anexos (VD_ANX3_<anexo>, até 8,5 KB cada) e os avisos por item de checklist
 // (SLA_I_<item>_<data>) nunca saíam — eram o que mais crescia. Anexo de card fechado e aviso de item com data há mais de
 // 30 dias também são apagados. Passar de 500 KB derrubava o núcleo inteiro (setProperty lança erro).

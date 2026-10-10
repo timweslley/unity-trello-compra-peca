@@ -131,7 +131,7 @@ var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, REPETIR_FATURAR_DU: 5, 
 /* 10/10/2026 (revisão, dados de 05–09/10): o lembrete de faturamento saía por card, todo dia, em 85 cards (256 comentários em
  * 5 dias, ~70 notificações/dia ao financeiro) e só alcançava parte dos 369 cards de ENTREGUES (corte de 40 s + 1 chamada ao
  * histórico por card). Agora: entrada na coluna vem do cache PZ_COL_ (pz_entradaColuna_), o lembrete no card sai na 1ª vez
- * (7 d.u.) e depois a cada SLA_REPETIR_FATURAR d.u. (padrão 5), e UM resumo por dia útil (sla_resumoFaturamento_) lista
+ * (7 d.u.) uma vez só (10/10/2026, sem repetir), e UM resumo (sla_resumoFaturamento_), atualizado no mesmo comentário, lista
  * todos os cards vencidos, por idade, no card fixo do quadro — uma notificação em vez de dezenas. Desligar o resumo: FAT_RESUMO = NAO. */
 
 function sla_dia_(d) { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); }
@@ -141,10 +141,14 @@ function sla_users_(prop, padrao) { if (vd_board_() === VD.BOARD_PADRAO) padrao 
 function sla_mencao_(us) { return us.filter(function (u, i) { return u && us.indexOf(u) === i; }).map(function (u) { return '@' + u; }).join(' '); }
 
 /** Já avisou desta pendência há menos de 2 dias úteis? (chave por card+etapa+entrada ou por item+previsão) */
-function sla_podeAvisar_(props, chave, hoje, repetirDu) {
+/* 10/10/2026 (Weslley: "os avisos estão muitos, não repetir se já avisado"): cada pendência é avisada UMA vez — por entrada do
+ * card na etapa, ou por item + previsão. Nova entrada na etapa / nova previsão = pendência nova, avisa de novo.
+ * Voltar a repetir: propriedade SLA_REPETIR_DU = nº de dias úteis (0 ou vazio = nunca repete). */
+function sla_podeAvisar_(props, chave, hoje) {
   var ult = props.getProperty(chave);
   if (!ult) return true;
-  return sla_mais_(new Date(ult), repetirDu || SLA.REPETIR_DU) <= hoje;
+  var rep = +vd_prop_('SLA_REPETIR_DU', 0);
+  return rep > 0 && sla_mais_(new Date(ult), rep) <= hoje;
 }
 
 /** Resumo diário do faturamento pendente (um comentário no card fixo do quadro, mencionando quem fatura). */
@@ -160,13 +164,17 @@ function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
   if (vd_board_() !== VD.BOARD_PADRAO) usF = usF.filter(function (u) { return u !== 'timweslley'; });
   var mencao = sla_mencao_(vd_board_() === VD.BOARD_PADRAO ? ['timweslley'] : usF);
   var txt = mencao + ' 🧾 **Faturamento pendente — ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM') + '**: ' + itens.length +
-    ' card(s) em ENTREGUES há mais de ' + diasPrazo + ' dia(s) útil(eis), do mais antigo para o mais novo. Depois de faturar, comente «faturado» no card (ou arquive) — ele sai da lista.\n' +
+    ' card(s) em ENTREGUES há mais de ' + diasPrazo + ' dia(s) útil(eis), do mais antigo para o mais novo. _Lista atualizada todo dia útil neste mesmo comentário._ Depois de faturar, comente «faturado» no card (ou arquive) — ele sai da lista.\n' +
     mostra.map(function (x) { return '- ' + x.dias + ' d.u. · [' + x.nome + '](' + x.url + ')' + (x.compl ? ' ⚠️ complementar antecipado sem confirmação' : ''); }).join('\n') +
     (itens.length > mostra.length ? '\n- … e mais ' + (itens.length - mostra.length) + ' card(s)' : '');
+  // 10/10/2026: UM comentário só, atualizado no lugar todo dia útil (editar não notifica de novo) — quem fatura é avisado de cada
+  // card uma vez pelo lembrete no próprio card; o resumo é a lista viva. Comentário apagado/sumido: cria outro.
   try {
-    vd_api_('/cards/' + g[0] + '/actions/comments', { method: 'post', payload: { text: txt.slice(0, 16000) } });
+    var idAnt = props.getProperty('FAT_RESUMO_ID'), ok = false;
+    if (idAnt) { try { vd_api_('/actions/' + idAnt, { method: 'put', payload: { text: txt.slice(0, 16000) } }); ok = true; } catch (e1) { ok = false; } }
+    if (!ok) { var nv = vd_api_('/cards/' + g[0] + '/actions/comments', { method: 'post', payload: { text: txt.slice(0, 16000) } }); if (nv && nv.id) props.setProperty('FAT_RESUMO_ID', nv.id); }
     props.setProperty(kDia, dia);
-    return true;
+    return !ok;
   } catch (e) { console.log('resumo de faturamento: ' + e); return false; }
 }
 
@@ -212,7 +220,7 @@ function sla_executar_(forcar) {
         resumoFat.push({ nome: c.name, url: c.shortUrl, dias: dias, compl: cpP.length > 0 });
       }
       var chave = 'SLA_' + c.id + '_' + idL + '_' + ent.slice(0, 16);
-      if (!sla_podeAvisar_(props, chave, hoje, et.quem === 'faturar' ? +vd_prop_('SLA_REPETIR_FATURAR', SLA.REPETIR_FATURAR_DU) : 0)) return;
+      if (!sla_podeAvisar_(props, chave, hoje)) return;
       var mencao, txt;
       if (et.quem === 'faturar') {
         var usF = fat_usuarios_();
@@ -256,7 +264,8 @@ function sla_executar_(forcar) {
     if (vd_legado_(c.id)) return;   // card antigo: sem avisos de prazo
     var atrasados = { PAGAS: [], FO: [] }, chaves = [];
     (c.checklists || []).forEach(function (k) {
-      var tipo = /^PAGAS/i.test(String(k.name || '').trim()) ? 'PAGAS' : (/FORNECIMENTO/i.test(k.name || '') ? 'FO' : '');
+      // FO atrasada já tem o aviso "⏰ Fornecimento atrasado" (pz_executar_) — aqui só peça comprada (10/10/2026: era aviso em dobro)
+      var tipo = /^PAGAS/i.test(String(k.name || '').trim()) ? 'PAGAS' : '';
       if (!tipo) return;
       (k.checkItems || []).forEach(function (it) {
         if (it.state === 'complete' || !it.due) return;
