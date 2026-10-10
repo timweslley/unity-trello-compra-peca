@@ -103,3 +103,26 @@ O contexto do principal no servidor usava as Propriedades do banco do TESTE — 
 chamada. Diagnóstico: `/tarefas/execucoes` → `propsPrincipal`. Conferido 10/10 13:50: 4 cards do principal iguais ao Google
 (locais 8/8, quem retira 2/2; só `anexos[].lido` difere), `vdf_iniciar` igual. No principal só existem hoje RC_LOCAIS, RC_QUEM,
 TST_CARDS e VD_FIXO — compradores, autorizadores e financeiro usam o padrão do código (igual nos dois).
+
+## Pedido 10/10/2026 (sessão do formulário, Weslley pediu) — servir as leituras pelo espelho do banco
+
+**Situação medida hoje (navegador do Weslley, `localStorage.vd_tempos`):** `vdf_carregarCard` pelo servidor ~1,9 s de
+mediana (17 aberturas, 0 falhas) contra 6–15 s pelo Google; `vdf_abrir` ~1,1 s (o Google responde da memória em ~0,5 s).
+Ainda é o servidor relendo o Trello ao vivo a cada pedido (~200–350 ms por chamada daqui de São Paulo).
+
+**Pedido:** responder `vdf_iniciar`, `vdf_abrir`, `vdf_buscarPlaca` e `vdf_carregarCard` do **quadro principal** a partir do
+espelho no banco (o mesmo da fase 1 do TESTE), sem chamar o Trello no caminho comum. Meta: abrir card **< 1 s**.
+
+O que precisa valer:
+1. **Espelho do principal só de leitura**: webhook do `oH4TbTqb` (ou varredura) gravando cards, checklists, anexos, etiquetas,
+   campos e ações — nenhuma escrita no principal muda (`PERMITIR_PRINCIPAL` continua só para leitura).
+2. **Resposta idêntica** à do Apps Script (mesmo formato de `vdf_carregarCard`: vitrine, peças, FO, compras, marcas
+   `· 📍 · ✋ · ↩️`, `locais`/`quemRetira`, etiquetas, lista). O formulário não muda nada.
+3. **Frescor**: card com ação nos últimos ~30 s (ou espelho atrasado/sem webhook recente) → ler o Trello ao vivo como hoje.
+   Logo depois de uma gravação o formulário reabre o card; ele não pode vir velho.
+4. **Volta automática** continua: erro ou 8 s → Apps Script (já existe no `tools/estatico_chamar.js`).
+5. **Conferência antes de ligar**: comparar espelho × Trello ao vivo em ~50 cards abertos (respostas iguais) e medir os tempos;
+   ligar primeiro só para `timweslley`/`christianfarias23` e depois `todos`, como da outra vez.
+6. Registrar em `/tarefas/execucoes` quantas respostas vieram do espelho × do Trello ao vivo.
+
+Fora do pedido: gravações, OCR e o robô continuam no Google.
