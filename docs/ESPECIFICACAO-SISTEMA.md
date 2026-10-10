@@ -159,6 +159,7 @@ sinistro e importa as peças do orçamento (seção 6).
 | Etiqueta `ORDEM AUTORIZADA` | marcada pelo comprador (`vdf_marcarOrdemAutorizada`); obrigatória para registrar compra; remove `ORDEM NAO AUTORIZADA` |
 | Etiqueta `PARADO` (vermelha) | card nas colunas de PENDÊNCIA há > 7 dias sem atividade (rotina 7 h) |
 | Etiqueta `CONFERIR FATURAMENTO` (amarela) | ENTREGUES há > 5 dias |
+| Etiqueta `SEM COBRANÇA FATURAMENTO` | posta pelas **rotinas de NF** nos cards que abrem em ENTREGUES só para guardar a nota (compra fora do quadro, revisão, insumo — 10/10/2026, Weslley): o card fica **fora de toda cobrança de faturamento** — sem lembrete no card, fora do resumo diário, sem `CONFERIR FATURAMENTO` (tirada se já tiver) e fora do relatório diário (`fat_semCobranca_`). Arquivar/«faturado» continua funcionando normalmente |
 | **SLA** (de hora em hora, dia útil 8–18 h; **cada pendência é avisada uma vez só** desde 10/10/2026 — nova entrada na etapa ou nova previsão é pendência nova; `SLA_REPETIR_DU` = N volta a repetir) | EM COTAÇÃO > 2 d.u. → avisa `SLA_COTAR`; PENDENTE/FINALIZADA > 2 d.u. → `SLA_AUTORIZAR` (ou o consultor, se particular); ENTREGUES > 7 d.u. → `FAT_USUARIOS` no card **uma vez** + **resumo** no card fixo do quadro com todos os cards vencidos por idade, num **único comentário atualizado no lugar** a cada dia útil (editar não notifica de novo; `FAT_RESUMO_ID`; comentário apagado → cria outro; `sla_resumoFaturamento_`; `FAT_RESUMO = NAO` desliga; só atualiza quando a coluna inteira foi varrida) — 10/10/2026, antes saía um lembrete por card por dia; item **PAGAS** sem ✔ 1 d.u. após a previsão → `SLA_RECEBER` (FO atrasada fica só com o aviso "⏰ Fornecimento atrasado" — antes saíam os dois) ("verificar compra do item X" / "verificar prazo do item X"). A entrada na coluna vem do cache `PZ_COL_` (1 chamada ao histórico só na 1ª vez por coluna) |
 | Rotina diária 7 h (`rotinaDiariaNucleo_`) | etiquetas `PARADO` e `CONFERIR FATURAMENTO` como acima; o comentário de cobrança em ENTREGUES e o cálculo de prazo antigo (`atualizarPrazos_`) foram desligados em 10/10/2026 (duplicavam o SLA e o `pz_executar_`; `ROT_PRAZOS_ANTIGOS = SIM` religa o segundo); a menção vem de `FAT_USUARIOS` |
 | Relatório diário (e-mail 7h15, `REL_EMAILS`) | HTML por unidade: FO vencida; PAGAS sem ✔ > 10 dias; FALTA DADOS parado ≥ 1 dia; ENTREGUES > 5 dias |
@@ -311,7 +312,9 @@ Nomes padronizados: `📄 ORÇ · PLACA · SEGURADORA · Sistema · dd/MM`, `�
 repetição do tipo ganha ` v1`, ` v2`…; cópia idêntica (MD5) é apagada; máx. 6 anexos legíveis por card, 15 MB.
 **Regra 08/10/2026 (Weslley): tudo o que for colado/anexado no formulário vai para o card, exceto cópia idêntica** — na aba
 Compra a conferência de MD5 é feita antes de anexar (o repetido é descartado e citado no comentário). Anexo que o próprio
-sistema batizou como `📦 NF`, `📸` ou `🛒 COMPRA` não passa pelo OCR do robô (não é orçamento).
+sistema batizou como `📦 NF`, `📸` ou `🛒 COMPRA` não passa pelo OCR do robô (não é orçamento). O mesmo vale para as **notas que as rotinas de NF anexam em lote** (`NF <EMITENTE> - <nº> - dd-mm.pdf`,
+`NF FORNECIMENTO - …`, `NF ML + resumo - …`, `NFS-e <nº> - …`; `ax_ehNota_`, 10/10/2026): nem o ciclo do complementar nem a
+validação do card leem esses PDFs, e card em FALTA DADOS não ganha "📄 Li o anexo mas não reconheci" por causa de uma nota.
 Quem batiza: o robô ao ler anexo novo subido à mão (módulo complemento; leitura que falhou é tentada de novo em até
 3 ciclos, `CP_RETRY`), o formulário ao anexar, e **o "📎 Ler" da aba Fornecimento** quando reconhece o documento
 (Status do Pedido Cilia / Peças HDI) e acha peças do card (07/10/2026, ATX2884).

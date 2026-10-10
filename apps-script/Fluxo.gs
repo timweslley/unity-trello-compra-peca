@@ -207,6 +207,7 @@ function sla_executar_(forcar) {
     vd_api_('/lists/' + idL + '/cards', { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels' } }).forEach(function (c) {
       if (Date.now() > fim) { if (et.quem === 'faturar') fatCompleto = false; return; }
       if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '')) return;
+      if (et.quem === 'faturar' && fat_semCobranca_(c.labels)) return;   // card das rotinas de NF (10/10/2026)
       if (et.quem !== 'faturar' && vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo (menos a cobrança do faturamento)
       // entrada na coluna: cache PZ_COL_ (1 chamada ao histórico só na 1ª vez por coluna — 10/10/2026; antes era 1 por card por hora)
       var ent = pz_entradaColuna_(c, props);

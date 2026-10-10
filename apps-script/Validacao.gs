@@ -743,7 +743,7 @@ function vd_lerAnexoTrello_(a, opt) {
  * que citam placa citam a MESMA, devolve {placa, anexo}. Mais de uma placa = não chuta.
  */
 function vd_placaDosAnexos_(card, prazo) {
-  var anexos = (card.attachments || []).filter(vd_anexoLegivel_).slice(0, VD.MAX_ANEXOS_CARD);
+  var anexos = (card.attachments || []).filter(function (x) { return vd_anexoLegivel_(x) && !ax_ehNota_(x.name); }).slice(0, VD.MAX_ANEXOS_CARD);   // nota fiscal não é orçamento (10/10/2026)
   var achadas = [], rotuladas = [], origem = '', origemRot = '', lidos = 0;
   function junta(lista, p) { if (!vd_placaValida_(p) || lista.some(function (x) { return vd_mesmaPlaca_(x, p); })) return false; lista.push(vd_normPlaca_(p)); return true; }
   for (var i = 0; i < anexos.length; i++) {
@@ -762,7 +762,7 @@ function vd_placaDosAnexos_(card, prazo) {
 
 /** Lê os anexos do card (com cache) e devolve os dados achados que batem com a placa. */
 function vd_lerAnexosCard_(card, placa, prazo, batizar) {
-  var anexos = (card.attachments || []).filter(vd_anexoLegivel_).slice(0, VD.MAX_ANEXOS_CARD);
+  var anexos = (card.attachments || []).filter(function (x) { return vd_anexoLegivel_(x) && !ax_ehNota_(x.name); }).slice(0, VD.MAX_ANEXOS_CARD);   // nota fiscal não é orçamento (10/10/2026)
 
   var achados = [];
   for (var i = 0; i < anexos.length; i++) {
@@ -2165,7 +2165,7 @@ function rel_coletar_() {
     var lista = nomeLista[c.idList] || '';
     var diasParado = rel_dias_(new Date(c.dateLastActivity).getTime());
     if (lista === REL.LISTA_FALTA && diasParado >= REL.DIAS_FALTA_DADOS) add(c, 'faltaDados', 'parado há ' + diasParado + ' dia(s)');
-    if (lista === REL.LISTA_ENTREGUES && diasParado >= REL.DIAS_ENTREGUES) add(c, 'entregues', 'há ' + diasParado + ' dia(s) sem faturar');
+    if (lista === REL.LISTA_ENTREGUES && diasParado >= REL.DIAS_ENTREGUES && !fat_semCobranca_(c.labels)) add(c, 'entregues', 'há ' + diasParado + ' dia(s) sem faturar');
     if (REL.LISTAS_ENCERRADAS.indexOf(lista) >= 0) return;
     (c.checklists || []).forEach(function (ck) {
       var ehFO = /FORNECIMENTO/i.test(ck.name || ''), ehPagas = /^PAGAS/i.test((ck.name || '').trim());

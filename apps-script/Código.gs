@@ -329,6 +329,9 @@ function rotinaDiariaNucleo_() {
   var idConferir = labelId(LBL_CONFERIR, 'yellow');
 
   var cards = api_('/boards/' + BOARD_ID + '/cards', { fields: 'name,idList,dateLastActivity,idLabels,due' });
+  // 10/10/2026: card com a etiqueta SEM COBRANÇA FATURAMENTO (rotinas de NF) não ganha CONFERIR FATURAMENTO (e perde, se tiver)
+  var idsSemCob = labels.filter(function (l) { return fat_semCobranca_([l]); }).map(function (l) { return l.id; });
+  function semCob(c) { return (c.idLabels || []).some(function (id) { return idsSemCob.indexOf(id) > -1; }); }
   var agora = Date.now();
   var alvo1 = LISTAS_PARADO.map(function (n) { return porNome[n]; });
   var idEnt = porNome[LISTA_ENTREGUES];
@@ -351,7 +354,7 @@ function rotinaDiariaNucleo_() {
 
     // 10/10/2026 (revisão): só a etiqueta CONFERIR FATURAMENTO; o comentário de cobrança saía em dobro com o SLA de
     // ENTREGUES (Fluxo.gs), que agora tem o resumo diário — este bloco não comenta mais
-    if (c.idList === idEnt) {
+    if (c.idList === idEnt && !semCob(c)) {
       if (dias > DIAS_ENTREGUES && !temConferir) {
         api_('/cards/' + c.id + '/idLabels', { value: idConferir }, 'post');
         nConf++;

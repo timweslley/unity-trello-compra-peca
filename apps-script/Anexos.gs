@@ -15,7 +15,11 @@ var AX = { ORC: '📄 ORÇ', ORC_MAIS: '📄 ORÇ+', FO: '🚚 FO', NF: '📦 NF
 var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?|🛒 COMPRA) · |📸 )/;
 /** Anexo que o próprio sistema batizou sabendo o que é (nota, foto, comprovante de compra): o robô não gasta OCR lendo-o
  *  à procura de orçamento (08/10/2026). ORÇ/FO ficam de fora de propósito — podem ser orçamento complementar. */
-function ax_semLeituraRobo_(nome) { return /^((📦 NF( \d+)?|🛒 COMPRA) · |📸 )/.test(String(nome || '')); }
+function ax_semLeituraRobo_(nome) { return ax_ehNota_(nome) || /^((📦 NF( \d+)?|🛒 COMPRA) · |📸 )/.test(String(nome || '')); }
+/** Nota fiscal pelo nome: a do sistema (📦 NF …) e as que as rotinas de NF anexam em lote — "NF <EMITENTE> - <nº> - dd-mm.pdf",
+ *  "NF FORNECIMENTO - …", "NF ML + resumo - …", "NFS-e <nº> - …" (10/10/2026, Weslley): o robô não gasta OCR nelas procurando
+ *  orçamento (um lote de 200 notas eram 200 leituras) nem comenta "não reconheci" em card de FALTA DADOS. */
+function ax_ehNota_(nome) { return /^(📦 NF( \d+)? · |NF(S-e|-e|e)?\s*(\d+\s*)?[-–](?!\S)|NF(S-e|-e|e)? (FORNECIMENTO|ML \+ resumo|\d+|[A-Z0-9][^·]*? - \d+ - \d{2}-\d{2}))/i.test(String(nome || '')); }
 
 function ax_hoje_(d) { var dt = d ? new Date(d) : new Date(); if (isNaN(dt.getTime())) dt = new Date(); return Utilities.formatDate(dt, 'America/Sao_Paulo', 'dd/MM'); }
 

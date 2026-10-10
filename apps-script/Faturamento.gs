@@ -16,6 +16,14 @@
  * As colunas de pendência do financeiro entram nas colunas onde "faturado"/arquivar vale (antes só ENTREGUES e ENCERRADO). */
 var FAT = { LISTAS: ['ENCERRADO COMPRAS/FORNEC.', 'ENTREGUES', 'PENDÊNCIA DE FATURAMENTO', 'PENDÊNCIA TRATADA - FATURAR'], MARCA: '🧾' };
 
+/** Card fora da cobrança de faturamento (10/10/2026, Weslley): os que as rotinas de NF abrem em ENTREGUES só para guardar a
+ *  nota (compra fora do quadro, revisão, insumo) levam a etiqueta «SEM COBRANÇA FATURAMENTO» — o robô não cobra no card, não
+ *  põe no resumo diário, não põe CONFERIR FATURAMENTO e o relatório não lista. Aceita lista de etiquetas (objetos ou nomes). */
+var FAT_SEM_COBRANCA = 'SEM COBRANÇA FATURAMENTO';
+function fat_semCobranca_(labels) {
+  return (labels || []).some(function (l) { return /SEM COBRAN[ÇC]A/i.test(typeof l === 'string' ? l : String((l && l.name) || '')); });
+}
+
 function fat_usuarios_() {
   var us = String(vd_prop_('FAT_USUARIOS', 'financeirounity,christianfarias23')).toLowerCase().split(/[,;\s]+/).filter(String);
   if (vd_board_() === VD.BOARD_PADRAO && us.indexOf('timweslley') < 0) us.push('timweslley');   // TESTE: dá para testar com a conta do script
