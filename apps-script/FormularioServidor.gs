@@ -1627,8 +1627,6 @@ function vdf_salvar(token, p) {
     if (paraFo.length) { fo = fo.concat(paraFo); orc = orc || { origem: 'CSS' }; }
     if (p.complemento && (p.complemento.oficina || []).length) { var cc = vd_orcCss_(p.complemento, 'ZACARIAS'); p.complemento = { origem: p.complemento.origem, oficina: [], fo: cc.fo }; }
   }
-  // situação do complementar na seguradora (COMPL:) já gravada no card não se perde quando o pedido é reenviado (09/10/2026)
-  if (card) { try { var anC = vd_analisar_(card.desc, card.name), mapC = {}; anC.pecas.forEach(function (o) { mapC[vd_chavePeca_(o)] = o; }); pecas.forEach(function (x) { var o = mapC[vd_chavePeca_(x)]; if (o && o.compStatus && x.complemento && !x.compStatus) { x.compStatus = o.compStatus; x.compPor = o.compPor; } }); } catch (e) {} }
   var tipo = vd_tipoNormPedido_(n.tipo) || 'SEGURADORA';
   var particular = tipo === 'PARTICULAR', semSeguradora = vd_semSeguradora_(tipo);   // RETORNO também dispensa orçamento (09/10/2026)
   var extra = {
@@ -1664,6 +1662,13 @@ function vdf_salvar(token, p) {
     }
     lista = vd_api_('/lists/' + card.idList, { query: { fields: 'name' } }).name;
     posCot = vdf_ehPosCotacao_(lista);
+    // situação do complementar na seguradora (COMPL:) já gravada no card não se perde quando o pedido é reenviado
+    // (09/10/2026; revisão da noite: o bloco estava antes de `card` ser carregado e nunca rodava)
+    try {
+      var anC = vd_analisar_(card.desc, card.name), mapC = {};
+      anC.pecas.forEach(function (o) { mapC[vd_chavePeca_(o)] = o; });
+      pecas.forEach(function (x) { var o = mapC[vd_chavePeca_(x)]; if (o && o.compStatus && x.complemento && !x.compStatus) { x.compStatus = o.compStatus; x.compPor = o.compPor; } });
+    } catch (e) { console.log('compl: ' + e); }
     // peça já autorizada ou comprada: não muda nem sai do pedido (só a diretoria)
     if (!vdf_ehAutorizador_(me)) {
       try {
