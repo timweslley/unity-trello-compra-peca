@@ -194,7 +194,7 @@ function vdf_atualizarFornecimento(token, p) {
     if (!Object.keys(mud).length) return;
     ops.push({ it: it, mud: mud });
     linhas.push('- ' + pv_curto_(base) + ': ' + txt.join(' · '));
-    evs.push({ peca: base, fornecedor: mud.name ? (mud.name.slice(base.length).match(/^\s+-\s+([^-—]+)/) || [])[1] || '' : '', previsao: mud.due || it.due || '', detalhe: (it._lista + ': ' + txt.join(' · ')).replace(/\*\*/g, '') });
+    evs.push({ peca: base, fornecedor: mud.name ? (rc_semMarcas_(mud.name).slice(base.length).match(/^\s+-\s+([^-—]+)/) || [])[1] || '' : '', previsao: mud.due || it.due || '', detalhe: (it._lista + ': ' + txt.join(' · ')).replace(/\*\*/g, '') });
   });
   var novos = (p.novos || []).filter(function (x) { return x && (x.codigo || x.descricao); });
   var jaTem = itensFo.map(function (i) { return cp_norm_(i.name); });

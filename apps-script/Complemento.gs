@@ -345,10 +345,12 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
 /** Anexos que o formulário subiu num complemento: o robô não precisa ler de novo. */
 function cp_marcarVistos_(ids) {
   if (!ids || !ids.length) return;
-  var props = PropertiesService.getScriptProperties();
-  var l = []; try { l = JSON.parse(props.getProperty('CP_VISTOS') || '[]'); } catch (e) {}
-  ids.forEach(function (id) { if (l.indexOf(id) < 0) l.push(id); });
-  props.setProperty('CP_VISTOS', JSON.stringify(l.slice(-CP.MAX_VISTOS)));
+  sg_secao_('CP_VISTOS', function () {   // ler-modificar-gravar protegido (10/10/2026)
+    var props = PropertiesService.getScriptProperties();
+    var l = []; try { l = JSON.parse(props.getProperty('CP_VISTOS') || '[]'); } catch (e) {}
+    ids.forEach(function (id) { if (l.indexOf(id) < 0) l.push(id); });
+    props.setProperty('CP_VISTOS', JSON.stringify(l.slice(-CP.MAX_VISTOS)));
+  });
 }
 
 /* ---------- caminho 2: robô (orçamento anexado direto no card) ---------- */
@@ -428,7 +430,7 @@ function cp_doAnexo_(c, a, ctx) {
   // reconhecido, ou orçamento de OUTRA placa, ganham um comentário (uma vez por anexo; o anexo é marcado visto)
   var listaNome = ''; try { listaNome = vd_nomeColuna_(vdf_nomeLista_(ctx, card.idList)); } catch (e) {}
   if (!r.orcamento) {
-    if (/pdf/i.test(a.mimeType || '') && /FALTA DADOS/i.test(listaNome)) {
+    if (!r.doc && /pdf/i.test(a.mimeType || '') && /FALTA DADOS/i.test(listaNome)) {   // Status do Pedido / Peças HDI são anexos legítimos (r.doc)
       try { vd_comentar_(card, '📄 Li o anexo «' + a.name + '» mas não reconheci um orçamento de seguradora (Cilia, HDI ou Websoma/Porto)' + (r.doc ? ' — parece ' + (r.docNome || 'outro documento') : '') + '. Se for o orçamento, anexe o PDF original do sistema da seguradora (ou um print legível da lista de peças).'); } catch (e) {}
     }
     return false;

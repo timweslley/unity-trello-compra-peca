@@ -928,7 +928,8 @@ function tr_guardarLote_(itens) {
       if (VD_CMP_MEM) VD_CMP_MEM[it.id] = it.completa;
     }
   });
-  if (novos.length) sh.getRange(n + 1, 1, novos.length, 5).setValues(novos);
+  // linha nova: a última linha é relida dentro do mutex — duas gravações de cards sem linha ao mesmo tempo não se sobrescrevem (10/10/2026)
+  if (novos.length) sg_secao_('TRAVA_NOVA', function () { var n2 = sh.getLastRow(); sh.getRange(n2 + 1, 1, novos.length, 5).setValues(novos); });
   PropertiesService.getScriptProperties().setProperties(props);
   // últimas assinaturas GRAVADAS pelo robô/formulário (a linha de base não entra: ela só
   // fotografa o que já estava no card, que pode ser edição de pessoa)
@@ -969,7 +970,8 @@ function vd_gravarDesc_(cardId, desc, token, extra) {
   var vit = null, jaTinha = '';
   try {
     jaTinha = vd_completa_(cardId);
-    var c = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name', checklists: 'all', checkItem_fields: 'name,state,due' } });
+    var c = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state,due' } });
+    var vitrineAntiga = c.desc || '';
     var itensPg = [];
     (c.checklists || []).filter(function (k) { return /^PAGAS/i.test((k.name || '').trim()); }).forEach(function (k) { itensPg = itensPg.concat(k.checkItems || []); });
     vit = vd_vitrine_(desc, payload.name || c.name, itensPg);
@@ -979,16 +981,20 @@ function vd_gravarDesc_(cardId, desc, token, extra) {
   // gravados; toda ação seguinte no card falhava). Vitrine grande: primeiro saem os links de anúncio, depois corta com aviso.
   if (payload.desc.length > 16000) {
     payload.desc = payload.desc.replace(/\s*\[🔗[^\]]*\]\([^)]*\)/g, '');
-    if (payload.desc.length > 16000) payload.desc = payload.desc.slice(0, 15800) + '\n\n_(descrição resumida: o card passou do limite do Trello — o histórico completo está nos comentários e no formulário)_';
+    if (payload.desc.length > 16000) { var corte = payload.desc.lastIndexOf('\n', 15800); payload.desc = payload.desc.slice(0, corte > 12000 ? corte : 15800) + '\n\n_(descrição resumida: o card passou do limite do Trello — o histórico completo está nos comentários e no formulário)_'; }
   }
   // 10/10/2026 (revisão): a cópia oficial (TRAVA) ia DEPOIS do Trello e o erro era engolido — quando a planilha falhava, a vitrine
   // nova ficava no card sem a completa por trás: a cotação recém-lançada sumia do formulário e a trava desfazia a vitrine culpando
   // quem salvou ("🔒 ALTERAÇÃO NÃO PERMITIDA"). Agora a TRAVA é gravada ANTES; se falhar, nada muda no card e quem salvou vê o erro.
-  // (Se o Trello falhar depois, a trava de descrição repõe a vitrine nova a partir da cópia oficial no ciclo seguinte.)
+  // Se o Trello falhar depois, a cópia oficial volta ao que era (senão o reenvio leria a completa nova e duplicaria a cotação).
   if (desc.length > 45000) { try { vd_avisarDescGrande_(cardId, desc.length); } catch (e) {} }
   try { tr_guardarLote_([{ id: cardId, desc: payload.desc, completa: vit === null ? '' : desc }]); }
   catch (e) { console.log('trava: ' + e); throw new Error('Não consegui guardar a descrição na planilha de controle (' + String((e && e.message) || e).slice(0, 120) + '). Nada foi alterado no card — tente de novo em alguns segundos.'); }
-  vd_api_('/cards/' + cardId, { method: 'put', payload: payload }, token);
+  try { vd_api_('/cards/' + cardId, { method: 'put', payload: payload }, token); }
+  catch (e) {
+    try { if (typeof vitrineAntiga === 'string') tr_guardarLote_([{ id: cardId, desc: vitrineAntiga, completa: jaTinha || '' }]); } catch (e2) { console.log('trava/desfazer: ' + e2); }
+    throw e;
+  }
   // 1ª vez com vitrine: o texto antigo fora do padrão vai para um comentário (não se perde de vista)
   if (vit !== null && !jaTinha) {
     try {
@@ -1222,7 +1228,8 @@ function vd_criador_(cardId) {
         var itensC = vd_api_('/cards/' + cardId + '/customFieldItems', { cru: true }) || [];
         var itC = itensC.filter(function (i) { return i.idCustomField === defC.id; })[0];
         var tC = itC && itC.value && itC.value.text ? String(itC.value.text).replace(/^@/, '').trim().toLowerCase() : '';
-        if (/^[\w.\-]{3,}$/.test(tC)) quem = tC;
+        // valor gravado antes (pelo próprio robô) com a diretoria/robô não vale como fonte: segue para a criação / "Pedido enviado por"
+        if (/^[\w.\-]{3,}$/.test(tC) && tC !== 'timweslley' && !vdf_ehAutorizador_({ username: tC })) quem = tC;
       }
     } catch (e0) {}
     // 2) ação de criação

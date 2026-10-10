@@ -24,11 +24,15 @@ function fat_usuarios_() {
 
 /** "faturado"/"fechado" afirmativo? (palavra inteira, sem pergunta; negação só conta quando está a até 2 palavras da confirmação —
  *  "faturado, sem desconto" e "faturado — aguardando pagamento" eram ignorados em silêncio, 10/10/2026) */
-var FAT_CONF = '(?:FATURAD|FECHAD)[OA]S?', FAT_NEG = '(?:NAO|FALTA|FALTAM|PENDENTE|AGUARDANDO|AGUARDA|SEM|NUNCA)';
+var FAT_CONF = 'FATURAD[OA]S?', FAT_NEG = '(?:NAO|FALTA|FALTAM|PENDENTE|AGUARDANDO|AGUARDA|SEM|NUNCA)';
 function fat_ehConfirmacao_(txt) {
-  var t = vd_semAcento_(txt || '').replace(/[^A-Z0-9?]+/g, ' ').trim();
-  if (!new RegExp('\\b' + FAT_CONF + '\\b').test(t)) return false;
+  var t = vd_semAcento_(txt || '').replace(/[^A-Z0-9?.]+/g, ' ').trim();
   if (/\?/.test(t)) return false;
+  // "fechado/fechada" só vale perto de O.S./ordem ("OK fechada", "O.S. fechada", "ordem fechada") — "porta fechada" não é faturamento;
+  // e com qualquer negação no texto não vale
+  var fechado = /\b(?:O\.?S\.?|ORDEM|OK)\b[^A-Z0-9]{0,3}(?:\S+ ){0,2}FECHAD[OA]S?\b|\bFECHAD[OA]S?\b (?:\S+ ){0,2}(?:O\.?S\.?|ORDEM)\b|^FECHAD[OA]S?$/.test(t);
+  if (fechado && !new RegExp('\\b' + FAT_NEG + '\\b').test(t)) return true;
+  if (!new RegExp('\\b' + FAT_CONF + '\\b').test(t)) return false;
   if (new RegExp('\\b' + FAT_NEG + '\\b(?: \\S+){0,2} ' + FAT_CONF + '\\b').test(t)) return false;        // "não faturado", "ainda não foi faturado"
   if (new RegExp('\\b' + FAT_CONF + ' NAO\\b').test(t)) return false;                                        // "faturado não"
   return true;
@@ -76,6 +80,8 @@ function fat_executar_() {
         vd_comentar_(c, '@' + quem + ' ' + FAT.MARCA + ' Card em **' + (lista || '?') + '** — só é arquivado como faturado em ' + FAT.LISTAS.join(' ou ') + '. O card continua no quadro.');
         return;
       }
+      // card antigo (anterior à virada) arquivado à mão: o robô não mantém o checklist dele — só registra o evento
+      if (arquivou && vd_legado_(c.id)) { ev_registrar_('FATURADO', c, quem, null, { detalhe: lista + ' — arquivado à mão (card antigo)' }); n++; return; }
       var reabrir = function (motivo) {
         if (arquivou) { try { vd_api_('/cards/' + c.id, { method: 'put', payload: { closed: 'false' } }); } catch (e) {} }
         vd_comentar_(c, '@' + quem + ' ' + FAT.MARCA + ' ' + (arquivou ? 'Desarquivei o card: ' : 'Não arquivei: ') + motivo);

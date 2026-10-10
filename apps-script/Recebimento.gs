@@ -14,7 +14,7 @@ var RC = { LISTA_FIM: 'ENCERRADO COMPRAS/FORNEC.', LOCAIS_MAX: 60 };
  * paralama") — ~60 comentários em 5 dias que se perdiam. Agora o item do checklist carrega isso no fim do nome:
  *   "COD DESC - FORNECEDOR - R$ 100,00 · 📍 F1 · ✋ LEOMAR 10/10"   (· em vez de " - " para não mexer nas partes já lidas)
  * e "↩️ DEVOLVIDA dd/MM" quando a peça voltou ao fornecedor. rc_marcas_ lê, rc_comMarcas_ escreve. */
-var RC_RE_MARCA = /\s*·\s*(📍|✋|↩️)\s*([^·]*?)\s*(?=\s*·\s*(?:📍|✋|↩️)|$)/g;
+var RC_RE_MARCA = /\s*·\s*(📍|✋|↩️?)\s*([^·]*?)\s*(?=\s*·\s*(?:📍|✋|↩️?)|$)/g;   // ↩ com ou sem o seletor FE0F
 function rc_marcas_(nome) {
   var out = { base: String(nome || ''), local: '', retirada: '', devolvida: '' }, m;
   var re = new RegExp(RC_RE_MARCA.source, 'g');
@@ -36,10 +36,12 @@ function rc_normLocal_(s) { return vd_semAcento_(String(s || '')).replace(/[^A-Z
 function rc_locais_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('RC_LOCAIS') || '[]'); } catch (e) { return []; } }
 function rc_guardarLocais_(novos) {
   if (!novos.length) return;
-  var l = rc_locais_();
-  novos.forEach(function (x) { if (x && l.indexOf(x) < 0) l.push(x); });
-  l.sort();
-  try { PropertiesService.getScriptProperties().setProperty('RC_LOCAIS', JSON.stringify(l.slice(-RC.LOCAIS_MAX))); } catch (e) {}
+  sg_secao_('RC_LOCAIS', function () {
+    var l = rc_locais_();
+    novos.forEach(function (x) { if (x && l.indexOf(x) < 0) l.push(x); });
+    l.sort();
+    try { PropertiesService.getScriptProperties().setProperty('RC_LOCAIS', JSON.stringify(l.slice(-RC.LOCAIS_MAX))); } catch (e) {}
+  });
 }
 /** Troca as marcas de um item (licença de checklist pelo vd_api_). */
 function rc_gravarMarcas_(cardId, it, mk, token) {
@@ -321,7 +323,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   // compra cancelada / peça devolvida ao fornecedor (10/10/2026): peça autorizada sem item PAGAS -> volta para AUTORIZADO COMPRA
   // (só quando quem chamou acabou de cancelar/devolver — opt.semCompra — para não mexer em card antigo com PAGAS fora do padrão)
   var semCompra = false;
-  if (opt.semCompra && lista === VDF_LISTA_CHEGAR && ctx.listas[VDF_LISTA_AUTORIZADO] && !vd_legado_(card.id)) {
+  if (opt.semCompra && (lista === VDF_LISTA_CHEGAR || lista === RC.LISTA_FIM || lista === 'ENTREGUES') && ctx.listas[VDF_LISTA_AUTORIZADO] && !vd_legado_(card.id)) {
     try {
       var anC = vd_analisar_(card.desc, card.name), autsC = vd_autorizacoesDaDescricao_(card.desc, anC.pecas), pagasC = vdf_itensPagas_(card);
       var naoC = {}; (anC.pecas || []).forEach(function (p) { if (p.naoComprar) naoC[vd_chavePeca_(p)] = 1; });
@@ -353,7 +355,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   var movido = vdf_moverPara_(card, ctx, alvo, token, usuario || 'robô');
   if (movido && lista !== VDF_LISTA_CHEGAR) {
     try {
-      vd_comentar_(card, '↪️ Card → **' + movido + '** (' + (soFo || (alvo === VDF_LISTA_CHEGAR ? pend.length + ' peça(s) para chegar' : 'tudo recebido')) + ').');
+      vd_comentar_(card, '↪️ Card → **' + movido + '** (' + (semCompra ? 'peça autorizada sem compra — verificar compra do item' : soFo || (alvo === VDF_LISTA_CHEGAR ? pend.length + ' peça(s) para chegar' : 'tudo recebido')) + ').');
     } catch (e) {}
   }
   return movido;

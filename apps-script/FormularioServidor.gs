@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_cancelarCompra'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -573,12 +573,12 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
       usados[existentes.indexOf(ja)] = 1;
       // item já existe: só atualiza a descrição (e a previsão, se o item ainda não tem) — nunca duplica
       try {
-        var atual = String(ja.item.name || '').trim(), novo = nome;
+        var mkJa = rc_marcas_(String(ja.item.name || '').trim()), atual = mkJa.base, novo = nome;   // marcas 📍/✋/↩️ ficam (10/10/2026)
         // fornecedor que alguém já anotou no item ("... - AVENIDA") fica, se o orçamento não trouxe outro
         var sufixo = atual.match(/\s-\s[^-]+$/);
         if (!p.fornecedor && sufixo && !/\s-\s[^-]+$/.test(novo)) novo += sufixo[0];
         var upd = {};
-        if (novo && novo !== atual) upd.name = novo;
+        if (novo && novo !== atual) upd.name = rc_comMarcas_(novo, mkJa);
         if (p.previsao && !ja.item.due) upd.due = p.previsao;
         if (Object.keys(upd).length) vd_api_('/cards/' + cardId + '/checkItem/' + ja.item.id, { method: 'put', payload: upd }, token);
       } catch (e) { console.log('FO item existente: ' + e); }
@@ -1919,8 +1919,17 @@ function vdf_salvar(token, p) {
   // SLA cobrava peça que não existia mais). Agora o item sai junto, com comentário e evento.
   if (p.shortLink && vdf_ehAutorizador_(me)) {
     try {
-      var novasCh = {}; pecas.forEach(function (x) { novasCh[vd_chavePeca_(x)] = 1; });
-      var sairam = vd_analisar_(card.desc, card.name).pecas.filter(function (x) { return !novasCh[vd_chavePeca_(x)]; });
+      var novasCh = {}, novasDesc = {}; pecas.forEach(function (x) { novasCh[vd_chavePeca_(x)] = 1; if (!x.pneu) novasDesc[cp_norm_(x.descricao)] = 1; });
+      // troca de código/descrição da mesma peça (orçamento complementar ou "manter cotação") não é remoção
+      var antigos = {};
+      (typeof trocas !== 'undefined' && trocas ? trocas : []).forEach(function (u) { antigos[cp_norm_(u.codigoAntigo)] = 1; });
+      mantidas.forEach(function (x) { if (x.m.codigoAntigo) antigos[cp_norm_(x.m.codigoAntigo)] = 1; if (x.m.descricaoAntiga) antigos['D' + cp_norm_(x.m.descricaoAntiga)] = 1; });
+      var sairam = vd_analisar_(card.desc, card.name).pecas.filter(function (x) {
+        if (novasCh[vd_chavePeca_(x)]) return false;
+        if (x.codigo && antigos[cp_norm_(x.codigo)]) return false;
+        if (!x.pneu && (antigos['D' + cp_norm_(x.descricao)] || novasDesc[cp_norm_(x.descricao)])) return false;   // mesma descrição com código novo
+        return true;
+      });
       if (sairam.length) {
         var cPg = vd_api_('/cards/' + card.id, { query: { fields: 'name', checklists: 'all', checkItem_fields: 'name,state,due' } });
         var itensPg = vdf_itensRecebimento_(cPg).filter(function (i) { return /^PAGAS/.test(i.lista); }), tirados = [], evsT = [];

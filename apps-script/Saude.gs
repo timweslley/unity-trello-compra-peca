@@ -134,23 +134,27 @@ var SD_PREF_CARD = /^(?:VD_PK2_|VD_AT_|VD_SIG_|VD_NOVAS_|VD_DESC_AV_|PZ_AT_|PZ_C
 // 10/10/2026 (revisão): o cache de leitura de anexos (VD_ANX3_<anexo>, até 8,5 KB cada) e os avisos por item de checklist
 // (SLA_I_<item>_<data>) nunca saíam — eram o que mais crescia. Anexo de card fechado e aviso de item com data há mais de
 // 30 dias também são apagados. Passar de 500 KB derrubava o núcleo inteiro (setProperty lança erro).
-var SD_PREF_ANEXO = /^VD_ANX3_([0-9a-f]{24})$/, SD_PREF_ITEM = /^SLA_I_[0-9a-f]{24}_(\d{4}-\d{2}-\d{2})/;
+var SD_PREF_ANEXO = /^VD_ANX3_([0-9a-f]{24})$/, SD_PREF_ITEM = /^SLA_I_([0-9a-f]{24})_\d{4}-\d{2}-\d{2}/;
+// em card LEGADO aberto o robô ainda usa SLA_ (faturamento) e PZ_COL_ (entrada na coluna): esses só saem com o card fechado
+var SD_PREF_LEGADO_USA = /^(?:SLA_|PZ_COL_)/;
 function sd_limparPropriedades_() {
-  var p = PropertiesService.getScriptProperties(), all = p.getKeys(), abertos = {}, anexos = {};
-  vd_api_('/boards/' + vd_board_() + '/cards', { cru: true, query: { fields: 'id', attachments: 'true', attachment_fields: 'id' } }).forEach(function (c) {
+  var p = PropertiesService.getScriptProperties(), all = p.getProperties(), abertos = {}, anexos = {}, itens = {};
+  vd_api_('/boards/' + vd_board_() + '/cards', { cru: true, query: { fields: 'id', attachments: 'true', attachment_fields: 'id', checklists: 'all', checkItem_fields: 'id' } }).forEach(function (c) {
     abertos[c.id] = 1;
     (c.attachments || []).forEach(function (a) { anexos[a.id] = 1; });
+    (c.checklists || []).forEach(function (k) { (k.checkItems || []).forEach(function (i) { itens[i.id] = 1; }); });
   });
   if (Object.keys(abertos).length < 5) return 0;   // leitura estranha: não apaga nada
-  var n = 0, limiteItem = Utilities.formatDate(new Date(Date.now() - 30 * 864e5), 'America/Sao_Paulo', 'yyyy-MM-dd');
+  var n = 0;
   var recente = Date.now() / 1000 - 2 * 86400;   // anexo subido nas últimas 48 h fica (card pode ainda não estar na lista)
-  all.forEach(function (k) {
+  Object.keys(all).forEach(function (k) {
     var m = k.match(SD_PREF_CARD), id = m && (m[1] || m[2]);
-    if (id) { if (!abertos[id] || vd_legado_(id)) { p.deleteProperty(k); n++; } return; }
+    if (id) { if (!abertos[id] || (vd_legado_(id) && !SD_PREF_LEGADO_USA.test(k))) { p.deleteProperty(k); n++; } return; }
     var ma = k.match(SD_PREF_ANEXO);
     if (ma) { if (!anexos[ma[1]] && parseInt(ma[1].slice(0, 8), 16) < recente) { p.deleteProperty(k); n++; } return; }
+    // aviso por item de checklist: sai quando o item não existe mais em card aberto (a chave traz a previsão, não a data do aviso)
     var mi = k.match(SD_PREF_ITEM);
-    if (mi && mi[1] < limiteItem) { p.deleteProperty(k); n++; }
+    if (mi && !itens[mi[1]]) { p.deleteProperty(k); n++; }
   });
   if (n) console.log('propriedades: ' + n + ' de cards fechados/anexos antigos apagadas');
   return n;

@@ -12,12 +12,12 @@ var SG_CHAVE = '';        // trava por card (cache) segurada nesta execução �
 
 /* 10/10/2026 (revisão): a trava era global (LockService do usuário — o formulário roda como o dono, então "usuário" é sempre o
  * mesmo): duas pessoas salvando cards DIFERENTES ao mesmo tempo viam "Outra gravação ainda está em andamento". Agora a trava
- * é por card (chave no cache, até 2 min, solta no fim da chamada); só card novo (sem shortLink) usa a trava geral. */
+ * é por card (chave no cache, até 5 min, solta no fim da chamada); só card novo (sem shortLink) usa a trava geral. */
 function sg_travarCard_(shortLink) {
   var cache = CacheService.getScriptCache(), k = 'sg_lock_' + shortLink, t0 = Date.now(), meu = Utilities.getUuid();
   while (Date.now() - t0 < SG.LOCK_MS) {
     if (!cache.get(k)) {
-      cache.put(k, meu, 120);
+      cache.put(k, meu, 300);   // 5 min: compra com anexos/OCR já passou de 1 min
       Utilities.sleep(120);
       if (cache.get(k) === meu) { SG_CHAVE = k; SG_TRAVADO = true; return; }
     }
@@ -26,6 +26,21 @@ function sg_travarCard_(shortLink) {
   throw new Error('Outra gravação neste card ainda está em andamento. Espere alguns segundos e envie de novo.');
 }
 function sg_destravar_() { if (SG_CHAVE) { try { CacheService.getScriptCache().remove(SG_CHAVE); } catch (e) {} SG_CHAVE = ''; } }
+
+/** Trecho ler-modificar-gravar de um recurso compartilhado (CP_VISTOS, RC_LOCAIS, linha nova na TRAVA): mutex curto no cache
+ *  entre formulários de cards diferentes (a trava por card não cobre; a trava do script o robô segura o ciclo inteiro).
+ *  Espera até `ms` (padrão 8 s); se não conseguir, roda assim mesmo (melhor perder uma atualização do que a gravação). */
+function sg_secao_(nome, fn, ms) {
+  var cache = CacheService.getScriptCache(), k = 'sg_sec_' + nome, t0 = Date.now(), meu = Utilities.getUuid(), tenho = false;
+  try {
+    while (Date.now() - t0 < (ms || 8000)) {
+      if (!cache.get(k)) { cache.put(k, meu, 30); Utilities.sleep(60); if (cache.get(k) === meu) { tenho = true; break; } }
+      Utilities.sleep(250);
+    }
+  } catch (e) {}
+  try { return fn(); }
+  finally { if (tenho) { try { cache.remove(k); } catch (e) {} } }
+}
 
 function vdf_limparTexto_(s) {
   return String(s).replace(/[\r\n\u2028\u2029]+/g, ' / ').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replace(/\s{2,}/g, ' ');

@@ -118,8 +118,8 @@ mover) e a trava de colunas também o reposicionam na hora (07/10/2026).
 | pós-cotação → EM COTAÇÃO | robô | card já tinha cotação/compra e tem peça da oficina sem cotação/autorização/compra | "🆕 **PEÇA SEM COTAÇÃO** (estava em X) → **EM COTAÇÃO**" |
 | ENCERRADO → ENTREGUES | rotina diária 7 h | > 15 dias em ENCERRADO, checklists completos | sem comentário |
 | ENCERRADO → FALTA CHEGAR | rotina diária | > 15 dias e item pendente | "Movido automaticamente…" |
-| ENCERRADO/ENTREGUES/PENDÊNCIA DE FATURAMENTO/PENDÊNCIA TRATADA → **arquivado** | robô `fat_executar_` | comentário afirmativo com "faturado" **ou "fechado/fechada"** (sem "?"; negação só conta a até 2 palavras antes — "não faturado", "ainda não foi faturado" — ou "faturado não"; "faturado, sem desconto" vale) por usuário de `FAT_USUARIOS`, checklists completos, sem complementar antecipado pendente | evento FATURADO; se falha a condição responde "🧾 Não arquivei: …" |
-| idem, **arquivado à mão** por usuário de `FAT_USUARIOS` (10/10/2026) | robô `fat_executar_` (ação `updateCard:closed`) | arquivar = "faturado": mesmas condições | evento FATURADO ("arquivado à mão"); se falta ✔ ou há complementar antecipado pendente, o card é **desarquivado** com "🧾 Desarquivei o card: …" |
+| ENCERRADO/ENTREGUES/PENDÊNCIA DE FATURAMENTO/PENDÊNCIA TRATADA → **arquivado** | robô `fat_executar_` | comentário afirmativo com "faturado" (sem "?"; negação só conta a até 2 palavras antes — "não faturado", "ainda não foi faturado" — ou "faturado não"; "faturado, sem desconto" vale) **ou "fechado/fechada" junto de OK / O.S. / ordem** ("OK fechada", "O.S. fechada", "fechado" sozinho; "porta fechada" não) sem nenhuma negação, por usuário de `FAT_USUARIOS`, checklists completos, sem complementar antecipado pendente | evento FATURADO; se falha a condição responde "🧾 Não arquivei: …" |
+| idem, **arquivado à mão** por usuário de `FAT_USUARIOS` (10/10/2026) | robô `fat_executar_` (ação `updateCard:closed`) | arquivar = "faturado": mesmas condições; **card antigo** (anterior à virada) só ganha o evento, sem conferir ✔ | evento FATURADO ("arquivado à mão"); se falta ✔ ou há complementar antecipado pendente, o card é **desarquivado** com "🧾 Desarquivei o card: …" |
 | card excluído → recriado | robô `exc_executar_` | quem excluiu não é admin do quadro nem está em `EXC_LIVRES` | recria na mesma coluna com título + descrição completa; "♻️ Card recuperado"; e-mail |
 
 ### 2.3 Validação do pedido ("faltas")
@@ -351,10 +351,11 @@ Por card: `VD_PK2_` (assinaturas), `VD_NOVAS_`, `VD_SIG_` (faltas já avisadas),
 CP_ACT, NU_ACT`. Cota: `QT_DIA_<data>`. Falhas: `FALHAS_<rotina>`, `FALHAS_T_<rotina>`.
 
 Limpeza diária (`sd_limparPropriedades_`, dentro da conferência das 7h50): tudo o que é por card de card fechado/arquivado/legado
-(`VD_PK2_, VD_AT_, VD_SIG_, VD_NOVAS_, VD_DESC_AV_, PZ_AT_, PZ_COL_, PZ_SEMPREV_, ST_ESP_, SLA_<card>_`), o cache de anexo
-(`VD_ANX3_`) de anexo que não está em card aberto (e com mais de 48 h) e os avisos por item (`SLA_I_<item>_<data>`) com data há
-mais de 30 dias (10/10/2026 — antes o cache de anexos e os avisos por item nunca saíam; o limite de 500 KB das propriedades
-derrubava o núcleo). Gravar o cache de anexo nunca derruba a leitura (erro engolido).
+(`VD_PK2_, VD_AT_, VD_SIG_, VD_NOVAS_, VD_DESC_AV_, PZ_AT_, PZ_COL_, PZ_SEMPREV_, ST_ESP_, SLA_<card>_` — em card **antigo
+aberto** ficam `SLA_` e `PZ_COL_`, que o SLA de faturamento usa), o cache de anexo (`VD_ANX3_`) de anexo que não está em card
+aberto (e com mais de 48 h) e os avisos por item (`SLA_I_<item>_…`) cujo item não existe mais em card aberto (10/10/2026 —
+antes o cache de anexos e os avisos por item nunca saíam; o limite de 500 KB das propriedades derrubava o núcleo). Gravar o
+cache de anexo nunca derruba a leitura (erro engolido).
 
 **Prazo do ciclo** (10/10/2026): o acionador de 1 min abre um prazo único de 5 min (`VD.CICLO_MS`, `vd_cicloIniciar_`); o núcleo
 tem até 3 min deixando 90 s de reserva, e complemento (60 s), prazos (40 s) e SLA (40 s) recebem o menor entre o seu limite e o
@@ -362,8 +363,10 @@ que resta (`vd_prazo_`); parte com menos de 30 s restantes é pulada ("pulado (c
 execução aos 6 min sem `finally` nem alarme — antes o pior caso passava disso.
 
 **Cópia oficial antes do Trello** (10/10/2026): `vd_gravarDesc_` grava a completa na TRAVA **antes** do PUT no Trello; se a
-planilha falhar, nada muda no card e quem salvou vê "Não consegui guardar a descrição na planilha de controle…". Completa acima
-de 45.000 caracteres (limite da célula: 50.000) gera e-mail à diretoria uma vez por dia por card.
+planilha falhar, nada muda no card e quem salvou vê "Não consegui guardar a descrição na planilha de controle…"; se o Trello
+falhar depois, a TRAVA volta ao que era (senão o reenvio leria a completa nova e duplicaria a cotação). Completa acima de
+45.000 caracteres (limite da célula: 50.000) gera e-mail à diretoria uma vez por dia por card. Trechos ler-modificar-gravar
+compartilhados entre formulários (`CP_VISTOS`, `RC_LOCAIS`, linha nova na TRAVA) rodam num mutex curto de cache (`sg_secao_`).
 
 Histórico com `since` (`vd_acoesQuadro_`): direto no Trello o limite sobe para 1000 (o Trello devolve as N mais novas; com 100,
 depois de horas parado, as ações mais antigas da janela ficavam para trás e os marcadores pulavam por cima delas).

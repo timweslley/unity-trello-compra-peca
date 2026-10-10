@@ -1450,6 +1450,7 @@ function montarCompra(c) {
     }
     div.innerHTML = h;
     box.appendChild(div);
+    var selI = div.querySelector('.k-sel'); if (selI && selI.value) avisoForaAut(selI);   // cotação pré-marcada sem prazo: campo de prazo já visível (10/10/2026)
   });
   totalCompra(); dicasColar();
   var semNenhuma = !(c.autorizadas || []).length;
@@ -1514,7 +1515,7 @@ function enviarPrev(btn) {
 
 /* ---------- fornecimento da seguradora (FO) ---------- */
 /* marcas 📍 local / ✋ retirada / ↩️ devolvida no fim do nome do item (10/10/2026) ficam fora da leitura do fornecedor/situação */
-function semMarcas(nome) { return String(nome || '').replace(/\s*·\s*(?:📍|✋|↩️)\s*[^·]*/g, '').trim(); }
+function semMarcas(nome) { return String(nome || '').replace(/\s*·\s*(?:📍|✋|↩️?)\s*[^·]*/g, '').trim(); }
 function baseFo(nome) { return semMarcas(nome).replace(/\s+[-—]\s+(EM COTA[ÇC][ÃA]O.*|B\.?O\.?\b.*)$/i, ''); }
 function montarFornecimento(c, itens) {
   var box = $('fornItens'); box.innerHTML = '';
