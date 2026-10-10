@@ -286,7 +286,7 @@ function descrever(msg: Record<string, unknown>): { fn: string; rid?: string } {
    retira, compradores, autorizadores, feriados extras…) só existem nas Propriedades do Script do Apps Script. O servidor pede a
    ele (vdf_propsServidor — só leitura, só chaves da lista, nunca token) e guarda por 5 min; sem resposta, usa a última que tem. */
 const URL_APP = process.env.URL_APP
-  || 'https://script.google.com/macros/s/AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew/exec';
+  ?? 'https://script.google.com/macros/s/AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew/exec';
 let propsPrinc: { v: Record<string, string>; em: number } | null = null;
 let buscandoProps: Promise<void> | null = null;
 let erroProps = '';
@@ -299,6 +299,7 @@ async function buscarPropsPrincipal(): Promise<void> {
   erroProps = '';
 }
 async function propsDoPrincipal(): Promise<Record<string, string>> {
+  if (!URL_APP) return {};   // testes (URL_APP vazio): não sai para a rede
   const velho = !propsPrinc || Date.now() - propsPrinc.em > 5 * 60_000;
   if (velho && !buscandoProps) {
     buscandoProps = buscarPropsPrincipal().catch((e) => { erroProps = (e as Error).message; console.error('props do principal:', erroProps); })

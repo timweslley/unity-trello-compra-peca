@@ -17,7 +17,7 @@ describe.skipIf(!BANCO || !existsSync(DIST))('serviços do Google imitados', () 
   const post = async (fn: string, ...args: unknown[]) => JSON.parse(await ponte.executarPost(JSON.stringify({ fn, args })));
 
   beforeAll(async () => {
-    process.env.DATABASE_URL = BANCO; process.env.TRELLO_KEY = 'k'; process.env.TRELLO_TOKEN = 't'; process.env.TRELLO_QUADRO = 'ZX4gRmnX';
+    process.env.DATABASE_URL = BANCO; process.env.TRELLO_KEY = 'k'; process.env.TRELLO_TOKEN = 't'; process.env.TRELLO_QUADRO = 'ZX4gRmnX'; process.env.URL_APP = '';
     process.env.GAS_ARQUIVO = path.resolve(__dirname, 'gas', 'robo-teste.gs.js');
     db = await import('../dist/db.js' as string);
     await db.consulta(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`);
