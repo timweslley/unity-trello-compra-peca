@@ -209,6 +209,7 @@
   .tt #abaCot { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v10M9.5 9.5h3.5a1.75 1.75 0 010 3.5h-2a1.75 1.75 0 000 3.5H15'/%3E%3C/svg%3E"); }
   .tt #abaAut { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.2'%3E%3Cpath d='M5 12l5 5 9-10'/%3E%3C/svg%3E"); }
   .tt #abaCompra { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='M3 4h2l2.4 11h11.2L21 8H7'/%3E%3Ccircle cx='9' cy='19' r='1.5'/%3E%3Ccircle cx='17' cy='19' r='1.5'/%3E%3C/svg%3E"); }
+  .tt #abaRet { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='M7 11V6a2 2 0 0 1 4 0v5M11 10V4a2 2 0 0 1 4 0v6M15 10V6a2 2 0 0 1 4 0v8a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.5L3 14a2 2 0 0 1 3.4-2L7 13'/%3E%3C/svg%3E"); }
   .tt #abaRec { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='M3 8l9-4 9 4v9l-9 4-9-4zM3 8l9 4 9-4M12 12v9'/%3E%3C/svg%3E"); }
   .tt #abaForn { --ico:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2'%3E%3Cpath d='M3 6h11v10H3zM14 10h4l3 3v3h-7z'/%3E%3Ccircle cx='7' cy='18' r='1.5'/%3E%3Ccircle cx='17' cy='18' r='1.5'/%3E%3C/svg%3E"); }
   @media (max-width:560px) { .tt .aba .rotulo { display:none; } .tt .aba::before { width:20px; height:20px; } }
@@ -393,6 +394,7 @@
       <button type="button" class="aba oculto" id="abaAut" onclick="mostrarAba('aut')"><span class="emo">✅</span> <span class="rotulo">Autorizar</span></button>
       <button type="button" class="aba" id="abaCompra" onclick="mostrarAba('compra')"><span class="emo">🛒</span> <span class="rotulo">Compra</span></button>
       <button type="button" class="aba oculto" id="abaRec" onclick="mostrarAba('rec')"><span class="emo">📦</span> <span class="rotulo">Recebimento</span></button>
+      <button type="button" class="aba oculto" id="abaRet" onclick="mostrarAba('ret')"><span class="emo">✋</span> <span class="rotulo">Retirada</span></button>
       <button type="button" class="aba oculto" id="abaForn" onclick="mostrarAba('forn')"><span class="emo">🚚</span> <span class="rotulo">Fornecimento</span></button>
     </div>
     <!-- atalho do fornecimento em todas as abas (Weslley, 06/10/2026): o Status do Pedido do Cilia pode entrar de qualquer aba -->
@@ -486,6 +488,21 @@
       </div>
     </div>
 
+    <div id="painelRet" class="oculto">
+      <section>
+        <h2>Retirada — quem levou a peça</h2>
+        <div class="dica" style="margin-bottom:10px">Peças que já chegaram e ainda estão no estoque, com o local (📍). Marque as que foram retiradas, diga <b>quem retirou</b> (funileiro, outra unidade, montagem…) e a data. Quando todas as peças do card forem retiradas, o card vai sozinho para <b>ENTREGUES</b>.</div>
+        <div id="retItens"></div>
+        <div class="grade" style="margin-top:10px"><div><label>Quem retirou <span class="obr">*</span></label><input type="text" id="retQuem" class="maiusc" list="dlQuem" maxlength="24" placeholder="Ex.: LEOMAR; CASCAVEL; MONTAGEM"><datalist id="dlQuem"></datalist></div>
+          <div><label>Data da retirada</label><input type="date" id="retData"></div></div>
+        <div id="retJa" style="margin-top:12px"></div>
+      </section>
+      <div class="rodape" style="margin-bottom:30px">
+        <button type="button" class="principal" id="btnRet" onclick="enviarRetirada()">✋ Registrar retirada</button>
+        <span class="carregando oculto" id="enviandoRet">Enviando…</span>
+      </div>
+    </div>
+
     <div id="painelRec" class="oculto">
       <section>
         <h2>Recebimento — marque o que chegou</h2>
@@ -494,8 +511,8 @@
         <datalist id="dlLocais"></datalist>
       </section>
       <section id="secRecebidas" class="oculto">
-        <h2>Peças já recebidas — local, retirada, devolução</h2>
-        <div class="dica" style="margin-bottom:10px">Para cada peça que já chegou: onde está guardada (📍), quem a retirou e quando (✋ — funileiro, outra unidade, montagem), ou se voltou ao fornecedor (↩️ — peça errada, avariada, incompatível). Devolução de peça comprada cancela a compra: a peça volta a aparecer como autorizada e precisa de compra nova.</div>
+        <h2>Peças já recebidas — local, devolução</h2>
+        <div class="dica" style="margin-bottom:10px">Para cada peça que já chegou: onde está guardada (📍) ou se voltou ao fornecedor (↩️ — peça errada, avariada, incompatível). Quem retirou a peça: aba <b>✋ Retirada</b>. Devolução de peça comprada cancela a compra: a peça volta a aparecer como autorizada e precisa de compra nova.</div>
         <div id="recJa"></div>
       </section>
       <section>
@@ -633,7 +650,7 @@ function iniciar() {
     var modoP = ler('vd_modo_pend');
     MODO_COMPRAS = /^(compras|cot|aut|compra|rec|forn)$/.test(modoP) && !!CARD_EDICAO;
     ABA_INICIAL = /^(cot|aut|compra|rec|forn)$/.test(modoP) ? modoP : '';
-    if (MODO_COMPRAS) document.querySelector('header h1').textContent = ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento', forn: 'Fornecimento' })[ABA_INICIAL] ? ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento', forn: 'Fornecimento' })[ABA_INICIAL] + ' de Peça — Unity' : 'Cotação / Compra / Recebimento — Unity';
+    if (MODO_COMPRAS) document.querySelector('header h1').textContent = ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento', ret: 'Retirada', forn: 'Fornecimento' })[ABA_INICIAL] ? ({ cot: 'Cotação', aut: 'Autorização', compra: 'Compra', rec: 'Recebimento', ret: 'Retirada', forn: 'Fornecimento' })[ABA_INICIAL] + ' de Peça — Unity' : 'Cotação / Compra / Recebimento — Unity';
     if (!TOKEN) return telaLogin();
     chamar('vdf_iniciar', TOKEN).then(function (info) {
       if (typeof ligarLeituraServidor === 'function') ligarLeituraServidor(info.usuario);   // leitura pelo servidor próprio, por usuário (07/10/2026)
@@ -788,6 +805,7 @@ function telaComprador(c) {
   mostrar('btnDev', c.podeDevolver !== false);
   mostrar('abaAut', true);
   mostrar('abaRec', true); montarRecebimento(c);
+  mostrar('abaRet', (c.recebiveis || []).some(function (i) { return i.ok; })); montarRetirada(c);
   // quem não tem permissão vê a aba, mas só para consulta
   if (!c.podeAutorizar) somenteLeitura('painelAut', 'Só quem autoriza pode mexer aqui: diretoria (peças da seguradora) ou o consultor que lançou a peça particular.');
   var foItens = (c.recebiveis || []).filter(function (i) { return /^FORNECIMENTO/.test(i.lista); });
@@ -802,6 +820,7 @@ function telaComprador(c) {
   }
   if (!(c.recebiveis || []).length) somenteLeitura('painelRec', 'Ainda não há peça comprada ou de fornecimento para receber.');
   else if (c.podeReceber === false) somenteLeitura('painelRec', 'Em Toledo, o recebimento é registrado pelo setor de compras (ou pela diretoria).');
+  if (c.podeReceber === false) somenteLeitura('painelRet', 'Em Toledo, a retirada é registrada pelo setor de compras (ou pela diretoria).');
   var temCot = c.cotacoes && c.cotacoes.cotacoes.length, L = (c.lista || '').toUpperCase();
   var temRec = (c.recebiveis || []).some(function (i) { return !i.ok; });
   mostrarAba(ABA_INICIAL || (temRec && /FALTA CHEGAR/.test(L) ? 'rec' : (temCot && c.podeAutorizar && /PENDENTE AUTORIZAR|COTA[ÇC][ÃA]O FINALIZADA/.test(L) ? 'aut' : (temCot && L.indexOf('AUTORIZADO') === 0 ? 'compra' : 'cot'))));
@@ -922,6 +941,7 @@ function mostrarAba(a) {
   mostrar('painelCot', a === 'cot'); mostrar('painelAut', a === 'aut'); mostrar('painelCompra', a === 'compra');
   $('abaCot').classList.toggle('marcada', a === 'cot'); $('abaAut').classList.toggle('marcada', a === 'aut'); $('abaCompra').classList.toggle('marcada', a === 'compra');
   mostrar('painelRec', a === 'rec'); $('abaRec').classList.toggle('marcada', a === 'rec');
+  mostrar('painelRet', a === 'ret'); $('abaRet').classList.toggle('marcada', a === 'ret');
   mostrar('painelForn', a === 'forn'); $('abaForn').classList.toggle('marcada', a === 'forn');
   mostrar('erroComprador', false);
   dicasColar();
@@ -1142,20 +1162,64 @@ function montarRecebimento(c) {
       + '<div class="chips" style="margin-top:6px">'
       + '<label class="chip"><input type="radio" name="' + nm + '" class="j-acao" value="" checked onchange="recJaTroca(this)"> nada a mudar</label>'
       + '<label class="chip"><input type="radio" name="' + nm + '" class="j-acao" value="local" onchange="recJaTroca(this)"> 📍 local</label>'
-      + (it.retirada ? '' : '<label class="chip"><input type="radio" name="' + nm + '" class="j-acao" value="retirada" onchange="recJaTroca(this)"> ✋ retirada</label>')
       + '<label class="chip"><input type="radio" name="' + nm + '" class="j-acao" value="devolvida" onchange="recJaTroca(this)"> ↩️ devolvida ao fornecedor</label></div>'
       + '<div class="grade j-local oculto" style="margin-top:6px"><div><label>📍 Onde está guardada</label><input type="text" class="r-local maiusc" list="dlLocais" maxlength="16" value="' + esc(it.local || '') + '"></div></div>'
-      + '<div class="grade j-ret oculto" style="margin-top:6px"><div><label>Quem retirou <span class="obr">*</span></label><input type="text" class="r-quem maiusc" maxlength="24" placeholder="Ex.: LEOMAR; CASCAVEL; MONTAGEM"></div><div><label>Quando</label><input type="date" class="r-rdata" value="' + hojeISO() + '" max="' + hojeISO() + '"></div></div>'
       + '<div class="grade j-dev oculto" style="margin-top:6px"><div class="inteiro"><label>Motivo da devolução <span class="obr">*</span></label><input type="text" class="r-motivo" placeholder="Ex.: veio o lado errado; chegou avariada; incompatível com o carro"></div></div>';
     jaBox.appendChild(d);
   });
   dicasColar();
 }
+/* ---------- retirada (10/10/2026): peça recebida que saiu do estoque — quem levou e quando ---------- */
+function montarRetirada(c) {
+  var box = $('retItens'); if (!box) return; box.innerHTML = '';
+  $('retData').value = hojeISO(); $('retData').max = hojeISO();
+  var dl = $('dlQuem'); if (dl) dl.innerHTML = (c.quemRetira || []).map(function (q) { return '<option value="' + esc(q) + '">'; }).join('');
+  var rec = (c.recebiveis || []).filter(function (i) { return i.ok; });
+  var pend = rec.filter(function (i) { return !i.retirada; }), ja = rec.filter(function (i) { return i.retirada; });
+  if (!pend.length) box.innerHTML = '<div class="dica">' + (rec.length ? '✅ Todas as peças recebidas já foram retiradas.' : 'Nenhuma peça recebida ainda.') + '</div>';
+  if (pend.length > 1) box.innerHTML = '<label class="chip" style="margin-bottom:8px"><input type="checkbox" onchange="retTodas(this)"> marcar todas</label>';
+  pend.forEach(function (it) {
+    var d = document.createElement('div'); d.className = 'item'; d.dataset.id = it.id;
+    d.innerHTML = '<div class="item-topo"><label class="chip"><input type="checkbox" class="t-ok" onchange="this.parentNode.classList.toggle(\'marcado\', this.checked)"> Retirada</label> <strong style="margin-left:6px">' + esc(it.base || it.nome) + '</strong>'
+      + (it.local ? ' <span class="selo preco">📍 ' + esc(it.local) + '</span>' : ' <span class="dica">sem local informado</span>') + '</div>';
+    box.appendChild(d);
+  });
+  var jb = $('retJa'); jb.innerHTML = '';
+  if (ja.length) {
+    jb.innerHTML = '<div style="font-weight:600;margin-bottom:6px">Já retiradas</div>';
+    ja.forEach(function (it) {
+      var d = document.createElement('div'); d.className = 'item'; d.dataset.id = it.id;
+      d.innerHTML = '<div class="item-topo"><strong>✋ ' + esc(it.base || it.nome) + '</strong> <span class="selo preco">' + esc(it.retirada) + '</span> <button type="button" class="mini" onclick="this.closest(\'.item\').querySelector(\'.t-desf\').classList.toggle(\'oculto\')">desfazer</button></div>'
+        + '<div class="t-desf oculto" style="margin-top:6px"><label>Motivo (obrigatório)</label><input type="text" class="t-motivo" placeholder="Ex.: lançado no card errado; a peça voltou ao estoque"></div>';
+      jb.appendChild(d);
+    });
+  }
+}
+function retTodas(cb) { Array.prototype.forEach.call($('retItens').querySelectorAll('.t-ok'), function (x) { x.checked = cb.checked; x.parentNode.classList.toggle('marcado', cb.checked); }); }
+function enviarRetirada() {
+  mostrar('erroComprador', false);
+  var itens = [], desfazer = [], faltas = [];
+  Array.prototype.forEach.call($('retItens').querySelectorAll('.item'), function (d) { if (d.querySelector('.t-ok').checked) itens.push(d.dataset.id); });
+  Array.prototype.forEach.call($('retJa').querySelectorAll('.item'), function (d) {
+    var box = d.querySelector('.t-desf'); if (box.classList.contains('oculto')) return;
+    var m = d.querySelector('.t-motivo').value.trim();
+    if (!m) faltas.push(d.querySelector('strong').textContent.slice(0, 50) + ': escreva o motivo para desfazer a retirada.'); else desfazer.push({ id: d.dataset.id, motivo: m });
+  });
+  var quem = $('retQuem').value.trim();
+  if (itens.length && !quem) faltas.push('Informe quem retirou as peças.');
+  if (!itens.length && !desfazer.length && !faltas.length) faltas.push('Marque pelo menos uma peça retirada.');
+  if (faltas.length) return errosComprador(faltas);
+  $('btnRet').disabled = true; mostrar('enviandoRet', true);
+  chamar('vdf_salvarRetirada', TOKEN, { shortLink: CARD_EDICAO, itens: itens, quem: quem, data: $('retData').value, desfazer: desfazer }).then(function (r) {
+    $('btnRet').disabled = false; mostrar('enviandoRet', false);
+    if (!r.ok) return errosComprador(r.faltas);
+    sucesso('✋ Retirada registrada no card <b>' + esc(r.nome) + '</b>: ' + r.n + ' peça(s)' + (r.desfeitas ? ', ' + r.desfeitas + ' desfeita(s)' : '') + '.' + (r.faltam ? '<br>Ainda no estoque: ' + r.faltam + ' peça(s).' : '<br>✅ Todas as peças foram retiradas.') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+  }).catch(function (e) { $('btnRet').disabled = false; mostrar('enviandoRet', false); errosComprador([e.message]); });
+}
 function recJaTroca(r) {
   var d = r.closest('.item'), v = r.value;
   Array.prototype.forEach.call(d.querySelectorAll('.j-acao'), function (x) { x.parentNode.classList.toggle('marcado', x.checked); });
   d.querySelector('.j-local').classList.toggle('oculto', v !== 'local');
-  var jr = d.querySelector('.j-ret'); if (jr) jr.classList.toggle('oculto', v !== 'retirada');
   d.querySelector('.j-dev').classList.toggle('oculto', v !== 'devolvida');
 }
 function recAnexar(inp, idItem) {
@@ -1199,7 +1263,6 @@ function enviarRecebimento() {
   Array.prototype.forEach.call($('recJa').querySelectorAll('.item'), function (d) {
     var a = (d.querySelector('.j-acao:checked') || {}).value || '', nome = d.querySelector('.item-topo strong').textContent.slice(0, 50);
     if (a === 'local') { var l = d.querySelector('.j-local .r-local').value.trim(); if (!l) faltas.push(nome + ': escreva o local.'); else locais.push({ id: d.dataset.id, local: l }); }
-    else if (a === 'retirada') { var q = d.querySelector('.r-quem').value.trim(); if (!q) faltas.push(nome + ': informe quem retirou.'); else retiradas.push({ id: d.dataset.id, quem: q, data: d.querySelector('.r-rdata').value }); }
     else if (a === 'devolvida') { var m = d.querySelector('.r-motivo').value.trim(); if (!m) faltas.push(nome + ': escreva o motivo da devolução.'); else devolucoes.push({ id: d.dataset.id, motivo: m }); }
   });
   if (faltas.length) return errosComprador(faltas);

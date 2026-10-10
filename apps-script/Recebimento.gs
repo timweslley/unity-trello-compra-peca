@@ -110,6 +110,74 @@ function ck_aceitarManual_(cardId, m) {
   return aceitos;
 }
 
+/* ---------- aba ✋ Retirada (10/10/2026, Weslley) ----------
+ * Peça recebida que saiu do estoque: quem levou (funileiro, outra unidade, montagem) e quando. Mesma permissão do recebimento.
+ * Marca "· ✋ QUEM dd/MM" no item; evento RETIRADA; desfazer com motivo. Card em ENCERRADO com TODAS as peças recebidas e
+ * retiradas vai sozinho para ENTREGUES. p = {shortLink, itens:[idItem], quem, data:'aaaa-mm-dd', desfazer:[{id, motivo}]} */
+function rc_quemLista_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('RC_QUEM') || '[]'); } catch (e) { return []; } }
+function rc_guardarQuem_(q) {
+  if (!q) return;
+  sg_secao_('RC_QUEM', function () {
+    var l = rc_quemLista_(); if (l.indexOf(q) >= 0) return;
+    l.push(q); l.sort();
+    try { PropertiesService.getScriptProperties().setProperty('RC_QUEM', JSON.stringify(l.slice(-RC.LOCAIS_MAX))); } catch (e) {}
+  });
+}
+function vdf_salvarRetirada(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  var ctx = vd_contexto_();
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Em Toledo, a retirada é registrada pelo setor de compras (ou pela diretoria) — sua conta: ' + me.username + '.'] };
+  var todos = vdf_itensRecebimento_(card), porId = {};
+  todos.forEach(function (i) { porId[i.id] = i; });
+  var ids = (p.itens || []).filter(function (id) { return porId[id] && porId[id].ok && !porId[id].retirada; });
+  var desf = (p.desfazer || []).filter(function (x) { return x && porId[x.id] && porId[x.id].retirada; });
+  var quem = vd_semAcento_(String(p.quem || '')).replace(/[^A-Z0-9 \-\/]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
+  var faltas = [];
+  if (ids.length && !quem) faltas.push('Informe quem retirou as peças.');
+  desf.forEach(function (x) { if (!String(x.motivo || '').trim()) faltas.push(pv_curto_(porId[x.id].base) + ': escreva o motivo para desfazer a retirada.'); });
+  if (p.data && new Date(p.data + 'T12:00:00').getTime() > Date.now() + 864e5) faltas.push('Data da retirada no futuro (' + p.data + ') — confira.');
+  if (!ids.length && !desf.length && !faltas.length) faltas.push('Marque pelo menos uma peça retirada (só aparecem peças já recebidas).');
+  if (faltas.length) return { ok: false, faltas: faltas };
+  var quando = rc_data_(p.data), dd = Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM');
+  var linhas = [], evs = [], evsD = [];
+  ids.forEach(function (id) {
+    var it = porId[id];
+    rc_gravarMarcas_(card.id, it, { retirada: quem + ' ' + dd }, token);
+    it.retirada = quem + ' ' + dd;
+    var pt = it.base.split(/\s+-\s+/);
+    linhas.push('✋ ' + pt[0] + (it.local ? ' (estava em ' + it.local + ')' : ''));
+    evs.push({ peca: pt[0], particular: it.lista === 'PAGAS PARTICULAR', fornecedor: /^PAGAS/.test(it.lista) && pt.length >= 2 ? pt[1] : (/^FORNECIMENTO/.test(it.lista) ? 'SEGURADORA (FO)' : ''),
+      detalhe: 'retirada por ' + quem + ' em ' + Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM/yyyy') + (it.local ? ' · estava em ' + it.local : '') + ' · ' + it.lista });
+  });
+  desf.forEach(function (x) {
+    var it = porId[x.id], motivo = String(x.motivo).replace(/\s*\n\s*/g, ' ').trim(), era = it.retirada;
+    rc_gravarMarcas_(card.id, it, { retirada: '' }, token);
+    it.retirada = '';
+    var pt = it.base.split(/\s+-\s+/);
+    linhas.push('↩️ retirada desfeita: ' + pt[0] + ' (era ' + era + ') — ' + motivo);
+    evsD.push({ peca: pt[0], detalhe: 'RETIRADA DESFEITA (era ' + era + '): ' + motivo + ' · ' + it.lista });
+  });
+  rc_guardarQuem_(quem);
+  // tudo recebido e tudo retirado: ENCERRADO -> ENTREGUES
+  var movido = '', lista = vdf_nomeLista_(ctx, card.idList);
+  var noEstoque = todos.filter(function (i) { return i.ok && !i.retirada; }), pendRec = todos.filter(function (i) { return !i.ok; });
+  if (lista === RC.LISTA_FIM && todos.length && !pendRec.length && !noEstoque.length && ctx.listas['ENTREGUES']) {
+    try { movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, me.username); } catch (e) { console.log('retirada/coluna: ' + e); }
+  }
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✋ **RETIRADA** — ' + me.fullName + (ids.length ? ' · por **' + quem + '** em ' + dd : '') + (movido ? ' → **' + movido + '**' : '') + '\n' + linhas.join('\n') +
+      (noEstoque.length ? '\n📦 Ainda no estoque: ' + noEstoque.map(function (i) { return i.base.split(/\s+-\s+/)[0] + (i.local ? ' (' + i.local + ')' : ''); }).join(', ') : (pendRec.length ? '' : '\n✅ Todas as peças retiradas.')) } }, token);
+  } catch (e) {}
+  try { if (evs.length) ev_registrar_('RETIRADA', card, me.username, evs, { detalhe: ids.length + ' peça(s) · ' + quem }); } catch (e) {}
+  try { if (evsD.length) ev_registrar_('RETIRADA', card, me.username, evsD, { detalhe: 'desfeita' }); } catch (e) {}
+  try { vd_redesenhar_(card.id, token); } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, n: ids.length, desfeitas: desf.length, faltam: noEstoque.length, lista: movido || lista };
+}
+
 /** Aba Compra: ❌ compra cancelada. p = {shortLink, id (item PAGAS), motivo} */
 function vdf_cancelarCompra(token, p) {
   var me = vdf_usuario_(token);
