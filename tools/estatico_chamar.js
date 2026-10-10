@@ -26,6 +26,11 @@ function ligarLeituraServidor(usuario) {
   if (cfg === 'todos') liga = true;
   else if (cfg && cfg.usuarios) liga = cfg.usuarios.map(function (u) { return String(u).toLowerCase(); }).indexOf(String(usuario || '').toLowerCase()) >= 0;
   try { localStorage.setItem('vd_leitura_srv', liga ? '1' : '0'); } catch (e) {}
+  /* 10/10/2026: leituras guardadas e conferidas no servidor (abrir card < 1 s) — ligadas por usuário em PU_CFG.LEITURA_GUARDADA */
+  var cg = window.PU_CFG && PU_CFG.LEITURA_GUARDADA, guard = false;
+  if (cg === 'todos') guard = true;
+  else if (cg && cg.usuarios) guard = cg.usuarios.map(function (u) { return String(u).toLowerCase(); }).indexOf(String(usuario || '').toLowerCase()) >= 0;
+  try { localStorage.setItem('vd_leitura_guardada', guard ? '1' : '0'); } catch (e) {}
   return liga;
 }
 /* medição local (últimas 60 chamadas): fn, por onde foi, ms, ok — para diagnóstico pelo console (vd_tempos) */
@@ -37,7 +42,8 @@ function chamarServidorLeitura(corpo, fn) {
   return new Promise(function (resolver, rejeitar) {
     var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
     var rel = setTimeout(function () { try { ctl && ctl.abort(); } catch (e) {} rejeitar(new Error('servidor: 8 s')); }, 8000);
-    fetch(PU_CFG.URL_SERVIDOR + '?quadro=principal', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo, signal: ctl ? ctl.signal : undefined })
+    var guardada = false; try { guardada = localStorage.getItem('vd_leitura_guardada') === '1'; } catch (e) {}
+    fetch(PU_CFG.URL_SERVIDOR + '?quadro=principal' + (guardada ? '&guardado=1' : ''), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo, signal: ctl ? ctl.signal : undefined })
       .then(function (r) { if (r.status >= 400) throw new Error('servidor: ' + r.status); return r.text(); })
       .then(function (t) {
         clearTimeout(rel);

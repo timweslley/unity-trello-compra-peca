@@ -126,3 +126,19 @@ O que precisa valer:
 6. Registrar em `/tarefas/execucoes` quantas respostas vieram do espelho × do Trello ao vivo.
 
 Fora do pedido: gravações, OCR e o robô continuam no Google.
+
+## Feito 10/10/2026 (sessão do servidor) — leituras guardadas e conferidas (pedido acima)
+
+Em vez de responder de um espelho montado à parte, o servidor continua rodando o MESMO código do robô (resposta idêntica por
+construção), mas o que o robô pede ao Trello e à planilha fica guardado e é **conferido** antes de usar:
+- card (`/cards/{x}` e sub-recursos) e listas de cards do quadro: uma consulta leve por execução traz dataLastActivity, lista,
+  fechado, última ação e campos personalizados; se for a mesma do guardado, usa o guardado; senão lê ao vivo. Funciona sem webhook
+  e não depende de ele estar em dia — logo depois de uma gravação o carimbo já mudou e a leitura vem ao vivo (item 3 do pedido);
+- TRAVA (descrição completa): só vale se foi lida depois da última atividade do card desta execução (+10 s) e por no máx. 2 min;
+  FORNECEDORES: 5 min; nome da lista: 10 min;
+- liga por usuário: `?guardado=1`, que o formulário manda para quem estiver em `PU_CFG.LEITURA_GUARDADA` (hoje timweslley e
+  christianfarias23); `/tarefas/execucoes` mostra por execução `guardado` × `aoVivo`.
+
+Conferência (10/10 17h): 50 cards do principal (12 do fluxo atual + 38 antigos), servidor com memória × Google: respostas iguais em
+todos (só `anexos[].lido`, já conhecido); o card fixo dá o mesmo erro nos dois. Tempo medido no navegador: servidor 0,6–0,7 s
+(antes ~1,5–1,9 s), Google 3–9 s.

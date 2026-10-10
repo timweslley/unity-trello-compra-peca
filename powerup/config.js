@@ -21,6 +21,10 @@ window.PU_CFG = {
    * como VD_CMP_MEM, agora nascem de novo a cada chamada); 10 cards do principal conferidos, cotações iguais ao Google.
    * Para desligar de novo: { usuarios: [] }. */
   LEITURA_SERVIDOR: 'todos',
+  /* 10/10/2026 (pedido do Weslley: abrir card < 1 s): no principal, o servidor guarda o card/a TRAVA e só confere com uma consulta
+   * leve se mudou (resposta igual à do Google; 50 cards conferidos). Primeiro só estes usuários; depois 'todos'.
+   * Para desligar: { usuarios: [] }. */
+  LEITURA_GUARDADA: { usuarios: ['timweslley', 'christianfarias23'] },
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
