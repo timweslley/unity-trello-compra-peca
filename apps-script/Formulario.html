@@ -2390,9 +2390,9 @@ iniciar();
   .v2 .v2-ler button { min-height:48px; flex:0 0 auto; padding:8px 14px !important; font-size:16px !important; }
   /* 09/10/2026 (auditoria das regras): #modoEdicao e #infoComprador ficam SEMPRE à vista — trazem avisos de regra (card já autorizado:
      peça nova volta para EM COTAÇÃO; cotação devolvida e o motivo; sem nº de ordem) */
-  .v2 .dica:not(.ruim):not(.boa):not([id]):not(.item .dica), .v2 #painelCot > .item > div:first-child, .v2 #painelAut > .item > div:first-child,
+  .v2 .dica.v2-ajudatxt, .v2 #painelCot > .item > div:first-child, .v2 #painelAut > .item > div:first-child,
   .v2 #painelCompra > .item > div:first-child, .v2 #dicaTitulo, .v2 #dicaCapa, .v2 #rotuloDoc { display:none; }
-  .v2.v2-ajuda .dica:not(.ruim):not(.boa):not([id]):not(.item .dica), .v2.v2-ajuda #painelCot > .item > div:first-child, .v2.v2-ajuda #painelAut > .item > div:first-child,
+  .v2.v2-ajuda .dica.v2-ajudatxt, .v2.v2-ajuda #painelCot > .item > div:first-child, .v2.v2-ajuda #painelAut > .item > div:first-child,
   .v2.v2-ajuda #painelCompra > .item > div:first-child, .v2.v2-ajuda #dicaTitulo, .v2.v2-ajuda #dicaCapa, .v2.v2-ajuda #rotuloDoc { display:block; }
   /* passos */
   .v2 #v2passos { display:flex; gap:6px; margin:4px 0 14px; }
@@ -2625,6 +2625,9 @@ iniciar();
   var html = document.documentElement;
   html.classList.add('v2');
   if (!window.matchMedia('(max-width:640px)').matches) html.classList.add('v2pc');
+  /* 09/10/2026 (revisão das regras): só os textos de AJUDA que já estão na página ao abrir ficam atrás de "❔ Ajuda".
+     Mensagens que o formulário escreve depois (estado do card: "nada pendente de chegada", "já recebidas", "sem peça FO"…) ficam à vista. */
+  Array.prototype.forEach.call(document.querySelectorAll('.dica:not(.ruim):not(.boa):not([id])'), function (d) { if (!d.closest('.item')) d.classList.add('v2-ajudatxt'); });
   function $$(s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); }
   function g(id) { return document.getElementById(id); }
   function visivel(el) { return !!el && !el.classList.contains('oculto') && el.offsetParent !== null; }
@@ -2695,15 +2698,6 @@ iniciar();
   function itensDoPedido() { return $$('#itens > .item, #itensPart > .item'); }
   function faltaNasPecas() {
     return faltasDoForm().filter(function (f) { return !ehFaltaCarro(f); });
-    var f = [];
-    itensDoPedido().forEach(function (it, i) {
-      if (it.dataset.nao === '1' || it.offsetParent === null) return;
-      var nome = 'Peça ' + (i + 1);
-      if (it.dataset.tipo === 'pneu') { if (!(it.querySelector('.f-medida') || {}).value) f.push(nome + ': falta a medida'); return; }
-      if (!String((it.querySelector('.f-desc') || {}).value || '').trim()) f.push(nome + ': falta a descrição');
-      if (!$$('.f-tipo:checked', it).length) f.push(nome + ': falta o tipo (Genuíno, Original…)');
-    });
-    return f;
   }
   function secaoAtiva(s) { return !s.classList.contains('oculto') && s.style.display !== 'none'; }
   function mostrarPasso(n, dir) {
