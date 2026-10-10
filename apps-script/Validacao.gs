@@ -2423,6 +2423,8 @@ function vd_vitrine_(desc, nome, pagas) {
     sub.forEach(function (s) { L.push('    - ' + s); });
   });
   // peças do orçamento que NÃO vão ser compradas (decisão do consultor): só registro
+  // (10/10/2026: com grupos seguradora/particular, título próprio — antes pareciam peças particulares)
+  if (misto && (an.naoComprar || []).length) L.push('\n**🚫 NÃO COMPRAR**');
   (an.naoComprar || []).forEach(function (p, j) {
     var tit = p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + ((p.marca || p.categoria) ? ' ' + (p.marca || p.categoria) : '') : String(p.descricao || '').toUpperCase();
     L.push((an.pecas.length + j + 1) + '. ~~' + vd_md_(tit) + '~~' + (!p.pneu && p.codigo ? ' · ' + vd_md_(p.codigo) : '') + ' · 🚫 não comprar' + (p.naoMotivo ? ' — _' + vd_md_(p.naoMotivo) + '_' : ''));

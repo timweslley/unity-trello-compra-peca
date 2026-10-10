@@ -159,6 +159,9 @@ function verificarAlteracoesDescricaoNucleo_() {
     // Só um quadro com trava (o de TESTE do formulário) dispensa o comentário — e este log não vigia ele.
     grupos.forEach(function (g) {
       if (g.desfeita || sigTexto_(g.antigo) === sigTexto_(g.novo)) return;
+      // 10/10/2026 (teste completo): card do fluxo novo tem trava de descrição — ela desfaz a edição e já avisa no card;
+      // o log comentava a mesma edição de novo (a restauração caía fora da janela de 3 min). Log só para card antigo.
+      try { if (vd_prop_('VD_TRAVA_DESC', 'SIM') !== 'NAO' && !vd_legado_(g.cardId)) return; } catch (e) {}
       var texto = montarComentario_(g);
       if (!texto) return;
       try {

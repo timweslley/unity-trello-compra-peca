@@ -353,7 +353,7 @@ function vdf_salvarRecebimento(token, p) {
   try {
     var geral = String(p.geral || '').trim();
     var soMarcas = !itens.length && !anexos.length;   // só local/retirada/devolução: título diferente
-    var txt = (soMarcas ? '📦 **PEÇAS — local / retirada / devolução** — ' : '📦 **RECEBIMENTO** — ') + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' + (linhas.length ? linhas.join('\n') : '_(só anexos)_') +
+    var txt = (soMarcas ? '📦 **PEÇAS — local / devolução** — ' : '📦 **RECEBIMENTO** — ') + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' + (linhas.length ? linhas.join('\n') : '_(só anexos)_') +
       (nAnexos ? '\n📎 ' + nAnexos + ' anexo(s)' : '') +
       (geral ? '\n📝 ' + geral : '') +
       (pend.length ? '\n⏳ Falta chegar: ' + pend.map(function (i) { return i.base.split(/\s+-\s+/)[0]; }).join(', ') : (todos.length ? '\n✅ Tudo recebido.' : ''));
