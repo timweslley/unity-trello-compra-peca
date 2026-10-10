@@ -1425,6 +1425,8 @@ function montarCompra(c) {
       h += complBloco(p, c);
       h += '<select class="k-sel" onchange="avisoForaAut(this);totalCompra()"><option value="">— ainda não comprar —</option>' + minhas.map(function (q, j) { return '<option value="' + j + '"' + (mesmaCot(q, aut) ? ' selected' : '') + '>' + esc(rotuloCot(q)) + selosPeca(minhas)(q, true) + (mesmaCot(q, aut) ? ' ✅ autorizado' : '') + '</option>'; }).join('') + '</select><div class="alerta k-aviso oculto"></div>'
         + '<input type="text" class="k-just oculto" style="margin-top:6px" placeholder="Motivo da compra fora da autorização (obrigatório)">'
+        // cotação sem prazo: a compra precisa de previsão (10/10/2026 — item PAGAS sem data nunca gerava aviso de atraso)
+        + '<input type="number" class="k-dias oculto" min="0" style="margin-top:6px" placeholder="Prazo de entrega em dias úteis (obrigatório — a cotação não tinha prazo)">'
         // print/arquivo da negociação e forma de pagamento (08/10/2026): vai para o card junto com a compra
         + '<div style="margin-top:8px"><label>Print / arquivo da negociação e pagamento (opcional)</label><input type="file" class="k-arq" multiple accept="image/*,application/pdf" onchange="compraAnexar(this)"><div class="dica k-arqs"></div></div>';
       // links dos anúncios informados na cotação (Mercado Livre etc.): o comprador compra por eles (07/10/2026)
@@ -1692,6 +1694,7 @@ function avisoForaAut(sel) {
   var fora = foraDaAut(item, q);
   av.innerHTML = fora ? '⚠️ COMPRA FORA DA AUTORIZAÇÃO' + (aut ? ' — autorizado: ' + esc(aut.fornecedor) + ' ' + esc(fmtValor(aut.valor)) : ' — peça sem autorização') + '. Justifique abaixo.' : '';
   mostrar(av, fora); mostrar(just, fora);
+  var kd = item.querySelector('.k-dias'); if (kd) mostrar(kd, !!q && (q.dias === '' || q.dias == null));
   if (fora) just.focus();
 }
 function enviarCompra(parcial) {
@@ -1709,7 +1712,9 @@ function enviarCompra(parcial) {
     var just = ((item.querySelector('.k-just') || {}).value || '').trim();
     if (foraDaAut(item, q) && !just) semJust.push(nomeIt + ': compra fora da autorização — escreva o motivo.');
     if (cpl && cpl.falta) semJust.push(cpl.falta);
-    compras.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, tipo: q.tipo, marca: q.marca, valor: q.valor, dias: q.dias, just: just, anexos: COMPRA_ANEXOS[item.dataset.chave] || [], compl: cpl && cpl.status ? cpl.status : '', complPor: cpl && cpl.por ? cpl.por : '' });
+    var dias = q.dias;
+    if (dias === '' || dias == null) { dias = ((item.querySelector('.k-dias') || {}).value || '').trim(); if (!dias) semJust.push(nomeIt + ': informe o prazo de entrega em dias úteis (a cotação não tinha prazo).'); }
+    compras.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, tipo: q.tipo, marca: q.marca, valor: q.valor, dias: dias, just: just, anexos: COMPRA_ANEXOS[item.dataset.chave] || [], compl: cpl && cpl.status ? cpl.status : '', complPor: cpl && cpl.por ? cpl.por : '' });
   });
   // arquivo colado em peça ainda sem compra escolhida: vai para o card mesmo assim (regra 08/10: tudo o que foi colado é anexado)
   var anexosExtra = [], comCompra = compras.map(function (c) { return c.chave; });

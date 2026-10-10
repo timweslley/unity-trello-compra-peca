@@ -50,6 +50,8 @@ function doPost(e) {
     out = { ok: true, r: r === undefined ? null : r };
   } catch (err) {
     out = { ok: false, erro: String((err && err.message) || err) };
+  } finally {
+    try { sg_destravar_(); } catch (e3) {}   // trava por card (10/10/2026)
   }
   try { qt_registrar_('formulário'); } catch (e2) {}
   var txt = JSON.stringify(out);
@@ -843,6 +845,9 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     var mt = tm.match(/^(GENU[IÍ]NO|ORIGINAL|PARALEL[OA]|USAD[OA])\b\s*(.*)$/i);
     if (mt) { tipo = vd_tipoNorm_(mt[1]); marca = mt[2].trim(); }
     out.cotacoes.push({ chave: peca.chave, fornecedor: forn, obs: obs, tipo: tipo, marca: marca, valor: vd_valorNum_(m[3]), dias: m[4] !== undefined ? +m[4] : '', data: m[5] || '', link: tl.link });
+    // 10/10/2026 (revisão): "SEM COTAÇÃO" de bloco anterior cai quando a peça ganha cotação depois — senão a justificativa velha
+    // deixava a peça autorizada passar no "Enviar compra" sem compra (vdf_salvarCompra trata naoCotadas como "não espera compra")
+    out.semCot = out.semCot.filter(function (s) { return s.chave !== peca.chave; });
   });
   return out;
 }
@@ -935,6 +940,9 @@ function vdf_salvarCotacao(token, p) {
   var registro = cots.length > 0 && !rem.length && !semCot.length
     && cots.every(function (c) { return autsAntes.some(function (a) { return a.chave === vd_chavePeca_(c.peca); }); });
   if (registro) parcial = false;
+  // 10/10/2026 (revisão): "Enviar cotação" em card em FALTA DADOS pulava a validação do pedido (chassi/ano/tipo nunca mais
+  // eram cobrados). Salvar parcial continua valendo; enviar só depois de o card estar completo.
+  if (!parcial && !registro && vdf_nomeLista_(ctx, card.idList) === VD.LISTA_FALTA) return { ok: false, faltas: ['O card está em FALTA DADOS: corrija o pedido pelo ✏️ Editar peças (o card vai para EM COTAÇÃO sozinho) antes de enviar a cotação. Enquanto isso, use "Salvar parcial".'] };
   var novaDesc = card.desc;
   if (!nada) novaDesc = vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem);
   // enviar: toda peça precisa de cotação OU de justificativa para não cotar (salvar parcial não exige)
@@ -1141,7 +1149,13 @@ function vdf_autorizar(token, p) {
     if (feito) marcadas.push({ peca: peca, m: m });
   });
   var fechar = !parcial && !linhas.length && !marcadas.length && autsAntes.length > 0;   // só fechar o que já foi salvo
-  if (!linhas.length && !marcadas.length && !faltas.length && !fechar) faltas.push(parcial ? 'Escolha a cotação de pelo menos uma peça para salvar.' : 'Escolha a cotação de pelo menos uma peça (ou marque complemento / não comprar).');
+  if (!linhas.length && !marcadas.length && !faltas.length && !fechar) {
+    // 10/10/2026: toda peça "sem cotação" = nada a autorizar — a saída é decidir por peça (🚫 não comprar) ou devolver
+    var semNada = !lidas.length && an.pecas.length > 0;
+    faltas.push(parcial ? 'Escolha a cotação de pelo menos uma peça para salvar.'
+      : (semNada ? 'Nenhuma peça deste card tem cotação (o comprador justificou "sem cotação"). Decida por peça: marque 🚫 não comprar com o motivo, ou use ↩️ Devolver para cotação com a orientação para o comprador.'
+        : 'Escolha a cotação de pelo menos uma peça (ou marque complemento / não comprar).'));
+  }
   if (faltas.length) return { ok: false, faltas: faltas };
   var obsL = vdf_linhasObs_(p, porChave, 'autorização');
 
@@ -1369,6 +1383,9 @@ function vdf_salvarCompra(token, p) {
     if (qc && String(qc.dias == null ? '' : qc.dias) !== '' && String(c.dias == null ? '' : c.dias).trim() !== '' && +c.dias !== +qc.dias && !String(c.just || '').trim())
       { faltas.push(rot + ': prazo ' + c.dias + ' d.u. diferente do cotado (' + qc.dias + ' d.u.) — escreva o motivo.'); return; }
     if (!ok) { faltas.push(rot + ': escolha uma cotação lançada no card (' + forn + ' ' + vd_valorBR_(valor) + ' não está na descrição)'); return; }
+    // 10/10/2026 (revisão): compra sem prazo gerava item PAGAS sem data — o aviso de recebimento atrasado nunca saía
+    var diasC = String(c.dias == null ? '' : c.dias).trim();
+    if (diasC === '' || !/^\d+$/.test(diasC)) { faltas.push(rot + ': informe o prazo de entrega em dias úteis (número).'); return; }
     // 09/10/2026 (Weslley): peça ➕ complemento de pedido de seguradora só é comprada com a situação do complementar informada:
     // AUTORIZADO (seguradora autorizou e foi importado no Databox) ou ANTECIPADO (compra antes da autorização, liberada pelo orçamentista — quem)
     if (vdf_complExige_(peca, card, an)) {
@@ -1896,6 +1913,32 @@ function vdf_salvar(token, p) {
         ev_registrar_('COMPLEMENTO', card, me.username, novasComp.map(ev_peca_), { detalhe: novasComp.length + ' oficina · marcado à mão' });
       }
     } catch (e) { console.log('complemento à mão: ' + e); }
+  }
+
+  // 10/10/2026 (revisão): diretoria tirou do pedido uma peça já comprada — o item PAGAS ficava órfão (card nunca fechava e o
+  // SLA cobrava peça que não existia mais). Agora o item sai junto, com comentário e evento.
+  if (p.shortLink && vdf_ehAutorizador_(me)) {
+    try {
+      var novasCh = {}; pecas.forEach(function (x) { novasCh[vd_chavePeca_(x)] = 1; });
+      var sairam = vd_analisar_(card.desc, card.name).pecas.filter(function (x) { return !novasCh[vd_chavePeca_(x)]; });
+      if (sairam.length) {
+        var cPg = vd_api_('/cards/' + card.id, { query: { fields: 'name', checklists: 'all', checkItem_fields: 'name,state,due' } });
+        var itensPg = vdf_itensRecebimento_(cPg).filter(function (i) { return /^PAGAS/.test(i.lista); }), tirados = [], evsT = [];
+        sairam.forEach(function (x) {
+          var k = vd_chavePeca_(x);
+          itensPg.filter(function (i) { return vd_casaItem_(i.base, k); }).forEach(function (i) {
+            vd_api_('/cards/' + card.id + '/checkItem/' + i.id, { method: 'delete' }, token);
+            var pt = i.base.split(/\s+-\s+/);
+            tirados.push(pt[0] + (pt[1] ? ' (' + pt[1] + ')' : '') + (i.ok ? ' — já recebida' : ''));
+            evsT.push({ peca: pt[0], fornecedor: pt[1] || '', detalhe: 'peça removida do pedido pela diretoria · item ' + i.lista + ' retirado' + (i.ok ? ' (já recebida)' : '') });
+          });
+        });
+        if (tirados.length) {
+          try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🗑️ **Peça removida do pedido com compra registrada** — ' + me.fullName + ': ' + tirados.join('; ') + '. O item saiu do checklist PAGAS; se a peça já foi paga, verificar compra do item com o fornecedor.' } }, token); } catch (e) {}
+          try { ev_registrar_('COMPRA CANCELADA', card, me.username, evsT, { detalhe: 'peça removida do pedido' }); } catch (e) {}
+        }
+      }
+    } catch (e) { console.log('peça removida/PAGAS: ' + e); }
   }
 
   // confere na hora

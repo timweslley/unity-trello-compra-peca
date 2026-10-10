@@ -368,6 +368,19 @@ de 45.000 caracteres (limite da célula: 50.000) gera e-mail à diretoria uma ve
 Histórico com `since` (`vd_acoesQuadro_`): direto no Trello o limite sobe para 1000 (o Trello devolve as N mais novas; com 100,
 depois de horas parado, as ações mais antigas da janela ficavam para trás e os marcadores pulavam por cima delas).
 
+Correções menores de 10/10/2026 (revisão): a varredura completa do núcleo é por tempo (`NU_COMPLETA_EM`, a cada 30 min),
+não mais pelo minuto do relógio; vitrine acima de 16.000 caracteres perde os links de anúncio e, se ainda passar, é cortada
+com aviso (o Trello recusa > 16.384); "Enviar cotação" é recusado em card em FALTA DADOS (salvar parcial continua);
+"SEM COTAÇÃO" de bloco anterior cai quando a peça ganha cotação depois; compra exige prazo em dias úteis (cotação sem prazo
+pede o prazo na hora); card com toda peça "sem cotação" em PENDENTE AUTORIZAR explica a saída (🚫 não comprar por peça ou
+devolver); diretoria que tira do pedido peça já comprada tira também o item PAGAS (comentário 🗑️ + evento COMPRA
+CANCELADA); data de chegada no futuro é erro; o "criador" do card vem do campo personalizado **Consultor** quando
+preenchido (`@usuario` — a diretoria pode corrigir no card), senão da criação, e se quem criou é da diretoria usa
+"_Pedido enviado por Fulano_" procurando o nome entre os membros do quadro (`vd_membroPorNome_`); trava do formulário é
+**por card** (cache, até 2 min, solta no fim da chamada — `sg_travarCard_`), só card novo usa a trava geral; id do quadro
+em cache (menos 1 chamada por gravação); a trava de descrição só lê todas as propriedades quando há card a conferir;
+`vd_legado_` fora do ciclo lê só a completa daquele card.
+
 ---
 
 ## 5. Formulário (telas e ações)

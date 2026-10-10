@@ -975,6 +975,12 @@ function vd_gravarDesc_(cardId, desc, token, extra) {
     vit = vd_vitrine_(desc, payload.name || c.name, itensPg);
   } catch (e) { console.log('vitrine: ' + e); vit = null; }
   payload.desc = vit === null ? desc : vit;
+  // 10/10/2026 (revisão): o Trello recusa descrição acima de 16.384 caracteres (erro 400 depois de os checklists já terem sido
+  // gravados; toda ação seguinte no card falhava). Vitrine grande: primeiro saem os links de anúncio, depois corta com aviso.
+  if (payload.desc.length > 16000) {
+    payload.desc = payload.desc.replace(/\s*\[🔗[^\]]*\]\([^)]*\)/g, '');
+    if (payload.desc.length > 16000) payload.desc = payload.desc.slice(0, 15800) + '\n\n_(descrição resumida: o card passou do limite do Trello — o histórico completo está nos comentários e no formulário)_';
+  }
   // 10/10/2026 (revisão): a cópia oficial (TRAVA) ia DEPOIS do Trello e o erro era engolido — quando a planilha falhava, a vitrine
   // nova ficava no card sem a completa por trás: a cotação recém-lançada sumia do formulário e a trava desfazia a vitrine culpando
   // quem salvou ("🔒 ALTERAÇÃO NÃO PERMITIDA"). Agora a TRAVA é gravada ANTES; se falhar, nada muda no card e quem salvou vê o erro.
@@ -1019,7 +1025,7 @@ function tr_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || vd_prop_('VD_TRAVA_DESC', 'SIM') === 'NAO') return 0;
   var board = vd_board_();
   var props = PropertiesService.getScriptProperties();
-  var todas = props.getProperties();
+  var todas = null;   // todas as propriedades: só lidas quando há card para conferir (10/10/2026 — era a cada minuto, ~400 KB)
   var agora = Date.now();
   // só os cards cuja descrição mudou (histórico do quadro), não o quadro inteiro: no principal são ~650 cards.
   // Edição dos últimos 40 s fica para o próximo ciclo (gravação do formulário em andamento).
@@ -1036,6 +1042,8 @@ function tr_executar_() {
     try { cards.push(vd_api_('/cards/' + id, { cru: true, query: { fields: 'name,desc,shortLink,shortUrl,dateLastActivity,closed' } })); } catch (e) {}
   });
   var baseline = [], restaurados = 0;
+  if (!cards.length) return 0;
+  todas = props.getProperties();
   cards.forEach(function (c) {
     if (c.closed) return;
     if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
@@ -1197,22 +1205,61 @@ function vd_restaurarDescricao(shortLink) {
 
 /* ============================ QUEM CRIOU ============================ */
 
+/* 10/10/2026 (revisão): o "criador" vinha só da ação createCard — card aberto pela Rotina (token da diretoria) ou recriado pelo
+ * robô mencionava a diretoria em vez do consultor. Agora a fonte é o campo personalizado "Consultor" quando preenchido (a
+ * diretoria pode corrigir direto no card: "@usuario"); sem ele, a ação de criação; se quem criou é da diretoria/robô e a
+ * descrição diz "_Pedido enviado por Fulano_", procura esse nome entre os membros do quadro. */
 function vd_criador_(cardId) {
   // quem criou o card não muda: cache de 6 h (06/10/2026 — era 1 chamada a cada abertura do formulário e a cada comentário do robô)
   var cache = null, k = 'vd_criador_' + cardId;
   try { cache = CacheService.getScriptCache(); var c = cache.get(k); if (c !== null) return c; } catch (e) {}
   var quem = '';
   try {
-    var acts = vd_api_('/cards/' + cardId + '/actions', {
-      query: { filter: 'createCard,copyCard,moveCardToBoard,emailCard,convertToCardFromCheckItem', limit: 50, memberCreator_fields: 'username,fullName' }
-    });
-    if (acts && acts.length) {
-      var a = acts[acts.length - 1];
-      if (a.memberCreator) quem = a.memberCreator.username;
+    // 1) campo "Consultor" do card
+    try {
+      var defC = (typeof cf_defs_ === 'function') ? cf_defs_()['Consultor'] : null;
+      if (defC) {
+        var itensC = vd_api_('/cards/' + cardId + '/customFieldItems', { cru: true }) || [];
+        var itC = itensC.filter(function (i) { return i.idCustomField === defC.id; })[0];
+        var tC = itC && itC.value && itC.value.text ? String(itC.value.text).replace(/^@/, '').trim().toLowerCase() : '';
+        if (/^[\w.\-]{3,}$/.test(tC)) quem = tC;
+      }
+    } catch (e0) {}
+    // 2) ação de criação
+    if (!quem) {
+      var acts = vd_api_('/cards/' + cardId + '/actions', {
+        query: { filter: 'createCard,copyCard,moveCardToBoard,emailCard,convertToCardFromCheckItem', limit: 50, memberCreator_fields: 'username,fullName' }
+      });
+      if (acts && acts.length) {
+        var a = acts[acts.length - 1];
+        if (a.memberCreator) quem = a.memberCreator.username;
+      }
+      // 3) criado pela diretoria/robô em nome de alguém: "_Pedido enviado por Fulano_" na descrição completa
+      try {
+        var ehDir = !quem || vdf_ehAutorizador_({ username: quem }) || quem === 'timweslley';
+        if (ehDir) {
+          var desc = vd_completa_(cardId) || '';
+          var mP = desc.match(/Pedido enviado por\s+([^_\n]+?)\s+pelo formul/i);
+          if (mP) { var u = vd_membroPorNome_(mP[1]); if (u) quem = u; }
+        }
+      } catch (e1) {}
     }
     try { if (cache && quem) cache.put(k, quem, 21600); } catch (e2) {}
   } catch (e) {}
   return quem;
+}
+/** username do membro do quadro com este nome completo (cache 6 h); '' se não achar. */
+function vd_membroPorNome_(nome) {
+  var alvo = vd_semAcento_(nome).replace(/\s+/g, ' ').trim();
+  if (!alvo) return '';
+  var cache = CacheService.getScriptCache(), k = 'vd_membros_' + vd_board_(), lista = null;
+  try { lista = JSON.parse(cache.get(k) || 'null'); } catch (e) {}
+  if (!lista) {
+    lista = (vd_api_('/boards/' + vd_board_() + '/members', { cru: true, query: { fields: 'username,fullName' } }) || []).map(function (m) { return [vd_semAcento_(m.fullName || '').replace(/\s+/g, ' ').trim(), String(m.username || '').toLowerCase()]; });
+    try { cache.put(k, JSON.stringify(lista), 21600); } catch (e) {}
+  }
+  var m = lista.filter(function (x) { return x[0] === alvo; })[0];
+  return m ? m[1] : '';
 }
 
 /* ============================ NÚCLEO ============================ */
@@ -1741,7 +1788,11 @@ function vd_executarNucleo_() {
   var posCot = vd_listasPosCotacao_(ctx), idCot = [ctx.listas[VD.LISTA_COTACAO], ctx.listas[VD.LISTA_FALTA]].filter(String);
   var marca = vd_marca_('NU_ACT'), inicio = new Date().toISOString();
   try { vd_pkRebasear_(posCot, ctx); } catch (e) { console.log('rebase: ' + e); }   // uma vez: bases gravadas da vitrine (02–05/10) voltam a ser da completa
-  var completa = !marca || new Date().getMinutes() % 30 === 0 || !ctx.modoAtivo;
+  // 10/10/2026 (revisão): a varredura completa dependia de o acionador cair num minuto múltiplo de 30 (nem sempre cai; o tryLock
+  // pula o ciclo quando o anterior ainda roda) — agora é por tempo desde a última completa
+  var ultimaCompleta = +(props.getProperty('NU_COMPLETA_EM') || 0);
+  var completa = !marca || !ctx.modoAtivo || Date.now() - ultimaCompleta > 30 * 60000;
+  if (completa) props.setProperty('NU_COMPLETA_EM', String(Date.now()));
   var listaPos = null, listaCot = null;
   if (!completa) {
     try {

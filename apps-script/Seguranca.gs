@@ -8,6 +8,24 @@
  */
 var SG = { LOCK_MS: 25000 };
 var SG_TRAVADO = false;   // já segura a trava nesta execução (testes chamam várias vdf_ seguidas)
+var SG_CHAVE = '';        // trava por card (cache) segurada nesta execução — doPost solta no fim
+
+/* 10/10/2026 (revisão): a trava era global (LockService do usuário — o formulário roda como o dono, então "usuário" é sempre o
+ * mesmo): duas pessoas salvando cards DIFERENTES ao mesmo tempo viam "Outra gravação ainda está em andamento". Agora a trava
+ * é por card (chave no cache, até 2 min, solta no fim da chamada); só card novo (sem shortLink) usa a trava geral. */
+function sg_travarCard_(shortLink) {
+  var cache = CacheService.getScriptCache(), k = 'sg_lock_' + shortLink, t0 = Date.now(), meu = Utilities.getUuid();
+  while (Date.now() - t0 < SG.LOCK_MS) {
+    if (!cache.get(k)) {
+      cache.put(k, meu, 120);
+      Utilities.sleep(120);
+      if (cache.get(k) === meu) { SG_CHAVE = k; SG_TRAVADO = true; return; }
+    }
+    Utilities.sleep(600);
+  }
+  throw new Error('Outra gravação neste card ainda está em andamento. Espere alguns segundos e envie de novo.');
+}
+function sg_destravar_() { if (SG_CHAVE) { try { CacheService.getScriptCache().remove(SG_CHAVE); } catch (e) {} SG_CHAVE = ''; } }
 
 function vdf_limparTexto_(s) {
   return String(s).replace(/[\r\n\u2028\u2029]+/g, ' / ').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').replace(/\s{2,}/g, ' ');
@@ -26,14 +44,23 @@ function vdf_entrada_(p) {
   if (p.shortLink) {
     if (!/^[A-Za-z0-9]{6,24}$/.test(String(p.shortLink))) throw new Error('Card inválido.');
     var c = vd_api_('/cards/' + p.shortLink, { cru: true, query: { fields: 'idBoard' } });
-    var b = vd_api_('/boards/' + vd_board_(), { cru: true, query: { fields: 'id' } });
-    if (c.idBoard !== b.id) throw new Error('Este card não é do quadro do formulário.');
+    if (c.idBoard !== sg_idQuadro_()) throw new Error('Este card não é do quadro do formulário.');
+    if (!SG_TRAVADO) sg_travarCard_(String(p.shortLink));
   }
   if (!SG_TRAVADO) {
     try { LockService.getUserLock().waitLock(SG.LOCK_MS); SG_TRAVADO = true; }
     catch (e) { throw new Error('Outra gravação ainda está em andamento. Espere alguns segundos e envie de novo.'); }
   }
   return p;
+}
+/** id do quadro em uso (cache 6 h — era 1 chamada ao Trello em cada gravação do formulário, 10/10/2026). */
+function sg_idQuadro_() {
+  var cache = CacheService.getScriptCache(), k = 'sg_board_' + vd_board_(), v = null;
+  try { v = cache.get(k); } catch (e) {}
+  if (v) return v;
+  v = vd_api_('/boards/' + vd_board_(), { cru: true, query: { fields: 'id' } }).id;
+  try { cache.put(k, v, 21600); } catch (e) {}
+  return v;
 }
 
 /** Só arquivo da pasta temporária do formulário (subido por vdf_subirArquivo). */
@@ -71,7 +98,9 @@ function vd_legado_(cardId) {
   cardId = String(cardId || '');
   if (!/^[0-9a-f]{24}$/.test(cardId)) return false;
   if (parseInt(cardId.slice(0, 8), 16) * 1000 >= vd_viradaMs_()) return false;
-  var cmp = vd_completasTodas_()[cardId];
+  // 10/10/2026 (revisão): fora do ciclo do robô (formulário) não carrega a coluna inteira de completas (megabytes) só para
+  // saber de um card — lê a completa desse card (cache de 6 h por card)
+  var cmp = VD_CMP_MEM ? VD_CMP_MEM[cardId] : vd_completa_(cardId);
   return !cmp;
 }
 
