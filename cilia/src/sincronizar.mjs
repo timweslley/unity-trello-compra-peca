@@ -73,7 +73,7 @@ export async function rodar({ cliente: fabricaCliente = criarCliente, banco = db
       }
     } catch (e) {
       out.erro = e instanceof ErroCilia
-        ? (e.status === 401 || e.status === 403 ? `token recusado pelo Cilia (${e.status})` : e.status === 429 ? 'Cilia pediu para diminuir o ritmo (429) — parado nesta casa' : e.message)
+        ? (e.status === 401 || e.status === 403 ? `token recusado pelo Cilia (${e.status}): ${String(e.message).replace(/^Cilia \d+ em [^:]+: /,'').slice(0,160)}` : e.status === 429 ? 'Cilia pediu para diminuir o ritmo (429) — parado nesta casa' : e.message)
         : String(e.message || e);
     }
     resumo.chamadas += cli.chamadas;
