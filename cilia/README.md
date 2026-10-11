@@ -2,7 +2,14 @@
 
 **Dono:** sessão "rotina Unity" (11/10/2026). Não mexe em `servidor/` nem nas tabelas da outra sessão.
 
-## O que faz
+## ⚠️ Onde roda (11/10/2026)
+O firewall do Cilia devolve **403 (HTML)** para chamadas saindo do Google Cloud; do PC do Weslley a API responde
+(401 JSON com token inválido = acessível). Por isso a rodada diária roda **no PC** (`cilia/pc/`): `instalar.ps1` baixa
+os arquivos para `%USERPROFILE%\UnityCilia`, cria a tarefa "Unity - Cilia 00h15" e o atalho "Cadastrar tokens Cilia"
+(tokens criptografados pelo Windows/DPAPI). Saída em `G:\Meu Drive\Arquivos de IA\Claude\Rotina Unity\Cilia`
+(`CILIA-HOJE.json`, `Diario/`, `PDF/<casa>/`, `estado.json`). O job da nuvem abaixo fica publicado para testes.
+
+## O que faz (job da nuvem)
 Todo dia às 00:15 (Brasília), o Cloud Run Job `cilia-sync` (projeto `unity-compra-peca`):
 1. lista, por casa (Toledo, Cascavel, Rondon, Campo Mourão), os orçamentos de seguradora criados nos últimos 120 dias
    (`GET /external/budgets/external-partners/budgets`, header `auth_token`);

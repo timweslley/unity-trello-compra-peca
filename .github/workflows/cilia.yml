@@ -1,6 +1,6 @@
 # Módulo Cilia (pasta cilia/): API oficial do Cilia uma vez por dia, para as 4 casas → banco (schema cilia) + PDFs no Drive.
 # - push em cilia/**: testa e publica o Cloud Run Job "cilia-sync" (não executa).
-# - todo dia 00:15 (Brasília) = 03:15 UTC: executa o job (antes da rotina das 01:59).
+# - rodada diária: NO PC do Weslley (cilia/pc/, tarefa do Windows 00:15) — o Cilia bloqueia IP de data center.
 # - manual (Actions → Cilia → Run workflow): executa já, opcionalmente só algumas casas (ex. TOLEDO) — usado no 1º teste.
 # Tokens das casas ficam SÓ no Secret Manager (CILIA_TOKEN_TOLEDO/_CASCAVEL/_RONDON/_MOURAO); este arquivo não tem segredo.
 name: Cilia
@@ -8,8 +8,8 @@ on:
   push:
     branches: [main]
     paths: ['cilia/**', '.github/workflows/cilia.yml']
-  schedule:
-    - cron: '15 3 * * *'
+  # schedule desligado (11/10): o firewall do Cilia devolve 403 para IP do Google Cloud — a rodada diária roda no PC
+  # do Weslley (cilia/pc/). O job da nuvem fica publicado para testes e para o dia em que a Cilia liberar.
   workflow_dispatch:
     inputs:
       casas:
