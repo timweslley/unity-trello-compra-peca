@@ -47,6 +47,7 @@ var CR = {
 
 function cr_executar_() {
   var props = PropertiesService.getScriptProperties();
+  try { cr_executarB_(); } catch (e) { console.log('correção 11/10 (B): ' + e); }
   if (props.getProperty(CR.CHAVE) === 'FEITO') return 0;
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var ok = []; try { ok = JSON.parse(props.getProperty(CR.CHAVE + '_OK') || '[]'); } catch (e) {}
@@ -159,4 +160,20 @@ function cr_corrigir_(c, ctx, descAntes) {
     (c.extra ? '\n' + c.extra : '');
   vd_comentar_(card, txt);
   return feito.join(' · ');
+}
+
+/* 2ª parte (11/10/2026, 15h40): no SDX5I55 o complemento errado também tinha tirado do checklist FORNECIMENTO o item
+ * 52245037 DEFLETOR DO RADIADOR (FO da HDI, FLORENCA, prev. 19/10, ainda não entregue) — a 1ª correção não devolveu. */
+function cr_executarB_() {
+  var props = PropertiesService.getScriptProperties(), k = CR.CHAVE + 'B';
+  if (props.getProperty(k) === 'FEITO') return 0;
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var n = +(props.getProperty(k + '_TENT') || 0);
+  if (n >= 3) { props.setProperty(k, 'FEITO'); return 0; }
+  props.setProperty(k + '_TENT', String(n + 1));
+  var card = vd_api_('/cards/aX6Qgx1G', { query: { fields: 'name,idList,shortLink' } });
+  vdf_checklistFornecimento_(card.id, [{ codigo: '52245037', descricao: 'DEFLETOR DO RADIADOR', fornecedor: 'FLORENCA', previsao: '2026-10-19T15:00:00.000Z' }], null, 'FORNECIMENTO');
+  vd_comentar_(card, '🛠️ **CORREÇÃO DO ROBÔ** (11/10, complemento) — voltou para o checklist FORNECIMENTO: 52245037 DEFLETOR DO RADIADOR (FO da HDI, FLORENCA, prev. 19/10), que tinha saído por engano. Verificar prazo do item 52245037 DEFLETOR DO RADIADOR.');
+  props.setProperty(k, 'FEITO');
+  return 1;
 }
