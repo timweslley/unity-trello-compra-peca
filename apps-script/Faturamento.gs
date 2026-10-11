@@ -17,8 +17,8 @@
 var FAT = { LISTAS: ['ENCERRADO COMPRAS/FORNEC.', 'ENTREGUES', 'PENDÊNCIA DE FATURAMENTO', 'PENDÊNCIA TRATADA - FATURAR'], MARCA: '🧾' };
 
 /** Card fora da cobrança de faturamento (10/10/2026, Weslley): os que as rotinas de NF abrem em ENTREGUES só para guardar a
- *  nota (compra fora do quadro, revisão, insumo) levam a etiqueta «SEM COBRANÇA FATURAMENTO» — o robô não cobra no card, não
- *  põe no resumo diário, não põe CONFERIR FATURAMENTO e o relatório não lista. Aceita lista de etiquetas (objetos ou nomes). */
+ *  nota SEM carro a faturar (insumo, estoque, material da casa) levam a etiqueta «SEM COBRANÇA FATURAMENTO» — o robô não cobra no card, não
+ *  põe no resumo diário, não põe CONFERIR FATURAMENTO e o relatório não lista. Carro de frota/revisão NÃO leva (11/10/2026). Aceita lista de etiquetas (objetos ou nomes). */
 var FAT_SEM_COBRANCA = 'SEM COBRANÇA FATURAMENTO';
 function fat_semCobranca_(labels) {
   return (labels || []).some(function (l) { return /SEM COBRAN[ÇC]A/i.test(typeof l === 'string' ? l : String((l && l.name) || '')); });
