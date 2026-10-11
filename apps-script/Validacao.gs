@@ -717,6 +717,7 @@ function vd_lerAnexoTrello_(a, opt) {
         var nt = vd_normTexto_(texto);
         if (/STATUS DO PEDIDO|PREVISAO DE ENTREGA/.test(nt)) { r.doc = 'FO'; r.docNome = 'Status do Pedido Cilia'; }
         else if (/PECAS DO SINISTRO|PECAS DO LAUDO/.test(nt)) { r.doc = 'FO'; r.docNome = 'Peças HDI'; }   // portal HDI (07/10/2026)
+        else if (/PECAS EM PROCESSO DE COTACAO/.test(nt)) { r.doc = 'LAUDO_HDI'; r.docNome = 'laudo HDI sem peças (em cotação na HDI)'; }   // 11/10/2026, BXZ4J84
       }
       if (orc.origem) {
         try { if (pv_enriquecerFo_(texto, orc.fo)) r.foi = orc.fo.filter(function (x) { return x.fornecedor || x.previsao; }).map(function (x) { return [x.codigo || '', x.fornecedor || '', x.previsao || '']; }); } catch (e) {}
@@ -1867,6 +1868,7 @@ function validarDadosPedido() {
       sd_parte_('trava de colunas', st_executar_);     // e movimento manual fora do fluxo
       sd_parte_('trava de checklist', ck_executar_);   // e checklist mexido à mão
       sd_parte_('exclusão', exc_executar_);
+      if (typeof cr_executar_ === 'function') sd_parte_('correção 11/10', cr_executar_);   // uma vez só (Corretivo.gs)
       sd_parte_('faturamento', fat_executar_);           // comentário "faturado" arquiva (substitui o Butler)            // card excluído por quem não é admin volta
       var t0n = Date.now(), out = [];
       qt_parte_('núcleo');

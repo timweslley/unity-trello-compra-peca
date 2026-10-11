@@ -116,6 +116,9 @@ function cp_casaManual_(conh, p, usadas) {
   return i >= 0 ? conh.an.pecas[i] : null;
 }
 
+/* 11/10/2026 (FOB8723): "I REFATURAMENTO VALOR DA LANTERNA TRAS DIR" (código 1111) é ajuste de valor do laudo HDI, não peça */
+var CP_NAO_PECA = /\b(REFATURAMENTO|REFATURAR|REEMBOLSO|RESSARCIMENTO|ESTORNO|DIFERENCA DE VALOR|COMPLEMENTO DE VALOR|AJUSTE DE VALOR)\b/;
+
 /** Separa o que é novo no orçamento: {oficina:[], fo:[], jaTinha:n, pareadas:[{card, orc, fo}]}. */
 function cp_comparar_(card, orc, excluirAnexo) {
   var conh = cp_conhecidas_(card, excluirAnexo);
@@ -141,6 +144,8 @@ function cp_comparar_(card, orc, excluirAnexo) {
       var k = cp_chaves_(p).join('|');
       if (vistos[k]) return; vistos[k] = 1;
       var kc = cp_norm_(p.codigo || p.codigoOrc), kd = cp_norm_(p.descricao || p.descricaoOrc);
+      // linha de ajuste de valor do laudo (refaturamento, reembolso…) não é peça (11/10/2026, FOB8723)
+      if (!p.pneu && CP_NAO_PECA.test(vd_semAcento_(p.descricao || p.descricaoOrc || ''))) return;
       if (!ehFo && cp_chaves_(p).some(function (x) { return naoComprar[x]; })) { out.jaTinha++; return; }
       if (!ehFo && !p.pneu) {
         // mesma peça da oficina pelo código: já tem (valor do orçamento pode ter mudado)
@@ -430,6 +435,11 @@ function cp_doAnexo_(c, a, ctx) {
   // reconhecido, ou orçamento de OUTRA placa, ganham um comentário (uma vez por anexo; o anexo é marcado visto)
   var listaNome = ''; try { listaNome = vd_nomeColuna_(vdf_nomeLista_(ctx, card.idList)); } catch (e) {}
   if (!r.orcamento) {
+    // laudo HDI ainda sem peças ("Peças em processo de cotação"): não é erro de leitura — a HDI ainda não fechou as peças (11/10/2026, BXZ4J84)
+    if (r.doc === 'LAUDO_HDI') {
+      if (/FALTA DADOS/i.test(listaNome)) { try { vd_comentar_(card, '📄 «' + a.name + '» é o laudo da HDI, mas as peças ainda estão em cotação na HDI (o laudo não lista peças). Quando a HDI fechar as peças, anexar o laudo novo.'); } catch (e) {} }
+      return false;
+    }
     if (!r.doc && /pdf/i.test(a.mimeType || '') && /FALTA DADOS/i.test(listaNome)) {   // Status do Pedido / Peças HDI são anexos legítimos (r.doc)
       try { vd_comentar_(card, '📄 Li o anexo «' + a.name + '» mas não reconheci um orçamento de seguradora (Cilia, HDI ou Websoma/Porto)' + (r.doc ? ' — parece ' + (r.docNome || 'outro documento') : '') + '. Se for o orçamento, anexe o PDF original do sistema da seguradora (ou um print legível da lista de peças).'); } catch (e) {}
     }
@@ -438,6 +448,19 @@ function cp_doAnexo_(c, a, ctx) {
   if (!lp.linhas.length && !lp.semOficina) return false;   // card sem lista: a importação normal cuida
   if (!placa || !(r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) {
     if (placa && (r.placas || []).length) { try { vd_comentar_(card, '📄 O anexo «' + a.name + '» é um orçamento (' + r.orcamento + ') da placa **' + r.placas.join(' / ') + '**, não deste card (' + placa + ') — não importei. Se for outro carro, anexe no card certo.'); } catch (e) {} }
+    return false;
+  }
+  // 11/10/2026 (Weslley, "corrigir tudo"): dois casos em que o PDF anexado NÃO é complemento e o robô não importa —
+  //  1) PDF do Cilia em sinistro HDI: o Cilia traz tudo como peça da oficina; o que a HDI fornece (FO) e o que a oficina compra
+  //     quem diz é o laudo HDI (BXZ4J84/SDX5I55: FO virou "peça nova" e saiu do checklist FORNECIMENTO);
+  //  2) card de RETORNO: o orçamento traz as peças do sinistro todo, já compradas no card original (BBV0H58/BAT9F19).
+  var segCard = vd_semAcento_(((an.dados && an.dados.seguradora) || '') + ' ' + (card.name || ''));
+  if (r.orcamento === 'CILIA' && /\bHDI\b/.test(segCard)) {
+    try { vd_comentar_(card, '📄 «' + a.name + '» é o orçamento do **Cilia**; neste sinistro **HDI** quem diz o que a HDI fornece (FO) e o que a oficina compra é o laudo da HDI — não importei. Para complemento, anexe o PDF do laudo HDI.'); } catch (e) {}
+    return false;
+  }
+  if (/\bRETORNO\b/.test(segCard)) {
+    try { vd_comentar_(card, '📄 Card de **RETORNO**: o orçamento «' + a.name + '» traz as peças do sinistro todo (as do card original já foram compradas) — não importei. Peça nova do retorno entra pelo ✏️ EDITAR/INCLUIR PEÇA.'); } catch (e) {}
     return false;
   }
   var orc = r.orcFull || (r.orc ? { oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : null);
@@ -470,7 +493,7 @@ function cp_aplicar_(card, cmp, o) {
   vd_gravarDesc_(card.id, bloco + (div.temMarcador ? '\n\n' + resto : '\n\n' + VD.MARCADOR), o.token);
   var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
   var url = o.ctx && o.ctx.urlForm ? o.ctx.urlForm + '?card=' + card.shortLink + '&so=tipos' : '';
-  try { vd_comentar_(card, (quem && cmp.oficina.length ? '@' + quem + ' ' : '') + cp_textoComentario_('', o.origem, o.anexo, cmp.oficina, cmp.fo, cmp.jaTinha, url, cmp.pareadas, cmp.atualizar, cmp.paraOficina)); } catch (e) {}
+  if (!o.semComentario) try { vd_comentar_(card, (quem && cmp.oficina.length ? '@' + quem + ' ' : '') + cp_textoComentario_('', o.origem, o.anexo, cmp.oficina, cmp.fo, cmp.jaTinha, url, cmp.pareadas, cmp.atualizar, cmp.paraOficina)); } catch (e) {}
   try {
     ev_registrar_('COMPLEMENTO', card, o.quem || 'robô', cmp.oficina.map(ev_peca_).concat(cmp.fo.map(function (p) { var e = ev_peca_(p); e.fornecedor = 'SEGURADORA (FO)'; return e; })),
       { detalhe: cmp.oficina.length + ' oficina · ' + cmp.fo.length + ' FO · ' + (o.origem || '') });
