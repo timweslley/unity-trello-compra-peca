@@ -1,0 +1,88 @@
+# Módulo Cilia (pasta cilia/): API oficial do Cilia uma vez por dia, para as 4 casas → banco (schema cilia) + PDFs no Drive.
+# - push em cilia/**: testa e publica o Cloud Run Job "cilia-sync" (não executa).
+# - todo dia 00:15 (Brasília) = 03:15 UTC: executa o job (antes da rotina das 01:59).
+# - manual (Actions → Cilia → Run workflow): executa já, opcionalmente só algumas casas (ex. TOLEDO) — usado no 1º teste.
+# Tokens das casas ficam SÓ no Secret Manager (CILIA_TOKEN_TOLEDO/_CASCAVEL/_RONDON/_MOURAO); este arquivo não tem segredo.
+name: Cilia
+on:
+  push:
+    branches: [main]
+    paths: ['cilia/**', '.github/workflows/cilia.yml']
+  schedule:
+    - cron: '15 3 * * *'
+  workflow_dispatch:
+    inputs:
+      casas:
+        description: 'Casas (vazio = todas; ex.: TOLEDO ou TOLEDO,CASCAVEL)'
+        required: false
+        default: ''
+      publicar:
+        description: 'Publicar a imagem antes de executar'
+        type: boolean
+        default: false
+concurrency: cilia
+env:
+  GCP_PROJETO: unity-compra-peca
+  GCP_NUMERO: '858550421734'
+  REGIAO: southamerica-east1
+  JOB: cilia-sync
+  # pasta do Drive compartilhado "Rotina Unity – Cilia" (id da URL). Vazio = só banco, sem PDF/arquivo do dia.
+  DRIVE_PASTA_ID: ''
+defaults:
+  run:
+    working-directory: cilia
+jobs:
+  testar:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: cilia/package-lock.json }
+      - run: npm ci
+      - run: npm test
+
+  publicar:
+    needs: testar
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.publicar) }}
+    runs-on: ubuntu-24.04
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.GCP_NUMERO }}/locations/global/workloadIdentityPools/github/providers/github
+          service_account: publicador@${{ env.GCP_PROJETO }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Montar e enviar a imagem
+        run: |
+          IMAGEM="${REGIAO}-docker.pkg.dev/${GCP_PROJETO}/servidor/cilia-sync:${GITHUB_SHA::7}"
+          gcloud auth configure-docker ${REGIAO}-docker.pkg.dev --quiet
+          docker build -t "$IMAGEM" . && docker push "$IMAGEM"
+          echo "IMAGEM=$IMAGEM" >> "$GITHUB_ENV"
+      - name: Publicar o job (não executa)
+        run: |
+          gcloud run jobs deploy "$JOB" --image "$IMAGEM" \
+            --project "$GCP_PROJETO" --region "$REGIAO" \
+            --service-account "compra-peca-run@${GCP_PROJETO}.iam.gserviceaccount.com" \
+            --tasks 1 --max-retries 0 --task-timeout 1200 --memory 512Mi --cpu 1 \
+            --set-env-vars "DRIVE_PASTA_ID=${DRIVE_PASTA_ID},DIAS=120,MAX_DETALHES=60,CILIA_PAUSA_MS=1200" \
+            --set-secrets "DATABASE_URL=DATABASE_URL:latest,CILIA_TOKEN_TOLEDO=CILIA_TOKEN_TOLEDO:latest,CILIA_TOKEN_CASCAVEL=CILIA_TOKEN_CASCAVEL:latest,CILIA_TOKEN_RONDON=CILIA_TOKEN_RONDON:latest,CILIA_TOKEN_MOURAO=CILIA_TOKEN_MOURAO:latest" \
+            --quiet
+
+  executar:
+    needs: [testar, publicar]
+    if: ${{ always() && needs.testar.result == 'success' && (needs.publicar.result == 'success' || needs.publicar.result == 'skipped') && github.event_name != 'push' }}
+    runs-on: ubuntu-24.04
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.GCP_NUMERO }}/locations/global/workloadIdentityPools/github/providers/github
+          service_account: publicador@${{ env.GCP_PROJETO }}.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Executar a rodada do Cilia
+        working-directory: .
+        run: |
+          EXTRA=""
+          if [ -n "${{ inputs.casas }}" ]; then EXTRA="--update-env-vars CASAS=${{ inputs.casas }}"; fi
+          gcloud run jobs execute "$JOB" --project "$GCP_PROJETO" --region "$REGIAO" --wait $EXTRA

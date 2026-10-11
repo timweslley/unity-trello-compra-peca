@@ -1,0 +1,14 @@
+{
+  "name": "unity-cilia-sync",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rodada diária da API oficial do Cilia (4 casas) → banco (schema cilia) + PDFs no Drive compartilhado",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "rodar": "node src/sincronizar.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  }
+}
