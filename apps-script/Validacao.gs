@@ -1876,7 +1876,8 @@ function validarDadosPedido() {
       try { out = vd_executarNucleo_(); } finally { qt_parte_(''); }
       if (Date.now() - t0n > 1500) SD_TEMPOS.push('núcleo ' + ((Date.now() - t0n) / 1000).toFixed(1) + 's');
       cabe('complemento', cp_executar_);          // orçamento complementar anexado no card
-      cabe('antigo de volta à cotação', mg_voltaExecutar_);   // card antigo que volta para cotação vira fluxo novo (12/10/2026)
+      cabe('antigo de volta à cotação', mg_voltaExecutar_);
+      if (typeof mg_corrigirBDK2J49_ === 'function') sd_parte_('correção BDK2J49', mg_corrigirBDK2J49_);   // uma vez só (Migracao.gs)   // card antigo que volta para cotação vira fluxo novo (12/10/2026)
       if (new Date().getMinutes() % 5 === 0) cabe('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
       cabe('prazos por etapa', sla_executar_);
       sd_parte_('relatório', rel_instalarSeFaltar_);

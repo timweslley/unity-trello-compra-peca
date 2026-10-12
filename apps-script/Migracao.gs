@@ -393,7 +393,8 @@ function mg_voltaExecutar_() {
  *  "RETROVISOR EXTERNO ESQ". Mais solto que cp_similar_: só para reconhecer peça do pedido ANTIGO (texto livre). */
 function mg_mesmaBase_(a, b) {
   var pa = cp_palavras_(a), pb = cp_palavras_(b), fa = cp_fortes_(pa), fb = cp_fortes_(pb);
-  if (!fa.length || !fb.length || fa[0] !== fb[0]) return false;
+  // a peça-base de um aparece entre as palavras do outro: "ESPELHO RETROVISOR ESQ" x "RETROVISOR LE" (12/10/2026, BDK2J49)
+  if (!fa.length || !fb.length || (fb.indexOf(fa[0]) < 0 && fa.indexOf(fb[0]) < 0)) return false;
   var xa = cp_posicoes_(pa), xb = cp_posicoes_(pb);
   return !Object.keys(xa).some(function (e) { return xb[e] && xb[e] !== xa[e]; });
 }
@@ -439,15 +440,64 @@ function mg_voltaConverter_(idOuShortLink, de, ctx) {
     }
     return true;
   });
+  // a Rotina (Cilia) já comparou as versões do orçamento e comentou o que é complemento ("O.S. 2174 recebeu complemento
+  // Bradesco (Cilia 1978341.2): verificar compra do item A, B, C."): o orçamento novo traz o sinistro inteiro, então só
+  // entram as peças que ela listou (12/10/2026, BDK2J49 — sem isso entraram farol, lanterna, pneu… do orçamento .1)
+  var lista = mg_listaDaRotina_(comentarios), foraDaRotina = [];
+  if (lista.length) cmp.oficina = cmp.oficina.filter(function (p) {
+    var d = p.pneu ? 'PNEU ' + (p.medida || '') : (p.descricao || p.descricaoOrc || '');
+    if (lista.some(function (x) { return cp_similar_(d, x) > 0 || mg_mesmaBase_(d, x); })) return true;
+    foraDaRotina.push(cp_nome_(p)); return false;
+  });
   cmp.atualizar = [];   // as peças antigas não ficam na lista nova: nada a atualizar nelas
   if (!cmp.oficina.length && !cmp.fo.length) { avisar(cab + 'o orçamento «' + anexo.name + '» não trouxe peça nova em relação ao pedido antigo. Se há peça nova, incluir pelo ✏️ EDITAR/INCLUIR PEÇA e salvar.'); return false; }
 
   var hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
   var semPecas = mg_converter_(card, comentarios, { semPecas: true, rodape: 'Card antigo convertido para o sistema novo pelo robô em ' + hoje + ' ao voltar para cotação — pedido antigo (já comprado): ver o texto original abaixo' });
   avisar(cab + 'passou para o sistema novo. Em PEÇAS ficaram só as peças novas do orçamento «' + anexo.name + '»; o pedido antigo (já comprado) ficou no texto original, abaixo da linha.' +
-    (doAntigo.length ? '\nConsiderei do pedido antigo (não entraram de novo): ' + doAntigo.join('; ') + '. Se alguma for peça nova, incluir pelo ✏️ EDITAR/INCLUIR PEÇA.' : ''));
+    (doAntigo.length ? '\nConsiderei do pedido antigo (não entraram de novo): ' + doAntigo.join('; ') + '. Se alguma for peça nova, incluir pelo ✏️ EDITAR/INCLUIR PEÇA.' : '') +
+    (foraDaRotina.length ? '\nNo orçamento, mas fora do complemento comentado pela rotina (não entraram): ' + foraDaRotina.join('; ') + '. Se alguma precisar, incluir pelo ✏️ EDITAR/INCLUIR PEÇA.' : ''));
   cp_aplicar_({ id: card.id, name: card.name, desc: semPecas.desc, shortLink: card.shortLink, shortUrl: card.shortUrl, idList: card.idList, labels: card.labels },
     cmp, { origem: origem, anexo: anexo.name, quem: 'robô', token: null, ctx: ctx });
   try { ev_registrar_('CONVERSAO', card, 'robô', [], { detalhe: 'card antigo voltou para cotação' + (de ? ' (de ' + de + ')' : '') + ' — ' + cmp.oficina.length + ' oficina · ' + cmp.fo.length + ' FO' }); } catch (e) {}
   return true;
+}
+
+/** Itens do último comentário da Rotina "… recebeu complemento …: verificar compra do item A, B, C." ([] se não há). */
+function mg_listaDaRotina_(comentarios) {
+  for (var i = 0; i < (comentarios || []).length; i++) {   // mais novo primeiro
+    var m = String(comentarios[i] || '').match(/recebeu complemento[^:]*:\s*verificar compra d[oa]s? ite(?:m|ns)\s+([\s\S]+?)\.?\s*$/i);
+    if (m) return m[1].split(/\s*[,;]\s*|\s+e\s+(?=[A-ZÀ-Ú])/).map(function (x) { return x.trim(); }).filter(function (x) { return x.length > 2; });
+  }
+  return [];
+}
+
+/* ---------- correção única do BDK2J49 (12/10/2026) ----------
+ * Na conversão de 12/10 entraram 16 peças: 7 não são do complemento comentado pela Rotina (o PDF .2 traz o sinistro todo;
+ * o espelho retrovisor já foi comprado no pedido antigo). Tira essas 7 da lista PEÇAS (uma vez; marca MG_FIX_BDK2J49). */
+var MG_FIX = { SL: 'Ubqjp2V0', TIRAR: ['100193183', '51766536', '51914848', '735371638', '100208180', '100208792', '185/60'] };
+function mg_corrigirBDK2J49_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('MG_FIX_BDK2J49') || vd_board_() !== 'oH4TbTqb' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var card = vd_api_('/cards/' + MG_FIX.SL, { cru: true, query: { fields: 'name,desc,idList,shortLink,shortUrl,labels,closed' } });
+  var cmp = vd_completa_(card.id);
+  if (!cmp || card.closed) { props.setProperty('MG_FIX_BDK2J49', 'NADA'); return 0; }
+  var div = vd_dividir_(cmp), lp = vd_linhasPecas_(div.bloco), linhas = div.bloco.split('\n'), tirar = {}, tiradas = [];
+  lp.linhas.forEach(function (l, k) {
+    var norm = l.replace(/\s+/g, '');
+    if (MG_FIX.TIRAR.some(function (c) { return norm.indexOf(c.replace(/\s+/g, '')) >= 0; })) { tirar[lp.idx[k]] = 1; tiradas.push(l.split('|')[0].trim()); }
+  });
+  if (!tiradas.length) { props.setProperty('MG_FIX_BDK2J49', 'NADA'); return 0; }
+  var n = 0, novas = [];
+  linhas.forEach(function (l, i) {
+    if (tirar[i]) return;
+    if (lp.idx.indexOf(i) >= 0) { n++; l = l.replace(/^(\s*[*_]*\s*)\d+\s*[.)\-]\s*/, '$1' + n + '. '); }
+    novas.push(l);
+  });
+  vd_backup_({ name: card.name, shortUrl: card.shortUrl, desc: cmp }, 'correção 12/10 — peças fora do complemento');
+  vd_gravarDesc_(card.id, novas.join('\n') + (div.temMarcador ? '\n\n' + div.resto : ''));
+  vd_comentar_(card, '🛠️ **Correção do robô (12/10):** na conversão entraram peças do orçamento .2 que não são do complemento comentado pela rotina (o PDF traz o sinistro inteiro) — saíram da lista: ' + tiradas.join('; ') + '. Ficaram as ' + n + ' peças do complemento. Se alguma das retiradas precisar ser comprada, incluir pelo ✏️ EDITAR/INCLUIR PEÇA.');
+  try { ev_registrar_('CORRECAO', card, 'robô', tiradas.map(function (t) { return { peca: t, detalhe: 'fora do complemento — retirada da lista' }; }), { detalhe: 'correção 12/10 da conversão' }); } catch (e) {}
+  props.setProperty('MG_FIX_BDK2J49', 'FEITO');
+  return tiradas.length;
 }
