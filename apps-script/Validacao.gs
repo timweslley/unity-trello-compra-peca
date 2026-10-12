@@ -1683,7 +1683,8 @@ function vd_garantirLinks_(forcar) {
   var n = 0;
   cards.forEach(function (c) {
     if (/^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) return;
-    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
+    // 12/10/2026 (Weslley): card antigo também ganha os links — no celular são a única porta para o formulário, e o card só
+    // passa para o fluxo novo quando alguém salva por ele (regra da virada). Os links não mudam texto, coluna nem prazo.
     var ans = c.attachments || [];
     var temEditar = false, temCompra = false;
     try {

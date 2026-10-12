@@ -101,7 +101,7 @@ function vd_marcaSet_(nome, v) { PropertiesService.getScriptProperties().setProp
 
 /* ---------- cards antigos (anteriores à virada) ----------
  * Card criado antes da virada e nunca salvo pelo formulário termina do jeito antigo: o robô não organiza,
- * não trava coluna/checklist/descrição, não cobra SLA nem põe ATRASADO/links. Salvou pelo formulário uma vez
+ * não trava coluna/checklist/descrição, não cobra SLA nem põe ATRASADO (os links ✏️/💰 ele põe — 12/10/2026). Salvou pelo formulário uma vez
  * (tem a descrição oficial na aba TRAVA) -> passa a seguir o fluxo novo.
  * A data da virada é por quadro (VD_VIRADA_EM_<quadro>), gravada na primeira vez que o robô roda nele. */
 function vd_viradaMs_() {
