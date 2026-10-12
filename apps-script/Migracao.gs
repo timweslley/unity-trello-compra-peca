@@ -188,7 +188,8 @@ function mg_neutralizar_(txt) { return String(txt || '').replace(/(^|[^A-Za-z0-9
  * Converte um card antigo: devolve {desc, info}. card = {name, desc, checklists, labels}, comentarios = [texto].
  * Não grava nada.
  */
-function mg_converter_(card, comentarios) {
+function mg_converter_(card, comentarios, opt) {
+  opt = opt || {};
   var desc = String(card.desc || ''), limpo = vd_limpar_(desc);
   var nome = card.name || '';
   var placa = vd_normPlaca_((vd_campo_(limpo, VD_ROT.placa).split(/[\s(]/)[0]) || '') || vd_placaDoTexto_(nome) || '';
@@ -227,12 +228,12 @@ function mg_converter_(card, comentarios) {
 
   var hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
   var extra = { tipo: tipo, cor: t.cor, seguradora: seguradora, sinistro: sinistro, fo: fo };
-  var bloco = vd_montarBloco_(d, pecas, '', 'Convertido do fluxo antigo pelo robô em ' + hoje + ' — tipo de peça e cotações antigas: ver o texto original abaixo', extra);
+  var bloco = vd_montarBloco_(d, opt.semPecas ? [] : pecas, '', opt.rodape || ('Convertido do fluxo antigo pelo robô em ' + hoje + ' — tipo de peça e cotações antigas: ver o texto original abaixo'), extra);
   var original = mg_neutralizar_(desc).trim();
   var descNova = bloco + '\n\n' + VD.MARCADOR + (original ? '\n_(texto que estava no card antes da conversão)_\n' + original : '');
   var an = vd_analisar_(descNova, nome);
   return {
-    desc: descNova, renomear: renomear,
+    desc: descNova, renomear: renomear, pecasAntigas: pecas,
     info: { fonte: fonte, pecas: pecas.length, fo: fo.length, compras: compras, modelo: d.modelo, ano: d.ano, chassi: d.chassi, tipo: tipo,
             ordem: mg_ordemDosComentarios_(comentarios), avisos: an.faltas.slice(0, 6).join(' | ') + (an.faltas.length > 6 ? ' (+' + (an.faltas.length - 6) + ')' : '') }
   };
@@ -331,4 +332,122 @@ function mg_levantar() {
   });
   Logger.log('antigos ativos: ' + cands.length + '\npor coluna: ' + JSON.stringify(porCol) + '\npor fonte de peças: ' + JSON.stringify(porFonte));
   return { total: cands.length, porColuna: porCol, porFonte: porFonte };
+}
+
+/* ============================ CARD ANTIGO QUE VOLTA PARA COTAÇÃO (12/10/2026) ============================
+ * Weslley (12/10/2026, BDK2J49 STRADA BRADESCO): card antigo que é trazido de volta para cotação (FALTA DADOS PARA COTAR
+ * ou EM COTAÇÃO, vindo de qualquer outra coluna — ex.: complemento da seguradora num card ENCERRADO) passa para o
+ * sistema novo. O robô:
+ *  - monta a descrição no padrão (dados do carro, tipo, seguradora) — o texto antigo fica abaixo da linha;
+ *  - em PEÇAS entram só as peças NOVAS do orçamento mais recente anexado (Cilia/HDI/Websoma): as do pedido antigo (já
+ *    compradas) não voltam — casam pelo código, pela descrição parecida ou pela mesma peça-base sem conflito de posição;
+ *    FO nova vai para o checklist FORNECIMENTO COMPLEMENTO (mesmo caminho do orçamento complementar);
+ *  - comenta a conversão. Sem orçamento legível (ou sem peça nova) NÃO converte: comenta pedindo para incluir as
+ *    peças pelo ✏️ EDITAR/INCLUIR PEÇA (salvar por ele já converte — regra da virada).
+ * Desligar: propriedade MG_VOLTA_LIGADO = NAO. Na 1ª rodada converte o BDK2J49 (pedido do Weslley) e marca o início.
+ */
+var MG_VOLTA = {
+  COTACAO: ['FALTA DADOS PARA COTAR', 'EM COTAÇÃO'],
+  INICIAL: ['Ubqjp2V0'],   // BDK2J49 STRADA BRADESCO — voltou em 11/10 (complemento Bradesco, O.S. 2174)
+  MAX_TENTATIVAS: 3
+};
+
+function mg_voltaExecutar_() {
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || vd_prop_('MG_VOLTA_LIGADO', 'SIM') === 'NAO') return 0;
+  var ctx = vd_contexto_(), n = 0, prazo = vd_prazo_(60 * 1000);
+  var desde = vd_marca_('MG_VOLTA_ACT');
+  if (!desde) {
+    vd_marcaSet_('MG_VOLTA_ACT', new Date().toISOString());
+    MG_VOLTA.INICIAL.forEach(function (sl) {
+      try { if (mg_voltaConverter_(sl, '', ctx)) n++; } catch (e) { console.log('volta p/ cotação (inicial) ' + sl + ': ' + e); }
+    });
+    return n;
+  }
+  var acts = vd_acoesQuadro_(ctx.board, { filter: 'updateCard:idList', since: desde, limit: 1000, fields: 'data,date' }) || [];
+  acts.reverse();   // mais antigo primeiro
+  var ultima = desde, feitos = {}, props = PropertiesService.getScriptProperties();
+  for (var k = 0; k < acts.length; k++) {
+    if (Date.now() > prazo) break;
+    var a = acts[k], d = a.data || {}, c = d.card || {};
+    var proxima = new Date(Date.parse(a.date) + 1).toISOString();
+    if (!c.id || !d.listAfter || !d.listBefore || feitos[c.id]) { ultima = proxima; continue; }
+    var para = vd_nomeColuna_(d.listAfter.name), de = vd_nomeColuna_(d.listBefore.name);
+    if (MG_VOLTA.COTACAO.indexOf(para) < 0 || MG_VOLTA.COTACAO.indexOf(de) >= 0) { ultima = proxima; continue; }
+    if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '') || !vd_legado_(c.id)) { ultima = proxima; continue; }
+    feitos[c.id] = 1;
+    try { if (mg_voltaConverter_(c.id, de, ctx)) n++; }
+    catch (e) {
+      // erro (Trello/planilha fora do ar): tenta de novo no ciclo seguinte, até 3 vezes; depois segue em frente
+      var kErr = 'MG_VOLTA_ERR_' + c.id, t = +(props.getProperty(kErr) || 0) + 1;
+      console.log('volta p/ cotação ' + (c.name || c.id) + ' (tentativa ' + t + '): ' + e);
+      if (t < MG_VOLTA.MAX_TENTATIVAS) { props.setProperty(kErr, String(t)); break; }
+      props.deleteProperty(kErr);
+    }
+    ultima = proxima;
+  }
+  vd_marcaSet_('MG_VOLTA_ACT', ultima);
+  return n;
+}
+
+/** Mesma peça-base (1ª palavra forte) e nenhum eixo de posição em conflito — "retrovisor esquerdo (paralelo)" x
+ *  "RETROVISOR EXTERNO ESQ". Mais solto que cp_similar_: só para reconhecer peça do pedido ANTIGO (texto livre). */
+function mg_mesmaBase_(a, b) {
+  var pa = cp_palavras_(a), pb = cp_palavras_(b), fa = cp_fortes_(pa), fb = cp_fortes_(pb);
+  if (!fa.length || !fb.length || fa[0] !== fb[0]) return false;
+  var xa = cp_posicoes_(pa), xb = cp_posicoes_(pb);
+  return !Object.keys(xa).some(function (e) { return xb[e] && xb[e] !== xa[e]; });
+}
+
+/** Converte UM card antigo que voltou para cotação. idOuShortLink, de = coluna de onde veio. true = converteu. */
+function mg_voltaConverter_(idOuShortLink, de, ctx) {
+  var card = vd_api_('/cards/' + idOuShortLink, { cru: true, query: { fields: 'name,desc,idList,shortLink,shortUrl,labels,closed', checklists: 'all', checkItem_fields: 'name,state', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
+  if (!card || card.closed) return false;
+  var col = vd_nomeColuna_(vdf_nomeLista_(ctx, card.idList));
+  if (MG_VOLTA.COTACAO.indexOf(col) < 0) return false;   // já saiu da cotação
+  if (!vd_legado_(card.id)) return false;                 // já foi salvo pelo formulário
+  var comentarios = [];
+  try { comentarios = (vd_api_('/cards/' + card.id + '/actions', { cru: true, query: { filter: 'commentCard', limit: 50, fields: 'data' } }) || []).map(function (a) { return a.data && a.data.text; }); } catch (e) {}
+  var comPecas = mg_converter_(card, comentarios);   // pedido antigo como peças: base para saber o que já foi pedido
+  var placa = vd_analisar_(comPecas.desc, card.name).dados.placa;
+  var seg = vd_semAcento_(card.name || '') + ' ' + vd_semAcento_(vd_campo_(vd_limpar_(comPecas.desc), VD_ROT_EXTRA.seguradora) || '');
+  var avisar = function (txt) { try { vd_comentar_(card, txt); } catch (e) {} };
+  var cab = '🔄 **Card antigo voltou para cotação**' + (de ? ' (veio de ' + de + ')' : '') + ': ';
+
+  if (/\bRETORNO\b/.test(seg)) { avisar(cab + 'card de RETORNO — para passar para o sistema novo, incluir as peças do retorno pelo ✏️ EDITAR/INCLUIR PEÇA e salvar.'); return false; }
+
+  // orçamento mais recente anexado, da mesma placa
+  var anexos = (card.attachments || []).filter(vd_anexoLegivel_).sort(function (x, y) { return Date.parse(y.date) - Date.parse(x.date); });
+  var orc = null, anexo = null, origem = '';
+  for (var i = 0; i < anexos.length && i < 5 && !orc; i++) {
+    var r = null; try { r = vd_lerAnexoTrello_(anexos[i], { orcCompleto: true }); } catch (e) { console.log('volta/anexo: ' + e); }
+    if (!r || r.erro || !r.orcamento) continue;
+    if (!placa || !(r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) continue;
+    if (r.orcamento === 'CILIA' && /\bHDI\b/.test(seg)) continue;   // sinistro HDI: quem manda é o laudo HDI (11/10/2026)
+    orc = r.orcFull || (r.orc ? { oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : null);
+    anexo = anexos[i]; origem = r.orcamento;
+  }
+  if (!orc) { avisar(cab + 'não achei orçamento legível desta placa anexado. Para passar para o sistema novo, incluir as peças novas pelo ✏️ EDITAR/INCLUIR PEÇA e salvar.'); return false; }
+  orc = vd_orcCss_(orc, card.name);
+
+  var cmp = cp_comparar_({ name: card.name, desc: comPecas.desc, checklists: card.checklists, attachments: card.attachments }, orc, anexo.id);
+  // o que sobrou e é a mesma peça-base de uma peça do pedido antigo (texto livre): conta como já pedida
+  var antigas = (comPecas.pecasAntigas || []).filter(function (p) { return !p.pneu && p.descricao; }), usadas = {}, doAntigo = [];
+  cmp.oficina = cmp.oficina.filter(function (p) {
+    if (p.pneu) return true;
+    for (var j = 0; j < antigas.length; j++) {
+      if (!usadas[j] && mg_mesmaBase_(p.descricao || p.descricaoOrc || '', antigas[j].descricao)) { usadas[j] = 1; doAntigo.push(cp_nome_(p) + ' ≈ ' + antigas[j].descricao); cmp.jaTinha++; return false; }
+    }
+    return true;
+  });
+  cmp.atualizar = [];   // as peças antigas não ficam na lista nova: nada a atualizar nelas
+  if (!cmp.oficina.length && !cmp.fo.length) { avisar(cab + 'o orçamento «' + anexo.name + '» não trouxe peça nova em relação ao pedido antigo. Se há peça nova, incluir pelo ✏️ EDITAR/INCLUIR PEÇA e salvar.'); return false; }
+
+  var hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+  var semPecas = mg_converter_(card, comentarios, { semPecas: true, rodape: 'Card antigo convertido para o sistema novo pelo robô em ' + hoje + ' ao voltar para cotação — pedido antigo (já comprado): ver o texto original abaixo' });
+  avisar(cab + 'passou para o sistema novo. Em PEÇAS ficaram só as peças novas do orçamento «' + anexo.name + '»; o pedido antigo (já comprado) ficou no texto original, abaixo da linha.' +
+    (doAntigo.length ? '\nConsiderei do pedido antigo (não entraram de novo): ' + doAntigo.join('; ') + '. Se alguma for peça nova, incluir pelo ✏️ EDITAR/INCLUIR PEÇA.' : ''));
+  cp_aplicar_({ id: card.id, name: card.name, desc: semPecas.desc, shortLink: card.shortLink, shortUrl: card.shortUrl, idList: card.idList, labels: card.labels },
+    cmp, { origem: origem, anexo: anexo.name, quem: 'robô', token: null, ctx: ctx });
+  try { ev_registrar_('CONVERSAO', card, 'robô', [], { detalhe: 'card antigo voltou para cotação' + (de ? ' (de ' + de + ')' : '') + ' — ' + cmp.oficina.length + ' oficina · ' + cmp.fo.length + ' FO' }); } catch (e) {}
+  return true;
 }

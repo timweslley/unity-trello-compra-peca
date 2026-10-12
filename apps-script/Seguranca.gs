@@ -102,7 +102,8 @@ function vd_marcaSet_(nome, v) { PropertiesService.getScriptProperties().setProp
 /* ---------- cards antigos (anteriores à virada) ----------
  * Card criado antes da virada e nunca salvo pelo formulário termina do jeito antigo: o robô não organiza,
  * não trava coluna/checklist/descrição, não cobra SLA nem põe ATRASADO (os links ✏️/💰 ele põe — 12/10/2026). Salvou pelo formulário uma vez
- * (tem a descrição oficial na aba TRAVA) -> passa a seguir o fluxo novo.
+ * (tem a descrição oficial na aba TRAVA) -> passa a seguir o fluxo novo. Voltou para cotação (FALTA DADOS/EM COTAÇÃO vindo de
+ * outra coluna) -> o robô converte sozinho com as peças novas do orçamento anexado (mg_voltaExecutar_, 12/10/2026).
  * A data da virada é por quadro (VD_VIRADA_EM_<quadro>), gravada na primeira vez que o robô roda nele. */
 function vd_viradaMs_() {
   var p = PropertiesService.getScriptProperties(), k = 'VD_VIRADA_EM_' + vd_board_(), v = p.getProperty(k);
