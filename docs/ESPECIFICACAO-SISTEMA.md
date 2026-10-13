@@ -441,6 +441,8 @@ Tesseract/serviço de OCR para imagem e PDF escaneado.
 | NF/DANFE/XML | `<nNF>` ou OCR | número da NF para o nome do anexo |
 
 Serviços e códigos internos (`^0{2,}\d+$`, `^SOMA\d+$`) ficam fora. Valor líquido unitário entra como `ORÇ R$`.
+Orçamento importado na edição de um card que já tem peças **ou só itens de FORNECIMENTO/PAGAS** é tratado como complementar
+(antes, card só com fornecimento caía na importação de pedido novo e o orçamento era lido como se fosse do zero — 13/10/2026, UIC5G94).
 Orçamento complementar (ORÇ+): compara com as peças existentes → ➕ oficina nova, 📦 FO nova, 🔁 já pedida,
 🔁 passou de FO para oficina (sai do checklist), 🔄 atualizada (código/descrição/valor). Peça da oficina marcada
 🚫 **não comprar** (mesmo código ou mesma descrição) conta como já conhecida e **não volta** como complemento — o

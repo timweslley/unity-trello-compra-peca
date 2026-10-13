@@ -2206,7 +2206,9 @@ function aplicarLeitura(r, dica, sufixo) {
       var preenchidos = [];
       function por(id, v, nome) { if (v && !$(id).value.trim()) { $(id).value = v; preenchidos.push(nome); } }
       por('carro', r.carro, 'carro'); por('cor', r.cor, 'cor'); por('seguradora', r.seguradora, 'seguradora'); por('sinistro', r.sinistro, 'sinistro');
-      if (r.orcamento && CARD_EDICAO && CARD && (CARD.pecas || []).length) importarComplemento(r.orcamento, r.anexoId);
+      // card que já tem peças OU só fornecimento (checklist FORNECIMENTO/PAGAS): é complemento — compara com o que já está
+      // no card. Antes, card só com FO (sem peça da oficina) caía na importação de pedido novo (13/10/2026, UIC5G94)
+      if (r.orcamento && CARD_EDICAO && CARD && ((CARD.pecas || []).length || (CARD.recebiveis || []).length)) importarComplemento(r.orcamento, r.anexoId);
       else if (r.orcamento && !ORC) importarOrcamento(r.orcamento);
       // 07/10/2026 (Weslley, ARW5715): foto do carro / arquivo sem nenhum dado de veículo não é "erro" — só não tinha o que ler
       if (!r.confere && !(r.placasDoc || []).length && !r.chassi && !(r.chassiDivergente || []).length && !r.modelo && !r.orcamento) {
