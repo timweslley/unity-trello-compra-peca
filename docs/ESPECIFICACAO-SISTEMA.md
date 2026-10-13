@@ -313,6 +313,7 @@ peça de card CSS não exige código/tipo nem orçamento anexado (vira FO). Caso
 
 ### 4.5 Anexos
 
+Anexo lido pelo botão do formulário é renomeado na hora; o cache curto de orçamento grande guarda que é orçamento (antes não guardava e o anexo nunca era renomeado — 13/10/2026, UIC5G94).
 Nomes padronizados: `📄 ORÇ · PLACA · SEGURADORA · Sistema · dd/MM`, `📄 ORÇ+` (complementar),
 `🚚 FO · PLACA · Status do Pedido Cilia · dd/MM`, `📦 NF nº · PLACA · FORN · dd/MM`, `📸 PLACA · capa|recebimento · dd/MM`,
 `🛒 COMPRA · PLACA · FORN · PEÇA · dd/MM` (print/arquivo da negociação e pagamento, aba Compra, 08/10/2026; sem versão);

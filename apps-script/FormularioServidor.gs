@@ -430,12 +430,20 @@ function vdf_todosAnexos_(attachments, urlForm) {
 function vdf_lerAnexoCard(token, shortLink, idAnexo, placa) {
   vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
-  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url,date' } });
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard,name', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url,date' } });
   if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
   var a = (c.attachments || []).filter(function (x) { return x.id === idAnexo; })[0];
   if (!a) throw new Error('Esse anexo não está mais no card.');
   if (!vd_anexoLegivel_(a)) throw new Error('Esse anexo não dá para ler (só PDF ou foto até 15 MB).');
   var r = vd_lerAnexoTrello_(a, { orcCompleto: true });
+  // anexo lido pelo botão do formulário já ganha o nome padronizado (13/10/2026, UIC5G94: antes só na próxima abertura do card,
+  // e orçamento grande nem isso — o cache curto não guardava que era orçamento)
+  try {
+    if (r && !r.erro && a.isUpload) {
+      var temOrcA = (c.attachments || []).some(function (x) { return x.id !== a.id && String(x.name || '').indexOf(AX.ORC + AX.SEP) === 0; });
+      ax_batizarLido_(c, a, r, temOrcA, token);
+    }
+  } catch (e) { console.log('batizar anexo lido (formulário): ' + e); }
   if (!r) throw new Error('O Trello não entregou o arquivo "' + a.name + '". Tente de novo.');
   if (r.erro) return { anexoId: a.id, jaNoCard: true, erro: 'Não consegui ler "' + a.name + '" (' + r.erro + ').' };
   var orc = r.orcFull || (r.orc ? { origem: r.orcamento, oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : { origem: '' });
