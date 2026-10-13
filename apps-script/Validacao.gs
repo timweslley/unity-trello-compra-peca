@@ -450,6 +450,9 @@ function vd_analisarPeca_(linha, n, opts) {
     if (mp) { part = true; partPor = (mp[1] || '').toLowerCase(); return false; }
     return true;
   });
+  // 13/10/2026 (Weslley): ADITIVO (de radiador / arrefecimento) que vem no orçamento é 🚫 não comprar por padrão — sai do
+  // estoque da oficina. Só quando ninguém marcou tipo: com tipo marcado, alguém decidiu comprar e vale o que está escrito.
+  if (!nao && !part && /^ADITIVO\b/.test(vd_semAcento_(partes[1] || '')) && !partes.slice(2).join('').trim()) { nao = true; naoMotivo = 'ESTOQUE DA OFICINA (PADRÃO)'; }
   if (part) opts = { codigoOpcional: true };
   if (nao) opts = { codigoOpcional: true };   // não vai ser comprada: não cobra código nem tipo
   var faltas = [];

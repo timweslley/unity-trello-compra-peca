@@ -2190,6 +2190,8 @@ function tagPart(p) { return (p && p.particular && CARD && CARD.tipo !== 'PARTIC
 
 function novoItem(tipo, dados) {
   dados = dados || {};
+  // 13/10/2026 (Weslley): aditivo (radiador/arrefecimento) do orçamento entra 🚫 não comprar por padrão — estoque da oficina
+  if (tipo === 'peca' && !dados.naoComprar && !dados.particular && !(dados.tipos || []).length && /^ADITIVO\b/.test(semAc(dados.descricao || ''))) { dados.naoComprar = true; dados.naoMotivo = dados.naoMotivo || 'ESTOQUE DA OFICINA (PADRÃO)'; }
   var id = 'it' + (++seq);
   var div = document.createElement('div');
   div.className = 'item'; div.id = id; div.dataset.tipo = tipo; div.dataset.partPor = dados.partPor || '';

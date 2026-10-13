@@ -56,6 +56,8 @@ marca o pedido como RETORNO.
 - **Chave da peça**: código (ou descrição, sem código) que liga peça ↔ cotação ↔ autorização ↔ item do checklist.
 - **PAGAS / FORNECIMENTO**: checklists do card com as peças compradas pela oficina / fornecidas pela seguradora.
 - **Complemento**: orçamento complementar da seguradora (peças a mais que o orçamento original).
+  **Aditivo** (de radiador / arrefecimento) que vem no orçamento entra **🚫 não comprar por padrão** — motivo "ESTOQUE DA OFICINA
+  (PADRÃO)" — no robô e no formulário; só vale enquanto ninguém marcou tipo (com tipo marcado, alguém decidiu comprar). 13/10/2026, Weslley.
   **Ler de novo** no formulário um orçamento que **já está no card e já foi processado** (batizado `📄 ORÇ`/`📄 ORÇ+` ou já visto
   pelo robô) não traz peça nenhuma de volta — as peças dele contam como conhecidas (compradas no fluxo antigo, tiradas de
   propósito). Só anexo novo, ainda não processado, é comparado como complemento (13/10/2026, BDK2J49).
