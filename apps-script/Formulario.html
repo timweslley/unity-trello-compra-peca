@@ -2698,8 +2698,14 @@ iniciar();
   .v2pc section.v2-carro div:has(> #seguradora) { grid-column:span 3; order:9; }
   .v2pc section.v2-carro div:has(> #sinistro) { grid-column:span 3; order:10; }
   .v2pc section.v2-carro #chassi { font-family:ui-monospace, Consolas, monospace; letter-spacing:1px; }
-  .v2pc section.v2-carro #dicaChassi { margin:2px 0 0; font-size:12px; line-height:16px; }
-  .v2pc section.v2-carro #dicaChassi:empty { display:none; }
+  .v2pc section.v2-carro #dicaChassi { display:none !important; }
+  .v2pc section.v2-carro div:has(> #chassi) { position:relative; }
+  .v2pc section.v2-carro #chassi { padding-right:34px; }
+  .v2pc section.v2-carro #chassi.v2-ok { background:#dcfff1; border-color:#4bce97; }
+  .v2pc section.v2-carro #chassi.v2-ruim { background:#ffeceb; border-color:#f87168; }
+  .v2pc section.v2-carro .v2-inq { position:absolute; right:9px; bottom:9px; margin:0; }
+  .v2 .v2q.v2q-ruim { background:#f87168; color:#fff; }
+  .v2pc section.v2-carro .v2-inq:hover::after, .v2pc section.v2-carro .v2-inq:focus::after { left:auto; right:-10px; width:260px; }
   .v2pc section.v2-carro label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .v2 .v2-tag { flex:0 0 auto; font-size:12px; font-weight:600; color:#626f86; background:#091e420f; border-radius:4px; padding:2px 8px; white-space:nowrap; }
   .v2 .v2-tag-novo { color:#0055cc; background:#e9f2ff; }
@@ -3003,6 +3009,20 @@ iniciar();
     sec.classList.add('v2-carro');
     if (g('ano')) g('ano').maxLength = 9;
     if (g('chassi')) g('chassi').placeholder = '17 caracteres';
+    // 13/10/2026 (Weslley): conferência do chassi dentro do próprio campo — verde (ok) / vermelho (confira) e "?" com o detalhe
+    var ch = g('chassi'), dc = g('dicaChassi');
+    if (ch && dc) {
+      var q = document.createElement('span'); q.className = 'v2q v2-inq'; q.tabIndex = 0; q.style.display = 'none';
+      ch.insertAdjacentElement('afterend', q);
+      var pinta = function () {
+        var t = (dc.textContent || '').trim(), ok = /\bboa\b/.test(dc.className), ruim = /\bruim\b/.test(dc.className);
+        ch.classList.toggle('v2-ok', !!t && ok); ch.classList.toggle('v2-ruim', !!t && ruim);
+        q.style.display = t ? '' : 'none'; q.dataset.dica = ok ? 'Chassi com 17 caracteres e sem as letras I, O e Q.' : t;
+        q.classList.toggle('v2q-ruim', !!t && ruim);
+      };
+      new MutationObserver(pinta).observe(dc, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+      pinta();
+    }
     var lb = document.querySelector('label[for=carro]');
     if (lb && lb.firstChild && lb.firstChild.nodeType === 3) { lb.firstChild.textContent = 'Carro no título '; lb.title = 'Nome curto do carro que vai no título do card (ex.: COBALT)'; }
   }
