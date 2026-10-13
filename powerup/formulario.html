@@ -2935,6 +2935,27 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item.v2-pend { border-left-color:#c9372c !important; }
   .v2pc :is(#itens, #itensPart) > .item.v2-ok { border-left-color:#1f845a !important; }
   .v2pc :is(#itens, #itensPart) > .item.nao-comprar > .grade, .v2pc :is(#itens, #itensPart) > .item.nao-comprar > .grade > * { opacity:.6; }
+  /* 13/10/2026 (Weslley): peça = linha 1 nº · CÓDIGO · DESCRIÇÃO · qtd (pequena) · valor; linha 2 tipo · ações compactas */
+  .v2pc .v2pc-cab, .v2pc #itens > .item, .v2pc #itensPart > .item { grid-template-columns:28px 150px minmax(0, 1fr) 58px 112px !important; }
+  .v2pc #itens > .item::before, .v2pc #itensPart > .item::before { grid-row:1; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-codigo) { grid-row:1; grid-column:2; order:0; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc) { grid-row:1; grid-column:3; order:0; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(.f-medida) { grid-row:1; grid-column:2 / 4; order:0; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(.f-qtd) { grid-row:1; grid-column:4; order:0; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) { grid-row:1; grid-column:5; order:0; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-tipo), .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-marca) { grid-row:2; grid-column:2 / 4; order:0; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo { grid-row:2; grid-column:4 / -1; order:0; flex-wrap:nowrap; }
+  .v2pc :is(#itens, #itensPart) > .item .f-codigo { font-family:ui-monospace, Consolas, monospace; font-size:13px !important; letter-spacing:.3px; }
+  /* quantidade discreta: só o número (sem − e +) */
+  .v2pc :is(#itens, #itensPart) > .item .v2-qtd button { display:none !important; }
+  .v2pc :is(#itens, #itensPart) > .item .v2-qtd input, .v2pc :is(#itens, #itensPart) > .item input.f-qtd { width:58px !important; margin:0 !important; text-align:center; font-size:14px !important; font-weight:400; }
+  .v2pc :is(#itens, #itensPart) > .item .f-valor-orc { text-align:right; }
+  /* ações em ícones (o nome aparece ao parar o mouse); marcadas ficam coloridas */
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado), .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado) { font-size:0 !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado)::after { content:"➕"; font-size:14px; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado)::after { content:"🚫"; font-size:14px; filter:grayscale(1); opacity:.7; }
+  /* cor dos campos obrigatórios da peça (mesmo padrão dos dados do carro) */
+  .v2 :is(#itens, #itensPart) > .item:not(.nao-comprar) .chips.v2-falta { outline:2px solid #f8a39d; outline-offset:2px; border-radius:6px; background:#fff1f0; }
   /* espaçamentos menores no computador (Weslley 09/10: "espaço entre o texto e a borda muito grande") */
   .v2pc #form > section { padding:10px 14px !important; margin:0 0 10px !important; }
   .v2pc #form > section h2 { margin:0 0 6px !important; font-size:16px; }
@@ -3264,11 +3285,14 @@ iniciar();
         var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'secundario v2-obstog'; ob.textContent = '📝'; ob.title = 'Observação da peça (o comprador vê)';
         ob.onclick = function () { it.classList.toggle('v2-obs'); if (it.classList.contains('v2-obs')) it.querySelector('.f-obs').focus(); };
         topoIt.insertBefore(ob, topoIt.querySelector('select')); var rm = topoIt.querySelector('button.perigo'); if (rm) rm.title = 'Remover a peça';
+        var cc = topoIt.querySelector('.chip-comp'); if (cc) cc.title = 'Complemento: peça fora do orçamento autorizado (vai no orçamento complementar da seguradora)';
+        var cn = topoIt.querySelector('.chip-nao'); if (cn) cn.title = 'Não comprar: peça do orçamento que a oficina não vai comprar (recuperar, cliente já tem…)';
+        var sl = topoIt.querySelector('select'); if (sl) sl.title = 'Peça ou pneu';
       }
       var cx = it.parentNode;
       if (cx && !(cx.previousElementSibling && cx.previousElementSibling.classList.contains('v2pc-cab'))) {
         var cab = document.createElement('div'); cab.className = 'v2pc-cab';
-        cab.innerHTML = '<span>#</span><span>Descrição * · tipo * (até 2)</span><span>Código' + (cx.id === 'itensPart' || /PARTICULAR|RETORNO/.test(tipoPedidoV2()) ? '' : ' *') + '</span><span>Qtd</span><span>Valor no orç.</span>';
+        cab.innerHTML = '<span>#</span><span>Código' + (cx.id === 'itensPart' || /PARTICULAR|RETORNO/.test(tipoPedidoV2()) ? '' : ' *') + '</span><span>Descrição * · tipo * (até 2)</span><span style="text-align:center">Qtd</span><span style="text-align:right">Valor no orç.</span>';
         cx.parentNode.insertBefore(cab, cx);
       }
     }
@@ -3656,6 +3680,17 @@ iniciar();
       var vis = el.offsetParent !== null;
       var v = String(el.value || '').trim(), ok = el.tagName === 'SELECT' ? el.selectedIndex > 0 : !!v && (!VALIDA[el.id] || VALIDA[el.id](v));
       el.classList.toggle('v2-ok', vis && ok); el.classList.toggle('v2-falta', vis && !ok);
+    });
+    // peças: código (quando obrigatório), descrição/medida e tipo
+    $$('#itens > .item, #itensPart > .item').forEach(function (it) {
+      var nao = it.classList.contains('nao-comprar') || it.dataset.travada;
+      $$('.f-codigo, .f-desc, .f-medida', it).forEach(function (el) {
+        var lb = el.parentNode.querySelector('label'), obr = lb && lb.querySelector('.obr');
+        var v = String(el.value || '').trim();
+        el.classList.toggle('v2-ok', !nao && !!v); el.classList.toggle('v2-falta', !nao && !!obr && !v);
+      });
+      var ch = it.querySelector('.grade .chips');
+      if (ch) { var marc = !!ch.querySelector('input:checked') || !!String((it.querySelector('.f-marca') || {}).value || '').trim(); ch.classList.toggle('v2-falta', !nao && !marc); }
     });
   }
   document.addEventListener('input', function (e) { if (e.target && e.target.closest && e.target.closest('#form, #v2topo')) pintarObrigatorios(); }, true);
