@@ -10,7 +10,7 @@
  */
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import path from 'node:path';
-import { criarCliente, resumoLista, assinatura, pecas as extrairPecas, ErroCilia } from '../src/cilia.mjs';
+import { criarCliente, resumoLista, assinatura, assinaturaDetalhe, disparaCompra, pecas as extrairPecas, ErroCilia } from '../src/cilia.mjs';
 
 const TODAS = ['TOLEDO', 'CASCAVEL', 'RONDON', 'MOURAO'];
 const NOME_CASA = { TOLEDO: 'Toledo', CASCAVEL: 'Cascavel', RONDON: 'Rondon', MOURAO: 'Campo Mourão' };
@@ -68,14 +68,21 @@ export async function rodarPC({ env = process.env, fabricaCliente = criarCliente
         if (!ant) out.novos.push(`${r.placa} ${r.numero_versao || ''}`.trim());
         else if (ant.assinatura !== sig) out.mudaram.push(`${r.placa} ${ant.numero_versao || ''} → ${r.numero_versao || ''} (${r.status_texto || r.status || ''}${r.conclusao ? ' · ' + r.conclusao : ''})`);
         estado[casa][r.budget_id] = {
-          ...(ant || {}), ...r, assinatura: sig, visto_em: resumo.gerado_em,
+          ...(ant || {}), ...r, assinatura: sig, dispara_compra: disparaCompra(r), visto_em: resumo.gerado_em,
           atualizado_em: !ant || ant.assinatura !== sig ? resumo.gerado_em : ant.atualizado_em,
         };
         out.orcamentos++;
-        if (ant && ant.assinatura_detalhe === sig) continue;
-        const mudou = !!(ant && ant.assinatura_detalhe);   // já tinha detalhe e mudou desde então
+        if (!disparaCompra(r)) continue;   // só autorizado pela seguradora ou supervisão (13/10/2026)
+        const sigD = assinaturaDetalhe(r);
+        // detalhe baixado com a assinatura antiga (versão|status|conclusão): vale se versão e conclusão são as mesmas
+        if (ant?.assinatura_detalhe && ant.assinatura_detalhe !== sigD) {
+          const [v, , c] = String(ant.assinatura_detalhe).split('|');
+          if (ant.assinatura_detalhe.split('|').length === 3 && [v, c].join('|') === sigD) estado[casa][r.budget_id].assinatura_detalhe = sigD;
+        }
+        if (estado[casa][r.budget_id].assinatura_detalhe === sigD) continue;
+        const mudou = !!(ant && ant.assinatura_detalhe);   // já tinha detalhe e mudou desde então (versão ou conclusão)
         const recente = String(r.status_data || r.criado_em || '').slice(0, 10) >= corteRecente;
-        fila.push({ casa, r, sig, prioridade: mudou ? 0 : recente ? 1 : 2 });
+        fila.push({ casa, r, sig: sigD, prioridade: mudou ? 0 : recente ? 1 : 2 });
       }
     } catch (e) { out.erro = textoErro(e); }
   }

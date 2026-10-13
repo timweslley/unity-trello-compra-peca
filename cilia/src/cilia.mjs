@@ -85,9 +85,26 @@ export function resumoLista(b) {
   };
 }
 
-/** Assinatura que muda quando vale a pena buscar o detalhe de novo. */
+/** Assinatura do que aparece na listagem (versão, status, conclusão) — mostra no resumo o que mudou. */
 export function assinatura(r) {
   return [r.numero_versao, r.status, r.conclusao_chave].map((x) => x ?? '').join('|');
+}
+
+/** Assinatura que dispara baixar o detalhe/PDF de novo: só versão nova (complemento/supervisão) ou conclusão nova.
+ *  Mudança de status no caminho (em análise, analisado…) não baixa de novo (13/10/2026). */
+export function assinaturaDetalhe(r) {
+  return [r.numero_versao, r.conclusao_chave].map((x) => x ?? '').join('|');
+}
+
+/** Só vale baixar o detalhe quando o orçamento dispara compra/serviço (Weslley, 13/10/2026): autorizado pela seguradora
+ *  (conclusão "authorized" — inclui "VIDE PORTAL DA CIA" e "Reparo(s) Autorizado(s)" — ou título "Autorizado…", ex.:
+ *  "Autorizado Acordo") ou em supervisão (versão "Supervisão" ou conclusão "supervision"). Não autorizado, indenização
+ *  integral, cancelado, vistoria não realizada e sem conclusão ficam só na listagem. */
+export function disparaCompra(r) {
+  const chave = String(r.conclusao_chave || '').toLowerCase();
+  if (chave === 'authorized' || chave === 'supervision') return true;
+  if (/^supervis/i.test(String(r.tipo_versao || '').normalize('NFD').replace(/[\u0300-\u036f]/g, ''))) return true;
+  return !chave && /^autorizad/i.test(String(r.conclusao || '').trim());
 }
 
 /** Detalhe sem os arquivos pesados (PDF/HTML em base64), para guardar no banco. */
