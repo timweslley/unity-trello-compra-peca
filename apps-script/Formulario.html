@@ -2826,6 +2826,23 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { color:#c9372c !important; background:transparent !important; border-radius:6px; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo::after { content:"✕"; font-size:18px !important; font-weight:700; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo:hover { background:#ffeceb !important; }
+  /* origem da peça na faixa lateral (sobrepõe a cor da conferência: o que falta já aparece nos próprios campos) */
+  .v2 :is(#itens, #itensPart) > .item[data-origem="orc"] { border-left-color:#1f845a !important; }
+  .v2 :is(#itens, #itensPart) > .item[data-origem="mao"] { border-left-color:#c9372c !important; }
+  .v2:not(.v2-diretoria) :is(#itens, #itensPart) > .item[data-origem="orc"] > .item-topo button.perigo { display:none !important; }
+  /* ações da peça como botões pequenos (ícone + área de clique) */
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo { gap:6px !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip, .v2pc :is(#itens, #itensPart) > .item > .item-topo button {
+    height:32px !important; min-height:32px !important; min-width:34px; width:auto !important; flex:0 0 auto; border:1px solid #c7cdd6 !important; border-radius:6px !important; background:#fff !important;
+    display:inline-flex !important; align-items:center; justify-content:center; padding:0 8px !important; cursor:pointer; white-space:nowrap; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo select { height:32px !important; min-height:32px !important; width:auto !important; flex:0 0 auto;
+    border:1px solid #c7cdd6 !important; border-radius:6px !important; background-color:#fff !important; padding:0 22px 0 8px !important; font-size:12px !important; color:#44546f; cursor:pointer; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip:hover, .v2pc :is(#itens, #itensPart) > .item > .item-topo button:hover { border-color:#8590a2 !important; background:#f7f8f9 !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { border-color:#f3c4bf !important; }
+  /* complemento marcado: selo roxo bem visível */
+  .v2 :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado { background:#f3f0ff !important; border-color:#9f8fef !important; color:#5e4db2 !important; font-weight:700; font-size:12px !important; }
+  .v2 :is(#itens, #itensPart) > .item[data-comp="1"] .num + * { }
+  .v2 :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado { border-color:#f3c4bf !important; background:#fff1f0 !important; }
   .v2pc :is(#itens, #itensPart) > .item .f-valor-orc { text-align:right; }
   /* ações em ícones (o nome aparece ao parar o mouse); marcadas ficam coloridas */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado), .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado) { font-size:0 !important; }
@@ -2923,6 +2940,7 @@ iniciar();
     if (visivel(g('comprador'))) { var a = document.querySelector('.aba.marcada .rotulo'); etapa = a ? a.textContent : ''; }
     else if (visivel(g('form'))) etapa = window.CARD_EDICAO ? 'Editar pedido' : 'Pedido novo';
     else if (visivel(g('telaSucesso'))) etapa = 'Enviado';
+    html.classList.toggle('v2-diretoria', !!(window.CARD && window.CARD.diretoria));
     var pedTopo = PC && visivel(g('form')) && !!g('v2ped-placa');
     html.classList.toggle('v2-pedtopo', pedTopo);
     if (pedTopo && g('v2novo')) g('v2novo').parentNode.style.display = window.CARD_EDICAO ? '' : 'none';
@@ -3573,6 +3591,30 @@ iniciar();
       if (document.activeElement !== i && /R\$/.test(i.value)) i.value = semRS(i.value) || i.value;
     });
     $$('#itens .f-qtd, #itensPart .f-qtd').forEach(function (i) { if (i.max !== '99') { i.max = '99'; i.title = 'Quantidade (até 99)'; } });
+  }
+  /* 13/10/2026 (Weslley): faixa ao lado do nº = ORIGEM da peça — verde: veio do orçamento; vermelho: incluída à mão.
+     Peça do orçamento não tem ✕ (o consultor só marca 🚫 não comprar); ✕ só na incluída à mão (diretoria pode sempre). */
+  function ehDoOrc(d) {
+    d = d || {};
+    if (d.descricaoOrc !== undefined || d.codigoOrc !== undefined) return true;
+    return !!(d.chave && window.CARD && window.CARD.doOrcamento && !d.complemento && !d.particular);
+  }
+  if (typeof novoItem === 'function') {
+    var novoItemOrig = novoItem;
+    window.novoItem = function (tipo, dados) {
+      var r = novoItemOrig.apply(this, arguments);
+      try {
+        var el = g('it' + seq);
+        if (el) {
+          el.dataset.origem = ehDoOrc(dados) ? 'orc' : 'mao';
+          // peça incluída à mão em card com orçamento: o aviso diz "marcada como complemento", mas o botão não vinha marcado
+          var auto = el.querySelector('.dica') && /Marcada como <b>complemento<\/b>/.test(el.innerHTML);
+          var cc = el.querySelector('.chip-comp input');
+          if (auto && cc && !cc.checked) { cc.checked = true; marcarComp(el.id, true); }
+        }
+      } catch (e) {}
+      return r;
+    };
   }
   function pintarObrigatorios() {
     try { arrumarValores(); } catch (e) {}
