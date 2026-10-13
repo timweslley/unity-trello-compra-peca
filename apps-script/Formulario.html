@@ -2667,7 +2667,7 @@ iniciar();
   .v2pc #v2ped-tipo #dicaPlaca:empty { display:none; }
   .v2pc .v2-s1 > h2 { display:none; }
   .v2pc #form > section.v2-s1:not(:has(#cardsPlaca > *)):not(:has(#avisoMisto:not(.oculto))) { display:none; }
-  .v2pc.v2-pedtopo #v2lado { top:112px; }
+  .v2pc.v2-pedtopo #v2lado { top:calc(var(--v2topoH, 112px) + 8px); }
   .v2pc #modoEdicao .ed1, .v2pc #modoEdicao .ed1 + br, .v2pc #modoEdicao .ed1 + br + br { display:none; }
   .v2pc #form > #modoEdicao:has(> .ed1):not(:has(br)) { display:none; }
   .v2pc .v2-lercab { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
@@ -2826,6 +2826,26 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { color:#c9372c !important; background:transparent !important; border-radius:6px; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo::after { content:"✕"; font-size:18px !important; font-weight:700; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo:hover { background:#ffeceb !important; }
+  /* 13/10/2026 (Weslley): cabeçalho das colunas preso no topo ao rolar uma lista grande */
+  .v2pc .v2pc-cab { position:sticky; top:var(--v2topoH, 112px); z-index:5; background:#fff; padding-top:6px; }
+  /* tela mais estreita (zoom, janela menor): a linha da peça se reorganiza em vez de sobrepor */
+  .v2pc #form > section.v2-pecas { container-type:inline-size; container-name:pecas; }
+  @container pecas (max-width: 720px) {
+    .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-tipo), .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-marca) { grid-column:2 / -1 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .item-topo { grid-row:3 !important; grid-column:2 / -1 !important; justify-content:flex-start !important; flex-wrap:wrap !important; }
+  }
+  @container pecas (max-width: 540px) {
+    .v2pc .v2pc-cab { display:none !important; }
+    .v2pc #itens > .item, .v2pc #itensPart > .item { grid-template-columns:28px minmax(0, 1fr) 44px 96px !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-codigo) { grid-row:1 !important; grid-column:2 / -1 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc) { grid-row:2 !important; grid-column:2 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(.f-medida) { grid-row:1 !important; grid-column:2 / -1 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(.f-qtd) { grid-row:2 !important; grid-column:3 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) { grid-row:2 !important; grid-column:4 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-tipo), .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-marca) { grid-row:3 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .item-topo { grid-row:4 !important; }
+    .v2pc :is(#itens, #itensPart) > .item .grade .chips { flex-wrap:wrap !important; }
+  }
   /* origem da peça na faixa lateral (sobrepõe a cor da conferência: o que falta já aparece nos próprios campos) */
   .v2 :is(#itens, #itensPart) > .item[data-origem="orc"] { border-left-color:#1f845a !important; }
   .v2 :is(#itens, #itensPart) > .item[data-origem="mao"] { border-left-color:#c9372c !important; }
@@ -2941,6 +2961,7 @@ iniciar();
     else if (visivel(g('form'))) etapa = window.CARD_EDICAO ? 'Editar pedido' : 'Pedido novo';
     else if (visivel(g('telaSucesso'))) etapa = 'Enviado';
     html.classList.toggle('v2-diretoria', !!(window.CARD && window.CARD.diretoria));
+    var hT = (g('v2topo') || {}).offsetHeight || 0; if (hT && html.style.getPropertyValue('--v2topoH') !== hT + 'px') html.style.setProperty('--v2topoH', hT + 'px');
     var pedTopo = PC && visivel(g('form')) && !!g('v2ped-placa');
     html.classList.toggle('v2-pedtopo', pedTopo);
     if (pedTopo && g('v2novo')) g('v2novo').parentNode.style.display = window.CARD_EDICAO ? '' : 'none';
@@ -3190,6 +3211,7 @@ iniciar();
         if (chT && !chT.querySelector('.v2q')) chT.insertAdjacentHTML('beforeend', '<span class="v2q" tabindex="0" data-dica="' + txt(DICA_TIPOPECA) + '"></span>');
       }
       var cx = it.parentNode;
+      if (cx && cx.closest('section')) cx.closest('section').classList.add('v2-pecas');
       if (cx && !(cx.previousElementSibling && cx.previousElementSibling.classList.contains('v2pc-cab'))) {
         var cab = document.createElement('div'); cab.className = 'v2pc-cab';
         cab.innerHTML = '<span>#</span><span>Código' + (cx.id === 'itensPart' || /PARTICULAR|RETORNO/.test(tipoPedidoV2()) ? '' : ' *') + '</span><span>Descrição * · tipo *</span><span style="text-align:center">Qtd</span><span style="text-align:right">Valor orç. (R$)</span>';
