@@ -152,13 +152,13 @@ function cp_similar_(descA, descB) {
   return n >= 0.5 ? n : 0;
 }
 
-// FormularioServidor.gs:598
+// FormularioServidor.gs:631
 function vd_dataCurta_(s) {
   var iso = vd_dataBR_(s);
   return iso ? Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM') : String(s || '');
 }
 
-// FormularioServidor.gs:604
+// FormularioServidor.gs:637
 function vd_dataBR_(s) {
   var iso = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3], 12, 0, 0).toISOString();
@@ -170,7 +170,7 @@ function vd_dataBR_(s) {
   return isNaN(d.getTime()) ? '' : d.toISOString();
 }
 
-// FormularioServidor.gs:616
+// FormularioServidor.gs:649
 function vd_valorNum_(s) {
   s = String(s == null ? '' : s).replace(/R\$/i, '').replace(/\s/g, '');
   if (!s) return NaN;
@@ -179,7 +179,7 @@ function vd_valorNum_(s) {
   return parseFloat(s);
 }
 
-// FormularioServidor.gs:625
+// FormularioServidor.gs:658
 function vd_valorBR_(v) {
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   if (isNaN(n)) return '';
@@ -506,10 +506,10 @@ function vd_lerOrcamento_(texto) {
 // Previsao.gs:14
 function pv_mesmoDia_(a, b) { return !!a && !!b && vd_dataCurta_(a) === vd_dataCurta_(b) && new Date(a).getFullYear() === new Date(b).getFullYear(); }
 
-// Previsao.gs:255
+// Previsao.gs:306
 function pv_diaNum_(d) { try { return +Utilities.formatDate(new Date(d), 'America/Sao_Paulo', 'yyyyMMdd'); } catch (e) { return 0; } }
 
-// Previsao.gs:261
+// Previsao.gs:312
 function pv_datas_(t, semHora) {
   var out = [], m, re = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b(\s*-?\s*\d{1,2}:\d{2})?/g;
   while ((m = re.exec(t))) {
@@ -521,7 +521,7 @@ function pv_datas_(t, semHora) {
   return out;
 }
 
-// Previsao.gs:273
+// Previsao.gs:324
 function pv_fornecedor_(janela, lista) {
   var U = vd_semAcento_(janela);
   var m = U.match(/FORNECEDOR\s*[:\-]?\s*([A-Z0-9][A-Z0-9 .&\/\-]{2,40}?)(?=\s{2,}|\s+\d{1,2}\/\d|\s+PREV|\s+DATA|\s+R\$|$)/);
@@ -544,7 +544,7 @@ function pv_fornecedor_(janela, lista) {
   return '';
 }
 
-// Previsao.gs:297
+// Previsao.gs:348
 function pv_fornecedorCurto_(txt, lista) {
   var t = vd_semAcento_(txt).replace(/\s+/g, ' ').trim();
   if (t.indexOf('/') >= 0) t = t.split('/').pop().trim();
@@ -557,7 +557,7 @@ function pv_fornecedorCurto_(txt, lista) {
   return r.nome;
 }
 
-// Previsao.gs:319
+// Previsao.gs:370
 function pv_lerStatusCilia_(texto, lista) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   if (!/STATUS DAS PECAS|PREVISAO DE ENTREGA|STATUS DO PEDIDO/.test(U)) return null;
@@ -645,7 +645,7 @@ function pv_lerStatusCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:419
+// Previsao.gs:470
 function pv_lerPareceresCilia_(texto) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   var reCab = /FLUXO:\s*\d+\s*\|.*?DATA DE CRIACAO:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/g;
@@ -701,7 +701,7 @@ function pv_lerPareceresCilia_(texto) {
   return out;
 }
 
-// Previsao.gs:475
+// Previsao.gs:526
 function pv_ultimaAtualizacaoCilia_(texto) {
   var m = vd_semAcento_(String(texto || '')).match(/ULTIMA ATUALIZACAO\s*\(?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/);
   if (!m) return null;
@@ -710,7 +710,7 @@ function pv_ultimaAtualizacaoCilia_(texto) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Previsao.gs:487
+// Previsao.gs:538
 function pv_aplicarPareceres_(achados, texto, alvos) {
   var pareceres = pv_lerPareceresCilia_(texto);
   if (!pareceres.length) return 0;
@@ -753,11 +753,21 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
   return n;
 }
 
-// Previsao.gs:540
+// Previsao.gs:591
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
   var linhas = String(texto || '').replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
+  // PDF do portal lido pelo Google: a tabela inteira vem numa linha só, com o cabeçalho na frente
+  // ("Peça Prev.Entrega Entrega Fornecedor Tel. E-mail ABSORVEDOR … mail CAPÔ … mail") — 13/10/2026, UIC5G94.
+  // Quebra uma peça por linha: depois de cada e-mail (e de "Fornecido pela Oficina").
+  var reMailG = /\S+@\S+\.\S+/g;
+  linhas = [].concat.apply([], linhas.map(function (l) {
+    if ((l.match(reMailG) || []).length < 2 && !/PREV\.?\s*ENTREGA.+E-?MAIL\s+\S/i.test(vd_semAcento_(l))) return [l];
+    return l.replace(/^.*?Prev\.?\s*Entrega\s+Entrega\s+Fornecedor\s+Tel\.?\s+E-?mail\s+/i, '')
+      .replace(/(\S+@\S+\.\S+)\s+/g, '$1\n').replace(/(Fornecido pela Oficina)\s+/gi, '$1\n')
+      .split('\n').map(function (x) { return x.trim(); }).filter(String);
+  }));
   var ini = -1, fim = linhas.length;
   linhas.forEach(function (l, i) {
     var u = vd_semAcento_(l);
@@ -830,7 +840,7 @@ function pv_lerHdiPecas_(texto, lista) {
   return pecas.length ? pecas : null;
 }
 
-// Previsao.gs:616
+// Previsao.gs:677
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
@@ -838,17 +848,26 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   // "Peças do sinistro" do portal HDI: sem código — casa pela descrição (07/10/2026)
   var hdi = null; try { hdi = pv_lerHdiPecas_(texto, lista); } catch (e) { console.log('peças hdi: ' + e); }
   if (hdi) {
-    var outH = [], usadasH = {};
-    (alvos || []).forEach(function (a) {
-      var melhor = -1, nota = 0;
+    // casa pela melhor nota de todas as combinações (não pela ordem do card) e dá preferência ao fornecedor
+    // que o item do card já traz ("GRADE PARACHOQUE DIANT - LUSON"): 13/10/2026, UIC5G94
+    var outH = [], usadasH = {}, usadosA = {}, pares = [];
+    var tagForn = function (a) { var m = String(a.nome || '').match(/\s-\s([A-Za-zÀ-ÿ]{3,})[^-]*$/); return m ? vd_semAcento_(m[1]).slice(0, 4) : ''; };
+    (alvos || []).forEach(function (a, ia) {
+      var tag = tagForn(a), desc = String(a.descricao || a.nome || '').replace(/\s-\s[A-Za-zÀ-ÿ][^-]*$/, '');
       hdi.forEach(function (p, i) {
-        if (usadasH[i] || p.oficina) return;
-        var sim = cp_similar_(a.descricao || a.nome, p.descricao);
-        if (sim > nota) { nota = sim; melhor = i; }
+        if (p.oficina) return;
+        var sim = cp_similar_(desc, p.descricao);
+        if (!sim) return;
+        if (tag && vd_semAcento_(p.fornecedor || '').indexOf(tag) === 0) sim += 0.3;
+        pares.push({ ia: ia, i: i, n: sim });
       });
-      if (melhor < 0) return;
-      usadasH[melhor] = 1;
-      var r = hdi[melhor];
+    });
+    pares.sort(function (x, y) { return y.n - x.n || x.ia - y.ia || x.i - y.i; });
+    var porAlvo = {};
+    pares.forEach(function (pr) { if (usadasH[pr.i] || usadosA[pr.ia]) return; usadasH[pr.i] = 1; usadosA[pr.ia] = 1; porAlvo[pr.ia] = pr.i; });
+    (alvos || []).forEach(function (a, ia) {
+      if (porAlvo[ia] === undefined) return;
+      var r = hdi[porAlvo[ia]];
       outH.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, entregue: r.entregue, entregueEm: r.entregueEm });
     });
     if (outH.length) return outH;
@@ -912,7 +931,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:698
+// Previsao.gs:768
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
@@ -962,14 +981,14 @@ function vd_chassiValido_(c) {
   return /^[A-HJ-NPR-Z0-9]{17}$/.test(c) && /[A-Z]/.test(c) && /\d{4}$/.test(c);
 }
 
-// Validacao.gs:514
+// Validacao.gs:523
 function vd_valorOrcTxt_(v) {
   if (v == null || v === '') return '';
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   return isNaN(n) || n <= 0 ? '' : vd_valorBR_(n);
 }
 
-// Validacao.gs:614
+// Validacao.gs:623
 function vd_motorDoModelo_(m) {
   var s = String(m || '');
   var d = s.match(/\b\d\.\d\b/);
@@ -979,7 +998,7 @@ function vd_motorDoModelo_(m) {
   return [d[0]].concat(tk.filter(function (t, i) { return tk.indexOf(t) === i; })).join(' ');
 }
 
-// Validacao.gs:622
+// Validacao.gs:631
 function vd_extrair_(texto) {
   var T = String(texto || '').replace(/\r/g, '');
   var U = vd_semAcento_(T).replace(/[\s\u00a0]+/g, ' ');
@@ -1029,7 +1048,7 @@ function vd_extrair_(texto) {
   return r;
 }
 
-// Validacao.gs:820
+// Validacao.gs:831
 function vd_dicaNorm_(t) {
   var s = vd_semAcento_(t);
   if (/^GENU/.test(s)) return 'GENUÍNO';
@@ -1040,14 +1059,14 @@ function vd_dicaNorm_(t) {
   return '';
 }
 
-// Validacao.gs:856
+// Validacao.gs:867
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
 
-// Validacao.gs:878
+// Validacao.gs:889
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4

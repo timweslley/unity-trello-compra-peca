@@ -472,8 +472,11 @@ function vd_analisarPeca_(linha, n, opts) {
     faltas.push(rot + ': fora do padrão CÓDIGO | DESCRIÇÃO | TIPO');
     return { pneu: false, codigo: '', descricao: linha, tipos: [], qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, compStatus: compStatus, compPor: compPor, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, faltas: faltas, texto: linha };
   }
+  // 13/10/2026 (Weslley): "ACESSORIO" no lugar do código = peça que nem o Cilia tem código — vale, não cobra; a peça fica
+  // identificada pela descrição (vários acessórios no mesmo pedido não se confundem) e a linha continua "ACESSORIO | …"
+  var acessorio = vd_ehAcessorio_(codigo);
   var semCodigo = !codigo || !/\d/.test(codigo) || codigo.replace(/[^A-Z0-9]/gi, '').length < 4 || /^S\s*\/?\s*C$/i.test(codigo);
-  if (semCodigo && !opts.codigoOpcional) faltas.push(rot + ': falta o código da peça (buscar no Cilia)');
+  if (semCodigo && !opts.codigoOpcional && !acessorio) faltas.push(rot + ': falta o código da peça (buscar no Cilia)');
   if (semCodigo) codigo = '';
   if (!descr) faltas.push(rot + ': falta a descrição');
   var tipos = tiposTxt.split(/[\/,;+]|\bE\b|\bOU\b/i).map(vd_tipoNorm_).filter(String);
@@ -484,7 +487,7 @@ function vd_analisarPeca_(linha, n, opts) {
   else if (!tipos.length) faltas.push(rot + ': falta o tipo de peça (GENUÍNO, ORIGINAL, PARALELO ou USADO)');
   if (tipos.length > 2) faltas.push(rot + ': no máximo 2 tipos por peça');
   if (nao) faltas = [];
-  return { pneu: false, codigo: codigo, descricao: descr, tipos: tipos, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, compStatus: compStatus, compPor: compPor, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, faltas: faltas, texto: linha };
+  return { pneu: false, codigo: codigo, acessorio: acessorio || undefined, descricao: descr, tipos: tipos, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, compStatus: compStatus, compPor: compPor, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, faltas: faltas, texto: linha };
 }
 
 /** Texto curto da situação do complementar na seguradora (vitrine/comentário). */
@@ -510,8 +513,11 @@ function vd_linhaPeca_(p, i) {
     + (vd_valorOrcTxt_(p.valorOrc) ? ' | ORÇ ' + vd_valorOrcTxt_(p.valorOrc) : '')
     + (p.obs ? ' | OBS: ' + String(p.obs).replace(/\|/g, '/').replace(/\s*\n\s*/g, ' ').trim() : '');
   if (p.pneu) return (i + 1) + '. PNEU | ' + p.medida + ' | ' + (p.categoria || p.marca) + q;
-  return (i + 1) + '. ' + p.codigo + ' | ' + p.descricao + ' | ' + (p.tipos || []).join('/') + q;
+  return (i + 1) + '. ' + (p.codigo || (p.acessorio ? 'ACESSORIO' : '')) + ' | ' + p.descricao + ' | ' + (p.tipos || []).join('/') + q;
 }
+
+/** "ACESSORIO" / "ACESSÓRIO(S)" escrito no lugar do código da peça (13/10/2026). */
+function vd_ehAcessorio_(c) { return /^ACESSORIOS?$/.test(vd_semAcento_(String(c || '')).toUpperCase().replace(/[^A-Z]/g, '')); }
 
 /** Valor da peça no orçamento -> "R$ 1.234,56" ('' se vazio/inválido). Aceita número ou texto BR. */
 function vd_valorOrcTxt_(v) {

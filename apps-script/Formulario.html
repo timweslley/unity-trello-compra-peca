@@ -2211,7 +2211,7 @@ function novoItem(tipo, dados) {
   // (07/10/2026, Weslley); quem incluir pode desmarcar
   var compAuto = false;
   if (dados.complemento === undefined && !dados.codigo && !dados.descricao && !dados.medida && podeComp && (ORC || (CARD && CARD.doOrcamento))) { dados.complemento = true; compAuto = true; }
-  if (dados.chave) div.dataset.orig = JSON.stringify({ chave: dados.chave, codigo: dados.codigo || '', descricao: dados.descricao || '', tipos: (dados.tipos || []).slice().sort(), qtd: String(dados.qtd || 1), pneu: tipo === 'pneu', medida: dados.medida || '' });
+  if (dados.chave) div.dataset.orig = JSON.stringify({ chave: dados.chave, codigo: dados.codigo || (dados.acessorio ? 'ACESSORIO' : ''), descricao: dados.descricao || '', tipos: (dados.tipos || []).slice().sort(), qtd: String(dados.qtd || 1), pneu: tipo === 'pneu', medida: dados.medida || '' });
   var h = '<div class="item-topo"><strong class="num"></strong>'
     + (podeComp ? '<label class="chip chip-comp' + (div.dataset.comp ? ' marcado' : '') + '" title="Peça fora do orçamento autorizado: entra no orçamento complementar da seguradora (linha | COMPLEMENTO dd/mm; compra vai para PAGAS COMPLEMENTO)"><input type="checkbox" class="f-comp"' + (div.dataset.comp ? ' checked' : '') + ' onchange="marcarComp(\'' + id + '\', this.checked)"> ➕ Complemento' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</label>'
                : (div.dataset.comp ? '<span class="selo-comp">➕ COMPLEMENTO' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</span>' : ''))
@@ -2231,7 +2231,7 @@ function novoItem(tipo, dados) {
       + '</div><input type="text" class="f-marca maiusc" placeholder="Marca (ex.: PIRELLI)" style="margin-top:8px" value="' + esc(dados.marca) + '" oninput="if(this.value)this.closest(\'.item\').querySelector(\'input[value=MARCA]\').checked=true;pintarChips(\'' + id + '\')"></div></div>';
   } else {
     h += '<div class="grade">'
-      + '<div><label>Código da peça ' + (caixa.id === 'itensPart' || tipoPedido() === 'PARTICULAR' || tipoPedido() === 'RETORNO' ? '<span style="font-size:12px">(opcional)</span>' : '<span class="obr">*</span>') + '</label><input type="text" class="f-codigo maiusc" placeholder="Buscar no Cilia" value="' + esc(dados.codigo) + '"></div>'
+      + '<div><label>Código da peça ' + (caixa.id === 'itensPart' || tipoPedido() === 'PARTICULAR' || tipoPedido() === 'RETORNO' ? '<span style="font-size:12px">(opcional)</span>' : '<span class="obr">*</span>') + '</label><input type="text" class="f-codigo maiusc" placeholder="Buscar no Cilia" value="' + esc(dados.codigo || (dados.acessorio ? 'ACESSORIO' : '')) + '"></div>'
       + '<div><label>Quantidade</label><input type="number" min="1" class="f-qtd" value="' + esc(dados.qtd || 1) + '"></div>'
       + campoValorOrc(dados)
       + '<div class="inteiro"><label>Descrição <span class="obr">*</span></label><input type="text" class="f-desc maiusc" placeholder="FAROL ESQUERDO" value="' + esc(dados.descricao) + '"></div>'
@@ -2242,7 +2242,7 @@ function novoItem(tipo, dados) {
     });
     h += '</div>';
     if (dados.dica) h += '<div class="dica">No orçamento: <b>' + esc(dados.dica) + '</b> — escolha o tipo acima.</div>';
-    if (dados.descricaoOrc !== undefined && !dados.codigo) h += '<div class="dica ruim">O orçamento não traz código de fábrica desta peça — busque no Cilia.</div>';
+    if (dados.descricaoOrc !== undefined && !dados.codigo) h += '<div class="dica ruim">O orçamento não traz código de fábrica desta peça — busque no Cilia (se nem o Cilia tiver, escreva ACESSORIO).</div>';
     h += '</div></div>';
   }
   // observação do consultor sobre a peça (06/10/2026): vai na linha da peça do card e aparece para o comprador
