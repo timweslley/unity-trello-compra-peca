@@ -443,6 +443,7 @@ Tesseract/serviço de OCR para imagem e PDF escaneado.
 Serviços e códigos internos (`^0{2,}\d+$`, `^SOMA\d+$`) ficam fora. Valor líquido unitário entra como `ORÇ R$`.
 Orçamento importado na edição de um card que já tem peças **ou só itens de FORNECIMENTO/PAGAS** é tratado como complementar
 (antes, card só com fornecimento caía na importação de pedido novo e o orçamento era lido como se fosse do zero — 13/10/2026, UIC5G94).
+Reler pelo formulário um orçamento **antigo** do card (existe outro PDF de orçamento/laudo anexado depois dele — notas, fotos e documentos 🚚 não contam) não traz nada: ele foi substituído pelo mais novo (13/10/2026, UIC5G94: o Cilia de 11/09 tinha tudo pela oficina e o laudo HDI 2.1 passou tudo para fornecimento).
 Orçamento complementar (ORÇ+): compara com as peças existentes → ➕ oficina nova, 📦 FO nova, 🔁 já pedida,
 🔁 passou de FO para oficina (sai do checklist), 🔄 atualizada (código/descrição/valor). Peça da oficina marcada
 🚫 **não comprar** (mesmo código ou mesma descrição) conta como já conhecida e **não volta** como complemento — o

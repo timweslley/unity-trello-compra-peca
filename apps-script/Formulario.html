@@ -2162,6 +2162,7 @@ function importarComplemento(o, anexoId) {
     if (COMP.paraOficina.length) atuTxt += '<br>🔁 <b>Passou de fornecida para oficina</b> (entra como peça nova da oficina e sai do checklist FORNECIMENTO): ' + COMP.paraOficina.map(function (x) { return esc(x.peca); }).join('; ');
     if (!novas.length && !COMP.fo.length) {
       if (!COMP.pareadas.length && !atualizadas.length) COMP = null;
+      if (r.antigo) { aviso.innerHTML = '📄 Este orçamento ' + esc(o.origem) + ' é <b>antigo</b>: há outro orçamento anexado no card depois dele, que já vale. Nada foi incluído. Para um complementar, use o orçamento mais novo.'; COMP = null; return; }
       aviso.innerHTML = '📄 Orçamento ' + esc(o.origem) + ' lido: <b>nenhuma peça nova</b> — tudo o que está nele já está no card' + (r.jaTinha ? ' (' + r.jaTinha + ' peça(s))' : '') + '.' + pare + atuTxt + (COMP ? '<br>Clique em <b>Enviar</b> para registrar no card.' : '');
       return;
     }

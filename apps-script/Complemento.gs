@@ -342,7 +342,16 @@ function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTi
 /** Formulário: compara um orçamento lido com o card. o = {oficina, fo}, idAnexo = anexo lido (se já está no card). */
 function vdf_compararComplemento(token, shortLink, o, idAnexo) {
   vdf_usuario_(token);
-  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name', attachments: 'true', attachment_fields: 'name' } });
+  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name', attachments: 'true', attachment_fields: 'name,date,mimeType' } });
+  // 13/10/2026 (UIC5G94): orçamento ANTIGO do card (há outro orçamento/laudo anexado DEPOIS dele) foi substituído pelo
+  // mais novo — reler não traz peça nova (o de 11/09 tinha tudo pela oficina; o laudo 2.1 passou tudo para a HDI)
+  if (idAnexo) {
+    var axA = (card.attachments || []).filter(function (x) { return x.id === idAnexo; })[0];
+    var ehDoc = function (x) { var n = String(x.name || ''); return (/pdf/i.test(x.mimeType || '') || /\.pdf$/i.test(n)) && !ax_ehNota_(n) && !/^🚚 |^📸 |^🧾 /.test(n); };
+    if (axA && (card.attachments || []).some(function (x) { return x.id !== axA.id && ehDoc(x) && String(x.date || '') > String(axA.date || ''); })) {
+      return { oficina: [], fo: [], jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length, pareadas: [], atualizar: [], paraOficina: [], jaProcessado: true, antigo: true };
+    }
+  }
   // 13/10/2026 (BDK2J49): "ler de novo" um orçamento que JÁ está no card e já foi processado não é complemento novo — as
   // peças dele contam como conhecidas (compradas no fluxo antigo, tiradas de propósito etc.). Só anexo novo é comparado sem ele.
   var excluir = idAnexo || '';
