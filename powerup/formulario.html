@@ -3618,8 +3618,38 @@ iniciar();
     placa: function (v) { return placaOk(v); },
     ano: function (v) { return /^(19|20)\d{2}(\s*\/\s*(19|20)\d{2})?$/.test(v); }
   };
+  /* 13/10/2026 (Weslley): nº da ordem e cor obrigatórios fora do PARTICULAR; seguradora obrigatória no pedido de SEGURADORA.
+     Só no TESTE (2.0): o asterisco aparece/some com o tipo e o Enviar cobra (o principal segue a regra antiga até a virada). */
+  function obrigExtras() {
+    var t = tipoPedidoV2(), ids = [];
+    if (t !== 'PARTICULAR' && !(typeof modoMisto === 'function' && modoMisto() && t === 'PARTICULAR')) ids.push('ordem', 'cor');
+    if (t === 'SEGURADORA') ids.push('seguradora');
+    return ids.filter(function (id) { var el = g(id); return el && el.offsetParent !== null; });
+  }
+  var NOMES_EXTRA = { ordem: 'nº da ordem (Databox)', cor: 'cor', seguradora: 'seguradora' };
+  function marcarAsteriscos() {
+    var ex = obrigExtras();
+    ['ordem', 'cor', 'seguradora'].forEach(function (id) {
+      var lb = document.querySelector('label[for=' + id + ']'); if (!lb) return;
+      var tem = lb.querySelector('.v2obr');
+      if (ex.indexOf(id) >= 0 && !tem) lb.insertAdjacentHTML('beforeend', ' <span class="obr v2obr">*</span>');
+      if (ex.indexOf(id) < 0 && tem) tem.remove();
+    });
+  }
+  if (typeof coletar === 'function') {
+    var coletarOrig = coletar;
+    window.coletar = function () {
+      var r = coletarOrig.apply(this, arguments);
+      try {
+        var falta = obrigExtras().filter(function (id) { return !String(g(id).value || '').trim(); }).map(function (id) { return NOMES_EXTRA[id]; });
+        if (falta.length && r && r.faltas) r.faltas.unshift('Dados do carro: falta ' + falta.join(', '));
+      } catch (e) {}
+      return r;
+    };
+  }
   function pintarObrigatorios() {
     if (!visivel(form)) return;
+    try { marcarAsteriscos(); } catch (e) {}
     $$('label[for]').forEach(function (lb) {
       if (!lb.querySelector('.obr')) return;
       var el = g(lb.htmlFor); if (!el || el.id === 'chassi' || el.closest('.item') || !form.contains(el) && el.id !== 'placa') return;
