@@ -320,9 +320,21 @@ function vdf_removerRepetidos(token, shortLink) {
  * ENCERRADO/ENTREGUES; a cada ciclo lê (OCR) os PDFs/fotos sem nome padrão e ainda nunca lidos e batiza pelo que são.
  * Orçamento mais velho que outro 📄 ORÇ do card (foi substituído) vira "📄 ORÇ · … (antigo)". O que não for reconhecido
  * fica com o nome que tem — e, como a leitura fica guardada, não é lido de novo nas noites seguintes. */
+var AX_MAD_MAX_LEITURAS = 150;   // OCR por noite (cota do Google); o resto fica para a noite seguinte
+
+/** Registro de/para de cada renomeação da madrugada (desfazer se precisar): AX_MAD_REN = [[cardId, anexoId, de, para], …] (últimas 400). */
+function ax_madRegistrar_(cardId, anexoId, de, para) {
+  try {
+    var props = PropertiesService.getScriptProperties(), l = JSON.parse(props.getProperty('AX_MAD_REN') || '[]');
+    l.push([cardId, anexoId, String(de || '').slice(0, 60), String(para || '').slice(0, 70)]);
+    while (JSON.stringify(l).length > 8500) l.shift();
+    props.setProperty('AX_MAD_REN', JSON.stringify(l));
+  } catch (e) {}
+}
+
 function ax_madrugada_(teste) {
   var h = +Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'H');
-  if (!teste && (h < 1 || h > 5)) return 'fora do horário';
+  if (!teste && (h < 3 || h > 5)) return 'fora do horário';   // 3h–5h59: depois da Rotina Unity (1h59), que precisa do robô livre para ler os PDFs que anexa
   var props = PropertiesService.getScriptProperties();
   var dia = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
   var st = {}; try { st = JSON.parse(props.getProperty('AX_MAD') || '{}'); } catch (e) {}
@@ -334,6 +346,7 @@ function ax_madrugada_(teste) {
     st = { dia: dia, fila: cards.filter(function (c) { return !pular[c.idList] && !vdf_cardProtegido_(c.name || '') && ax_placa_(c); }).map(function (c) { return c.shortLink; }), pos: 0, lidos: 0, renomeados: 0, antigos: 0 };
   }
   if (st.pos >= st.fila.length) return 'noite concluída';
+  if (!teste && st.lidos >= AX_MAD_MAX_LEITURAS) return 'teto da noite (' + AX_MAD_MAX_LEITURAS + ' leituras) — continua amanhã';
   var ini = Date.now(), limite = Math.min(45 * 1000, (vd_restante_() === Infinity ? 45 * 1000 : vd_restante_() - 20 * 1000));
   for (; st.pos < st.fila.length && Date.now() - ini < limite; st.pos++) {
     try {
@@ -344,24 +357,27 @@ function ax_madrugada_(teste) {
         return a.isUpload && ((!ax_padronizado_(a.name) && !ax_ehNota_(a.name)) || nomeVelhoNf) && vd_anexoLegivel_(a) && !/^image\//i.test(a.mimeType || '') &&
           !props.getProperty('VD_ANX3_' + a.id);
       }).sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
-      for (var i = 0; i < anexos.length && Date.now() - ini < limite; i++) {
+      for (var i = 0; i < anexos.length && Date.now() - ini < limite && (teste || st.lidos < AX_MAD_MAX_LEITURAS); i++) {
         var a = anexos[i], r = vd_lerAnexoTrello_(a);
         st.lidos++;
         if (!r || r.erro) continue;
         if (r.nf && !r.orcamento) {   // nota fiscal anexada à mão: padrão das rotinas de NF
           var nmNf = ax_nomeNfRotina_(r.nf, ax_nfDeFornecimento_(card, r.nf.emitente), a.date);
-          if (nmNf !== a.name && ax_renomear_(card.id, a.id, nmNf, null)) { a.name = nmNf; st.renomeados++; st.notas = (st.notas || 0) + 1; }
+          var deNf = a.name;
+          if (nmNf !== a.name && ax_renomear_(card.id, a.id, nmNf, null)) { ax_madRegistrar_(card.id, a.id, deNf, nmNf); a.name = nmNf; st.renomeados++; st.notas = (st.notas || 0) + 1; }
           continue;
         }
         var placa = ax_placa_(card);
         var orcNovo = (card.attachments || []).filter(function (x) { return x.id !== a.id && String(x.name || '').indexOf(AX.ORC + AX.SEP) === 0 && String(x.date || '') > String(a.date || ''); })[0];
         if (r.orcamento && orcNovo && (r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) {
           var nm = ax_nome_(AX.ORC, placa, [r.seguradora || '', ax_origem_(r.orcamento)], a.date) + ' (antigo)';
-          if (ax_renomear_(card.id, a.id, nm, null)) { a.name = nm; st.renomeados++; st.antigos++; }
+          var deA = a.name;
+          if (ax_renomear_(card.id, a.id, nm, null)) { ax_madRegistrar_(card.id, a.id, deA, nm); a.name = nm; st.renomeados++; st.antigos++; }
           continue;
         }
         var temOrc = (card.attachments || []).some(function (x) { return x.id !== a.id && String(x.name || '').indexOf(AX.ORC + AX.SEP) === 0; });
-        if (ax_batizarLido_(card, a, r, temOrc, null)) st.renomeados++;
+        var deB = a.name, paraB = ax_batizarLido_(card, a, r, temOrc, null);
+        if (paraB) { ax_madRegistrar_(card.id, a.id, deB, paraB); st.renomeados++; }
       }
       if (i < anexos.length) break;   // acabou o tempo no meio do card: continua dele no próximo ciclo
     } catch (e) { console.log('madrugada anexos ' + st.fila[st.pos] + ': ' + e); }
