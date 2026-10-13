@@ -791,7 +791,7 @@ function pv_lerFornecimentoTexto_(card, texto) {
     }
     return b;
   };
-  var alvos = itensFo.map(function (i) { var b = descolar(pv_baseFo_(i.name, foLista)); var m = b.match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s+(.+)$/i); return { id: i.id, nome: b, codigo: m && /\d/.test(m[1]) ? m[1] : '', descricao: m ? m[2] : b }; });
+  var alvos = itensFo.map(function (i) { var b0 = pv_baseFo_(i.name, foLista), b = descolar(b0); var m = b.match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s+(.+)$/i); return { id: i.id, colado: b !== b0, nome: b, codigo: m && /\d/.test(m[1]) ? m[1] : '', descricao: m ? m[2] : b }; });
   var achados = pv_lerFornecimento_(texto, alvos, foLista);
   var achIds = achados.map(function (r) { return r.alvo.id; });
   var faltando = alvos.filter(function (a) { return a.codigo && achIds.indexOf(a.id) < 0; }).map(function (a) { return a.nome; });
@@ -819,7 +819,7 @@ function pv_lerFornecimentoTexto_(card, texto) {
   }
   return {
     orcamento: !!orc.origem, lidos: achados.length,
-    achados: achados.map(function (r) { return { id: r.alvo.id, nome: r.alvo.nome, fornecedor: r.fornecedor, previsao: r.previsao ? Utilities.formatDate(new Date(r.previsao), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', codigoNovo: r.codigoNovo || '', descNova: r.descNova || '', entregue: !!r.entregue, entregueEm: r.entregueEm ? Utilities.formatDate(new Date(r.entregueEm), 'America/Sao_Paulo', 'yyyy-MM-dd') : '',
+    achados: achados.map(function (r) { return { id: r.alvo.id, nome: r.alvo.nome, fornecedor: r.fornecedor, previsao: r.previsao ? Utilities.formatDate(new Date(r.previsao), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', codigoNovo: r.codigoNovo || (r.alvo.colado ? r.alvo.codigo : ''), descNova: r.descNova || (r.alvo.colado ? r.alvo.descricao : ''), entregue: !!r.entregue, entregueEm: r.entregueEm ? Utilities.formatDate(new Date(r.entregueEm), 'America/Sao_Paulo', 'yyyy-MM-dd') : '',
       // vindo do parecer do Cilia (07/10/2026): motivo da nova previsão, situação BO, previsão que a tabela mostrava
       motivo: r.motivo || '', situacao: r.situacao || '', parecer: r.parecer || '', previsaoTabela: r.previsaoTabela ? Utilities.formatDate(new Date(r.previsaoTabela), 'America/Sao_Paulo', 'yyyy-MM-dd') : '' }; }),
     faltando: faltando, extras: extras.slice(0, 20)
