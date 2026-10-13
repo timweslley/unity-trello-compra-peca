@@ -89,7 +89,7 @@ test('cliente: header auth_token, colchetes do date_range e paginação por curs
   const c = criarCliente('T', { fetchFn, pausaMs: 0 });
   const l = await c.listar({ inicio: '2026-06-01', fim: '2026-10-11' });
   assert.equal(l.length, 2);
-  assert.match(urls[0], /date_range\[start_date\]=2026-06-01/);
+  assert.match(urls[0], /date_range%5Bstart_date%5D=2026-06-01/);
   assert.match(urls[0], /page=1/);
   assert.match(urls[1], /cursor=c2/);
   assert.equal(query({ a: 1, b: '', c: null }), 'a=1');

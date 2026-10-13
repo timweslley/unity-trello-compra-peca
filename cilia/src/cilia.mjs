@@ -12,15 +12,17 @@ export class ErroCilia extends Error {
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Monta a query string sem mexer nos colchetes do Cilia (date_range[start_date]). */
+/** Monta a query string. Os colchetes do Cilia (date_range[start_date]) vão CODIFICADOS (%5B %5D): o gateway (Tomcat)
+ *  devolve 400 "Bad Request" para colchete cru no endereço (13/10/2026, teste no PC do Weslley). */
 export function query(params) {
   return Object.entries(params)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`)
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
     .join('&');
 }
 
 export function criarCliente(token, { fetchFn = fetch, pausaMs = PAUSA_MS } = {}) {
+  token = String(token || '').replace(/\s+/g, '');   // espaço/quebra de linha que vem junto ao colar
   let chamadas = 0;
   async function get(caminho, params) {
     if (chamadas > 0 && pausaMs) await dormir(pausaMs);
