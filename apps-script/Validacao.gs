@@ -1313,7 +1313,7 @@ function vd_conferirCard_(card, ctx) {
   var nome = card.name || '';
   var res = { card: nome, url: card.shortUrl, acao: '', faltas: [], preenchido: [], avisos: [] };
 
-  if (/^\s*AVISO\b/i.test(nome) || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome) || /sem\s+compra\s+de\s+pe[çc]a/i.test(vd_limpar_(card.desc))) {
+  if (/^\s*AVISO\b/i.test(nome) || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome) || /sem\s+compra\s+de\s+pe[çc]a/i.test(vd_limpar_(String(card.desc || '').split(/=== COTA[ÇC][ÃA]O \(compras\) ===/)[0]))) {   // 13/10/2026: só o pedido conta — o texto antigo guardado abaixo da COTAÇÃO ("SEM COMPRA DE PEÇAS 18/09") fazia o robô ignorar o card inteiro (RAM9I31)
     res.acao = 'ignorado (aviso / sem compra de peça)';
     return res;
   }
