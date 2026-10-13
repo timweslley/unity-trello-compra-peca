@@ -541,6 +541,16 @@ function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
   var linhas = String(texto || '').replace(/\r/g, '').split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
+  // PDF do portal lido pelo Google: a tabela inteira vem numa linha só, com o cabeçalho na frente
+  // ("Peça Prev.Entrega Entrega Fornecedor Tel. E-mail ABSORVEDOR … mail CAPÔ … mail") — 13/10/2026, UIC5G94.
+  // Quebra uma peça por linha: depois de cada e-mail (e de "Fornecido pela Oficina").
+  var reMailG = /\S+@\S+\.\S+/g;
+  linhas = [].concat.apply([], linhas.map(function (l) {
+    if ((l.match(reMailG) || []).length < 2 && !/PREV\.?\s*ENTREGA.+E-?MAIL\s+\S/i.test(vd_semAcento_(l))) return [l];
+    return l.replace(/^.*?Prev\.?\s*Entrega\s+Entrega\s+Fornecedor\s+Tel\.?\s+E-?mail\s+/i, '')
+      .replace(/(\S+@\S+\.\S+)\s+/g, '$1\n').replace(/(Fornecido pela Oficina)\s+/gi, '$1\n')
+      .split('\n').map(function (x) { return x.trim(); }).filter(String);
+  }));
   var ini = -1, fim = linhas.length;
   linhas.forEach(function (l, i) {
     var u = vd_semAcento_(l);
@@ -620,17 +630,26 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   // "Peças do sinistro" do portal HDI: sem código — casa pela descrição (07/10/2026)
   var hdi = null; try { hdi = pv_lerHdiPecas_(texto, lista); } catch (e) { console.log('peças hdi: ' + e); }
   if (hdi) {
-    var outH = [], usadasH = {};
-    (alvos || []).forEach(function (a) {
-      var melhor = -1, nota = 0;
+    // casa pela melhor nota de todas as combinações (não pela ordem do card) e dá preferência ao fornecedor
+    // que o item do card já traz ("GRADE PARACHOQUE DIANT - LUSON"): 13/10/2026, UIC5G94
+    var outH = [], usadasH = {}, usadosA = {}, pares = [];
+    var tagForn = function (a) { var m = String(a.nome || '').match(/\s-\s([A-Za-zÀ-ÿ]{3,})[^-]*$/); return m ? vd_semAcento_(m[1]).slice(0, 4) : ''; };
+    (alvos || []).forEach(function (a, ia) {
+      var tag = tagForn(a), desc = String(a.descricao || a.nome || '').replace(/\s-\s[A-Za-zÀ-ÿ][^-]*$/, '');
       hdi.forEach(function (p, i) {
-        if (usadasH[i] || p.oficina) return;
-        var sim = cp_similar_(a.descricao || a.nome, p.descricao);
-        if (sim > nota) { nota = sim; melhor = i; }
+        if (p.oficina) return;
+        var sim = cp_similar_(desc, p.descricao);
+        if (!sim) return;
+        if (tag && vd_semAcento_(p.fornecedor || '').indexOf(tag) === 0) sim += 0.3;
+        pares.push({ ia: ia, i: i, n: sim });
       });
-      if (melhor < 0) return;
-      usadasH[melhor] = 1;
-      var r = hdi[melhor];
+    });
+    pares.sort(function (x, y) { return y.n - x.n || x.ia - y.ia || x.i - y.i; });
+    var porAlvo = {};
+    pares.forEach(function (pr) { if (usadasH[pr.i] || usadosA[pr.ia]) return; usadasH[pr.i] = 1; usadosA[pr.ia] = 1; porAlvo[pr.ia] = pr.i; });
+    (alvos || []).forEach(function (a, ia) {
+      if (porAlvo[ia] === undefined) return;
+      var r = hdi[porAlvo[ia]];
       outH.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, entregue: r.entregue, entregueEm: r.entregueEm });
     });
     if (outH.length) return outH;
