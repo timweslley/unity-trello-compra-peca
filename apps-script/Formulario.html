@@ -2681,6 +2681,26 @@ iniciar();
   .v2pc .v2pc-docbar label.v2-btnarq.sec { background:#091e420f; color:#172b4d !important; }
   .v2 #v2fornPrevia { margin:4px 0 8px; font-size:14px; line-height:20px; }
   .v2 #v2fornPrevia ul { margin:4px 0 0 18px; padding:0; }
+  /* dados do carro (computador): uma grade de 12 colunas; os blocos internos "somem" e os campos entram direto nela */
+  .v2pc #form > section.v2-carro { display:grid; grid-template-columns:repeat(12, minmax(0, 1fr)); gap:8px 12px; align-items:start; }
+  .v2pc section.v2-carro > h2 { grid-column:1 / -1; margin-bottom:0 !important; }
+  .v2pc section.v2-carro > .grade, .v2pc section.v2-carro > #blocoNovo { display:contents; }
+  .v2pc section.v2-carro > #dicaTitulo { display:none; }
+  .v2pc section.v2-carro .grade > div { margin:0; min-width:0; }
+  .v2pc section.v2-carro div:has(> #modelo) { grid-column:span 6; order:1; }
+  .v2pc section.v2-carro div:has(> #ano) { grid-column:span 3; order:2; }
+  .v2pc section.v2-carro div:has(> #motor) { grid-column:span 3; order:3; }
+  .v2pc section.v2-carro div:has(> #chassi) { grid-column:span 5; order:4; }
+  .v2pc section.v2-carro div:has(> #ordem) { grid-column:span 3; order:5; }
+  .v2pc section.v2-carro div:has(> #unidade) { grid-column:span 4; order:6; }
+  .v2pc section.v2-carro div:has(> #carro) { grid-column:span 4; order:7; }
+  .v2pc section.v2-carro div:has(> #cor) { grid-column:span 2; order:8; }
+  .v2pc section.v2-carro div:has(> #seguradora) { grid-column:span 3; order:9; }
+  .v2pc section.v2-carro div:has(> #sinistro) { grid-column:span 3; order:10; }
+  .v2pc section.v2-carro #chassi { font-family:ui-monospace, Consolas, monospace; letter-spacing:1px; }
+  .v2pc section.v2-carro #dicaChassi { margin:2px 0 0; font-size:12px; line-height:16px; }
+  .v2pc section.v2-carro #dicaChassi:empty { display:none; }
+  .v2pc section.v2-carro label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .v2 .v2-tag { flex:0 0 auto; font-size:12px; font-weight:600; color:#626f86; background:#091e420f; border-radius:4px; padding:2px 8px; white-space:nowrap; }
   .v2 .v2-tag-novo { color:#0055cc; background:#e9f2ff; }
   .v2 .v2-ler .linha.v2-antigo .nome, .v2 .v2-ler .linha.v2-antigo .ico { opacity:.55; }
@@ -2890,7 +2910,7 @@ iniciar();
     location.href = location.pathname + '?' + u.toString() + location.hash;
   }
   var DICA_TIPO = 'Seguradora: peças do orçamento autorizado pela seguradora.\nParticular: o cliente paga. Num card de seguradora, vira um pedido separado no mesmo card (mesmo carro).\nRetorno: a oficina paga (retrabalho ou garantia). Quem autoriza a compra é a diretoria.';
-  if (form && secoes.length >= 5 && PC) { montarLado(); montarTopoPedido(); }
+  if (form && secoes.length >= 5 && PC) { montarLado(); montarTopoPedido(); montarCarroPC(); }
   else if (form && secoes.length >= 5) {
     form.insertBefore(barra, form.firstChild);
     form.insertBefore(errPasso, barra.nextSibling);
@@ -2975,6 +2995,16 @@ iniciar();
     });
     secoes[0].classList.add('v2-s1');
     g('v2novo').onclick = function () { modoNovo(); atualizarTopo(); placa.focus(); };
+  }
+  /* 13/10/2026 (Weslley): dados do carro no computador em 3 linhas, cada campo do tamanho do que cabe nele
+     (ano 9, chassi 17, ordem até 8) — só a disposição muda; os campos são os mesmos */
+  function montarCarroPC() {
+    var sec = g('modelo') && g('modelo').closest('section'); if (!sec) return;
+    sec.classList.add('v2-carro');
+    if (g('ano')) g('ano').maxLength = 9;
+    if (g('chassi')) g('chassi').placeholder = '17 caracteres';
+    var lb = document.querySelector('label[for=carro]');
+    if (lb && lb.firstChild && lb.firstChild.nodeType === 3) { lb.firstChild.textContent = 'Carro no título '; lb.title = 'Nome curto do carro que vai no título do card (ex.: COBALT)'; }
   }
   function montarLado() {
     var lado = document.createElement('aside'); lado.id = 'v2lado';
