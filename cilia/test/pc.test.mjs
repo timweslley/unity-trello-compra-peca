@@ -28,3 +28,18 @@ test('PC: grava PDF, estado e CILIA-HOJE; 2ª rodada sem mudança não baixa de 
   assert.equal(r3.detalhes, 1);
   assert.equal(r3.casas.TOLEDO.mudaram.length, 1);
 });
+
+test('PC: o que mudou ou é recente em qualquer casa vem antes do histórico antigo de outra casa', async () => {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'cilia-'));
+  const velho = (id) => ({ ...item(id, 'OLD' + id, 1), budget_current_status: { current_status: 'analyzed', date: '2026-07-01' } });
+  const hojeISO = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+  const novo = (id) => ({ ...item(id, 'NEW' + id, 1), budget_current_status: { current_status: 'analyzed', date: hojeISO } });
+  const listas = { t: [velho(1), velho(2), velho(3)], r: [novo(9)] };
+  const fabCasa = (token) => fab(() => listas[token])();
+  const env = { CILIA_SAIDA: dir, CASAS: 'TOLEDO,RONDON', CILIA_TOKEN_TOLEDO: 't', CILIA_TOKEN_RONDON: 'r', MAX_DETALHES: '2' };
+  const r = await rodarPC({ env, fabricaCliente: fabCasa });
+  assert.equal(r.casas.RONDON.pdfs.length, 1);     // o novo de Rondon passou na frente
+  assert.equal(r.casas.TOLEDO.pdfs.length, 1);
+  assert.equal(r.casas.TOLEDO.pendentes, 2);
+  assert.equal(r.chamadas, 4);                     // 2 listagens + 2 detalhes
+});

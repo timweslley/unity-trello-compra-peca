@@ -27,6 +27,12 @@ async function gravarJson(arq, obj) {
   await rename(tmp, arq);
 }
 
+function textoErro(e) {
+  return e instanceof ErroCilia
+    ? (e.status === 401 || e.status === 403 ? `token recusado pelo Cilia (${e.status})` : e.status === 429 ? 'Cilia pediu para diminuir o ritmo (429) — parado nesta casa' : e.message)
+    : String(e.message || e);
+}
+
 export async function rodarPC({ env = process.env, fabricaCliente = criarCliente, fs = { writeFile, mkdir } } = {}) {
   const SAIDA = env.CILIA_SAIDA;
   if (!SAIDA) throw new Error('CILIA_SAIDA não definida');
@@ -38,16 +44,22 @@ export async function rodarPC({ env = process.env, fabricaCliente = criarCliente
   const estado = await lerJson(arqEstado, {});
   const resumo = { gerado_em: new Date().toISOString(), data: hoje, origem: 'PC Weslley', casas: {}, chamadas: 0, detalhes: 0, pdfs: 0, pendentes: 0 };
 
+  // 1ª etapa: lista as casas (1 chamada por casa) e junta TODOS os candidatos a detalhe.
+  // 2ª etapa (13/10/2026, Weslley): baixa primeiro o que é urgente em QUALQUER casa — orçamento que mudou (versão,
+  // status ou conclusão) ou que é recente — e só depois o histórico antigo. Antes a ordem era por casa e o atraso de
+  // Toledo (~190 antigos) segurava por dias o novo de Rondon/Mourão. Total por noite continua MAX_DETALHES (60).
+  const RECENTE_DIAS = Number(env.RECENTE_DIAS || 7);
+  const corteRecente = diasAtras(RECENTE_DIAS);
+  const fila = [], clientes = {};
   for (const casa of casas) {
     const out = { casa: NOME_CASA[casa], orcamentos: 0, novos: [], mudaram: [], pdfs: [], pendentes: 0, erro: null };
     resumo.casas[casa] = out;
     estado[casa] ||= {};
     const token = limpo(env['CILIA_TOKEN_' + casa]);
     if (!token) { out.erro = 'token não cadastrado'; continue; }
-    const cli = fabricaCliente(token);
+    const cli = clientes[casa] = fabricaCliente(token);
     try {
       const lista = await cli.listar({ inicio: diasAtras(DIAS), fim: hoje });
-      const candidatos = [];
       for (const b of lista) {
         const r = resumoLista(b);
         if (!r.budget_id) continue;
@@ -60,41 +72,49 @@ export async function rodarPC({ env = process.env, fabricaCliente = criarCliente
           atualizado_em: !ant || ant.assinatura !== sig ? resumo.gerado_em : ant.atualizado_em,
         };
         out.orcamentos++;
-        if (!ant || ant.assinatura_detalhe !== sig) candidatos.push({ r, sig });
+        if (ant && ant.assinatura_detalhe === sig) continue;
+        const mudou = !!(ant && ant.assinatura_detalhe);   // já tinha detalhe e mudou desde então
+        const recente = String(r.status_data || r.criado_em || '').slice(0, 10) >= corteRecente;
+        fila.push({ casa, r, sig, prioridade: mudou ? 0 : recente ? 1 : 2 });
       }
-      candidatos.sort((a, b) => String(b.r.status_data || '').localeCompare(String(a.r.status_data || '')));
-      for (const { r, sig } of candidatos) {
-        const reg = estado[casa][r.budget_id];
-        if (restante <= 0) { out.pendentes++; continue; }
-        if (!r.sinistro || r.orcamento == null) { reg.assinatura_detalhe = sig; continue; }
-        restante--;
-        const d = await cli.detalhe({ sinistro: r.sinistro, orcamento: r.orcamento, versao: r.versao });
-        resumo.detalhes++;
-        reg.pecas = extrairPecas(d);
-        reg.totais = d?.totals_version ?? d?.totals ?? null;
-        reg.conclusao_detalhe = d?.conclusion ? {
-          titulo: d.conclusion.conclusion_type_title, motivo: d.conclusion.reason_title, data: d.conclusion.created_at,
-          autor: d.conclusion.author_name, texto: d.conclusion.description,
-        } : null;
-        reg.versao_baixada = r.numero_versao;
-        if (d?.report_pdf) {
-          const pasta = path.join(SAIDA, 'PDF', NOME_CASA[casa]);
-          await fs.mkdir(pasta, { recursive: true });
-          const nome = nomeArquivo(`${r.placa} - ${r.seguradora || 'SEGURADORA'} - Cilia ${r.numero_versao || r.orcamento}.pdf`);
-          await fs.writeFile(path.join(pasta, nome), Buffer.from(d.report_pdf, 'base64'));
-          reg.pdf = `PDF/${NOME_CASA[casa]}/${nome}`;
-          out.pdfs.push(nome); resumo.pdfs++;
-        }
-        reg.assinatura_detalhe = sig;
-        reg.detalhe_em = resumo.gerado_em;
-      }
-    } catch (e) {
-      out.erro = e instanceof ErroCilia
-        ? (e.status === 401 || e.status === 403 ? `token recusado pelo Cilia (${e.status})` : e.status === 429 ? 'Cilia pediu para diminuir o ritmo (429) — parado nesta casa' : e.message)
-        : String(e.message || e);
+    } catch (e) { out.erro = textoErro(e); }
+  }
+  fila.sort((a, b) => a.prioridade - b.prioridade || String(b.r.status_data || '').localeCompare(String(a.r.status_data || '')));
+  const parada = {};
+  for (const { casa, r, sig } of fila) {
+    const out = resumo.casas[casa], reg = estado[casa][r.budget_id];
+    if (parada[casa] || restante <= 0) { out.pendentes++; continue; }
+    if (!r.sinistro || r.orcamento == null) { reg.assinatura_detalhe = sig; continue; }
+    restante--;
+    let d;
+    try { d = await clientes[casa].detalhe({ sinistro: r.sinistro, orcamento: r.orcamento, versao: r.versao }); }
+    catch (e) {
+      // 404/500 num orçamento: pula só ele (tenta de novo amanhã); token recusado ou 429: para a casa
+      if (e instanceof ErroCilia && (e.status === 404 || e.status >= 500)) { out.pendentes++; continue; }
+      out.erro = textoErro(e); parada[casa] = true; out.pendentes++; continue;
     }
-    resumo.chamadas += cli.chamadas;
-    resumo.pendentes += out.pendentes;
+    resumo.detalhes++;
+    reg.pecas = extrairPecas(d);
+    reg.totais = d?.totals_version ?? d?.totals ?? null;
+    reg.conclusao_detalhe = d?.conclusion ? {
+      titulo: d.conclusion.conclusion_type_title, motivo: d.conclusion.reason_title, data: d.conclusion.created_at,
+      autor: d.conclusion.author_name, texto: d.conclusion.description,
+    } : null;
+    reg.versao_baixada = r.numero_versao;
+    if (d?.report_pdf) {
+      const pasta = path.join(SAIDA, 'PDF', NOME_CASA[casa]);
+      await fs.mkdir(pasta, { recursive: true });
+      const nome = nomeArquivo(`${r.placa} - ${r.seguradora || 'SEGURADORA'} - Cilia ${r.numero_versao || r.orcamento}.pdf`);
+      await fs.writeFile(path.join(pasta, nome), Buffer.from(d.report_pdf, 'base64'));
+      reg.pdf = `PDF/${NOME_CASA[casa]}/${nome}`;
+      out.pdfs.push(nome); resumo.pdfs++;
+    }
+    reg.assinatura_detalhe = sig;
+    reg.detalhe_em = resumo.gerado_em;
+  }
+  for (const casa of casas) {
+    if (clientes[casa]) resumo.chamadas += clientes[casa].chamadas;
+    resumo.pendentes += resumo.casas[casa].pendentes;
   }
 
   await gravarJson(arqEstado, estado);
