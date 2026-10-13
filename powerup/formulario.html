@@ -2904,7 +2904,7 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .grade > div, .v2pc :is(#itens, #itensPart) > .item > .inteiro { margin:0 !important; min-width:0; }
   .v2pc :is(#itens, #itensPart) > .item label:not(.chip) { display:none !important; }
   .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc), .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(.f-medida) { order:-1; grid-column:2; }
-  .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc) input { font-weight:600; }
+  .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc) input { font-weight:400; }
   .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-tipo), .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-marca) { order:1; grid-column:2 / 4; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo { order:2; grid-column:4 / -1; display:flex; justify-content:flex-end; align-items:center; gap:2px; flex-wrap:wrap; white-space:nowrap; margin:0; padding:0; background:none; border:0; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .num { display:none; }
@@ -2936,7 +2936,7 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item.v2-ok { border-left-color:#1f845a !important; }
   .v2pc :is(#itens, #itensPart) > .item.nao-comprar > .grade, .v2pc :is(#itens, #itensPart) > .item.nao-comprar > .grade > * { opacity:.6; }
   /* 13/10/2026 (Weslley): peça = linha 1 nº · CÓDIGO · DESCRIÇÃO · qtd (pequena) · valor; linha 2 tipo · ações compactas */
-  .v2pc .v2pc-cab, .v2pc #itens > .item, .v2pc #itensPart > .item { grid-template-columns:28px 150px minmax(0, 1fr) 58px 112px !important; }
+  .v2pc .v2pc-cab, .v2pc #itens > .item, .v2pc #itensPart > .item { grid-template-columns:28px 150px minmax(0, 1fr) 44px 104px !important; }
   .v2pc #itens > .item::before, .v2pc #itensPart > .item::before { grid-row:1; }
   .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-codigo) { grid-row:1; grid-column:2; order:0; }
   .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc) { grid-row:1; grid-column:3; order:0; }
@@ -2948,11 +2948,24 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item .f-codigo { font-family:ui-monospace, Consolas, monospace; font-size:13px !important; letter-spacing:.3px; }
   /* quantidade discreta: só o número (sem − e +) */
   .v2pc :is(#itens, #itensPart) > .item .v2-qtd button { display:none !important; }
-  .v2pc :is(#itens, #itensPart) > .item .v2-qtd input, .v2pc :is(#itens, #itensPart) > .item input.f-qtd { width:58px !important; margin:0 !important; text-align:center; font-size:14px !important; font-weight:400; }
+  .v2pc :is(#itens, #itensPart) > .item .v2-qtd input, .v2pc :is(#itens, #itensPart) > .item input.f-qtd { width:44px !important; margin:0 !important; padding:4px 2px !important; text-align:center; font-size:14px !important; font-weight:400; -moz-appearance:textfield; }
+  .v2pc :is(#itens, #itensPart) > .item input.f-qtd::-webkit-inner-spin-button, .v2pc :is(#itens, #itensPart) > .item input.f-qtd::-webkit-outer-spin-button { -webkit-appearance:none; margin:0; }
+  .v2pc :is(#itens, #itensPart) > .item .f-codigo { font-weight:400 !important; }
+  /* tipo de peça: uma cor para cada (Weslley 13/10) */
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input[value="GENUÍNO"]) { --tc:#0c66e4; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input[value="ORIGINAL"]) { --tc:#1f845a; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input[value="PARALELO"]) { --tc:#c25100; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input[value="USADO"]) { --tc:#6e5dc6; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input.f-tipo) { color:var(--tc) !important; border-color:color-mix(in srgb, var(--tc) 45%, #fff) !important; background:#fff !important; font-weight:600; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip.marcado:has(input.f-tipo) { background:var(--tc) !important; border-color:var(--tc) !important; color:#fff !important; }
+  /* "+ Comp." escrito (Weslley 13/10) e o ✕ de remover com mais destaque */
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado)::after { content:"+ Comp."; font-size:12px; font-weight:700; color:#6e5dc6; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { color:#c9372c !important; background:transparent !important; border-radius:6px; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo::after { content:"✕"; font-size:18px !important; font-weight:700; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo:hover { background:#ffeceb !important; }
   .v2pc :is(#itens, #itensPart) > .item .f-valor-orc { text-align:right; }
   /* ações em ícones (o nome aparece ao parar o mouse); marcadas ficam coloridas */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado), .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado) { font-size:0 !important; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado)::after { content:"➕"; font-size:14px; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado)::after { content:"🚫"; font-size:14px; filter:grayscale(1); opacity:.7; }
   /* cor dos campos obrigatórios da peça (mesmo padrão dos dados do carro) */
   .v2 :is(#itens, #itensPart) > .item:not(.nao-comprar) .chips.v2-falta { outline:2px solid #f8a39d; outline-offset:2px; border-radius:6px; background:#fff1f0; }
@@ -3292,7 +3305,7 @@ iniciar();
       var cx = it.parentNode;
       if (cx && !(cx.previousElementSibling && cx.previousElementSibling.classList.contains('v2pc-cab'))) {
         var cab = document.createElement('div'); cab.className = 'v2pc-cab';
-        cab.innerHTML = '<span>#</span><span>Código' + (cx.id === 'itensPart' || /PARTICULAR|RETORNO/.test(tipoPedidoV2()) ? '' : ' *') + '</span><span>Descrição * · tipo * (até 2)</span><span style="text-align:center">Qtd</span><span style="text-align:right">Valor no orç.</span>';
+        cab.innerHTML = '<span>#</span><span>Código' + (cx.id === 'itensPart' || /PARTICULAR|RETORNO/.test(tipoPedidoV2()) ? '' : ' *') + '</span><span>Descrição * · tipo * (até 2)</span><span style="text-align:center">Qtd</span><span style="text-align:right">Valor orç. (R$)</span>';
         cx.parentNode.insertBefore(cab, cx);
       }
     }
@@ -3671,7 +3684,29 @@ iniciar();
       return r;
     };
   }
+  /* 13/10/2026 (Weslley): valor da peça sem "R$" (o R$ fica no título da coluna) e sempre com centavos (929 -> 929,00);
+     quantidade até 2 dígitos. O valor vai igual para o card (o robô lê com ou sem R$). */
+  function semRS(v) { var f = fmtValor(v); return f ? f.replace(/^R\$\s*/, '') : ''; }
+  if (PC) {
+    document.addEventListener('focusout', function (e) {
+      var t = e.target; if (!t || !t.classList) return;
+      if (t.classList.contains('f-valor-orc') && t.value.trim()) t.value = semRS(t.value) || t.value;
+    });
+    document.addEventListener('input', function (e) {
+      var t = e.target; if (!t || !t.classList || !t.classList.contains('f-qtd')) return;
+      if (String(t.value).length > 2) t.value = String(t.value).slice(0, 2);
+    }, true);
+  }
+  function arrumarValores() {
+    if (!PC) return;
+    $$('#itens .f-valor-orc, #itensPart .f-valor-orc').forEach(function (i) {
+      if (i.placeholder !== '0,00') i.placeholder = '0,00';
+      if (document.activeElement !== i && /R\$/.test(i.value)) i.value = semRS(i.value) || i.value;
+    });
+    $$('#itens .f-qtd, #itensPart .f-qtd').forEach(function (i) { if (i.max !== '99') { i.max = '99'; i.title = 'Quantidade (até 99)'; } });
+  }
   function pintarObrigatorios() {
+    try { arrumarValores(); } catch (e) {}
     if (!visivel(form)) return;
     try { marcarAsteriscos(); } catch (e) {}
     $$('label[for]').forEach(function (lb) {
