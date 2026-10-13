@@ -2875,7 +2875,7 @@ iniciar();
   .v2pc section.v2-carro div:has(> #cor) { grid-column:span 2; order:8; }
   .v2pc section.v2-carro div:has(> #seguradora) { grid-column:span 3; order:9; }
   .v2pc section.v2-carro div:has(> #sinistro) { grid-column:span 3; order:10; }
-  .v2pc section.v2-carro #chassi { font-family:ui-monospace, Consolas, monospace; letter-spacing:1px; }
+  .v2pc section.v2-carro #chassi { letter-spacing:.5px; }
   .v2pc section.v2-carro #dicaChassi { display:none !important; }
   .v2pc section.v2-carro div:has(> #chassi) { position:relative; }
   .v2pc section.v2-carro #chassi { padding-right:34px; }
@@ -2978,7 +2978,7 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item.v2-ok { border-left-color:#1f845a !important; }
   .v2pc :is(#itens, #itensPart) > .item.nao-comprar > .grade, .v2pc :is(#itens, #itensPart) > .item.nao-comprar > .grade > * { opacity:.6; }
   /* 13/10/2026 (Weslley): peça = linha 1 nº · CÓDIGO · DESCRIÇÃO · qtd (pequena) · valor; linha 2 tipo · ações compactas */
-  .v2pc .v2pc-cab, .v2pc #itens > .item, .v2pc #itensPart > .item { grid-template-columns:28px 150px minmax(0, 1fr) 44px 104px !important; }
+  .v2pc .v2pc-cab, .v2pc #itens > .item, .v2pc #itensPart > .item { grid-template-columns:28px 168px minmax(0, 1fr) 44px 104px !important; }
   .v2pc #itens > .item::before, .v2pc #itensPart > .item::before { grid-row:1; }
   .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-codigo) { grid-row:1; grid-column:2; order:0; }
   .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc) { grid-row:1; grid-column:3; order:0; }
@@ -3080,6 +3080,12 @@ iniciar();
   .v2 :is(#itens, #itensPart) > .item .grade .chips { width:fit-content; align-items:center; }
   .v2pc :is(#itens, #itensPart) > .item .grade .chips .v2q { margin:0 2px 0 4px; }
   .v2 :is(#itens, #itensPart) > .item:not(.nao-comprar) .chips.v2-falta { outline:1px solid #f3c4bf; outline-offset:2px; border-radius:6px; background:#fff7f6; }
+  /* 13/10/2026 (Weslley): campos com letra maior e caixa mais justa (o texto aproveita a caixa) */
+  .v2pc #form input[type=text]:not(.f-qtd), .v2pc #form input[type=number]:not(.f-qtd), .v2pc #form select:not(.item-topo select), .v2pc #form textarea {
+    font-size:16px !important; height:34px !important; min-height:34px !important; padding:2px 10px !important; line-height:28px; }
+  .v2pc #form textarea { height:auto !important; min-height:52px !important; line-height:22px; }
+  .v2pc :is(#itens, #itensPart) > .item :is(.f-codigo, .f-desc, .f-medida, .f-valor-orc, .f-marca) { font-size:16px !important; }
+  .v2pc #form .f-obs, .v2pc #form .f-nao-motivo { font-size:14px !important; }
   /* 13/10/2026 (Weslley): tela mais compacta na vertical — menos espaço em cima e embaixo, mesma letra e mesma área de clique */
   .v2pc #form > section { padding:8px 14px 10px !important; margin:0 0 8px !important; }
   .v2pc #form > section h2 { margin:0 0 4px !important; }
