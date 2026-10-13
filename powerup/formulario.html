@@ -383,6 +383,7 @@
 
     <div class="rodape" style="margin-bottom:30px">
       <button type="submit" class="principal" id="btnEnviar">Enviar pedido</button>
+      <button type="button" class="secundario" id="btnParcial" onclick="enviarParcial()" title="Grava o que já tem; o card fica em FALTA DADOS até completar">💾 Salvar parcial</button>
       <span class="carregando oculto" id="enviando">Enviando…</span>
     </div>
   </form>
@@ -2597,16 +2598,27 @@ function enviar(ev) {
   if (CARD_EDICAO && POS) { var alt = pecasAlteradas(); if (alt.length) return perguntarRecotar(alt, c.payload); }
   enviarPayload(c.payload);
 }
+/* 💾 Salvar parcial (13/10/2026): grava mesmo com dado faltando (tipo, código, chassi, orçamento…); o robô deixa o card em
+   FALTA DADOS e comenta o que falta. Placa, unidade, carro e ao menos uma peça continuam obrigatórios. */
+function enviarParcial() {
+  mostrar('erroGeral', false);
+  var c = coletar();
+  var duras = c.faltas.filter(function (f) { return /placa|unidade|carro \(nome|pelo menos uma peça/i.test(f); });
+  if (duras.length) return mostrarErros(duras);
+  c.payload.parcial = true;
+  if (CARD_EDICAO && POS) { var alt = pecasAlteradas(); if (alt.length) return perguntarRecotar(alt, c.payload); }
+  enviarPayload(c.payload);
+}
 function enviarPayload(payload) {
-  $('btnEnviar').disabled = true; mostrar('enviando', true);
+  $('btnEnviar').disabled = true; if ($('btnParcial')) $('btnParcial').disabled = true; mostrar('enviando', true);
   chamar('vdf_salvar', TOKEN, payload).then(function (r) {
-    $('btnEnviar').disabled = false; mostrar('enviando', false);
+    $('btnEnviar').disabled = false; if ($('btnParcial')) $('btnParcial').disabled = false; mostrar('enviando', false);
     if (!r.ok && r.duplicado && r.duplicado.length) return confirmarDuplicado(r, payload);
     if (!r.ok) return mostrarErros(r.faltas);
     guardar('vd_card_pend', null);
     $('msgSucesso').innerHTML = (r.novo ? '✅ Card criado: ' : '✅ Card atualizado: ') + '<b>' + esc(r.nome) + '</b>'
       + (/EM COTA/.test(r.acao || '') && /volta/.test(r.acao || '') ? '<br>O card voltou para EM COTAÇÃO.' : '')
-      + (/FALTA/.test(r.acao || '') ? '<br>⚠️ O card foi para FALTA DADOS — veja o comentário no card.' : '')
+      + (/FALTA/.test(r.acao || '') || payload.parcial ? '<br>⚠️ O card fica em FALTA DADOS até completar — o robô comenta o que falta.' : '')
       + (r.fo ? '<br>Checklist FORNECIMENTO: ' + r.fo + ' peça(s) incluída(s).' : '')
       + (r.comp ? '<br>➕ Orçamento complementar: ' + r.comp + ' peça(s) nova(s) da oficina na lista.' : '')
       + (r.foComp ? '<br>Checklist FORNECIMENTO COMPLEMENTO: ' + r.foComp + ' peça(s) incluída(s).' : '')
@@ -2617,7 +2629,7 @@ function enviarPayload(payload) {
     window.scrollTo(0, 0);
     if (PU) avisarPai({ vd: 'concluido', url: r.url });
   }).catch(function (e) {
-    $('btnEnviar').disabled = false; mostrar('enviando', false);
+    $('btnEnviar').disabled = false; if ($('btnParcial')) $('btnParcial').disabled = false; mostrar('enviando', false);
     mostrarErros([e.message]);
   });
 }

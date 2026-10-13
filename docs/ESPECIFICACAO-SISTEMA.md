@@ -99,6 +99,7 @@ mover) e a trava de colunas também o reposicionam na hora (07/10/2026).
 |---|---|---|---|
 | (novo) → EM COTAÇÃO | formulário `vdf_salvar` | card novo normal | card criado no nome do consultor; links ✏️/💰 anexados; validação imediata |
 | (novo) → FALTA DADOS | formulário, modo "rotina" (só diretoria) | tem peça da oficina sem dados | comentário "🤖 Card aberto pela Rotina Unity" |
+| (novo ou edição) → FALTA DADOS | formulário, botão **💾 Salvar parcial** no pedido (13/10/2026, qualquer usuário) | grava mesmo com tipo, código, chassi, modelo/ano ou orçamento faltando; só placa, unidade, carro e ao menos uma peça são obrigatórios | o robô deixa/leva o card em FALTA DADOS e comenta o que falta |
 | EM COTAÇÃO → FALTA DADOS | robô (`vd_conferirCard_`) | alguma **falta** (2.3) | "@criador ⚠️ **FALTA DADOS** — corrigir para seguir: …" (só quando o conjunto de faltas muda) |
 | FALTA DADOS → EM COTAÇÃO | robô | tudo completo | "✅ **DADOS COMPLETOS** → **EM COTAÇÃO**" + o que leu dos anexos |
 | EM COTAÇÃO → EM COTAÇÃO (fica) | comprador `vdf_salvarCotacao` com `parcial=true` (botão **💾 Salvar parcial**, 07/10/2026) | grava o que já tem, sem exigir cobertura | etiqueta laranja `COTAÇÃO PARCIAL`; comentário "💾 COTAÇÃO PARCIAL salva" sem menções; o card não anda |
@@ -128,7 +129,7 @@ mover) e a trava de colunas também o reposicionam na hora (07/10/2026).
 Verificadas pelo robô a cada ciclo nos cards com atividade (varredura completa a cada 30 min):
 placa válida; modelo, ano e chassi (17 caracteres válidos) — dispensados quando o orçamento foi importado;
 lista de peças no padrão; tipo da peça (GENUÍNO/ORIGINAL/PARALELO/USADO, máx. 2); código da peça (exceto
-particular e "não comprar"); orçamento da seguradora anexado (exceto PARTICULAR); carro no título; chassi do anexo
+particular e "não comprar"); orçamento da seguradora anexado (exceto PARTICULAR; vale também o `📄 ORÇ`/`📄 ORÇ+` já anexado ao card — card migrado do fluxo antigo não tem a marca na descrição, 13/10/2026); carro no título; chassi do anexo
 igual ao da descrição. O robô também **lê os anexos por OCR** e completa placa/chassi/ano/modelo/cor/seguradora/
 sinistro e importa as peças do orçamento (seção 6).
 

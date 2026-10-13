@@ -206,6 +206,9 @@ function vdf_abrir(token, shortLink) {
   return { info: info, card: card };
 }
 
+/** O card tem um orçamento reconhecido pelo sistema anexado (batizado "📄 ORÇ · …" ou "📄 ORÇ+ · …")? (13/10/2026) */
+function vd_temOrcAnexo_(atts) { return (atts || []).some(function (a) { return /^📄 ORÇ\+? · /.test(String((a && a.name) || '')); }); }
+
 /* ---------- peça travada: já autorizada ou comprada (só a diretoria altera/remove) ---------- */
 function vdf_itensPagas_(c) {
   var out = [];
@@ -348,7 +351,7 @@ function vdf_montarCard_(c, lista, me) {
     })(),
     padrao: an.pecas.length > 0 || (an.naoComprar || []).length > 0,
     cotacoes: (function () { try { return vd_cotacoesDaDescricao_(c.desc, an.pecas); } catch (e) { return { cotacoes: [], nt: [] }; } })(),
-    doOrcamento: an.doOrcamento,
+    doOrcamento: an.doOrcamento || vd_temOrcAnexo_(c.attachments),   // 13/10/2026: card migrado do fluxo antigo tem o 📄 ORÇ anexado mas não a marca na descrição (BDK2J49)
     tipo: an.dados.tipo || (/PARTICULAR/i.test((c.labels || []).map(function (l) { return l.name; }).join(' ')) ? 'PARTICULAR' : 'SEGURADORA'),
     origemOrc: (vd_limpar_(an.div.bloco).match(/OR[ÇC]AMENTO IMPORTADO \(([^)]*)\)/i) || [])[1] || '',
     titulo: vdf_partesTitulo_(c.name, an.dados),
@@ -1610,6 +1613,9 @@ function vd_comprasDaDescricao_(desc) {
  *      criarMesmoAssim:true (card novo com placa que já tem card aberto: sem isso devolve {ok:false, duplicado:[{shortLink,nome,lista}]})}
  */
 function vdf_salvar(token, p) {
+  // 💾 Salvar parcial (13/10/2026, Weslley): grava o que já tem mesmo com dado faltando — o robô põe o card em FALTA DADOS e
+  // comenta o que falta. Só placa, carro e ao menos uma peça continuam obrigatórios.
+  var parcial = !!(p && p.parcial);
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
   var cardCampos = false;
@@ -1754,8 +1760,9 @@ function vdf_salvar(token, p) {
   }
   if (!pecas.length && !fo.length && !compFo.length && !temFoNoCard) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora). Se a peça não vai ser comprada, marque 🚫 Não comprar em vez de remover.'] };
   var temOrcNoCard = !!(card && vd_analisar_(card.desc, card.name).doOrcamento);
+  if (card && !temOrcNoCard) { try { temOrcNoCard = vd_temOrcAnexo_(vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name' } })); } catch (e) {} }
   var soAcrescentaParticular = !!card && (p.pecas || []).some(function (x) { return x.particular; });
-  if (!semSeguradora && !posCot && !(orc && orc.origem) && !temOrcNoCard && !soAcrescentaParticular && !comp) {
+  if (!parcial && !semSeguradora && !posCot && !(orc && orc.origem) && !temOrcNoCard && !soAcrescentaParticular && !comp) {
     return { ok: false, faltas: ['Pedido de seguradora: anexe o orçamento autorizado (PDF do Cilia, HDI ou Websoma) na seção Documento — o formulário importa as peças dele. Se for cliente particular ou retorno (oficina paga), marque isso no tipo do pedido.'] };
   }
   // card existente: mantém as linhas de FORNECIMENTO que já estavam no bloco
@@ -1779,6 +1786,7 @@ function vdf_salvar(token, p) {
   var rotina = !!p.rotina && vdf_ehAutorizador_(me) && !p.shortLink;
   var faltasRotina = [];
   if (rotina) { faltasRotina = faltas.filter(function (f) { return /falta o tipo de pe|falta o c[óo]digo|fora do padr/i.test(f); }); faltas = faltas.filter(function (f) { return faltasRotina.indexOf(f) < 0; }); }
+  if (parcial) faltas = faltas.filter(function (f) { return /^placa|^carro \(nome/i.test(f); });
   if (faltas.length) return { ok: false, faltas: faltas };
 
   var titulo = String(n.carro || '').trim() ? vd_titulo_(d.placa, n.carro, extra.cor, extra.seguradora) : '';
