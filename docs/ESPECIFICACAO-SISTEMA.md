@@ -314,6 +314,7 @@ peça de card CSS não exige código/tipo nem orçamento anexado (vira FO). Caso
 ### 4.5 Anexos
 
 Anexo lido pelo botão do formulário é renomeado na hora; o cache curto de orçamento grande guarda que é orçamento (antes não guardava e o anexo nunca era renomeado — 13/10/2026, UIC5G94).
+**Madrugada (1h–5h59, dentro do ciclo de 1 min — `ax_madrugada_`, 13/10/2026, Weslley):** cards abertos fora de ENCERRADO/ENTREGUES; lê (OCR) os PDFs sem nome padrão e nunca lidos e batiza pelo que são; orçamento mais velho que outro 📄 ORÇ do card vira `📄 ORÇ · … (antigo)`; o não reconhecido fica como está e não é relido (a leitura fica guardada). Resumo de cada noite em `AX_MAD_LOG`. Teste num card: `vdf_anexosAntigosCard` (diretoria).
 Nomes padronizados: `📄 ORÇ · PLACA · SEGURADORA · Sistema · dd/MM`, `📄 ORÇ+` (complementar),
 `🚚 FO · PLACA · Status do Pedido Cilia · dd/MM`, `📦 NF nº · PLACA · FORN · dd/MM`, `📸 PLACA · capa|recebimento · dd/MM`,
 `🛒 COMPRA · PLACA · FORN · PEÇA · dd/MM` (print/arquivo da negociação e pagamento, aba Compra, 08/10/2026; sem versão);

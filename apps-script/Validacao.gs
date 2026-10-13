@@ -1886,6 +1886,7 @@ function validarDadosPedido() {
       if (typeof mg_corrigirBDK2J49_ === 'function') sd_parte_('correção BDK2J49', mg_corrigirBDK2J49_);   // uma vez só (Migracao.gs)   // card antigo que volta para cotação vira fluxo novo (12/10/2026)
       if (new Date().getMinutes() % 5 === 0) cabe('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
       cabe('prazos por etapa', sla_executar_);
+      cabe('anexos antigos (madrugada)', ax_madrugada_);   // 1h–5h59: lê e batiza anexo antigo nunca lido (13/10/2026)
       sd_parte_('relatório', rel_instalarSeFaltar_);
       sd_parte_('links', function () { return vd_garantirLinks_(); });
       sd_parte_('alarme diário', sd_instalarSeFaltar_);

@@ -269,3 +269,68 @@ function vdf_removerRepetidos(token, shortLink) {
   ans.forEach(function (a) { if (ax_removerRepetido_(card.id, a, '')) removidos.push(a.name); });
   return { ok: true, removidos: removidos };
 }
+
+/* ---------- madrugada: anexos antigos nunca lidos (13/10/2026, Weslley: "dá pra ler na madrugada sim, pra ajustar os cards
+ * ainda não encerrados/entregues") ----------
+ * Roda dentro do ciclo de 1 min, só das 1h às 5h59. Na primeira rodada da noite guarda a fila de cards abertos fora de
+ * ENCERRADO/ENTREGUES; a cada ciclo lê (OCR) os PDFs/fotos sem nome padrão e ainda nunca lidos e batiza pelo que são.
+ * Orçamento mais velho que outro 📄 ORÇ do card (foi substituído) vira "📄 ORÇ · … (antigo)". O que não for reconhecido
+ * fica com o nome que tem — e, como a leitura fica guardada, não é lido de novo nas noites seguintes. */
+function ax_madrugada_(teste) {
+  var h = +Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'H');
+  if (!teste && (h < 1 || h > 5)) return 'fora do horário';
+  var props = PropertiesService.getScriptProperties();
+  var dia = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
+  var st = {}; try { st = JSON.parse(props.getProperty('AX_MAD') || '{}'); } catch (e) {}
+  if (teste) st = { dia: 'teste', fila: [teste], pos: 0, lidos: 0, renomeados: 0, antigos: 0 };
+  else if (st.dia !== dia) {
+    var listas = vd_api_('/boards/' + vd_board_() + '/lists', { query: { fields: 'name', filter: 'open' } }) || [];
+    var pular = {}; listas.forEach(function (l) { if (/ENCERRAD|ENTREGUE/i.test(l.name || '')) pular[l.id] = 1; });
+    var cards = vd_api_('/boards/' + vd_board_() + '/cards', { query: { fields: 'shortLink,idList,name', filter: 'open' } }) || [];
+    st = { dia: dia, fila: cards.filter(function (c) { return !pular[c.idList] && !vdf_cardProtegido_(c.name || '') && ax_placa_(c); }).map(function (c) { return c.shortLink; }), pos: 0, lidos: 0, renomeados: 0, antigos: 0 };
+  }
+  if (st.pos >= st.fila.length) return 'noite concluída';
+  var ini = Date.now(), limite = Math.min(45 * 1000, (vd_restante_() === Infinity ? 45 * 1000 : vd_restante_() - 20 * 1000));
+  for (; st.pos < st.fila.length && Date.now() - ini < limite; st.pos++) {
+    try {
+      var card = vd_api_('/cards/' + st.fila[st.pos], { query: { fields: 'name,idList', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
+      st.renomeados += ax_padronizarCard_(card, null);   // fotos e anexos já lidos (sem OCR)
+      var anexos = (card.attachments || []).filter(function (a) {
+        return a.isUpload && !ax_padronizado_(a.name) && !ax_ehNota_(a.name) && vd_anexoLegivel_(a) && !/^image\//i.test(a.mimeType || '') &&
+          !props.getProperty('VD_ANX3_' + a.id);
+      }).sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
+      for (var i = 0; i < anexos.length && Date.now() - ini < limite; i++) {
+        var a = anexos[i], r = vd_lerAnexoTrello_(a);
+        st.lidos++;
+        if (!r || r.erro) continue;
+        var placa = ax_placa_(card);
+        var orcNovo = (card.attachments || []).filter(function (x) { return x.id !== a.id && String(x.name || '').indexOf(AX.ORC + AX.SEP) === 0 && String(x.date || '') > String(a.date || ''); })[0];
+        if (r.orcamento && orcNovo && (r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) {
+          var nm = ax_nome_(AX.ORC, placa, [r.seguradora || '', ax_origem_(r.orcamento)], a.date) + ' (antigo)';
+          if (ax_renomear_(card.id, a.id, nm, null)) { a.name = nm; st.renomeados++; st.antigos++; }
+          continue;
+        }
+        var temOrc = (card.attachments || []).some(function (x) { return x.id !== a.id && String(x.name || '').indexOf(AX.ORC + AX.SEP) === 0; });
+        if (ax_batizarLido_(card, a, r, temOrc, null)) st.renomeados++;
+      }
+      if (i < anexos.length) break;   // acabou o tempo no meio do card: continua dele no próximo ciclo
+    } catch (e) { console.log('madrugada anexos ' + st.fila[st.pos] + ': ' + e); }
+  }
+  if (teste) return st;
+  props.setProperty('AX_MAD', JSON.stringify(st));
+  if (st.pos >= st.fila.length) {
+    try {
+      var lg = JSON.parse(props.getProperty('AX_MAD_LOG') || '[]');
+      lg.push(dia + ': ' + st.fila.length + ' cards, ' + st.lidos + ' anexos lidos, ' + st.renomeados + ' renomeados (' + st.antigos + ' antigos)');
+      props.setProperty('AX_MAD_LOG', JSON.stringify(lg.slice(-15)));
+    } catch (e) {}
+  }
+  return st.pos + '/' + st.fila.length + ' cards · ' + st.lidos + ' lidos · ' + st.renomeados + ' renomeados';
+}
+
+/** Diretoria: roda a passada da madrugada num card só, agora (teste). */
+function vdf_anexosAntigosCard(token, shortLink) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) throw new Error('Só a diretoria.');
+  return ax_madrugada_(shortLink);
+}
