@@ -2856,7 +2856,9 @@ iniciar();
     height:32px !important; min-height:32px !important; min-width:34px; width:auto !important; flex:0 0 auto; border:1px solid #c7cdd6 !important; border-radius:6px !important; background:#fff !important;
     display:inline-flex !important; align-items:center; justify-content:center; padding:0 8px !important; cursor:pointer; white-space:nowrap; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo select { height:32px !important; min-height:32px !important; width:auto !important; flex:0 0 auto;
-    border:1px solid #c7cdd6 !important; border-radius:6px !important; background-color:#fff !important; padding:0 22px 0 8px !important; font-size:12px !important; color:#44546f; cursor:pointer; }
+    border:1px solid #c7cdd6 !important; border-radius:6px !important; background-color:#fff !important; padding:0 2px 0 6px !important; font-size:12px !important; color:#44546f; cursor:pointer; width:62px !important; min-width:0 !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .v2-obstog { font-size:12px !important; font-weight:600; color:#0c66e4 !important; }
+  .v2pc :is(#itens, #itensPart) > .item.v2-obs > .item-topo .v2-obstog { background:#e9f2ff !important; border-color:#85b8ff !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip:hover, .v2pc :is(#itens, #itensPart) > .item > .item-topo button:hover { border-color:#8590a2 !important; background:#f7f8f9 !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { border-color:#f3c4bf !important; }
   /* complemento marcado: selo roxo bem visível */
@@ -2866,7 +2868,7 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item .f-valor-orc { text-align:right; }
   /* ações em ícones (o nome aparece ao parar o mouse); marcadas ficam coloridas */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado), .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado) { font-size:0 !important; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado)::after { content:"🚫"; font-size:14px; filter:grayscale(1); opacity:.7; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado)::after { content:"Não comprar"; font-size:12px; font-weight:600; color:#626f86; }
   /* cor dos campos obrigatórios da peça (mesmo padrão dos dados do carro) */
   .v2 :is(#itens, #itensPart) > .item .grade .chips { width:fit-content; align-items:center; }
   .v2pc :is(#itens, #itensPart) > .item .grade .chips .v2q { margin:0 2px 0 4px; }
@@ -3200,7 +3202,7 @@ iniciar();
     if (PC) {
       var topoIt = it.querySelector(':scope > .item-topo');
       if (topoIt && it.querySelector('.f-obs')) {
-        var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'secundario v2-obstog'; ob.textContent = '📝'; ob.title = 'Observação da peça (o comprador vê)';
+        var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'secundario v2-obstog'; ob.textContent = '+ Obs.'; ob.title = 'Observação da peça (o comprador vê)';
         ob.onclick = function () { it.classList.toggle('v2-obs'); if (it.classList.contains('v2-obs')) it.querySelector('.f-obs').focus(); };
         topoIt.insertBefore(ob, topoIt.querySelector('select')); var rm = topoIt.querySelector('button.perigo'); if (rm) rm.title = 'Remover a peça';
         var cc = topoIt.querySelector('.chip-comp'); if (cc) cc.title = 'Complemento: peça fora do orçamento autorizado (vai no orçamento complementar da seguradora)';
