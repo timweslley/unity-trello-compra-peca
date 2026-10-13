@@ -2889,7 +2889,7 @@ iniciar();
   .v2pc .v2pc-cab { position:sticky; top:var(--v2topoH, 112px); z-index:5; background:#fff; padding-top:6px; }
   /* tela mais estreita (zoom, janela menor): a linha da peça se reorganiza em vez de sobrepor */
   .v2pc #form > section.v2-pecas { container-type:inline-size; container-name:pecas; }
-  @container pecas (max-width: 790px) {
+  @container pecas (max-width: 700px) {
     .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-tipo), .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-marca) { grid-column:2 / -1 !important; }
     .v2pc :is(#itens, #itensPart) > .item > .item-topo { grid-row:3 !important; grid-column:2 / -1 !important; justify-content:flex-start !important; flex-wrap:wrap !important; }
   }
@@ -3024,6 +3024,73 @@ iniciar();
     .v2pc #v2lado { grid-column:1; grid-row:auto; position:static; margin-bottom:24px; }
   }
   .v2 #v2agora { margin-top:12px; padding:12px; border-radius:8px; background:#e9f2ff; font-size:16px; line-height:22px; color:#172b4d; font-weight:500; }
+  /* ===== 13/10/2026 (Weslley: "capricha na análise" -> "pode aplicar tudo") — revisão geral da tela de pedido no computador ===== */
+  /* barra de cima: uma faixa só — U · placa · (situação / tipo do pedido) · Pedido novo · Detalhes · Ajuda · TESTE · usuário */
+  .v2 #v2ped-meio { display:contents; }
+  .v2pc.v2-pedtopo header { display:none !important; }
+  .v2pc.v2-pedtopo #v2topo { flex-wrap:nowrap !important; align-items:center; gap:14px; padding-top:8px !important; padding-bottom:8px !important; }
+  .v2pc.v2-pedtopo .v2-logo { order:-1; width:28px; height:28px; flex:0 0 28px; border-radius:5px; background:var(--laranja, #e56910); color:#fff; font-weight:700; font-size:15px; justify-content:center; }
+  .v2pc.v2-pedtopo #v2ped-meio { display:flex; order:1; flex-direction:column; justify-content:center; gap:6px; min-width:0; flex:1 1 auto; }
+  .v2pc.v2-pedtopo #v2etapa { flex:0 0 auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .v2pc.v2-pedtopo #v2etapa b { display:inline; margin-right:6px; }
+  .v2pc.v2-pedtopo #v2ped-tipo { flex-basis:auto !important; padding-top:0 !important; flex-wrap:nowrap !important; }
+  .v2pc.v2-pedtopo #v2ped-dir .v2ped-novo { order:0 !important; }
+  .v2pc.v2-pedtopo #v2ped-tipo .chips { flex-wrap:nowrap !important; }
+  .v2pc.v2-pedtopo #v2ped-dir { order:2; margin-left:auto; flex:0 0 auto; gap:8px; flex-wrap:nowrap; }
+  .v2pc.v2-pedtopo #v2ped-dir .v2ped-novo { margin:0 6px 0 0; padding-right:14px; border-right:1px solid #dcdfe4; }
+  .v2pc #v2topo .v2ped-novo button { width:auto !important; height:36px !important; min-height:36px !important; padding:0 14px !important; font-size:14px !important; font-weight:600; }
+  .v2pc #v2ped-dir .v2hb { min-height:36px !important; height:36px; font-size:13px !important; padding:0 10px !important; white-space:nowrap; }
+  .v2pc #v2ped-dir .selo { font-size:10px; padding:2px 6px; white-space:nowrap; }
+  .v2pc #v2ped-dir .usuario { font-size:12px; white-space:nowrap; color:#626f86; margin-left:4px; }
+  /* pneu: categoria e marca na mesma linha (os botões da peça ficavam por cima do campo da marca) */
+  .v2pc :is(#itens, #itensPart) > .item[data-tipo="pneu"] > .grade > .inteiro:has(.f-marca) { display:flex; align-items:center; gap:8px; flex-wrap:nowrap; min-width:0; }
+  .v2pc :is(#itens, #itensPart) > .item[data-tipo="pneu"] > .grade > .inteiro:has(.f-marca) > label { display:none; }
+  .v2pc :is(#itens, #itensPart) > .item[data-tipo="pneu"] .f-marca { margin-top:0 !important; flex:1 1 140px; min-width:0; max-width:260px; }
+  .v2pc :is(#itens, #itensPart) > .item[data-tipo="pneu"] > .grade > .inteiro:has(.f-marca) { max-width:calc(100% - 180px); }
+  @container pecas (max-width: 820px) {
+    .v2pc :is(#itens, #itensPart) > .item[data-tipo="pneu"] > .grade > .inteiro:has(.f-marca) { max-width:none; }
+    .v2pc :is(#itens, #itensPart) > .item[data-tipo="pneu"] > .item-topo { grid-row:3 !important; grid-column:2 / -1 !important; justify-content:flex-end !important; }
+  }
+  /* Peça/Pneu: só aparece no item ainda vazio (para trocar o tipo antes de preencher) */
+  .v2pc :is(#itens, #itensPart) > .item:not(.v2-vazio) > .item-topo select { display:none !important; }
+  /* mesmas alturas: campos 34 px (qtd e valor estavam 36) e botões 34 px */
+  .v2pc :is(#itens, #itensPart) > .item input.f-qtd, .v2pc :is(#itens, #itensPart) > .item .f-valor-orc { height:34px !important; min-height:34px !important; }
+  .v2pc #form button.secundario, .v2pc .v2pc-docbar label.v2-btnarq, .v2pc .v2-ler button, .v2pc #v2lado button.secundario { height:34px; min-height:34px !important; box-sizing:border-box; }
+  /* Observações com a mesma letra dos outros campos (estava a de máquina de escrever) */
+  .v2 #form textarea, .v2 #form textarea::placeholder { font-family:inherit; }
+  /* descrição longa: fora do foco aparece inteira em 2 linhas (letra um pouco menor); ao clicar volta ao campo normal */
+  .v2pc :is(#itens, #itensPart) > .item .inteiro:has(> .f-desc) { position:relative; }
+  .v2pc :is(#itens, #itensPart) > .item .f-desc.v2-2l:not(:focus) { color:transparent !important; }
+  .v2pc :is(#itens, #itensPart) > .item .v2-desc2 { display:none; position:absolute; left:1px; right:1px; bottom:3px; height:28px; padding:0 10px; box-sizing:border-box; pointer-events:none;
+    font-size:13px; line-height:14px; color:var(--texto, #172b4d); overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; word-break:break-word; align-content:center; }
+  .v2pc :is(#itens, #itensPart) > .item .f-desc:not(.v2-2l) ~ .v2-desc2, .v2pc :is(#itens, #itensPart) > .item .f-desc:focus ~ .v2-desc2 { display:none !important; }
+  .v2pc :is(#itens, #itensPart) > .item.nao-comprar .v2-desc2 { opacity:.6; }
+  /* botão Enviar: quanto falta; verde quando está tudo pronto */
+  .v2pc #btnEnviar[data-faltam]:not([data-faltam="0"])::after { content:" · faltam " attr(data-faltam); font-weight:400; opacity:.85; }
+  .v2pc #btnEnviar.v2-pronto { background:#1f845a !important; border-color:#1f845a !important; }
+  .v2pc #btnEnviar.v2-pronto:hover { background:#216e4e !important; }
+  /* etapas: nome da peça e o que falta nela numa linha só */
+  .v2pc #v2etapas .fl b { font-weight:700; }
+  /* botões de anexo quebram linha em vez de passar por baixo da coluna da direita */
+  .v2pc .v2pc-docbar { flex-wrap:wrap !important; row-gap:6px; }
+  /* notebook com zoom de 125% do Windows (~1090 px): coluna da direita mais estreita e a linha da peça só reorganiza abaixo de 700 px */
+  @media (max-width:1200px) {
+    .v2pc #form { grid-template-columns:minmax(0, 1fr) 280px; gap:0 16px; }
+    .v2pc #v2resumo .kv b { font-size:13px; }
+    .v2pc .v2pc-docbar { gap:6px; }
+    /* barra de cima apertada: Detalhes/Ajuda só com o ícone (o nome aparece ao parar o mouse) e tipo do pedido mais justo */
+    .v2pc #v2ped-dir .v2hb { width:36px; padding:0 !important; font-size:0 !important; display:inline-flex; align-items:center; justify-content:center; }
+    .v2pc #v2ped-dir #v2det::before { content:"📎"; font-size:15px; }
+    .v2pc #v2ped-dir #v2aj::before { content:"?"; font-size:16px; font-weight:700; color:#44546f; }
+    .v2pc.v2-detalhes #v2ped-dir #v2det, .v2pc.v2-ajuda #v2ped-dir #v2aj { background:#e9f2ff !important; border-color:#85b8ff !important; }
+    .v2pc.v2-pedtopo #v2topo { gap:10px; }
+    .v2pc #v2ped-tipo .chip { padding:3px 8px !important; font-size:13px !important; }
+    .v2pc .v2pc-docbar label.v2-btnarq { padding:4px 9px !important; font-size:13px !important; }
+    .v2pc .v2pc-docbar h2 { font-size:15px !important; }
+  }
+  @media (max-width:960px) {
+    .v2pc #form { grid-template-columns:minmax(0, 1fr); }
+  }
 </style>
 <script>
 (function () {
@@ -3048,10 +3115,12 @@ iniciar();
   topo.innerHTML = '<span class="placa" id="v2placa">—</span><span class="etapa" id="v2etapa"></span>';
   var cab = document.querySelector('header');
   cab.insertAdjacentElement('afterend', topo);
+  if (window.ResizeObserver) new ResizeObserver(function () { var h = topo.offsetHeight; if (h) html.style.setProperty('--v2topoH', h + 'px'); }).observe(topo);
   cab.querySelector('h1').insertAdjacentHTML('afterend', '<button type="button" class="secundario v2hb" id="v2det">📎 Detalhes</button><button type="button" class="secundario v2hb" id="v2aj">❔ Ajuda</button>');
   if (g('seloTeste')) g('seloTeste').textContent = 'TESTE';
   g('v2det').onclick = function () { html.classList.toggle('v2-detalhes'); this.textContent = html.classList.contains('v2-detalhes') ? '📎 Esconder' : '📎 Detalhes'; };
   g('v2aj').onclick = function () { html.classList.toggle('v2-ajuda'); };
+  g('v2det').title = 'Detalhes do card'; g('v2aj').title = 'Ajuda: mostra as explicações de cada parte da tela';
   var PROXIMO = {
     'FALTA DADOS PARA COTAR': 'Falta completar o pedido', 'EM COTAÇÃO': 'O comprador está cotando', 'COTAÇÃO FINALIZADA': 'Esperando autorização',
     'PENDENTE AUTORIZAR': 'Esperando autorização', 'AUTORIZADO COMPRA': 'O comprador vai comprar', 'FALTA CHEGAR': 'Esperando a peça chegar',
@@ -3070,6 +3139,8 @@ iniciar();
     var hT = (g('v2topo') || {}).offsetHeight || 0; if (hT && html.style.getPropertyValue('--v2topoH') !== hT + 'px') html.style.setProperty('--v2topoH', hT + 'px');
     var pedTopo = PC && visivel(g('form')) && !!g('v2ped-placa');
     html.classList.toggle('v2-pedtopo', pedTopo);
+    var dirTopo = g('v2ped-dir');
+    if (dirTopo) ['v2det', 'v2aj', 'seloTeste', 'usuario', 'btnFechar'].forEach(function (id) { var e = g(id), alvo = pedTopo ? dirTopo : cab; if (e && e.parentNode !== alvo) alvo.appendChild(e); });
     if (pedTopo && g('v2novo')) g('v2novo').parentNode.style.display = window.CARD_EDICAO ? '' : 'none';
     var dicaEd = pedTopo && window.CARD_EDICAO ? ' <span class="v2q" tabindex="0" data-dica="' + txt(DICA_EDITAR) + '"></span>' : '';
     var etH = '<b>' + txt(etapa) + dicaEd + '</b>' + txt(lista ? lista + (PROXIMO[lista] ? ' · ' + PROXIMO[lista] : '') : '');
@@ -3172,7 +3243,12 @@ iniciar();
     novo.innerHTML = '<button type="button" class="secundario" id="v2novo">➕ Pedido novo</button><span class="v2q v2q-dir" tabindex="0" data-dica="' + txt(DICA_NOVO) + '"></span>';
     var tipo = document.createElement('div'); tipo.id = 'v2ped-tipo'; tipo.className = 'v2ped';
     topo.insertBefore(wp, topo.firstChild);
-    topo.appendChild(novo); topo.appendChild(tipo);
+    // 13/10/2026 (revisão geral): barra de cima numa faixa só — meio = situação + tipo do pedido; direita = Pedido novo + Detalhes/Ajuda/usuário
+    var meio = document.createElement('div'); meio.id = 'v2ped-meio';
+    g('v2etapa').insertAdjacentElement('beforebegin', meio); meio.appendChild(g('v2etapa')); meio.appendChild(tipo);
+    var dir = document.createElement('div'); dir.id = 'v2ped-dir'; dir.className = 'v2ped';
+    topo.appendChild(dir); dir.appendChild(novo);
+    var logo = document.createElement('span'); logo.className = 'v2ped v2-logo'; logo.textContent = 'U'; topo.insertBefore(logo, topo.firstChild);
     wp.appendChild(placa); placa.placeholder = 'PLACA';
     // 13/10/2026 (Weslley): cara de placa de verdade — Mercosul (faixa azul BRASIL) ou cinza antiga, conforme o que foi digitado
     wp.insertAdjacentHTML('afterbegin', '<span class="pl-faixa"><span class="pl-br">BR</span><b>BRASIL</b><span class="pl-band" aria-hidden="true"></span><i class="pl-furo e"></i><i class="pl-furo d"></i></span>');
@@ -3228,6 +3304,8 @@ iniciar();
      (ano 9, chassi 17, ordem até 8) — só a disposição muda; os campos são os mesmos */
   function montarCarroPC() {
     var sec = g('modelo') && g('modelo').closest('section'); if (!sec) return;
+    // 13/10/2026 (revisão geral): exemplo no campo vazio parecia valor preenchido — agora começa com "Ex.:"
+    ['modelo', 'ano', 'motor', 'carro', 'cor', 'seguradora'].forEach(function (id) { var e = g(id); if (e && e.placeholder && !/^Ex\b/i.test(e.placeholder)) e.placeholder = 'Ex.: ' + e.placeholder; });
     sec.classList.add('v2-carro');
     if (g('ano')) g('ano').maxLength = 9;
     if (g('chassi')) g('chassi').placeholder = '17 caracteres';
@@ -3290,15 +3368,33 @@ iniciar();
     var itPend = {}; f2.forEach(function (f) { var m = f.match(/^Item (\d+)/i); if (m) itPend[m[1]] = 1; });
     var tot2 = itens.length, ok2 = Math.max(0, tot2 - Object.keys(itPend).length);
     var atual = f1.length ? 0 : f2.length ? 1 : 2;
+    // 13/10/2026 (revisão geral): o que falta na peça agrupado numa linha — "FAROL ESQUERDO — código, tipo"
+    var curto = function (x) { return /c[óo]digo/i.test(x) ? 'código' : /tipo de pe/i.test(x) ? 'tipo' : /descri/i.test(x) ? 'descrição' : /medida/i.test(x) ? 'medida' : /categoria|marca/i.test(x) ? 'categoria ou marca' : x; };
+    var grp = {}, ordemGrp = [], soltos = [], todos = itensDoPedido();
+    f2.forEach(function (x) {
+      var m = x.match(/^Item (\d+)(?:\s*\([^)]*\))?:\s*(.*)$/i);
+      if (!m) { soltos.push({ txt: x, alvo: 'id:itens' }); return; }
+      if (!grp[m[1]]) { grp[m[1]] = []; ordemGrp.push(m[1]); }
+      var c = curto(m[2]); if (grp[m[1]].indexOf(c) < 0) grp[m[1]].push(c);
+    });
+    var falta2 = ordemGrp.map(function (n) {
+      var it = todos[+n - 1], nome = '';
+      if (it) { var q = function (sl) { return String((it.querySelector(sl) || {}).value || '').trim(); }; nome = it.dataset.tipo === 'pneu' ? 'Pneu ' + (q('.f-medida') || '') : q('.f-desc') || q('.f-codigo'); }
+      nome = (nome || 'Peça ' + n).trim(); if (nome.length > 26) nome = nome.slice(0, 25) + '…';
+      return { html: '<b>' + txt(nome) + '</b> — ' + txt(grp[n].join(', ')), alvo: 'i:' + n };
+    }).concat(soltos);
+    var nFaltam = falta1.length + falta2.length;
+    var be = g('btnEnviar');
+    if (be) { if (be.dataset.faltam !== String(nFaltam)) be.dataset.faltam = String(nFaltam); be.classList.toggle('v2-pronto', !nFaltam); }
     var et = [
       { t: 'Orçamento e carro', c: tot1 ? ok1 + ' de ' + tot1 : '', p: tot1 ? ok1 / tot1 : 1, f: falta1 },
-      { t: 'Peças', c: tot2 ? ok2 + ' de ' + tot2 + ' prontas' : '', p: tot2 ? ok2 / tot2 : (f2.length ? 0 : 1), f: f2.map(function (x) { var m = x.match(/^Item (\d+)/i); return { txt: x, alvo: m ? 'i:' + m[1] : 'id:itens' }; }) },
+      { t: 'Peças', c: tot2 ? ok2 + ' de ' + tot2 + ' prontas' : '', p: tot2 ? ok2 / tot2 : (f2.length ? 0 : 1), f: falta2 },
       { t: 'Enviar', c: '', p: 0, f: [] }
     ];
     var eh = et.map(function (e, i) {
       var cl = i < atual ? 'feito' : i === atual ? 'atual' : '';
       var prog = i < atual ? 100 : i === atual ? Math.round(e.p * 100) : 0;
-      var lista = i === atual && e.f.length ? '<ul class="fl">' + e.f.slice(0, 6).map(function (x) { return '<li><a href="#" data-alvo="' + txt(x.alvo) + '">' + txt(x.txt.replace(/^Item \d+\s*\(([^)]*)\):\s*/i, function (_, n) { return n.slice(0, 22) + (n.length > 22 ? '…' : '') + ': '; })) + '</a></li>'; }).join('') + (e.f.length > 6 ? '<li class="mais">e mais ' + (e.f.length - 6) + '</li>' : '') + '</ul>' : '';
+      var lista = i === atual && e.f.length ? '<ul class="fl">' + e.f.slice(0, 6).map(function (x) { return '<li><a href="#" data-alvo="' + txt(x.alvo) + '">' + (x.html || txt(x.txt.replace(/^Item \d+\s*\(([^)]*)\):\s*/i, function (_, n) { return n.slice(0, 22) + (n.length > 22 ? '…' : '') + ': '; }))) + '</a></li>'; }).join('') + (e.f.length > 6 ? '<li class="mais">e mais ' + (e.f.length - 6) + '</li>' : '') + '</ul>' : '';
       return '<div class="et ' + cl + '" style="--p:' + prog + '%"><span class="n">' + (i < atual ? '✓' : i + 1) + '</span><span class="t">' + e.t + (e.c ? ' <small>· ' + e.c + '</small>' : '') + '</span>' + lista + '</div>';
     }).join('');
     if (g('v2etapas').dataset.h !== eh) { g('v2etapas').innerHTML = eh; g('v2etapas').dataset.h = eh; }
@@ -3860,7 +3956,9 @@ iniciar();
     try { marcarAsteriscos(); } catch (e) {}
     $$('label[for]').forEach(function (lb) {
       if (!lb.querySelector('.obr')) return;
-      var el = g(lb.htmlFor); if (!el || el.id === 'chassi' || el.closest('.item') || !form.contains(el) && el.id !== 'placa') return;
+      var el = g(lb.htmlFor); if (!el || el.closest('.item') || !form.contains(el) && el.id !== 'placa') return;
+      // chassi: verde/vermelho da conferência fica com montarCarroPC; aqui só o "vazio" (13/10/2026, revisão geral)
+      if (el.id === 'chassi') { el.classList.toggle('v2-falta', el.offsetParent !== null && !String(el.value || '').trim()); return; }
       var vis = el.offsetParent !== null;
       var v = String(el.value || '').trim(), ok = el.tagName === 'SELECT' ? el.selectedIndex > 0 : !!v && (!VALIDA[el.id] || VALIDA[el.id](v));
       el.classList.toggle('v2-ok', vis && ok); el.classList.toggle('v2-falta', vis && !ok);
@@ -3873,6 +3971,18 @@ iniciar();
         var v = String(el.value || '').trim();
         el.classList.toggle('v2-ok', !nao && !!v); el.classList.toggle('v2-falta', !nao && !!obr && !v);
       });
+      it.classList.toggle('v2-vazio', !$$('.f-codigo, .f-desc, .f-medida', it).some(function (el) { return String(el.value || '').trim(); }));
+      var fd = it.querySelector('.f-desc');
+      if (fd && PC) {
+        var ov = fd.parentNode.querySelector('.v2-desc2');
+        if (!ov) { ov = document.createElement('span'); ov.className = 'v2-desc2'; ov.setAttribute('aria-hidden', 'true'); fd.insertAdjacentElement('afterend', ov); }
+        var dv = String(fd.value || '');
+        if (ov.textContent !== dv) ov.textContent = dv;
+        var cheio = false;
+        if (dv && document.activeElement !== fd) { fd.classList.remove('v2-2l'); cheio = fd.scrollWidth > fd.clientWidth + 1; }
+        else cheio = fd.classList.contains('v2-2l') && !!dv;
+        fd.classList.toggle('v2-2l', cheio); fd.title = cheio ? dv : '';
+      }
       var ch = it.querySelector('.grade .chips');
       if (ch) { var marc = !!ch.querySelector('input:checked') || !!String((it.querySelector('.f-marca') || {}).value || '').trim(); ch.classList.toggle('v2-falta', !nao && !marc); }
     });
