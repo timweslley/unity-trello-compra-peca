@@ -2854,6 +2854,8 @@ iniciar();
   .v2 .v2q { position:relative; display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%;
     background:#dcdfe4; color:#44546f; font:700 12px/18px system-ui, sans-serif; cursor:help; margin-left:4px; vertical-align:middle; flex:0 0 auto; }
   .v2 .v2q::before { content:'?'; }
+  .v2pc :is(#itens, #itensPart) > .item { overflow:visible !important; }
+  .v2 .item:has(.v2q:hover), .v2 .item:has(.v2q:focus), .v2 section:has(.v2q:hover), .v2 section:has(.v2q:focus) { position:relative; z-index:25; }
   .v2 .v2q:hover, .v2 .v2q:focus { background:#0c66e4; color:#fff; outline:none; }
   .v2 .v2q:hover::after, .v2 .v2q:focus::after { content:attr(data-dica); position:absolute; top:26px; left:-10px; z-index:30; width:320px; white-space:pre-line;
     background:#172b4d; color:#fff; font:400 13px/19px system-ui, sans-serif; padding:8px 12px; border-radius:6px; box-shadow:0 4px 12px #091e4240; text-align:left; letter-spacing:0; }
@@ -2967,7 +2969,8 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado), .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado) { font-size:0 !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado)::after { content:"🚫"; font-size:14px; filter:grayscale(1); opacity:.7; }
   /* cor dos campos obrigatórios da peça (mesmo padrão dos dados do carro) */
-  .v2 :is(#itens, #itensPart) > .item .grade .chips { width:fit-content; }
+  .v2 :is(#itens, #itensPart) > .item .grade .chips { width:fit-content; align-items:center; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .v2q { margin:0 2px 0 4px; }
   .v2 :is(#itens, #itensPart) > .item:not(.nao-comprar) .chips.v2-falta { outline:1px solid #f3c4bf; outline-offset:2px; border-radius:6px; background:#fff7f6; }
   /* espaçamentos menores no computador (Weslley 09/10: "espaço entre o texto e a borda muito grande") */
   .v2pc #form > section { padding:10px 14px !important; margin:0 0 10px !important; }
@@ -3089,6 +3092,7 @@ iniciar();
     var u = new URLSearchParams(location.search); u.set('modo', 'forn'); if (window.CARD_EDICAO) u.set('card', window.CARD_EDICAO);
     location.href = location.pathname + '?' + u.toString() + location.hash;
   }
+  var DICA_TIPOPECA = 'Tipo da peça que o comprador vai cotar — marque 1 ou 2 (ex.: GENUÍNO + PARALELO = ele cota as duas opções).\nGENUÍNO: da montadora (concessionária).\nORIGINAL: do mesmo fabricante que fornece para a montadora, sem a marca dela.\nPARALELO: de outra marca.\nUSADO: peça usada (desmanche).';
   var DICA_TIPO = 'Seguradora: peças do orçamento autorizado pela seguradora.\nParticular: o cliente paga. Num card de seguradora, vira um pedido separado no mesmo card (mesmo carro).\nRetorno: a oficina paga (retrabalho ou garantia). Quem autoriza a compra é a diretoria.';
   if (form && secoes.length >= 5 && PC) { montarLado(); montarTopoPedido(); montarCarroPC(); }
   else if (form && secoes.length >= 5) {
@@ -3301,11 +3305,14 @@ iniciar();
         var cc = topoIt.querySelector('.chip-comp'); if (cc) cc.title = 'Complemento: peça fora do orçamento autorizado (vai no orçamento complementar da seguradora)';
         var cn = topoIt.querySelector('.chip-nao'); if (cn) cn.title = 'Não comprar: peça do orçamento que a oficina não vai comprar (recuperar, cliente já tem…)';
         var sl = topoIt.querySelector('select'); if (sl) sl.title = 'Peça ou pneu';
+        // 13/10/2026 (Weslley): "?" dentro do quadro do tipo de peça
+        var chT = it.querySelector('.grade .chips:has(.f-tipo)');
+        if (chT && !chT.querySelector('.v2q')) chT.insertAdjacentHTML('beforeend', '<span class="v2q" tabindex="0" data-dica="' + txt(DICA_TIPOPECA) + '"></span>');
       }
       var cx = it.parentNode;
       if (cx && !(cx.previousElementSibling && cx.previousElementSibling.classList.contains('v2pc-cab'))) {
         var cab = document.createElement('div'); cab.className = 'v2pc-cab';
-        cab.innerHTML = '<span>#</span><span>Código' + (cx.id === 'itensPart' || /PARTICULAR|RETORNO/.test(tipoPedidoV2()) ? '' : ' *') + '</span><span>Descrição * · tipo * (até 2)</span><span style="text-align:center">Qtd</span><span style="text-align:right">Valor orç. (R$)</span>';
+        cab.innerHTML = '<span>#</span><span>Código' + (cx.id === 'itensPart' || /PARTICULAR|RETORNO/.test(tipoPedidoV2()) ? '' : ' *') + '</span><span>Descrição * · tipo *</span><span style="text-align:center">Qtd</span><span style="text-align:right">Valor orç. (R$)</span>';
         cx.parentNode.insertBefore(cab, cx);
       }
     }
