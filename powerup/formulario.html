@@ -3008,7 +3008,9 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item .f-valor-orc { text-align:right; }
   /* ações em ícones (o nome aparece ao parar o mouse); marcadas ficam coloridas */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado), .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado) { font-size:0 !important; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado)::after { content:"Não comprar"; font-size:12px; font-weight:600; color:#626f86; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao { font-size:0 !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::after { content:"Não\A comprar"; white-space:pre; text-align:center; font-size:11px; line-height:12px; font-weight:600; color:#626f86; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { content:"🚫 Não\A comprar"; color:#ae2e24; font-weight:700; }
   /* cor dos campos obrigatórios da peça (mesmo padrão dos dados do carro) */
   .v2 :is(#itens, #itensPart) > .item .grade .chips { width:fit-content; align-items:center; }
   .v2pc :is(#itens, #itensPart) > .item .grade .chips .v2q { margin:0 2px 0 4px; }
