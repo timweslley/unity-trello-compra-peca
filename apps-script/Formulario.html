@@ -2645,7 +2645,7 @@ iniciar();
   .v2 .v2-fotos[open] summary { color:#44546f; }
   /* ===== computador (09/10/2026, Weslley: "2 interfaces, uma pro celular outra pro computador") — modelo R7 da proposta visual:
      página única (sem passos), seções em cartões brancos, coluna lateral com resumo, etapas, o que falta e o botão Enviar ===== */
-  .v2pc #v2topo, .v2pc header { padding-left:max(24px, calc(50% - 566px)); padding-right:max(24px, calc(50% - 566px)); }
+  .v2pc #v2topo, .v2pc header { padding-left:max(24px, calc(50% - 636px)); padding-right:max(24px, calc(50% - 636px)); }
   .v2pc #v2topo .placa { font-size:24px; }
   /* 13/10/2026: topo do pedido no computador (placa editável, Editar pedido/Pedido novo com "?", tipo do pedido) */
   .v2 .v2ped { display:none; }
@@ -2722,7 +2722,7 @@ iniciar();
   .v2 .v2q:hover::after, .v2 .v2q:focus::after { content:attr(data-dica); position:absolute; top:26px; left:-10px; z-index:30; width:320px; white-space:pre-line;
     background:#172b4d; color:#fff; font:400 13px/19px system-ui, sans-serif; padding:8px 12px; border-radius:6px; box-shadow:0 4px 12px #091e4240; text-align:left; letter-spacing:0; }
   .v2 .v2q.v2q-dir:hover::after, .v2 .v2q.v2q-dir:focus::after { left:auto; right:-10px; }
-  .v2pc main { max-width:1180px; padding:20px 24px 40px; }
+  .v2pc main { max-width:1320px; padding:20px 24px 40px; }
   .v2pc:has(#comprador:not(.oculto)) #v2topo, .v2pc:has(#comprador:not(.oculto)) header { padding-left:max(24px, calc(50% - 418px)); padding-right:max(24px, calc(50% - 418px)); }
   .v2pc main:has(> #comprador:not(.oculto)), .v2pc main:has(> #telaSucesso:not(.oculto)) { max-width:860px; }
   .v2pc #form { display:grid; grid-template-columns:minmax(0, 1fr) 340px; gap:0 20px; align-items:start; padding-bottom:0; }
@@ -2824,13 +2824,13 @@ iniciar();
   /* "+ Comp." escrito (Weslley 13/10) e o ✕ de remover com mais destaque */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado)::after { content:"+ Comp."; font-size:12px; font-weight:700; color:#6e5dc6; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { color:#c9372c !important; background:transparent !important; border-radius:6px; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo::after { content:"✕"; font-size:18px !important; font-weight:700; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo::after { content:"Excluir"; font-size:12px !important; font-weight:700; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo:hover { background:#ffeceb !important; }
   /* 13/10/2026 (Weslley): cabeçalho das colunas preso no topo ao rolar uma lista grande */
   .v2pc .v2pc-cab { position:sticky; top:var(--v2topoH, 112px); z-index:5; background:#fff; padding-top:6px; }
   /* tela mais estreita (zoom, janela menor): a linha da peça se reorganiza em vez de sobrepor */
   .v2pc #form > section.v2-pecas { container-type:inline-size; container-name:pecas; }
-  @container pecas (max-width: 720px) {
+  @container pecas (max-width: 790px) {
     .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-tipo), .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-marca) { grid-column:2 / -1 !important; }
     .v2pc :is(#itens, #itensPart) > .item > .item-topo { grid-row:3 !important; grid-column:2 / -1 !important; justify-content:flex-start !important; flex-wrap:wrap !important; }
   }
@@ -2863,6 +2863,8 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { border-color:#f3c4bf !important; }
   /* complemento marcado: selo roxo bem visível */
   .v2 :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado { background:#f3f0ff !important; border-color:#9f8fef !important; color:#5e4db2 !important; font-weight:700; font-size:12px !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado { font-size:0 !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado::after { content:"➕ Comp."; font-size:12px; font-weight:700; color:#5e4db2; }
   .v2 :is(#itens, #itensPart) > .item[data-comp="1"] .num + * { }
   .v2 :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado { border-color:#f3c4bf !important; background:#fff1f0 !important; }
   .v2pc :is(#itens, #itensPart) > .item .f-valor-orc { text-align:right; }
