@@ -1466,6 +1466,8 @@ function vdf_salvarCompra(token, p) {
     // nada novo e nada pendente: só fecha (move) o que foi salvo parcialmente
     var axF = vdf_anexarCompra_(card, arqs, token);
     var movF = ''; try { movF = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username); } catch (e) {}
+    // tudo já recebido (ex.: compras do fluxo antigo ✔) -> segue direto para ENCERRADO (13/10/2026, BDK2J49)
+    try { var movF2 = rc_reavaliarColuna_(card.id, token, me.username); if (movF2) movF = movF2; } catch (e) { console.log('compra/coluna: ' + e); }
     try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🛒 **COMPRA ENVIADA** — ' + me.fullName + ' · todas as peças já estavam registradas' + (movF ? ' → **' + movF + '**' : '') + vdf_txtAnexosCompra_(axF) } }, token); } catch (e) {}
     try { vd_marcar_(card); } catch (e) {}
     return { ok: true, url: card.shortUrl, nome: card.name, pagas: 0, pendentes: 0, foraAut: [], anexos: axF.anexados, repetidos: axF.repetidos, lista: movF || vdf_nomeLista_(ctx, card.idList) };
