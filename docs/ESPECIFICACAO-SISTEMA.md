@@ -88,7 +88,7 @@ marca o pedido como RETORNO.
 
 **Colunas travadas** (só se entra pela ação certa): 4, 5, 6, 7, 8. Movimento manual para elas é desfeito.
 **Colunas livres**: 1, 9, 10 e qualquer outra.
-**Cards ignorados**: título contém "NOVO PEDIDO DE PEÇA" ou começa com "AVISO"; cards legados (anteriores à virada,
+**Cards ignorados**: título contém "NOVO PEDIDO DE PEÇA" ou começa com "AVISO"; "sem compra de peça" na parte do pedido (o texto antigo guardado abaixo de `=== COTAÇÃO (compras) ===` não conta — 13/10/2026, RAM9I31); cards legados (anteriores à virada,
 sem descrição completa). O card fixo "➕ NOVO PEDIDO DE PEÇA" fica **sempre em primeiro** na coluna dele: o robô guarda
 onde ele está (`VD_FIXO`, varredura completa) e o devolve ao topo quando um card entra na coluna; o formulário (card novo,
 mover) e a trava de colunas também o reposicionam na hora (07/10/2026).
