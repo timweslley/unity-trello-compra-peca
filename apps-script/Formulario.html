@@ -2685,6 +2685,12 @@ iniciar();
   .v2pc #v2ped-placa.pl-antiga .pl-furo { display:block; }
   .v2pc #v2ped-placa.pl-antiga .pl-vis { color:#16191c !important; text-shadow:0 1px 0 #f2f3f4, 0 -1px 0 #7b8188; letter-spacing:3px !important; }
   .v2pc #v2ped-placa.pl-erro { box-shadow:0 0 0 3px #f8a39d; }
+  .v2pc #v2ped-placa.pl-py .pl-band { background:linear-gradient(#d52b1e 33%, #fff 33% 66%, #0038a8 66%); }
+  .v2pc #v2ped-placa.pl-ar .pl-band { background:linear-gradient(#74acdf 33%, #fff 33% 66%, #74acdf 66%); }
+  .v2pc #v2ped-placa.pl-py .pl-band::before, .v2pc #v2ped-placa.pl-py .pl-band::after, .v2pc #v2ped-placa.pl-ar .pl-band::before { display:none; }
+  .v2pc #v2ped-placa.pl-ar .pl-band::after { left:5px; top:3px; width:3px; height:3px; background:#f6b40e; }
+  .v2 #v2plPais { flex-basis:100%; order:4; margin:4px 0 0; padding:6px 10px; background:#fff7d6; border:1px solid #f5cd47; font-size:14px; }
+  .v2 #v2plPais button { min-height:30px; padding:2px 10px; font-size:13px; margin-left:6px; }
   .v2pc #v2topo #v2ped-placa input.v2-ok, .v2pc #v2topo #v2ped-placa input.v2-falta { background:transparent !important; }
   .v2pc #v2topo .v2ped-novo button { width:212px; height:58px; min-height:58px; box-sizing:border-box; padding:0 10px; font-size:16px; font-weight:600; border-radius:6px; }
   .v2pc #v2ped-tipo .chips { display:flex; gap:6px; margin:0 !important; flex-wrap:wrap; }
@@ -3105,13 +3111,34 @@ iniciar();
     wp.insertAdjacentHTML('afterbegin', '<span class="pl-faixa"><span class="pl-br">BR</span><b>BRASIL</b><span class="pl-band" aria-hidden="true"></span><i class="pl-furo e"></i><i class="pl-furo d"></i></span>');
     wp.insertAdjacentHTML('beforeend', '<span class="pl-vis" aria-hidden="true"></span>');
     var vis = wp.querySelector('.pl-vis');
+    // placa do Paraguai/Argentina (13/10/2026, Weslley: "acontece bem pouco"): aceita só depois de o consultor confirmar
+    var NOME_PAIS = { PY: 'PARAGUAY', AR: 'ARGENTINA' };
+    var avPais = document.createElement('div'); avPais.id = 'v2plPais'; avPais.className = 'aviso oculto';
+    g('v2ped-tipo').insertAdjacentElement('afterend', avPais);
     var estiloPlaca = function () {
       var v = String(placa.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (window.CARD && window.CARD.dados && window.CARD.dados.pais && !window.V2_PAIS_INI) { window.V2_PAIS_INI = 1; window.V2_PAIS = window.CARD.dados.pais; window.V2_PAIS_PLACA = v; }
       var merc = /^[A-Z]{3}\d[A-Z]\d{2}$/.test(v), antiga = /^[A-Z]{3}\d{4}$/.test(v);
-      var cl = 'v2ped ' + (antiga ? 'pl-antiga' : 'pl-merc') + (v && !merc && !antiga && v.length >= 7 ? ' pl-erro' : '') + ((merc || antiga) ? ' pl-ok' : '');
+      var est = /^[A-Z]{4}\d{3}$/.test(v) ? 'PY' : /^[A-Z]{2}\d{3}[A-Z]{2}$/.test(v) ? 'AR' : '';
+      var conf = est && window.V2_PAIS === est && window.V2_PAIS_PLACA === v;
+      if (!conf && window.V2_PAIS && window.V2_PAIS_PLACA !== v) window.V2_PAIS = '';
+      var cl = 'v2ped ' + (antiga ? 'pl-antiga' : conf ? 'pl-merc pl-' + est.toLowerCase() : 'pl-merc') + (v && !merc && !antiga && !conf && v.length >= 7 ? ' pl-erro' : '') + ((merc || antiga || conf) ? ' pl-ok' : '');
       if (wp.className !== cl) wp.className = cl;
-      var t = antiga ? v.slice(0, 3) + '-' + v.slice(3) : merc ? v : '';
+      var fx = wp.querySelector('.pl-faixa b'), nomeF = conf ? NOME_PAIS[est] : 'BRASIL';
+      if (fx.textContent !== nomeF) fx.textContent = nomeF;
+      var br = wp.querySelector('.pl-br'), sig = conf ? est : 'BR'; if (br.textContent !== sig) br.textContent = sig;
+      var t = antiga ? v.slice(0, 3) + '-' + v.slice(3) : (merc || conf) ? v : '';
       if (vis.textContent !== t) vis.textContent = t;
+      // aviso de confirmação
+      var querAviso = est && !conf;
+      avPais.classList.toggle('oculto', !querAviso);
+      if (querAviso && avPais.dataset.v !== v) {
+        avPais.dataset.v = v;
+        avPais.innerHTML = '🌎 A placa <b>' + txt(v) + '</b> não é brasileira — parece do <b>' + (est === 'PY' ? 'Paraguai' : 'Argentina') + '</b>. O carro é estrangeiro? '
+          + '<button type="button" class="secundario" id="v2plSim">Sim, é ' + (est === 'PY' ? 'do Paraguai' : 'da Argentina') + '</button> <span class="dica" style="display:inline">Se não for, confira a placa.</span>';
+        g('v2plSim').onclick = function () { window.V2_PAIS = est; window.V2_PAIS_PLACA = v; if (g('dicaPlaca')) { g('dicaPlaca').textContent = ''; g('dicaPlaca').className = 'dica'; } estiloPlaca(); try { pintarObrigatorios(); } catch (e) {} };
+      }
+      if (conf && g('dicaPlaca') && /fora do padr/i.test(g('dicaPlaca').textContent)) g('dicaPlaca').textContent = '';
     };
     placa.addEventListener('input', estiloPlaca); placa.addEventListener('change', estiloPlaca);
     setInterval(estiloPlaca, 1000); estiloPlaca();
@@ -3609,7 +3636,7 @@ iniciar();
   /* 13/10/2026 (Weslley): padrão de cor nos campos obrigatórios — vermelho claro vazio/errado, verde preenchido certo; opcional fica branco.
      Vale para os dados do pedido (placa, carro, unidade, título); as peças têm a cor da própria conferência. */
   var VALIDA = {
-    placa: function (v) { return placaOk(v); },
+    placa: function (v) { return placaOk(v) || (!!window.V2_PAIS && window.V2_PAIS_PLACA === normPlaca(v)); },
     ano: function (v) { return /^(19|20)\d{2}(\s*\/\s*(19|20)\d{2})?$/.test(v); }
   };
   /* 13/10/2026 (Weslley): nº da ordem e cor obrigatórios fora do PARTICULAR; seguradora obrigatória no pedido de SEGURADORA.
@@ -3635,6 +3662,15 @@ iniciar();
     window.coletar = function () {
       var r = coletarOrig.apply(this, arguments);
       try {
+        // placa estrangeira confirmada: não é "falta placa" e o país vai junto para o card
+        if (window.V2_PAIS && window.V2_PAIS_PLACA === normPlaca(g('placa').value) && r) {
+          if (r.payload && r.payload.dados) r.payload.dados.pais = window.V2_PAIS;
+          r.faltas = (r.faltas || []).map(function (f) {
+            if (!/^Dados do carro: falta /.test(f)) return f;
+            var it = f.replace(/^Dados do carro: falta /, '').split(/,\s*/).filter(function (x) { return x.trim() !== 'placa'; });
+            return it.length ? 'Dados do carro: falta ' + it.join(', ') : '';
+          }).filter(String);
+        }
         var falta = obrigExtras().filter(function (id) { return !String(g(id).value || '').trim(); }).map(function (id) { return NOMES_EXTRA[id]; });
         if (falta.length && r && r.faltas) r.faltas.unshift('Dados do carro: falta ' + falta.join(', '));
       } catch (e) {}

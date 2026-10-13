@@ -242,6 +242,14 @@ function vd_mesmaPlaca_(a, b) {
 function vd_placaValida_(p) {
   return /^[A-Z]{3}\d[A-Z0-9]\d{2}$/.test(vd_normPlaca_(p));
 }
+/** Placa do Paraguai (ABCD123) ou da Argentina (AB123CD) no formato Mercosul -> 'PY' | 'AR' | '' (13/10/2026).
+ *  Só vale quando o campo PLACA traz o país marcado, ex.: "ABCD123 (PY)" — nunca é procurada solta no texto. */
+function vd_placaEstrangeira_(p) {
+  p = vd_normPlaca_(p);
+  if (/^[A-Z]{4}\d{3}$/.test(p)) return 'PY';
+  if (/^[A-Z]{2}\d{3}[A-Z]{2}$/.test(p)) return 'AR';
+  return '';
+}
 function vd_placaDoTexto_(s) {
   var m = String(s || '').toUpperCase().match(/\b([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/);
   return m ? m[1] + m[2] : '';
@@ -366,12 +374,14 @@ function vd_analisar_(desc, nomeCard, opts) {
     motor: vd_campo_(bloco, VD_ROT.motor),
     chassi: vd_normChassi_(vd_campo_(bloco, VD_ROT.chassi).split(/[\s(]/)[0]),
     placa: vd_normPlaca_(vd_campo_(bloco, VD_ROT.placa).split(/[\s(]/)[0]),
+    pais: (vd_campo_(bloco, VD_ROT.placa).match(/\((PY|AR)\)/i) || [])[1] || '',
     tipo: vd_tipoNormPedido_(vd_campo_(bloco, VD_ROT_EXTRA.tipo)),
     cor: vd_campo_(bloco, VD_ROT_EXTRA.cor),
     seguradora: vd_campo_(bloco, VD_ROT_EXTRA.seguradora),
     sinistro: vd_campo_(bloco, VD_ROT_EXTRA.sinistro)
   };
   if (!d.placa) d.placa = vd_placaDoTexto_(nomeCard);
+  d.pais = d.pais && vd_placaEstrangeira_(d.placa) === d.pais.toUpperCase() ? d.pais.toUpperCase() : '';
   if (!d.ano && d.modelo) {
     var anosM = d.modelo.match(/\b(19[89]\d|20[0-4]\d)\b/g);
     if (anosM) d.ano = anosM.slice(0, 2).join('/');
@@ -384,7 +394,7 @@ function vd_analisar_(desc, nomeCard, opts) {
 
   var faltas = [];
   if (!d.placa) faltas.push('placa');
-  else if (!vd_placaValida_(d.placa)) faltas.push('placa inválida (' + d.placa + ')');
+  else if (!vd_placaValida_(d.placa) && !d.pais) faltas.push('placa inválida (' + d.placa + ')');
   if (!modoNova) {
     if (semSeg) {
       // particular (carro ainda não entrou) / retorno: placa, modelo e chassi obrigatórios; ano opcional
@@ -542,7 +552,7 @@ function vd_montarBloco_(d, pecas, obs, rodape, extra) {
   if (d.ano) L.push('**ANO:** ' + d.ano);
   if (d.motor) L.push('**MOTOR/VERSÃO:** ' + d.motor);
   if (d.chassi) L.push('**CHASSI:** ' + d.chassi);
-  L.push('**PLACA:** ' + (d.placa || ''));
+  L.push('**PLACA:** ' + (d.placa || '') + (d.pais ? ' (' + d.pais + ')' : ''));
   if (vd_semSeguradora_(extra.tipo)) L.push('**TIPO:** ' + extra.tipo);
   if (extra.cor) L.push('**COR:** ' + extra.cor);
   if (extra.seguradora) L.push('**SEGURADORA:** ' + extra.seguradora);

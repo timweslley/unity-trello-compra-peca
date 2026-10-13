@@ -389,6 +389,8 @@ var VD_LIXO_TITULO = ['TOL', 'TOLEDO', 'MCR', 'RONDON', 'MARECHAL', 'CVEL', 'CAS
 
 function vdf_partesTitulo_(nome, dados) {
   dados = dados || {};
+  var estrIni = /^\s*([A-Z]{4}\d{3}|[A-Z]{2}\d{3}[A-Z]{2})\b/.exec(vd_semAcento_(nome));   // placa estrangeira no começo do título (13/10/2026)
+  if (estrIni && dados.pais) nome = nome.replace(estrIni[0], ' ABC1D23 ');   // troca por uma placa de mentira só para separar as partes
   if (!vd_placaDoTexto_(nome)) nome = '';   // título fora do padrão (ex.: "image.png"): monta do zero
   // nº da ordem antes da placa ("4496 BBV0H58 ETIOS …", card criado à mão) não é parte do carro (09/10/2026)
   var ps0 = vd_semAcento_(nome).replace(/^[\s\d]+(?=[A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2}\b)/, '').replace(/\b[A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2}\b/, ' ').replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(String);
@@ -1645,6 +1647,9 @@ function vdf_salvar(token, p) {
     chassi: vd_normChassi_(p.dados.chassi),
     placa: vd_normPlaca_(p.dados.placa)
   };
+  // placa estrangeira confirmada no formulário (13/10/2026): "ABCD123 (PY)" — só quando o formato bate com o país
+  var paisP = String(p.dados.pais || '').toUpperCase();
+  if ((paisP === 'PY' || paisP === 'AR') && vd_placaEstrangeira_(d.placa) === paisP) d.pais = paisP;
   var pecas = (p.pecas || []).map(function (x) {
     return x.pneu
       ? { pneu: true, medida: String(x.medida || '').trim().toUpperCase().replace(/\s+/g, ''), categoria: x.categoria || '', marca: String(x.marca || '').trim().toUpperCase(), qtd: x.qtd || '' }
