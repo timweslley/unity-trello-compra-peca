@@ -2845,6 +2845,8 @@ iniciar();
   .v2 .v2q.v2q-ruim { background:#f87168; color:#fff; }
   .v2pc section.v2-carro .v2-inq:hover::after, .v2pc section.v2-carro .v2-inq:focus::after { left:auto; right:-10px; width:260px; }
   .v2pc section.v2-carro label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .v2 #form input.v2-ok, .v2 #form select.v2-ok, .v2 #v2topo input.v2-ok { background:#dcfff1 !important; border-color:#4bce97 !important; }
+  .v2 #form input.v2-falta, .v2 #form select.v2-falta, .v2 #v2topo input.v2-falta { background:#fff1f0 !important; border-color:#f8a39d !important; }
   .v2 .v2-tag { flex:0 0 auto; font-size:12px; font-weight:600; color:#626f86; background:#091e420f; border-radius:4px; padding:2px 8px; white-space:nowrap; }
   .v2 .v2-tag-novo { color:#0055cc; background:#e9f2ff; }
   .v2 .v2-ler .linha.v2-antigo .nome, .v2 .v2-ler .linha.v2-antigo .ico { opacity:.55; }
@@ -3610,7 +3612,26 @@ iniciar();
       + (ls.length ? ' Ao enviar, entra nas peças da seguradora:<ul>' + ls.join('') + '</ul>'
         : ' As peças da seguradora ainda não estão no pedido para casar — ao enviar, o sistema lança fornecedor e previsão nas que baterem.'));
   }
+  /* 13/10/2026 (Weslley): padrão de cor nos campos obrigatórios — vermelho claro vazio/errado, verde preenchido certo; opcional fica branco.
+     Vale para os dados do pedido (placa, carro, unidade, título); as peças têm a cor da própria conferência. */
+  var VALIDA = {
+    placa: function (v) { return placaOk(v); },
+    ano: function (v) { return /^(19|20)\d{2}(\s*\/\s*(19|20)\d{2})?$/.test(v); }
+  };
+  function pintarObrigatorios() {
+    if (!visivel(form)) return;
+    $$('label[for]').forEach(function (lb) {
+      if (!lb.querySelector('.obr')) return;
+      var el = g(lb.htmlFor); if (!el || el.id === 'chassi' || el.closest('.item') || !form.contains(el) && el.id !== 'placa') return;
+      var vis = el.offsetParent !== null;
+      var v = String(el.value || '').trim(), ok = el.tagName === 'SELECT' ? el.selectedIndex > 0 : !!v && (!VALIDA[el.id] || VALIDA[el.id](v));
+      el.classList.toggle('v2-ok', vis && ok); el.classList.toggle('v2-falta', vis && !ok);
+    });
+  }
+  document.addEventListener('input', function (e) { if (e.target && e.target.closest && e.target.closest('#form, #v2topo')) pintarObrigatorios(); }, true);
+  document.addEventListener('change', function (e) { if (e.target && e.target.closest && e.target.closest('#form, #v2topo')) pintarObrigatorios(); }, true);
   function varrer() {
+    try { pintarObrigatorios(); } catch (e) {}
     try { atualizarLado(); } catch (e) {}
     try { if (PC) barraDoc(); } catch (e) {}
     cartaoLeitura(g('anexosCard'), '📎 Já está no card', 'Toque em <b>Ler</b> para o sistema preencher o carro e as peças.', function (lista) {
