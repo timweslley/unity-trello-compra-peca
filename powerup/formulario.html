@@ -3065,6 +3065,8 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { color:#fff !important; filter:brightness(0) invert(1); }
   .v2 :is(#itens, #itensPart) > .item .dica.v2-dicacomp { color:#5e4db2 !important; font-size:12px; margin-top:2px !important; }
   .v2 :is(#itens, #itensPart) > .item .dica.v2-dicacomp b { color:#5e4db2; }
+  /* botões da peça sempre por cima (a área esmaecida dos tipos, no "Não comprar", cobria o botão e engolia o 2º clique) */
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo { position:relative; z-index:3; }
   /* Excluir pede confirmação (2º clique em até 4 s) */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo.v2-armado { background:#5d1f1a !important; border-color:#5d1f1a !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo.v2-armado::after { content:"Confirmar?"; }
@@ -3911,6 +3913,20 @@ iniciar();
     b.classList.add('v2-armado'); b.title = 'Clique de novo para excluir a peça';
     clearTimeout(b._v2t); b._v2t = setTimeout(function () { b.classList.remove('v2-armado'); b.title = 'Excluir a peça'; }, 4000);
   }, true);
+  /* 13/10/2026 (Weslley): "Não comprar" desmarca o complemento (um ou outro); desmarcando o "Não comprar", a peça volta ao que era */
+  if (typeof marcarNao === 'function') {
+    var marcarNaoOrig = marcarNao;
+    window.marcarNao = function (id, sim) {
+      var div = g(id);
+      if (div && sim && div.dataset.comp === '1') div.dataset.compAntes = '1';
+      var r = marcarNaoOrig.apply(this, arguments);
+      if (div && !sim && div.dataset.compAntes === '1') {
+        delete div.dataset.compAntes;
+        var cc = div.querySelector('.chip-comp input'); if (cc) { cc.checked = true; marcarComp(id, true); }
+      }
+      return r;
+    };
+  }
   function pintarObrigatorios() {
     try { arrumarValores(); } catch (e) {}
     if (!visivel(form)) return;
