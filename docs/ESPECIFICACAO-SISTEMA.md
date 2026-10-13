@@ -445,6 +445,7 @@ Serviços e códigos internos (`^0{2,}\d+$`, `^SOMA\d+$`) ficam fora. Valor líq
 Orçamento importado na edição de um card que já tem peças **ou só itens de FORNECIMENTO/PAGAS** é tratado como complementar
 (antes, card só com fornecimento caía na importação de pedido novo e o orçamento era lido como se fosse do zero — 13/10/2026, UIC5G94).
 Item em branco na tela (o formulário abre um vazio) não conta como peça nem trava o envio; card que já tem fornecimento pode ser reenviado sem peça da oficina (13/10/2026, UIC5G94).
+Reler um orçamento **já processado** do card não traz peça da oficina, mas traz peça **fornecida** pela seguradora que não está em nenhum checklist FORNECIMENTO (13/10/2026, UIC5G94 — VENTOINHA).
 Reler pelo formulário um orçamento **antigo** do card (existe outro PDF de orçamento/laudo anexado depois dele — notas, fotos e documentos 🚚 não contam) não traz nada: ele foi substituído pelo mais novo (13/10/2026, UIC5G94: o Cilia de 11/09 tinha tudo pela oficina e o laudo HDI 2.1 passou tudo para fornecimento).
 Orçamento complementar (ORÇ+): compara com as peças existentes → ➕ oficina nova, 📦 FO nova, 🔁 já pedida,
 🔁 passou de FO para oficina (sai do checklist), 🔄 atualizada (código/descrição/valor). Peça da oficina marcada

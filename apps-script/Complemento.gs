@@ -362,8 +362,12 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
           JSON.parse(PropertiesService.getScriptProperties().getProperty('CP_VISTOS') || '[]').indexOf(excluir) >= 0) excluir = '';   // já processado
     } catch (e) {}
   }
-  if (idAnexo && !excluir) {   // orçamento já processado: nada dele entra de novo (o cache pode não guardar orçamento grande)
-    return { oficina: [], fo: [], jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length, pareadas: [], atualizar: [], paraOficina: [], jaProcessado: true };
+  if (idAnexo && !excluir) {   // orçamento já processado: nada da OFICINA entra de novo (o cache pode não guardar orçamento grande)
+    // ...mas peça FORNECIDA pela seguradora que não está em nenhum checklist entra (não gera compra; 13/10/2026, UIC5G94:
+    // VENTOINHA do laudo 2.1 ficou de fora do card e reler o laudo não a trazia)
+    var foFalta = [];
+    try { foFalta = cp_comparar_(card, { oficina: [], fo: (o && o.fo) || [] }, idAnexo).fo || []; } catch (e) {}
+    return { oficina: [], fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length, pareadas: [], atualizar: [], paraOficina: [], jaProcessado: true };
   }
   var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, excluir);
   return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };
