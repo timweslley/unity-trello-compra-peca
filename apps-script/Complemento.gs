@@ -343,7 +343,20 @@ function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTi
 function vdf_compararComplemento(token, shortLink, o, idAnexo) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name', attachments: 'true', attachment_fields: 'name' } });
-  var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, idAnexo || '');
+  // 13/10/2026 (BDK2J49): "ler de novo" um orçamento que JÁ está no card e já foi processado não é complemento novo — as
+  // peças dele contam como conhecidas (compradas no fluxo antigo, tiradas de propósito etc.). Só anexo novo é comparado sem ele.
+  var excluir = idAnexo || '';
+  if (excluir) {
+    try {
+      var axE = (card.attachments || []).filter(function (x) { return x.id === excluir; })[0];
+      if ((axE && /^📄 ORÇ\+? · /.test(String(axE.name || ''))) ||
+          JSON.parse(PropertiesService.getScriptProperties().getProperty('CP_VISTOS') || '[]').indexOf(excluir) >= 0) excluir = '';   // já processado
+    } catch (e) {}
+  }
+  if (idAnexo && !excluir) {   // orçamento já processado: nada dele entra de novo (o cache pode não guardar orçamento grande)
+    return { oficina: [], fo: [], jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length, pareadas: [], atualizar: [], paraOficina: [], jaProcessado: true };
+  }
+  var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, excluir);
   return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };
 }
 

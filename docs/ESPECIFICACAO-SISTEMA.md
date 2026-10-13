@@ -56,6 +56,9 @@ marca o pedido como RETORNO.
 - **Chave da peça**: código (ou descrição, sem código) que liga peça ↔ cotação ↔ autorização ↔ item do checklist.
 - **PAGAS / FORNECIMENTO**: checklists do card com as peças compradas pela oficina / fornecidas pela seguradora.
 - **Complemento**: orçamento complementar da seguradora (peças a mais que o orçamento original).
+  **Ler de novo** no formulário um orçamento que **já está no card e já foi processado** (batizado `📄 ORÇ`/`📄 ORÇ+` ou já visto
+  pelo robô) não traz peça nenhuma de volta — as peças dele contam como conhecidas (compradas no fluxo antigo, tiradas de
+  propósito). Só anexo novo, ainda não processado, é comparado como complemento (13/10/2026, BDK2J49).
   **Situação do complementar na seguradora** (09/10/2026, Weslley): peça ➕ complemento de pedido de **seguradora** só é
   comprada com uma das duas situações informadas — `COMPL: AUTORIZADO` (seguradora autorizou o complementar e ele foi
   importado na ordem do Databox) ou `COMPL: ANTECIPADO NOME` (compra antes da autorização, liberada pelo orçamentista — diz
