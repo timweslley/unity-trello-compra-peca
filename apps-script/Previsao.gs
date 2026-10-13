@@ -779,7 +779,19 @@ function pv_lerFornecimentoTexto_(card, texto) {
   var itensFo = [];
   (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(i); }); });
   var foLista = []; try { foLista = fo_lista_(); } catch (e) {}
-  var alvos = itensFo.map(function (i) { var b = pv_baseFo_(i.name, foLista); var m = b.match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s+(.+)$/i); return { id: i.id, nome: b, codigo: m && /\d/.test(m[1]) ? m[1] : '', descricao: m ? m[2] : b }; });
+  // código grudado na descrição no item do card ("5Q0919275CGRUSENSOR DE ESTACIONAMENTO…", 13/10/2026, STG3I57): separa pelo
+  // código que o documento traz (o maior pedaço do começo da palavra que aparece no texto)
+  var tNorm = ' ' + vd_semAcento_(String(texto || '')).toUpperCase().replace(/[^A-Z0-9]+/g, ' ') + ' ';
+  var descolar = function (b) {
+    var mt = b.match(/^([A-Z0-9]{8,})(\s.*)?$/i);
+    if (!mt || !/[A-Z]{3,}$/i.test(mt[1]) || tNorm.indexOf(' ' + mt[1].toUpperCase() + ' ') >= 0) return b;
+    for (var L = mt[1].length - 3; L >= 6; L--) {
+      var pre = mt[1].slice(0, L).toUpperCase();
+      if ((pre.match(/\d/g) || []).length >= 4 && tNorm.indexOf(' ' + pre + ' ') >= 0) return pre + ' ' + mt[1].slice(L) + (mt[2] || '');
+    }
+    return b;
+  };
+  var alvos = itensFo.map(function (i) { var b = descolar(pv_baseFo_(i.name, foLista)); var m = b.match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s+(.+)$/i); return { id: i.id, nome: b, codigo: m && /\d/.test(m[1]) ? m[1] : '', descricao: m ? m[2] : b }; });
   var achados = pv_lerFornecimento_(texto, alvos, foLista);
   var achIds = achados.map(function (r) { return r.alvo.id; });
   var faltando = alvos.filter(function (a) { return a.codigo && achIds.indexOf(a.id) < 0; }).map(function (a) { return a.nome; });
