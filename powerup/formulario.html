@@ -2774,6 +2774,8 @@ iniciar();
   .v2 #v2conf ol { margin:6px 0 0 20px; padding:0; }
   .v2 #v2conf li { margin:4px 0; }
   .v2 #msgSucesso { font-size:17px; line-height:24px; }
+  .v2 #v2fornAgora { display:flex; align-items:center; gap:4px; margin-top:12px; }
+  .v2 #v2fornAgora button { min-height:40px; font-size:15px; padding:6px 14px; }
   .v2 .v2-fotos { border-top:1px solid #dcdfe4; }
   .v2 .v2-fotos summary { cursor:pointer; padding:10px 0; font-size:15px; font-weight:600; color:#0c66e4; min-height:44px; display:flex; align-items:center; }
   .v2 .v2-fotos[open] summary { color:#44546f; }
@@ -2808,6 +2810,9 @@ iniciar();
   .v2pc .v2-lercab h4 { margin:0 auto 0 0 !important; display:flex; align-items:center; gap:2px; }
   .v2pc .v2-forn { display:flex; align-items:center; gap:4px; }
   .v2pc .v2-forn button { min-height:32px !important; padding:4px 10px !important; font-size:13px !important; }
+  .v2 .v2-tag { flex:0 0 auto; font-size:12px; font-weight:600; color:#626f86; background:#091e420f; border-radius:4px; padding:2px 8px; white-space:nowrap; }
+  .v2 .v2-tag-novo { color:#0055cc; background:#e9f2ff; }
+  .v2 .v2-ler .linha.v2-antigo .nome, .v2 .v2-ler .linha.v2-antigo .ico { opacity:.55; }
   .v2 .v2-jalido { flex:0 0 auto; font-size:13px; font-weight:600; color:#216e4e; background:#dcfff1; border-radius:4px; padding:2px 8px; white-space:nowrap; }
   .v2 .v2q { position:relative; display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%;
     background:#dcdfe4; color:#44546f; font:700 12px/18px system-ui, sans-serif; cursor:help; margin-left:4px; vertical-align:middle; flex:0 0 auto; }
@@ -3279,6 +3284,13 @@ iniciar();
     var lista = m ? m[1].trim().replace(/\.$/, '') : /FALTA DADOS/i.test(t) ? 'FALTA DADOS PARA COTAR' : (/Card criado/.test(t) ? 'EM COTAÇÃO' : '');
     var frase = AGORA[lista] || AGORA[lista + '.'] || '';
     if (frase) suc.insertAdjacentHTML('beforeend', '<div id="v2agora">👉 ' + txt(frase) + '</div>');
+    // 13/10/2026 (Weslley): pedido de seguradora enviado — quem já tem o Status do Pedido lança o fornecimento na hora
+    var slF = ((g('linkCard') || {}).href || '').match(/trello\.com\/c\/([A-Za-z0-9]{8})/);
+    if (slF && /Card (criado|atualizado)/.test(t) && tipoPedidoV2() === 'SEGURADORA' && !g('v2fornAgora')) {
+      suc.insertAdjacentHTML('beforeend', '<div id="v2fornAgora"><button type="button" class="secundario">🚚 Lançar fornecimento agora</button>'
+        + '<span class="v2q" tabindex="0" data-dica="' + txt('Já tem o Status do Pedido do Cilia, as peças do sinistro da HDI ou um print do portal?\nLance agora o fornecedor e a previsão das peças que a seguradora fornece. Se ainda não tem, pode fazer depois pelo 💰 do card.') + '"></span></div>');
+      g('v2fornAgora').querySelector('button').onclick = function () { window.CARD_EDICAO = slF[1]; abrirFornecimento(); };
+    }
   }).observe(suc, { childList: true });
 
   /* observação opcional por peça (comprador): escondida atrás de "+ Observação" enquanto vazia */
@@ -3441,22 +3453,33 @@ iniciar();
         lista = document.createElement('div'); lista.className = 'v2-ler'; box._v2lista = lista;
         if (onde) onde(lista); else box.insertAdjacentElement('beforebegin', lista);
       }
-      var docs = [], fotos = [];
+      var docs = [], fotos = [], ents = [];
       lers.forEach(function (l, i) {
         var a = l.previousElementSibling; while (a && a.tagName !== 'A') a = a.previousElementSibling;
         var nome = a ? a.textContent.trim() : 'Anexo ' + (i + 1), url = a && a.href && !/#$/.test(a.href) ? a.href : '';
         var orc = /ORÇ|OR[CÇ]AMENTO|\.pdf|📄|Cilia|HDI|Soma|Status/i.test(nome), foto = /📸|\.(jpe?g|png|webp)/i.test(nome) && !orc;
-        var de = /novo/i.test(l.textContent);
+        var an = box.id === 'anexosCard' ? ((window.CARD && window.CARD.anexos) || []).filter(function (x) { return x.nome === nome; })[0] : null;
+        if (box.id === 'anexosCard' && an && !an.pdf && !orc) foto = true;   // foto do carro (sem nome padrão de documento)
+        ents.push({ l: l, i: i, nome: nome, url: url, orc: orc, foto: foto, an: an, de: /novo/i.test(l.textContent),
+          quando: an && /^[0-9a-f]{24}$/.test(an.id) ? parseInt(an.id.slice(0, 8), 16) : 0 });
+      });
+      // 13/10/2026: com 2+ orçamentos no card, o mais recente ganha "📌 mais recente" e os outros ficam apagados ("anterior")
+      var orcs = ents.filter(function (e) { return e.orc && e.quando; });
+      var maisNovo = orcs.length >= 2 ? orcs.reduce(function (a, b) { return b.quando > a.quando ? b : a; }) : null;
+      ents.forEach(function (e) {
         // 13/10/2026 (Weslley): orçamento que o sistema já leu e cujas peças já estão no pedido ganha "✓ já lido" e o botão
         // passa a "Ler de novo" (secundário) — para o atendente não ler de novo à toa
-        var an = box.id === 'anexosCard' ? ((window.CARD && window.CARD.anexos) || []).filter(function (x) { return x.nome === nome.trim(); })[0] : null;
-        var jaLido = !!(an && orc && (an.lido || (window.ANEXOS_LIDOS || {})[an.id]) && ((window.CARD.pecas || []).length || window.CARD.doOrcamento));
-        var h = '<div class="linha"><span class="ico">' + (orc ? '📄' : foto ? '📸' : '📎') + '</span>'
-          + (url ? '<a class="nome" href="' + txt(url) + '" target="_blank" rel="noopener">' : '<span class="nome">') + txt(nome.replace(/^[📄📸🚚📦🔗]\s*/u, ''))
-          + (url ? '<small>abrir o arquivo</small></a>' : '</span>')
+        var jaLido = !!(e.an && e.orc && (e.an.lido || (window.ANEXOS_LIDOS || {})[e.an.id]) && ((window.CARD.pecas || []).length || window.CARD.doOrcamento));
+        var antigo = maisNovo && e.orc && e.quando && e !== maisNovo;
+        var h = '<div class="linha' + (antigo ? ' v2-antigo' : '') + '"><span class="ico">' + (e.orc ? '📄' : e.foto ? '📸' : '📎') + '</span>'
+          + (e.url ? '<a class="nome" href="' + txt(e.url) + '" target="_blank" rel="noopener">' : '<span class="nome">') + txt(e.nome.replace(/^[📄📸🚚📦🔗]\s*/u, ''))
+          + (e.url ? '<small>abrir o arquivo</small></a>' : '</span>')
+          + (e === maisNovo ? '<span class="v2-tag v2-tag-novo" title="Orçamento anexado por último neste card">📌 mais recente</span>' : antigo ? '<span class="v2-tag" title="Há um orçamento anexado depois deste">anterior</span>' : '')
           + (jaLido ? '<span class="v2-jalido" title="O sistema já leu este orçamento e as peças dele já estão no pedido">✓ já lido · peças no pedido</span>' : '')
-          + '<button type="button" class="' + (orc && !jaLido ? 'principal' : 'secundario') + '" data-i="' + i + '">' + (de || jaLido ? '🔄 Ler de novo' : '📖 Ler') + '</button></div>';
-        (foto ? fotos : docs).push(h);
+          // 13/10/2026: foto do carro não tem "Ler" (quase nunca é documento) — só abrir
+          + (e.foto ? '' : '<button type="button" class="' + (e.orc && !jaLido ? 'principal' : 'secundario') + '" data-i="' + e.i + '">' + (e.de || jaLido ? '🔄 Ler de novo' : '📖 Ler') + '</button>')
+          + '</div>';
+        (e.foto ? fotos : docs).push(h);
       });
       // 09/10/2026: documentos primeiro; fotos (às vezes 10+) agrupadas e recolhidas — antes enchiam a tela
       var htmlFotos = fotos.length > 2
