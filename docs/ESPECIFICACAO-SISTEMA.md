@@ -314,6 +314,7 @@ peça de card CSS não exige código/tipo nem orçamento anexado (vira FO). Caso
 ### 4.5 Anexos
 
 Anexo lido pelo botão do formulário é renomeado na hora; o cache curto de orçamento grande guarda que é orçamento (antes não guardava e o anexo nunca era renomeado — 13/10/2026, UIC5G94).
+**Nome das notas (13/10/2026, Weslley):** o mesmo padrão das rotinas de NF — `NF <EMITENTE 20> - <nº sem zeros> - <dd-mm da emissão>.pdf` e `NF FORNECIMENTO - <EMITENTE 20> - <nº> - <dd-mm>.pdf` (nota de peça fornecida pela seguradora: fornecedor só nos itens FORNECIMENTO). Vale para a nota subida no 📦 Recebimento (lê XML ou DANFE; sem leitura fica o `📦 NF · …` antigo) e para nota anexada à mão, renomeada na madrugada (`ax_dadosNf_`: XML nNF/xNome/dhEmi; DANFE "RECEBEMOS DE … OS PRODUTOS", Nº 000.000.000, DATA DA EMISSÃO). Os `📦 NF · …` antigos também passam ao padrão.
 **Madrugada (1h–5h59, dentro do ciclo de 1 min — `ax_madrugada_`, 13/10/2026, Weslley):** cards abertos fora de ENCERRADO/ENTREGUES; lê (OCR) os PDFs sem nome padrão e nunca lidos e batiza pelo que são; orçamento mais velho que outro 📄 ORÇ do card vira `📄 ORÇ · … (antigo)`; o não reconhecido fica como está e não é relido (a leitura fica guardada). Resumo de cada noite em `AX_MAD_LOG`. Teste num card: `vdf_anexosAntigosCard` (diretoria).
 Nomes padronizados: `📄 ORÇ · PLACA · SEGURADORA · Sistema · dd/MM`, `📄 ORÇ+` (complementar),
 `🚚 FO · PLACA · Status do Pedido Cilia · dd/MM`, `📦 NF nº · PLACA · FORN · dd/MM`, `📸 PLACA · capa|recebimento · dd/MM`,

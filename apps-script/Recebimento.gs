@@ -336,8 +336,19 @@ function vdf_salvarRecebimento(token, p) {
       });
       var ehNf = /pdf|xml/i.test(f.getMimeType() || '') || /\.(pdf|xml)$/i.test(f.getName());
       // nome padronizado (05/10/2026): "📦 NF 12345 · PLACA · MARAJO · dd/MM" / "📸 · PLACA · recebimento · dd/MM"
+      // nota: padrão das rotinas de NF — "NF <EMITENTE> - <nº> - <dd-mm emissão>.pdf" (13/10/2026, Weslley); sem leitura, o antigo
+      var nfR = null;
+      if (ehNf) {
+        try {
+          var txtNf = /xml/i.test(f.getMimeType() || '') || /\.xml$/i.test(f.getName()) ? f.getBlob().getDataAsString()
+            : (f.getSize() <= 8 * 1024 * 1024 ? vd_ocr_(f.getBlob(), f.getName()) : '');
+          nfR = ax_dadosNf_(txtNf);
+        } catch (e) { console.log('nota do recebimento: ' + e); }
+      }
+      var soFoNf = (a.ids || []).length && (a.ids || []).every(function (id) { return porId[id] && /^FORNECIMENTO/.test(porId[id].lista || ''); });
+      if (nfR && !nfR.emitente && forns.length) nfR.emitente = ax_emitente20_(forns[0]);
       var nome = ehNf
-        ? ax_nome_(AX.NF + (function () { var n = ax_numeroNf_(f); return n ? ' ' + n : ''; })(), placaCard, [forns.join(', ') || refs.slice(0, 2).join(', ')])
+        ? (nfR ? ax_nomeNfRotina_(nfR, soFoNf, null, /xml/i.test(f.getMimeType() || '') || /\.xml$/i.test(f.getName()) ? '.xml' : '.pdf') : ax_nome_(AX.NF, placaCard, [forns.join(', ') || refs.slice(0, 2).join(', ')]))
         : ax_nome_(AX.FOTO, placaCard, ['recebimento', forns.join(', ') || refs.slice(0, 2).join(', ')]);
       var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: f.getBlob(), name: nome } }, token);
       if (at && at.id) { nome = ax_batizar_(card.id, at.id, nome, anexosCard, token, { semVersao: !ehNf, nomeAtual: nome }); anexosCard.push({ id: at.id, name: nome, date: new Date().toISOString() }); }

@@ -128,6 +128,50 @@ function ax_numeroNf_(f) {
   return '';
 }
 
+/* ---------- nome das notas: padrão das rotinas de NF (13/10/2026, Weslley: "já temos um padrão que adotamos antes para nf
+ * anexas via rotina… aplique às notas que foram anexadas pelos usuários") ----------
+ *   NF <EMITENTE 20> - <número sem zeros> - <dd-mm da emissão>.pdf      (skill nf-qive-trello-lote)
+ *   NF FORNECIMENTO - <EMITENTE 20> - <número> - <dd-mm>.pdf           (nota de peça fornecida pela seguradora) */
+function ax_emitente20_(s) { return vd_semAcento_(String(s || '')).toUpperCase().replace(/[^A-Z0-9 &.\-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 20).trim(); }
+/** Dados da NF pelo texto (XML da NF-e ou DANFE lida por OCR): {numero, emitente, emissao 'dd-mm'} ou null se não é nota. */
+function ax_dadosNf_(texto) {
+  var bruto = String(texto || ''), m;
+  if (/<nfeProc|<infNFe/i.test(bruto)) {
+    var nx = (bruto.match(/<nNF>\s*0*(\d{1,9})\s*<\/nNF>/) || [])[1];
+    if (!nx) return null;
+    var ex = (bruto.match(/<emit>[\s\S]*?<xNome>([^<]+)<\/xNome>/) || [])[1];
+    var dx = bruto.match(/<dhEmi>(\d{4})-(\d{2})-(\d{2})/) || bruto.match(/<dEmi>(\d{4})-(\d{2})-(\d{2})/);
+    return { numero: nx, emitente: ax_emitente20_(ex), emissao: dx ? dx[3] + '-' + dx[2] : '' };
+  }
+  var U = vd_normTexto_(bruto).toUpperCase();
+  if (!/\bDANFE\b|DOCUMENTO AUXILIAR DA NOTA FISCAL/.test(U)) return null;
+  // nº da DANFE vem como 000.123.456; o genérico ("Nº 1.234") por último — "NO 1.500,00" (valor) não é número de nota
+  m = U.match(/\bN[ºO°]?\.?\s*(\d{3}\.\d{3}\.\d{3})\b/) || U.match(/\b(?:NF-?E?|NOTA FISCAL|DANFE)\b[^0-9]{0,40}?N[ºO°]?\.?\s*0*(\d{3,9})\b/) ||
+    U.match(/\bN[ºO°]\.?\s*0*(\d{1,3}(?:\.\d{3}){1,2})(?![,\d])/);
+  if (!m) return null;
+  var numero = m[1].replace(/\./g, '').replace(/^0+/, '');
+  var em = (U.match(/RECEBEMOS DE (.{3,90}?) OS PRODUTOS/) || [])[1] || '';
+  var d = U.match(/DATA (?:DA |DE )?EMISSAO:? ?(\d{2})\/(\d{2})\/\d{2,4}/) || U.match(/\b(\d{2})\/(\d{2})\/20\d\d\b/);
+  return { numero: numero, emitente: ax_emitente20_(em), emissao: d ? d[1] + '-' + d[2] : '' };
+}
+/** Nome no padrão das rotinas. dataUpload = quando a emissão não foi lida. */
+function ax_nomeNfRotina_(nf, fornecimento, dataUpload, ext) {
+  var dt = nf.emissao || Utilities.formatDate(dataUpload ? new Date(dataUpload) : new Date(), 'America/Sao_Paulo', 'dd-MM');
+  return 'NF ' + (fornecimento ? 'FORNECIMENTO - ' : '') + (nf.emitente || 'EMITENTE') + ' - ' + nf.numero + ' - ' + dt + (ext || '.pdf');
+}
+/** A nota é de fornecimento (seguradora)? Fornecedor da nota aparece só nos itens FORNECIMENTO do card, não nos PAGAS. */
+function ax_nfDeFornecimento_(card, emitente) {
+  var w = String(emitente || '').split(' ')[0];
+  if (!w || w.length < 3) return false;
+  var noFo = false, noPagas = false;
+  (card.checklists || []).forEach(function (k) {
+    var nm = String(k.name || '').trim(), tem = (k.checkItems || []).some(function (i) { return vd_semAcento_(String(i.name || '')).toUpperCase().indexOf(w) >= 0; });
+    if (!tem) return;
+    if (/^FORNECIMENTO/i.test(nm)) noFo = true; else if (/^PAGAS/i.test(nm)) noPagas = true;
+  });
+  return noFo && !noPagas;
+}
+
 /**
  * Padroniza os anexos antigos de UM card (diretoria, pelo formulário): lê cada PDF/foto (com cache) e batiza
  * pelo conteúdo. Devolve {ok, renomeados:[{de, para}], pulados:[nome]}.
@@ -293,16 +337,22 @@ function ax_madrugada_(teste) {
   var ini = Date.now(), limite = Math.min(45 * 1000, (vd_restante_() === Infinity ? 45 * 1000 : vd_restante_() - 20 * 1000));
   for (; st.pos < st.fila.length && Date.now() - ini < limite; st.pos++) {
     try {
-      var card = vd_api_('/cards/' + st.fila[st.pos], { query: { fields: 'name,idList', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
+      var card = vd_api_('/cards/' + st.fila[st.pos], { query: { fields: 'name,idList', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date', checklists: 'all', checkItem_fields: 'name' } });
       st.renomeados += ax_padronizarCard_(card, null);   // fotos e anexos já lidos (sem OCR)
       var anexos = (card.attachments || []).filter(function (a) {
-        return a.isUpload && !ax_padronizado_(a.name) && !ax_ehNota_(a.name) && vd_anexoLegivel_(a) && !/^image\//i.test(a.mimeType || '') &&
+        var nomeVelhoNf = String(a.name || '').indexOf(AX.NF) === 0;   // "📦 NF 123 · PLACA · …" (recebimento antigo) vira o padrão das rotinas
+        return a.isUpload && ((!ax_padronizado_(a.name) && !ax_ehNota_(a.name)) || nomeVelhoNf) && vd_anexoLegivel_(a) && !/^image\//i.test(a.mimeType || '') &&
           !props.getProperty('VD_ANX3_' + a.id);
       }).sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
       for (var i = 0; i < anexos.length && Date.now() - ini < limite; i++) {
         var a = anexos[i], r = vd_lerAnexoTrello_(a);
         st.lidos++;
         if (!r || r.erro) continue;
+        if (r.nf && !r.orcamento) {   // nota fiscal anexada à mão: padrão das rotinas de NF
+          var nmNf = ax_nomeNfRotina_(r.nf, ax_nfDeFornecimento_(card, r.nf.emitente), a.date);
+          if (nmNf !== a.name && ax_renomear_(card.id, a.id, nmNf, null)) { a.name = nmNf; st.renomeados++; st.notas = (st.notas || 0) + 1; }
+          continue;
+        }
         var placa = ax_placa_(card);
         var orcNovo = (card.attachments || []).filter(function (x) { return x.id !== a.id && String(x.name || '').indexOf(AX.ORC + AX.SEP) === 0 && String(x.date || '') > String(a.date || ''); })[0];
         if (r.orcamento && orcNovo && (r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) {
@@ -321,7 +371,7 @@ function ax_madrugada_(teste) {
   if (st.pos >= st.fila.length) {
     try {
       var lg = JSON.parse(props.getProperty('AX_MAD_LOG') || '[]');
-      lg.push(dia + ': ' + st.fila.length + ' cards, ' + st.lidos + ' anexos lidos, ' + st.renomeados + ' renomeados (' + st.antigos + ' antigos)');
+      lg.push(dia + ': ' + st.fila.length + ' cards, ' + st.lidos + ' anexos lidos, ' + st.renomeados + ' renomeados (' + st.antigos + ' antigos, ' + (st.notas || 0) + ' notas)');
       props.setProperty('AX_MAD_LOG', JSON.stringify(lg.slice(-15)));
     } catch (e) {}
   }

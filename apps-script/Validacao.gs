@@ -715,6 +715,7 @@ function vd_lerAnexoTrello_(a, opt) {
       r = vd_extrair_(texto);
       var orc = vd_lerOrcamento_(texto);
       r.cor = orc.cor; r.seguradora = orc.seguradora; r.sinistro = orc.sinistro; r.orcamento = orc.origem;
+      if (!orc.origem) { try { var nfL = ax_dadosNf_(texto); if (nfL) r.nf = nfL; } catch (e) {} }   // nota fiscal: nome no padrão das rotinas (13/10/2026)
       // tipo do documento para o nome padronizado do anexo (05/10/2026): "Status do Pedido" do Cilia = fornecimento
       if (!orc.origem) {
         var nt = vd_normTexto_(texto);
@@ -735,7 +736,7 @@ function vd_lerAnexoTrello_(a, opt) {
     var js = JSON.stringify(r);
     if (js.length > 8500 && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
     // cache cheio (limite de 500 KB das propriedades) não pode derrubar a leitura: segue sem guardar (10/10/2026)
-    try { props.setProperty(chave, js.length > 8500 ? JSON.stringify({ v: VD_ANX_V, chassis: r.chassis, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor, orcamento: r.orcamento, orcGrande: !!r.orcamento, seguradora: r.seguradora, cor: r.cor, sinistro: r.sinistro, doc: r.doc, docNome: r.docNome }) : js); }
+    try { props.setProperty(chave, js.length > 8500 ? JSON.stringify({ v: VD_ANX_V, chassis: r.chassis, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor, orcamento: r.orcamento, orcGrande: !!r.orcamento, seguradora: r.seguradora, cor: r.cor, sinistro: r.sinistro, doc: r.doc, docNome: r.docNome, nf: r.nf }) : js); }
     catch (e) { console.log('cache do anexo ' + a.name + ': ' + e); }
     if (orcFull) r.orcFull = orcFull;
   }
