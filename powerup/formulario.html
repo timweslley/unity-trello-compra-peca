@@ -2804,6 +2804,11 @@ iniciar();
   .v2pc.v2-pedtopo #v2lado { top:112px; }
   .v2pc #modoEdicao .ed1, .v2pc #modoEdicao .ed1 + br, .v2pc #modoEdicao .ed1 + br + br { display:none; }
   .v2pc #form > #modoEdicao:has(> .ed1):not(:has(br)) { display:none; }
+  .v2pc .v2-lercab { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .v2pc .v2-lercab h4 { margin:0 auto 0 0 !important; display:flex; align-items:center; gap:2px; }
+  .v2pc .v2-forn { display:flex; align-items:center; gap:4px; }
+  .v2pc .v2-forn button { min-height:32px !important; padding:4px 10px !important; font-size:13px !important; }
+  .v2 .v2-jalido { flex:0 0 auto; font-size:13px; font-weight:600; color:#216e4e; background:#dcfff1; border-radius:4px; padding:2px 8px; white-space:nowrap; }
   .v2 .v2q { position:relative; display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%;
     background:#dcdfe4; color:#44546f; font:700 12px/18px system-ui, sans-serif; cursor:help; margin-left:4px; vertical-align:middle; flex:0 0 auto; }
   .v2 .v2q::before { content:'?'; }
@@ -3001,6 +3006,12 @@ iniciar();
   var PC = html.classList.contains('v2pc');
   var DICA_EDITAR = 'Você está alterando o pedido deste card.\nO que já foi cotado continua no card.\nSe o card já passou da cotação, só a peça nova é conferida e o card volta para EM COTAÇÃO.';
   var DICA_NOVO = 'Começa um pedido em branco, para outro carro ou outro sinistro.\nEste card não é alterado.';
+  var DICA_LER = 'Ler: o sistema lê o arquivo e preenche o carro e as peças.\nO que está marcado ✓ já foi lido e as peças dele já estão no pedido — só leia de novo se o arquivo mudou (ex.: complemento novo).';
+  var DICA_FORN = 'Já tem o Status do Pedido do Cilia, as peças do sinistro da HDI ou um print do portal?\nAbre o fornecimento deste card para lançar fornecedor e previsão das peças que a seguradora fornece.\nSalve antes o que mudou nesta tela.';
+  function abrirFornecimento() {
+    var u = new URLSearchParams(location.search); u.set('modo', 'forn'); if (window.CARD_EDICAO) u.set('card', window.CARD_EDICAO);
+    location.href = location.pathname + '?' + u.toString() + location.hash;
+  }
   var DICA_TIPO = 'Seguradora: peças do orçamento autorizado pela seguradora.\nParticular: o cliente paga. Num card de seguradora, vira um pedido separado no mesmo card (mesmo carro).\nRetorno: a oficina paga (retrabalho ou garantia). Quem autoriza a compra é a diretoria.';
   if (form && secoes.length >= 5 && PC) { montarLado(); montarTopoPedido(); }
   else if (form && secoes.length >= 5) {
@@ -3436,17 +3447,31 @@ iniciar();
         var nome = a ? a.textContent.trim() : 'Anexo ' + (i + 1), url = a && a.href && !/#$/.test(a.href) ? a.href : '';
         var orc = /ORÇ|OR[CÇ]AMENTO|\.pdf|📄|Cilia|HDI|Soma|Status/i.test(nome), foto = /📸|\.(jpe?g|png|webp)/i.test(nome) && !orc;
         var de = /novo/i.test(l.textContent);
+        // 13/10/2026 (Weslley): orçamento que o sistema já leu e cujas peças já estão no pedido ganha "✓ já lido" e o botão
+        // passa a "Ler de novo" (secundário) — para o atendente não ler de novo à toa
+        var an = box.id === 'anexosCard' ? ((window.CARD && window.CARD.anexos) || []).filter(function (x) { return x.nome === nome.trim(); })[0] : null;
+        var jaLido = !!(an && orc && (an.lido || (window.ANEXOS_LIDOS || {})[an.id]) && ((window.CARD.pecas || []).length || window.CARD.doOrcamento));
         var h = '<div class="linha"><span class="ico">' + (orc ? '📄' : foto ? '📸' : '📎') + '</span>'
           + (url ? '<a class="nome" href="' + txt(url) + '" target="_blank" rel="noopener">' : '<span class="nome">') + txt(nome.replace(/^[📄📸🚚📦🔗]\s*/u, ''))
           + (url ? '<small>abrir o arquivo</small></a>' : '</span>')
-          + '<button type="button" class="' + (orc ? 'principal' : 'secundario') + '" data-i="' + i + '">' + (de ? '🔄 Ler de novo' : '📖 Ler') + '</button></div>';
+          + (jaLido ? '<span class="v2-jalido" title="O sistema já leu este orçamento e as peças dele já estão no pedido">✓ já lido · peças no pedido</span>' : '')
+          + '<button type="button" class="' + (orc && !jaLido ? 'principal' : 'secundario') + '" data-i="' + i + '">' + (de || jaLido ? '🔄 Ler de novo' : '📖 Ler') + '</button></div>';
         (foto ? fotos : docs).push(h);
       });
       // 09/10/2026: documentos primeiro; fotos (às vezes 10+) agrupadas e recolhidas — antes enchiam a tela
       var htmlFotos = fotos.length > 2
         ? '<details class="v2-fotos"><summary>📸 ' + fotos.length + ' fotos do carro — mostrar</summary>' + fotos.join('') + '</details>'
         : fotos.join('');
-      lista.innerHTML = '<h4>' + titulo + '</h4>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + docs.join('') + htmlFotos;
+      var cab = '<h4>' + titulo + '</h4>' + (sub ? '<div class="sub">' + sub + '</div>' : '');
+      if (PC && box.id === 'anexosCard') {
+        // computador: a instrução vira "?" ao lado do título; botão do Status do Pedido (fornecimento da seguradora) no mesmo cabeçalho
+        var forn = window.CARD_EDICAO && (document.querySelector('input[name=tipoPedido]:checked') || {}).value === 'SEGURADORA';
+        cab = '<div class="v2-lercab"><h4>' + titulo + '<span class="v2q" tabindex="0" data-dica="' + txt(DICA_LER) + '"></span></h4>'
+          + (forn ? '<span class="v2-forn"><button type="button" class="secundario" id="v2fornBtn">🚚 Status do Pedido</button><span class="v2q v2q-dir" tabindex="0" data-dica="' + txt(DICA_FORN) + '"></span></span>' : '')
+          + '</div>';
+      }
+      lista.innerHTML = cab + docs.join('') + htmlFotos;
+      if (g('v2fornBtn')) g('v2fornBtn').onclick = abrirFornecimento;
       $$('button', lista).forEach(function (b) { b.onclick = function () { var l = lers[+b.dataset.i]; b.disabled = true; b.textContent = '⏳ Lendo…'; l.click(); }; });
       // o que não é "ler" (links e outros anexos) continua aparecendo embaixo
       box.classList.add('v2-orig');
@@ -3471,7 +3496,8 @@ iniciar();
     try { if (PC) barraDoc(); } catch (e) {}
     cartaoLeitura(g('anexosCard'), '📎 Já está no card', 'Toque em <b>Ler</b> para o sistema preencher o carro e as peças.', function (lista) {
       var sec = g('anexosCard').closest('section'); var h2 = sec && sec.querySelector('h2');
-      if (h2) h2.insertAdjacentElement('afterend', lista); else g('anexosCard').insertAdjacentElement('beforebegin', lista);
+      var ref = h2 && h2.parentNode.classList.contains('v2pc-docbar') ? h2.parentNode : h2;   // não entrar na barra do título (empurrava Enviar/Capa para baixo)
+      if (ref) ref.insertAdjacentElement('afterend', lista); else g('anexosCard').insertAdjacentElement('beforebegin', lista);
     });
     // resultado da leitura aparece no próprio cartão (não lá embaixo do botão de foto)
     var lc = g('anexosCard') && g('anexosCard')._v2lista, da = g('dicaArquivo');
