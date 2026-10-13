@@ -1767,6 +1767,10 @@ function vdf_salvar(token, p) {
   var temFoNoCard = false;
   if (card && !pecas.length && !fo.length && !compFo.length) {
     try { temFoNoCard = /^FORNECIMENTO/i.test(vd_limpar_(vd_dividir_(card.desc).bloco).split('\n').filter(function (l) { return /^FORNECIMENTO\b/i.test(l.trim()); }).join('\n')); } catch (e) {}
+    // card do fluxo antigo (descrição fora do padrão): vale o checklist FORNECIMENTO/PAGAS com itens (13/10/2026, UIC5G94)
+    if (!temFoNoCard) {
+      try { temFoNoCard = (vd_api_('/cards/' + card.id + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name' } }) || []).some(function (k) { return /^(FORNECIMENTO|PAGAS)/i.test(String(k.name || '').trim()) && (k.checkItems || []).length; }); } catch (e) {}
+    }
   }
   if (!pecas.length && !fo.length && !compFo.length && !temFoNoCard) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora). Se a peça não vai ser comprada, marque 🚫 Não comprar em vez de remover.'] };
   var temOrcNoCard = !!(card && vd_analisar_(card.desc, card.name).doOrcamento);
