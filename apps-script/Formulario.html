@@ -2701,14 +2701,14 @@ iniciar();
   .v2pc section.v2-carro #dicaChassi { display:none !important; }
   .v2pc section.v2-carro div:has(> #chassi) { position:relative; }
   .v2pc section.v2-carro #chassi { padding-right:34px; }
-  .v2pc section.v2-carro #chassi.v2-ok { background:#dcfff1; border-color:#4bce97; }
-  .v2pc section.v2-carro #chassi.v2-ruim { background:#ffeceb; border-color:#f87168; }
+  .v2pc section.v2-carro #chassi.v2-ok { background:#f2fcf7; border-color:#a6dfc4; }
+  .v2pc section.v2-carro #chassi.v2-ruim { background:#fff7f6; border-color:#f3c4bf; }
   .v2pc section.v2-carro .v2-inq { position:absolute; right:9px; bottom:9px; margin:0; }
   .v2 .v2q.v2q-ruim { background:#f87168; color:#fff; }
   .v2pc section.v2-carro .v2-inq:hover::after, .v2pc section.v2-carro .v2-inq:focus::after { left:auto; right:-10px; width:260px; }
   .v2pc section.v2-carro label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .v2 #form input.v2-ok, .v2 #form select.v2-ok, .v2 #v2topo input.v2-ok { background:#dcfff1 !important; border-color:#4bce97 !important; }
-  .v2 #form input.v2-falta, .v2 #form select.v2-falta, .v2 #v2topo input.v2-falta { background:#fff1f0 !important; border-color:#f8a39d !important; }
+  .v2 #form input.v2-ok, .v2 #form select.v2-ok, .v2 #v2topo input.v2-ok { background:#f2fcf7 !important; border-color:#a6dfc4 !important; }
+  .v2 #form input.v2-falta, .v2 #form select.v2-falta, .v2 #v2topo input.v2-falta { background:#fff7f6 !important; border-color:#f3c4bf !important; }
   .v2 .v2-tag { flex:0 0 auto; font-size:12px; font-weight:600; color:#626f86; background:#091e420f; border-radius:4px; padding:2px 8px; white-space:nowrap; }
   .v2 .v2-tag-novo { color:#0055cc; background:#e9f2ff; }
   .v2 .v2-ler .linha.v2-antigo .nome, .v2 .v2-ler .linha.v2-antigo .ico { opacity:.55; }
@@ -2807,7 +2807,6 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) { grid-row:1; grid-column:5; order:0; }
   .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-tipo), .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-marca) { grid-row:2; grid-column:2 / 4; order:0; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo { grid-row:2; grid-column:4 / -1; order:0; flex-wrap:nowrap; }
-  .v2pc :is(#itens, #itensPart) > .item .f-codigo { font-family:ui-monospace, Consolas, monospace; font-size:13px !important; letter-spacing:.3px; }
   /* quantidade discreta: só o número (sem − e +) */
   .v2pc :is(#itens, #itensPart) > .item .v2-qtd button { display:none !important; }
   .v2pc :is(#itens, #itensPart) > .item .v2-qtd input, .v2pc :is(#itens, #itensPart) > .item input.f-qtd { width:44px !important; margin:0 !important; padding:4px 2px !important; text-align:center; font-size:14px !important; font-weight:400; -moz-appearance:textfield; }
@@ -2830,7 +2829,8 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado), .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado) { font-size:0 !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado)::after { content:"🚫"; font-size:14px; filter:grayscale(1); opacity:.7; }
   /* cor dos campos obrigatórios da peça (mesmo padrão dos dados do carro) */
-  .v2 :is(#itens, #itensPart) > .item:not(.nao-comprar) .chips.v2-falta { outline:2px solid #f8a39d; outline-offset:2px; border-radius:6px; background:#fff1f0; }
+  .v2 :is(#itens, #itensPart) > .item .grade .chips { width:fit-content; }
+  .v2 :is(#itens, #itensPart) > .item:not(.nao-comprar) .chips.v2-falta { outline:1px solid #f3c4bf; outline-offset:2px; border-radius:6px; background:#fff7f6; }
   /* espaçamentos menores no computador (Weslley 09/10: "espaço entre o texto e a borda muito grande") */
   .v2pc #form > section { padding:10px 14px !important; margin:0 0 10px !important; }
   .v2pc #form > section h2 { margin:0 0 6px !important; font-size:16px; }
