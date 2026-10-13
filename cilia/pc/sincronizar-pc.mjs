@@ -38,7 +38,9 @@ export async function rodarPC({ env = process.env, fabricaCliente = criarCliente
   if (!SAIDA) throw new Error('CILIA_SAIDA não definida');
   const casas = (env.CASAS ? env.CASAS.split(',').map((s) => s.trim().toUpperCase()) : TODAS).filter((c) => TODAS.includes(c));
   const DIAS = Number(env.DIAS || 120);
-  let restante = Number(env.MAX_DETALHES || 60);
+  // limite POR CASA (cada casa tem o seu token) — 60 detalhes/noite por casa (Weslley, 13/10/2026)
+  const LIMITE_CASA = Number(env.MAX_DETALHES || 60);
+  const restante = {};
   const hoje = fmt(new Date());
   const arqEstado = path.join(SAIDA, 'estado.json');
   const estado = await lerJson(arqEstado, {});
@@ -90,9 +92,10 @@ export async function rodarPC({ env = process.env, fabricaCliente = criarCliente
   const parada = {};
   for (const { casa, r, sig } of fila) {
     const out = resumo.casas[casa], reg = estado[casa][r.budget_id];
-    if (parada[casa] || restante <= 0) { out.pendentes++; continue; }
+    restante[casa] ??= LIMITE_CASA;
+    if (parada[casa] || restante[casa] <= 0) { out.pendentes++; continue; }
     if (!r.sinistro || r.orcamento == null) { reg.assinatura_detalhe = sig; continue; }
-    restante--;
+    restante[casa]--;
     let d;
     try { d = await clientes[casa].detalhe({ sinistro: r.sinistro, orcamento: r.orcamento, versao: r.versao }); }
     catch (e) {

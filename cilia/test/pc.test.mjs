@@ -36,7 +36,7 @@ test('PC: o que mudou ou é recente em qualquer casa vem antes do histórico ant
   const novo = (id) => ({ ...item(id, 'NEW' + id, 1), budget_current_status: { current_status: 'analyzed', date: hojeISO } });
   const listas = { t: [velho(1), velho(2), velho(3)], r: [novo(9)] };
   const fabCasa = (token) => fab(() => listas[token])();
-  const env = { CILIA_SAIDA: dir, CASAS: 'TOLEDO,RONDON', CILIA_TOKEN_TOLEDO: 't', CILIA_TOKEN_RONDON: 'r', MAX_DETALHES: '2' };
+  const env = { CILIA_SAIDA: dir, CASAS: 'TOLEDO,RONDON', CILIA_TOKEN_TOLEDO: 't', CILIA_TOKEN_RONDON: 'r', MAX_DETALHES: '1' };
   const r = await rodarPC({ env, fabricaCliente: fabCasa });
   assert.equal(r.casas.RONDON.pdfs.length, 1);     // o novo de Rondon passou na frente
   assert.equal(r.casas.TOLEDO.pdfs.length, 1);

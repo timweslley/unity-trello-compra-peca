@@ -19,8 +19,8 @@ Todo dia às 00:15 (Brasília), o Cloud Run Job `cilia-sync` (projeto `unity-com
 4. salva o PDF no Drive compartilhado `PDF/<casa>/<PLACA> - <SEGURADORA> - Cilia <nº.versão>.pdf` (uma vez por versão)
    e grava `CILIA-HOJE.json` (retrato completo para a rotina) + `Diario/CILIA-AAAA-MM-DD.json` (o que mudou).
 
-Volume baixo, como a Cilia pediu (e-mail de 24–25/09/2026 e parecer "abuso de API"): 1 listagem por casa + no máximo
-60 detalhes por dia, 1,2 s entre chamadas, nenhuma repetição. Sem login de usuário, sem navegador.
+Volume baixo, como a Cilia pediu (e-mail de 24–25/09/2026 e parecer "abuso de API" — sem número definido por ela): 1 listagem por casa + no máximo
+60 detalhes por dia (no PC: 60 POR CASA, só autorizado/supervisão e só quando muda versão ou conclusão — 13/10/2026), 1,2 s entre chamadas, nenhuma repetição. Sem login de usuário, sem navegador.
 
 ## Quem lê
 - **Rotina da madrugada** (tarefa "Rotina Unity – Portais e Trello"): lê `CILIA-HOJE.json` em vez de logar no Cilia.
