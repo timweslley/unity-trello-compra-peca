@@ -367,6 +367,11 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     // VENTOINHA do laudo 2.1 ficou de fora do card e reler o laudo não a trazia)
     var foFalta = [];
     try { foFalta = cp_comparar_(card, { oficina: [], fo: (o && o.fo) || [] }, idAnexo).fo || []; } catch (e) {}
+    // aqui só entra peça que FALTA: código diferente de uma peça que já está no checklist (ex.: HDI "1988 FAROL DIREITO" x
+    // "5U7941006C FAROL DIREITO") não troca o código bom do item
+    var itensFo = [];
+    (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(String(i.name || '')); }); });
+    foFalta = foFalta.filter(function (p) { return !itensFo.some(function (n) { return cp_similar_(p.descricao || '', n.replace(/^\S*\d\S*\s+/, '').replace(/\s+-\s+[^-]+$/, '')) > 0; }); });
     return { oficina: [], fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length, pareadas: [], atualizar: [], paraOficina: [], jaProcessado: true };
   }
   var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, excluir);
