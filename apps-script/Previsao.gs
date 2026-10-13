@@ -138,10 +138,61 @@ function pv_achaFo_(itensFo, x) {
  *      novos:[{codigo, descricao, fornecedor, previsao, situacao, entregue}]}
  * Previsão que já existia e muda: precisa de motivo (rotina sem motivo = "portal da seguradora").
  */
+/* 13/10/2026 (Weslley): Status do Pedido mandado junto com o PEDIDO (✏️) — o envio aplica sozinho fornecedor e previsão nas FO.
+ * Quem manda pode ser o consultor (não é do setor de compras): a liberação vale só para essa chamada interna (PV_INTERNO),
+ * nunca para um pedido que chega do formulário. */
+var PV_INTERNO = false;
+var PV_CACHE_TXT = 'PV_TXT_';
+
+/** Prévia no formulário do pedido: lê o arquivo (já na pasta temporária) e mostra o que vai ser lançado.
+ *  shortLink = card em edição (casa com as FO do card); foForm = FO que o formulário já tem (pedido novo). */
+function vdf_previaFornecimento(token, fileId, shortLink, foForm) {
+  vdf_usuario_(token);
+  var f = vdf_arquivoTemp_(fileId), texto;
+  try { texto = vd_ocr_(f.getBlob(), f.getName()); } catch (e) { return { erro: 'Não consegui ler o arquivo (' + String(e.message || e).slice(0, 80) + ').' }; }
+  try { CacheService.getScriptCache().put(PV_CACHE_TXT + fileId, String(texto || '').slice(0, 90000), 6 * 3600); } catch (e) {}
+  var doc = pv_docFornecimento_(texto), achados = [];
+  if (shortLink) {
+    var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state,due' } });
+    var r = pv_lerFornecimentoTexto_(card, texto);
+    achados = r.achados.map(function (a) { return { nome: a.nome, fornecedor: a.fornecedor || '', previsao: a.previsao || '', situacao: a.situacao || '' }; });
+  }
+  if (!achados.length && (foForm || []).length) {
+    var alvos = foForm.map(function (x, i) { return { id: 'f' + i, codigo: x.codigo || '', descricao: x.descricao || '', nome: ((x.codigo || '') + ' ' + (x.descricao || '')).trim() }; });
+    achados = pv_lerFornecimento_(texto, alvos).map(function (a) { return { nome: a.alvo.nome, fornecedor: a.fornecedor || '', previsao: a.previsao ? Utilities.formatDate(new Date(a.previsao), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', situacao: a.situacao || '' }; });
+  }
+  return { doc: doc, fornecimento: !!doc || achados.length > 0, achados: achados };
+}
+
+/** Chamado pelo vdf_salvar depois de criar/atualizar o card: aplica os documentos de fornecimento mandados com o pedido. */
+function pv_fornDoPedido_(token, shortLink, textos) {
+  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  var itens = [], vistos = {}, extras = [], faltando = [];
+  textos.forEach(function (t) {
+    var r = pv_lerFornecimentoTexto_(card, t);
+    (r.achados || []).forEach(function (a) {
+      if (vistos[a.id]) return; vistos[a.id] = 1;
+      var x = { id: a.id };
+      if (a.fornecedor) x.fornecedor = a.fornecedor;
+      if (a.situacao) x.situacao = a.situacao;
+      if (a.codigoNovo) { x.codigoNovo = a.codigoNovo; x.descNova = a.descNova || ''; }
+      if (a.previsao && !a.situacao) { x.previsao = a.previsao; if (a.motivo) x.motivo = a.motivo; }
+      if (Object.keys(x).length > 1) itens.push(x);
+    });
+    extras = extras.concat(r.extras || []); faltando = faltando.concat(r.faltando || []);
+  });
+  var res = { ok: true, n: 0, faltas: [], avisos: [] };
+  if (itens.length) {
+    PV_INTERNO = true;
+    try { res = vdf_atualizarFornecimento(token, { shortLink: shortLink, origem: 'pedido', itens: itens }); } finally { PV_INTERNO = false; }
+  }
+  return { n: res.n || 0, faltas: res.faltas || [], avisos: res.avisos || [], extras: extras, faltando: faltando };
+}
+
 function vdf_atualizarFornecimento(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
-  if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) atualiza o fornecimento — sua conta: ' + me.username + '.'] };
+  if (!PV_INTERNO && !vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) atualiza o fornecimento — sua conta: ' + me.username + '.'] };
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
   // "rotina" (motivo automático = portal da seguradora) só vale para a diretoria, que é quem roda a ROTINA UNITY

@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -1897,7 +1897,7 @@ function vdf_salvar(token, p) {
     try { jaNoCard = vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,fileName,bytes,date,isUpload' } }, token); } catch (e) {}
   }
   // o que o formulário sabe de cada arquivo (tipo: 'orc' | 'orc+' | 'capa' | ''; origem: Cilia/HDI/Websoma) — nome padronizado (05/10/2026)
-  var infoArq = {};
+  var infoArq = {}, textosForn = [], idsForn = [];
   (p.arquivos || []).forEach(function (x) { if (x && x.fileId) infoArq[x.fileId] = x; });
   (p.fileIds || []).forEach(function (fid) {
     try {
@@ -1906,6 +1906,13 @@ function vdf_salvar(token, p) {
       // o nome do anexo no Trello pode ter sido padronizado: compara pelo nome ORIGINAL do arquivo (fileName) e tamanho
       if (!ehCapa && jaNoCard.some(function (a) { return (a.fileName || a.name) === f.getName() && +a.bytes === f.getSize(); })) {
         repetidos.push(f.getName()); f.setTrashed(true); return;
+      }
+      // Status do Pedido mandado com o pedido (13/10/2026): texto guardado na prévia (ou lido agora) para aplicar no fim
+      var txtForn = '';
+      if ((infoArq[fid] || {}).tipo === 'forn') {
+        try { txtForn = CacheService.getScriptCache().get(PV_CACHE_TXT + fid) || ''; } catch (e) {}
+        if (!txtForn) { try { txtForn = vd_ocr_(f.getBlob(), f.getName()); } catch (e) { console.log('forn/ocr: ' + e); } }
+        if (txtForn) textosForn.push(txtForn);
       }
       var mp = { file: f.getBlob(), name: f.getName() };
       if (ehCapa) mp.setCover = 'true';
@@ -1916,6 +1923,7 @@ function vdf_salvar(token, p) {
         // PDF subido pelo formulário 65 min depois do card criado foi relido como "complementar" e repetiu peças)
         var tipoArq = (infoArq[fid] || {}).tipo;
         if (tipoArq === 'orc' || tipoArq === 'orc+') idsLidos.push(at.id);
+        if (tipoArq === 'forn') idsForn.push(at.id);
       }
       if (ehCapa && at && at.id) { try { vd_api_('/cards/' + card.id, { method: 'put', payload: { idAttachmentCover: at.id } }, token); capaOk = true; } catch (e2) {} }
       if (at && at.id) {
@@ -1923,6 +1931,8 @@ function vdf_salvar(token, p) {
           var inf = infoArq[fid] || {}, ehImg = /^image\//i.test(f.getMimeType() || '') || /\.(jpe?g|png|webp|gif)$/i.test(f.getName());
           var nomeAx = ehCapa ? ax_nome_(AX.FOTO, d.placa, ['capa'])
             : inf.tipo === 'orc' || inf.tipo === 'orc+' ? ax_nome_(inf.tipo === 'orc+' ? AX.ORC_MAIS : AX.ORC, d.placa, [vd_semSeguradora_(extra.tipo) ? '' : extra.seguradora, ax_origem_(inf.origem || extra.origemOrc)])
+            : inf.tipo === 'forn' ? ax_nome_(AX.FO, d.placa, [pv_docFornecimento_(txtForn) || 'Status do Pedido'])
+            : inf.tipo === 'outro' ? ''
             : ehImg ? ax_nome_(AX.FOTO, d.placa, []) : '';
           if (nomeAx) { at.name = ax_batizar_(card.id, at.id, nomeAx, jaNoCard, token, { semVersao: ehCapa || ehImg }); jaNoCard.push({ id: at.id, name: at.name, date: new Date().toISOString() }); }
         } catch (e3) { console.log('nome do anexo: ' + e3); }
@@ -1933,7 +1943,7 @@ function vdf_salvar(token, p) {
   });
 
   // orçamento que o formulário leu agora (original ou complementar): o robô não precisa ler de novo o PDF que subiu
-  if (idsLidos.length) { try { cp_marcarVistos_(idsLidos); } catch (e) {} }
+  if (idsLidos.length || idsForn.length) { try { cp_marcarVistos_(idsLidos.concat(idsForn)); } catch (e) {} }
   // orçamento complementar: comentário no card
   var compOf = pecas.filter(function (x) { return x.complemento && x.compData === cp_hoje_() && (!posCot || an.novas.some(function (nv) { return vd_chavePeca_(nv) === vd_chavePeca_(x); })); });
   if (comp) {
@@ -2020,13 +2030,19 @@ function vdf_salvar(token, p) {
     }
     vd_marcar_(c2);
   } catch (e) {}
+  // Status do Pedido mandado com o pedido: lança fornecedor e previsão nas FO do card (mesmas regras da aba Fornecimento)
+  var forn = null;
+  if (textosForn.length) {
+    try { forn = pv_fornDoPedido_(token, card.shortLink, textosForn); }
+    catch (e) { console.log('fornecimento do pedido: ' + e); forn = { n: 0, erro: String((e && e.message) || e).slice(0, 160), faltas: [], avisos: [], extras: [], faltando: [] }; }
+  }
   try {
     var evPecas = (posCot ? novasPecas : an.pecas).map(ev_peca_);
     ev_registrar_(!p.shortLink ? 'PEDIDO' : (posCot && novasPecas.length ? 'PEÇA NOVA' : 'PEDIDO EDITADO'), { name: card.name, shortLink: card.shortLink, shortUrl: card.shortUrl, labels: (typeof c2 !== 'undefined' && c2 && c2.labels) || [] },
       me.username, evPecas, { tipo: tipo, detalhe: (nFo ? nFo + ' peça(s) FO' : '') });
   } catch (e) {}
 
-  return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos };
+  return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
 /** Sobe um arquivo do formulário para a pasta temporária (sem ler) — fotos, capa etc. */

@@ -2094,7 +2094,7 @@ function conferirChassi() {
 
 var ANEXOS = [];   // {nome, fileId, capa}
 function listarAnexos() {
-  $('listaAnexos').innerHTML = ANEXOS.length ? '📎 Vai para o card: ' + ANEXOS.map(function (a) { return esc(a.nome) + (a.capa ? ' <b>(capa)</b>' : ''); }).join(' · ') : '';
+  $('listaAnexos').innerHTML = ANEXOS.length ? '📎 Vai para o card: ' + ANEXOS.map(function (a) { return esc(a.nome) + (a.capa ? ' <b>(capa)</b>' : a.tipo === 'forn' ? ' <b>(Status do Pedido)</b>' : a.tipo === 'outro' ? ' <b>(anexo)</b>' : ''); }).join(' · ') : '';
 }
 function lerArquivo(f) {
   return new Promise(function (ok, falha) {
@@ -2632,7 +2632,9 @@ function enviarPayload(payload) {
       + (r.comp ? '<br>➕ Orçamento complementar: ' + r.comp + ' peça(s) nova(s) da oficina na lista.' : '')
       + (r.foComp ? '<br>Checklist FORNECIMENTO COMPLEMENTO: ' + r.foComp + ' peça(s) incluída(s).' : '')
       + (r.anexos ? '<br>' + r.anexos + ' arquivo(s) anexado(s)' + (r.capa ? ' — foto de capa definida.' : '.') : '')
-      + (r.repetidos && r.repetidos.length ? '<br>Não anexei de novo (já estava no card): ' + esc(r.repetidos.join(', ')) + '.' : '');
+      + (r.repetidos && r.repetidos.length ? '<br>Não anexei de novo (já estava no card): ' + esc(r.repetidos.join(', ')) + '.' : '')
+      + (r.forn ? '<br><span class="forn-feito">🚚 Fornecimento: ' + (r.forn.n ? r.forn.n + ' peça(s) da seguradora atualizada(s) (fornecedor/previsão).' : 'nada lançado — nenhuma peça do documento bateu com as da seguradora.')
+        + (r.forn.erro ? ' ⚠️ ' + esc(r.forn.erro) : '') + ((r.forn.faltas || []).length ? ' ⚠️ ' + esc(r.forn.faltas.join('; ')) : '') + '</span>' : '');
     $('linkCard').href = r.url;
     mostrar('form', false); mostrar('telaSucesso', true);
     window.scrollTo(0, 0);
@@ -2810,6 +2812,13 @@ iniciar();
   .v2pc .v2-lercab h4 { margin:0 auto 0 0 !important; display:flex; align-items:center; gap:2px; }
   .v2pc .v2-forn { display:flex; align-items:center; gap:4px; }
   .v2pc .v2-forn button { min-height:32px !important; padding:4px 10px !important; font-size:13px !important; }
+  .v2pc .v2pc-docbar { flex-wrap:nowrap !important; }
+  .v2pc .v2pc-docbar h2 { white-space:nowrap; }
+  .v2pc .v2pc-docbar label.v2-btnarq { white-space:nowrap; }
+  .v2pc .v2pc-docbar .v2q:hover::after, .v2pc .v2pc-docbar .v2q:focus::after { left:auto; right:-10px; width:360px; }
+  .v2pc .v2pc-docbar label.v2-btnarq.sec { background:#091e420f; color:#172b4d !important; }
+  .v2 #v2fornPrevia { margin:4px 0 8px; font-size:14px; line-height:20px; }
+  .v2 #v2fornPrevia ul { margin:4px 0 0 18px; padding:0; }
   .v2 .v2-tag { flex:0 0 auto; font-size:12px; font-weight:600; color:#626f86; background:#091e420f; border-radius:4px; padding:2px 8px; white-space:nowrap; }
   .v2 .v2-tag-novo { color:#0055cc; background:#e9f2ff; }
   .v2 .v2-ler .linha.v2-antigo .nome, .v2 .v2-ler .linha.v2-antigo .ico { opacity:.55; }
@@ -3012,6 +3021,7 @@ iniciar();
   var DICA_EDITAR = 'Você está alterando o pedido deste card.\nO que já foi cotado continua no card.\nSe o card já passou da cotação, só a peça nova é conferida e o card volta para EM COTAÇÃO.';
   var DICA_NOVO = 'Começa um pedido em branco, para outro carro ou outro sinistro.\nEste card não é alterado.';
   var DICA_LER = 'Ler: o sistema lê o arquivo e preenche o carro e as peças.\nO que está marcado ✓ já foi lido e as peças dele já estão no pedido — só leia de novo se o arquivo mudou (ex.: complemento novo).';
+  var DICA_ARQS = 'Orçamento: PDF/foto do orçamento — o sistema lê e preenche carro e peças.\nStatus do Pedido: Cilia, peças do sinistro HDI ou print do portal — ao enviar, o sistema lança fornecedor e previsão das peças da seguradora.\nOutro anexo: nota, laudo, foto, documento — vai para o card como está.\nCapa: foto que aparece na frente do card.'
   var DICA_FORN = 'Já tem o Status do Pedido do Cilia, as peças do sinistro da HDI ou um print do portal?\nAbre o fornecimento deste card para lançar fornecedor e previsão das peças que a seguradora fornece.\nSalve antes o que mudou nesta tela.';
   function abrirFornecimento() {
     var u = new URLSearchParams(location.search); u.set('modo', 'forn'); if (window.CARD_EDICAO) u.set('card', window.CARD_EDICAO);
@@ -3286,7 +3296,7 @@ iniciar();
     if (frase) suc.insertAdjacentHTML('beforeend', '<div id="v2agora">👉 ' + txt(frase) + '</div>');
     // 13/10/2026 (Weslley): pedido de seguradora enviado — quem já tem o Status do Pedido lança o fornecimento na hora
     var slF = ((g('linkCard') || {}).href || '').match(/trello\.com\/c\/([A-Za-z0-9]{8})/);
-    if (slF && /Card (criado|atualizado)/.test(t) && tipoPedidoV2() === 'SEGURADORA' && !g('v2fornAgora')) {
+    if (slF && /Card (criado|atualizado)/.test(t) && tipoPedidoV2() === 'SEGURADORA' && !g('v2fornAgora') && !suc.querySelector('.forn-feito')) {
       suc.insertAdjacentHTML('beforeend', '<div id="v2fornAgora"><button type="button" class="secundario">🚚 Lançar fornecimento agora</button>'
         + '<span class="v2q" tabindex="0" data-dica="' + txt('Já tem o Status do Pedido do Cilia, as peças do sinistro da HDI ou um print do portal?\nLance agora o fornecedor e a previsão das peças que a seguradora fornece. Se ainda não tem, pode fazer depois pelo 💰 do card.') + '"></span></div>');
       g('v2fornAgora').querySelector('button').onclick = function () { window.CARD_EDICAO = slF[1]; abrirFornecimento(); };
@@ -3488,13 +3498,10 @@ iniciar();
       var cab = '<h4>' + titulo + '</h4>' + (sub ? '<div class="sub">' + sub + '</div>' : '');
       if (PC && box.id === 'anexosCard') {
         // computador: a instrução vira "?" ao lado do título; botão do Status do Pedido (fornecimento da seguradora) no mesmo cabeçalho
-        var forn = window.CARD_EDICAO && (document.querySelector('input[name=tipoPedido]:checked') || {}).value === 'SEGURADORA';
         cab = '<div class="v2-lercab"><h4>' + titulo + '<span class="v2q" tabindex="0" data-dica="' + txt(DICA_LER) + '"></span></h4>'
-          + (forn ? '<span class="v2-forn"><button type="button" class="secundario" id="v2fornBtn">🚚 Status do Pedido</button><span class="v2q v2q-dir" tabindex="0" data-dica="' + txt(DICA_FORN) + '"></span></span>' : '')
           + '</div>';
       }
       lista.innerHTML = cab + docs.join('') + htmlFotos;
-      if (g('v2fornBtn')) g('v2fornBtn').onclick = abrirFornecimento;
       $$('button', lista).forEach(function (b) { b.onclick = function () { var l = lers[+b.dataset.i]; b.disabled = true; b.textContent = '⏳ Lendo…'; l.click(); }; });
       // o que não é "ler" (links e outros anexos) continua aparecendo embaixo
       box.classList.add('v2-orig');
@@ -3511,8 +3518,47 @@ iniciar();
     if (!h || !la || h.parentNode.classList.contains('v2pc-docbar')) return;
     var bar = document.createElement('div'); bar.className = 'v2pc-docbar';
     h.parentNode.insertBefore(bar, h); bar.appendChild(h); bar.appendChild(la); if (lc) bar.appendChild(lc);
-    la.textContent = '📎 Enviar orçamento'; la.title = 'PDF ou foto do orçamento — também dá para colar com Ctrl+V';
+    la.textContent = '📎 Orçamento'; la.title = 'PDF ou foto do orçamento — também dá para colar com Ctrl+V';
     if (lc) { lc.textContent = '🖼️ Capa'; lc.title = 'Foto de capa do card (opcional) — também dá para colar com Ctrl+V'; }
+    // 13/10/2026 (Weslley): Status do Pedido e "outro anexo" na mesma linha; vão para o card no Enviar e o robô faz o resto
+    bar.insertAdjacentHTML('beforeend',
+      '<label class="v2-btnarq sec" for="v2arqForn" id="v2lbForn">🚚 Status do Pedido</label><input type="file" id="v2arqForn" accept="application/pdf,image/*" style="display:none">'
+      + '<label class="v2-btnarq sec" for="v2arqOutro">📁 Outro anexo</label><input type="file" id="v2arqOutro" multiple style="display:none">'
+      + '<span class="v2q" tabindex="0" data-dica="' + txt(DICA_ARQS) + '"></span>');
+    if (lc) bar.appendChild(lc);   // capa por último
+    bar.appendChild(bar.querySelector('.v2q'));
+    g('v2arqForn').onchange = function () { subirExtra(this, 'forn'); };
+    g('v2arqOutro').onchange = function () { subirExtra(this, 'outro'); };
+    var prev = document.createElement('div'); prev.id = 'v2fornPrevia'; prev.className = 'oculto';
+    bar.insertAdjacentElement('afterend', prev);
+  }
+  /* sobe o arquivo para a pasta temporária; vai para o card no Enviar (mesmo caminho da capa) */
+  function subirExtra(inp, tipo) {
+    var files = Array.prototype.slice.call(inp.files || []); inp.value = '';
+    var pv = g('v2fornPrevia');
+    files.forEach(function (f) {
+      if (f.size > 15 * 1024 * 1024) { avisoPrevia('ruim', '"' + f.name + '" é grande demais (máx. 15 MB).'); return; }
+      if (tipo === 'forn') avisoPrevia('', '⏳ Lendo o Status do Pedido "' + f.name + '"…');
+      lerArquivo(f).then(function (b64) { return chamar('vdf_subirArquivo', TOKEN, b64, f.type || 'application/octet-stream', f.name); }).then(function (r) {
+        ANEXOS.push({ nome: f.name, fileId: r.fileId, tipo: tipo }); FILE_IDS.push(r.fileId); listarAnexos();
+        if (tipo !== 'forn') return;
+        var fo = ((window.ORC && window.ORC.fo) || []).map(function (x) { return { codigo: x.codigo || x.codigoOrc || '', descricao: x.descricao || x.descricaoOrc || '' }; });
+        return chamar('vdf_previaFornecimento', TOKEN, r.fileId, window.CARD_EDICAO || '', fo).then(function (pr) { mostrarPrevia(f.name, pr); });
+      }).catch(function (e) { avisoPrevia('ruim', e.message); });
+    });
+  }
+  function avisoPrevia(cl, h) { var pv = g('v2fornPrevia'); if (!pv) return; pv.className = 'dica ' + cl; pv.innerHTML = h; }
+  function brD(d) { var m = String(d || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? m[3] + '/' + m[2] : d; }
+  function mostrarPrevia(nome, pr) {
+    if (!pr || pr.erro) return avisoPrevia('ruim', '🚚 ' + txt((pr && pr.erro) || 'Não consegui ler o arquivo.') + ' Ele vai para o card do mesmo jeito.');
+    if (!pr.fornecimento) return avisoPrevia('ruim', '🚚 "' + txt(nome) + '" não parece um Status do Pedido (Cilia) nem peças do sinistro (HDI). Vai para o card como anexo, mas nada será lançado.');
+    var ls = (pr.achados || []).map(function (a) {
+      return '<li><b>' + txt(a.nome) + '</b> → ' + (a.fornecedor ? txt(a.fornecedor) : '<i>sem fornecedor</i>')
+        + (/^B\.?O/i.test(a.situacao || '') ? ' · 🚫 B.O.' : a.previsao ? ' · prev. ' + brD(a.previsao) : '') + '</li>';
+    });
+    avisoPrevia('boa', '🚚 <b>' + txt(pr.doc || 'Fornecimento') + '</b> lido.'
+      + (ls.length ? ' Ao enviar, entra nas peças da seguradora:<ul>' + ls.join('') + '</ul>'
+        : ' As peças da seguradora ainda não estão no pedido para casar — ao enviar, o sistema lança fornecedor e previsão nas que baterem.'));
   }
   function varrer() {
     try { atualizarLado(); } catch (e) {}
