@@ -691,8 +691,8 @@ function carregarCard(sl) {
   chamar('vdf_carregarCard', TOKEN, sl).then(function (c) {
     CARD_EDICAO = c.shortLink; CARD = c;
     if (MODO_COMPRAS) return telaComprador(c);
-    $('modoEdicao').innerHTML = 'Editando o card <b>' + esc(c.nome) + '</b>. As cotações que já estão no card são mantidas. '
-      + '<a href="#" onclick="modoNovo();return false">Fazer pedido novo em vez disso</a>';
+    $('modoEdicao').innerHTML = '<span class="ed1">Editando o card <b>' + esc(c.nome) + '</b>. As cotações que já estão no card são mantidas. '
+      + '<a href="#" onclick="modoNovo();return false">Fazer pedido novo em vez disso</a></span>';
     mostrar('modoEdicao', true);
     POS = !!c.posCotacao; LISTA = c.lista || '';
     if (c.doOrcamento) ORC = ORC || { origem: c.origemOrc || 'ORÇAMENTO', fo: [] };
@@ -2643,6 +2643,36 @@ iniciar();
      página única (sem passos), seções em cartões brancos, coluna lateral com resumo, etapas, o que falta e o botão Enviar ===== */
   .v2pc #v2topo, .v2pc header { padding-left:max(24px, calc(50% - 566px)); padding-right:max(24px, calc(50% - 566px)); }
   .v2pc #v2topo .placa { font-size:24px; }
+  /* 13/10/2026: topo do pedido no computador (placa editável, Editar pedido/Pedido novo com "?", tipo do pedido) */
+  .v2 .v2ped { display:none; }
+  .v2pc.v2-pedtopo .v2ped { display:flex; align-items:center; gap:6px; }
+  .v2pc.v2-pedtopo #v2placa { display:none; }
+  .v2pc.v2-pedtopo #v2ped-placa { order:0; }
+  .v2pc.v2-pedtopo #v2etapa { order:1; flex:0 1 auto; }
+  .v2pc.v2-pedtopo .v2ped-novo { margin-left:14px; }
+  .v2pc.v2-pedtopo .v2ped-novo { order:2; }
+  .v2pc.v2-pedtopo #v2ped-tipo { order:3; flex-basis:100%; flex-wrap:wrap; gap:8px; padding-top:2px; }
+  .v2pc #v2ped-placa input { width:150px; font-size:24px; font-weight:800; letter-spacing:2px; text-transform:uppercase; text-align:center;
+    border:2px solid #172b4d; border-radius:6px; padding:0 8px; height:36px; line-height:32px; background:#fff; color:#172b4d; }
+  .v2pc #v2ped-placa input::placeholder { color:#a5adba; font-weight:700; }
+  .v2pc #v2topo .v2ped-novo button { min-height:32px; padding:4px 10px; font-size:13px; }
+  .v2pc #v2ped-tipo .chips { display:flex; gap:6px; margin:0 !important; flex-wrap:wrap; }
+  .v2pc #v2ped-tipo .chip { min-height:30px; padding:3px 10px; font-size:14px; margin:0; }
+  .v2pc #v2ped-tipo #rotuloPart { display:none; }
+  .v2pc #v2ped-tipo #dicaPlaca { margin:0 0 0 8px; font-size:13px; }
+  .v2pc #v2ped-tipo #dicaPlaca:empty { display:none; }
+  .v2pc .v2-s1 > h2 { display:none; }
+  .v2pc #form > section.v2-s1:not(:has(#cardsPlaca > *)):not(:has(#avisoMisto:not(.oculto))) { display:none; }
+  .v2pc.v2-pedtopo #v2lado { top:112px; }
+  .v2pc #modoEdicao .ed1, .v2pc #modoEdicao .ed1 + br, .v2pc #modoEdicao .ed1 + br + br { display:none; }
+  .v2pc #form > #modoEdicao:has(> .ed1):not(:has(br)) { display:none; }
+  .v2 .v2q { position:relative; display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:50%;
+    background:#dcdfe4; color:#44546f; font:700 12px/18px system-ui, sans-serif; cursor:help; margin-left:4px; vertical-align:middle; flex:0 0 auto; }
+  .v2 .v2q::before { content:'?'; }
+  .v2 .v2q:hover, .v2 .v2q:focus { background:#0c66e4; color:#fff; outline:none; }
+  .v2 .v2q:hover::after, .v2 .v2q:focus::after { content:attr(data-dica); position:absolute; top:26px; left:-10px; z-index:30; width:320px; white-space:pre-line;
+    background:#172b4d; color:#fff; font:400 13px/19px system-ui, sans-serif; padding:8px 12px; border-radius:6px; box-shadow:0 4px 12px #091e4240; text-align:left; letter-spacing:0; }
+  .v2 .v2q.v2q-dir:hover::after, .v2 .v2q.v2q-dir:focus::after { left:auto; right:-10px; }
   .v2pc main { max-width:1180px; padding:20px 24px 40px; }
   .v2pc:has(#comprador:not(.oculto)) #v2topo, .v2pc:has(#comprador:not(.oculto)) header { padding-left:max(24px, calc(50% - 418px)); padding-right:max(24px, calc(50% - 418px)); }
   .v2pc main:has(> #comprador:not(.oculto)), .v2pc main:has(> #telaSucesso:not(.oculto)) { max-width:860px; }
@@ -2809,7 +2839,12 @@ iniciar();
     if (visivel(g('comprador'))) { var a = document.querySelector('.aba.marcada .rotulo'); etapa = a ? a.textContent : ''; }
     else if (visivel(g('form'))) etapa = window.CARD_EDICAO ? 'Editar pedido' : 'Pedido novo';
     else if (visivel(g('telaSucesso'))) etapa = 'Enviado';
-    g('v2etapa').innerHTML = '<b>' + txt(etapa) + '</b>' + txt(lista ? lista + (PROXIMO[lista] ? ' · ' + PROXIMO[lista] : '') : '');
+    var pedTopo = PC && visivel(g('form')) && !!g('v2ped-placa');
+    html.classList.toggle('v2-pedtopo', pedTopo);
+    if (pedTopo && g('v2novo')) g('v2novo').parentNode.style.display = window.CARD_EDICAO ? '' : 'none';
+    var dicaEd = pedTopo && window.CARD_EDICAO ? ' <span class="v2q" tabindex="0" data-dica="' + txt(DICA_EDITAR) + '"></span>' : '';
+    var etH = '<b>' + txt(etapa) + dicaEd + '</b>' + txt(lista ? lista + (PROXIMO[lista] ? ' · ' + PROXIMO[lista] : '') : '');
+    if (g('v2etapa').dataset.h !== etH) { g('v2etapa').innerHTML = etH; g('v2etapa').dataset.h = etH; }
     var temDet = (visivel(g('form')) && g('modoEdicao') && !g('modoEdicao').classList.contains('oculto')) || visivel(g('comprador'));
     g('v2det').style.display = temDet ? '' : 'none';
   }
@@ -2826,7 +2861,10 @@ iniciar();
   nav.innerHTML = '<button type="button" class="secundario" id="v2voltar">Voltar</button><button type="button" class="principal" id="v2seguir">Continuar</button>';
   var rodapeEnviar = g('btnEnviar') ? g('btnEnviar').closest('.rodape') : null;
   var PC = html.classList.contains('v2pc');
-  if (form && secoes.length >= 5 && PC) montarLado();
+  var DICA_EDITAR = 'Você está alterando o pedido deste card.\nO que já foi cotado continua no card.\nSe o card já passou da cotação, só a peça nova é conferida e o card volta para EM COTAÇÃO.';
+  var DICA_NOVO = 'Começa um pedido em branco, para outro carro ou outro sinistro.\nEste card não é alterado.';
+  var DICA_TIPO = 'Seguradora: peças do orçamento autorizado pela seguradora.\nParticular: o cliente paga. Num card de seguradora, vira um pedido separado no mesmo card (mesmo carro).\nRetorno: a oficina paga (retrabalho ou garantia). Quem autoriza a compra é a diretoria.';
+  if (form && secoes.length >= 5 && PC) { montarLado(); montarTopoPedido(); }
   else if (form && secoes.length >= 5) {
     form.insertBefore(barra, form.firstChild);
     form.insertBefore(errPasso, barra.nextSibling);
@@ -2885,6 +2923,33 @@ iniciar();
     $$('#v2passos .p').forEach(function (p) { p.onclick = function () { var i = +p.dataset.i; if (i < passo) mostrarPasso(i); }; });
   }
   /* ---------- computador (09/10/2026, modelo R7 da proposta visual): página única + coluna lateral ---------- */
+  /* 13/10/2026 (Weslley, revisão do computador): no topo do pedido ficam a placa (editável), "Editar pedido" com "?",
+     o botão "Pedido novo" com "?" e, logo abaixo, o tipo do pedido em chips curtos com um "?" que explica cada um.
+     Só muda o lugar dos campos: os mesmos #placa e input[name=tipoPedido] continuam sendo lidos pelo formulário. */
+  function montarTopoPedido() {
+    var placa = g('placa'), chips = secoes[0].querySelector('.chips');
+    if (!placa || !chips) return;
+    var wp = document.createElement('span'); wp.id = 'v2ped-placa'; wp.className = 'v2ped';
+    var novo = document.createElement('span'); novo.className = 'v2ped v2ped-novo';
+    novo.innerHTML = '<button type="button" class="secundario" id="v2novo">➕ Pedido novo</button><span class="v2q v2q-dir" tabindex="0" data-dica="' + txt(DICA_NOVO) + '"></span>';
+    var tipo = document.createElement('div'); tipo.id = 'v2ped-tipo'; tipo.className = 'v2ped';
+    topo.insertBefore(wp, topo.firstChild);
+    topo.appendChild(novo); topo.appendChild(tipo);
+    wp.appendChild(placa); placa.placeholder = 'PLACA';
+    tipo.appendChild(chips);
+    tipo.insertAdjacentHTML('beforeend', '<span class="v2q" tabindex="0" data-dica="' + txt(DICA_TIPO) + '"></span>');
+    if (g('dicaPlaca')) tipo.appendChild(g('dicaPlaca'));
+    // rótulos curtos nos chips (a explicação completa fica no "?")
+    $$('label.chip', chips).forEach(function (l) {
+      var r = l.querySelector('input'); if (!r) return;
+      Array.prototype.slice.call(l.childNodes).forEach(function (n) {
+        if (n.nodeType === 3 && n.textContent.trim()) n.textContent = ' ' + (r.value === 'SEGURADORA' ? 'Seguradora' : r.value === 'RETORNO' ? '🔁 Retorno' : n.textContent.trim());
+      });
+      if (r.value === 'PARTICULAR' && !l.querySelector('.v2curto')) l.insertAdjacentHTML('beforeend', '<span class="v2curto">Particular</span>');
+    });
+    secoes[0].classList.add('v2-s1');
+    g('v2novo').onclick = function () { modoNovo(); atualizarTopo(); placa.focus(); };
+  }
   function montarLado() {
     var lado = document.createElement('aside'); lado.id = 'v2lado';
     lado.innerHTML = '<div class="v2card" id="v2resumo"></div><div class="v2card" id="v2etapas"></div><div id="v2falta" class="aviso oculto"></div>';
@@ -3290,6 +3355,15 @@ iniciar();
     $$('#cotItens > .item, #autItens > .item, #compraItens > .item, #recItens > .item, #fornItens > .item').forEach(marcarPeca);
     $$('input[type=file]').forEach(prepararArquivo);
     $$('input.f-qtd').forEach(prepararQtd);
+    if (PC && g('v2ped-placa')) {
+      var nSec = 0;
+      $$('#form > section:not(.v2-s1)').forEach(function (sec) {
+        var h = sec.querySelector('h2'); if (!h || !secaoAtiva(sec)) return;
+        var t = h.firstChild; if (!t || t.nodeType !== 3 || !/^\s*\d+\.\s/.test(t.textContent)) return;
+        nSec++; var nv = t.textContent.replace(/^\s*\d+\./, nSec + '.');
+        if (nv !== t.textContent) t.textContent = nv;
+      });
+    }
     atualizarTopo();
   }
   if (form && secoes.length >= 5) mostrarPasso(0);
