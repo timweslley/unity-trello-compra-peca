@@ -2785,6 +2785,25 @@ iniciar();
   .v2pc #v2etapas .et.feito .n { background:#1f845a; color:#fff; }
   .v2pc #v2etapas .et .d { margin-left:auto; font-size:13px; font-weight:400; color:#ae2e24; }
   .v2pc #v2falta { background:#fff7d6; border:1px solid #f5cd47; color:#172b4d; margin:0 !important; }
+  /* caminho das etapas (13/10/2026): bolinhas ligadas por linha que enche de verde */
+  .v2pc #v2etapas { padding:10px 12px !important; }
+  .v2pc #v2etapas .et { position:relative; display:grid !important; grid-template-columns:28px 1fr; column-gap:10px; align-items:center; padding:0 0 18px !important; background:none !important; border-radius:0; }
+  .v2pc #v2etapas .et:last-child { padding-bottom:0 !important; }
+  .v2pc #v2etapas .et .n { position:relative; z-index:1; width:28px; height:28px; grid-row:1; }
+  .v2pc #v2etapas .et .t { grid-column:2; font-size:15px; }
+  .v2pc #v2etapas .et .t small { font-size:12px; font-weight:600; color:#626f86; }
+  .v2pc #v2etapas .et:not(:last-child)::after { content:''; position:absolute; left:12px; top:28px; bottom:0; width:4px; border-radius:2px;
+    background:linear-gradient(#1f845a var(--p), #dcdfe4 var(--p)); }
+  .v2pc #v2etapas .et.atual .n { box-shadow:0 0 0 4px #cce0ff; }
+  .v2pc #v2etapas .et.feito .t small { color:#1f845a; }
+  .v2pc #v2etapas .fl { grid-column:2; margin:4px 0 0; padding:0; list-style:none; font-size:13px; line-height:18px; }
+  .v2pc #v2etapas .fl li { margin:2px 0; }
+  .v2pc #v2etapas .fl a { color:#ae2e24; text-decoration:none; border-bottom:1px dashed #f3c4bf; }
+  .v2pc #v2etapas .fl a:hover { border-bottom-style:solid; }
+  .v2pc #v2etapas .fl li::before { content:'• '; color:#ae2e24; }
+  .v2pc #v2etapas .fl .mais { color:#626f86; }
+  .v2 .v2-pisca { animation:v2pisca 1.2s ease 1; }
+  @keyframes v2pisca { 0%, 100% { box-shadow:none; } 30% { box-shadow:0 0 0 4px #85b8ff; } }
   .v2pc #v2lado .rodape { margin:0 !important; padding:0; display:flex; flex-direction:column; gap:8px; }
   .v2pc #v2lado #btnEnviar { width:100%; min-height:48px; font-size:16px; }
   .v2pc #v2toast { left:auto; right:24px; width:380px; }
@@ -3253,18 +3272,58 @@ iniciar();
     if (g('v2resumo').dataset.h !== res) { g('v2resumo').innerHTML = res; g('v2resumo').dataset.h = res; }
     var f1 = camposObrigatorios(PASSOS[0].s.map(function (i) { return secoes[i]; }));
     var f2 = faltaNasPecas();
-    var et = [['Orçamento e carro', f1.length ? 'falta ' + f1[0].toLowerCase() : ''], ['Peças', f2[0] || ''], ['Enviar', '']];
+    /* 13/10/2026 (Weslley): caminho com bolinhas ligadas por uma linha que vai enchendo; contador por etapa; o que falta
+       dentro da etapa, clicável (leva ao campo). A caixa amarela "Falta acertar" sai (repetia a mesma coisa). */
+    var obrCampos = $$('label[for]').filter(function (lb) { var el = g(lb.htmlFor); return lb.querySelector('.obr') && el && !el.closest('.item') && (form.contains(el) || el.id === 'placa') && el.offsetParent !== null; });
+    var f1txt = f1.join(' ');
+    var nomeCampo = function (lb) { var c = lb.cloneNode(true); $$('.obr, .v2q, .dica', c).forEach(function (x) { x.remove(); }); return c.textContent.replace(/\s+/g, ' ').trim(); };
+    var falta1 = obrCampos.filter(function (lb) { var el = g(lb.htmlFor); return el.classList.contains('v2-falta') || (el.id === 'chassi' && /chassi/i.test(f1txt)); })
+      .map(function (lb) { return { txt: nomeCampo(lb), alvo: 'id:' + lb.htmlFor }; });
+    // o que não é campo (ex.: falta o orçamento autorizado) entra como mais um item da etapa
+    f1.forEach(function (x) { if (!/^(placa|modelo|ano|chassi|nº da ordem|unidade|carro|cor|seguradora|sinistro|motor)/i.test(x.split(',')[0].trim())) falta1.push({ txt: /seguradora:\s*anexe/i.test(x) ? 'Anexar o orçamento autorizado (ou marcar Particular)' : x, alvo: 'c:orçamento' }); });
+    if (f1.length && !falta1.length) falta1 = f1.map(function (x) { return { txt: x, alvo: 'c:' + x }; });
+    var docs = falta1.filter(function (x) { return x.alvo === 'c:orçamento'; }).length;
+    if (tipo === 'SEGURADORA' && !docs) docs = 1;   // orçamento autorizado conta como um item da etapa (já anexado = pronto)
+    var tot1 = obrCampos.length + docs, ok1 = Math.max(0, tot1 - falta1.length);
+    // peça em branco (sem código, descrição nem medida) o envio ignora — não conta
+    var itens = pecas.filter(function (it) { return it.dataset.nao !== '1' && $$('.f-codigo, .f-desc, .f-medida', it).some(function (el) { return String(el.value || '').trim(); }); });
+    var itPend = {}; f2.forEach(function (f) { var m = f.match(/^Item (\d+)/i); if (m) itPend[m[1]] = 1; });
+    var tot2 = itens.length, ok2 = Math.max(0, tot2 - Object.keys(itPend).length);
     var atual = f1.length ? 0 : f2.length ? 1 : 2;
+    var et = [
+      { t: 'Orçamento e carro', c: tot1 ? ok1 + ' de ' + tot1 : '', p: tot1 ? ok1 / tot1 : 1, f: falta1 },
+      { t: 'Peças', c: tot2 ? ok2 + ' de ' + tot2 + ' prontas' : '', p: tot2 ? ok2 / tot2 : (f2.length ? 0 : 1), f: f2.map(function (x) { var m = x.match(/^Item (\d+)/i); return { txt: x, alvo: m ? 'i:' + m[1] : 'id:itens' }; }) },
+      { t: 'Enviar', c: '', p: 0, f: [] }
+    ];
     var eh = et.map(function (e, i) {
       var cl = i < atual ? 'feito' : i === atual ? 'atual' : '';
-      return '<div class="et ' + cl + '"><span class="n">' + (i < atual ? '✓' : i + 1) + '</span><span class="t">' + e[0] + '</span>' + (i === atual && e[1] ? '<span class="d">' + txt(e[1]) + '</span>' : '') + '</div>';
+      var prog = i < atual ? 100 : i === atual ? Math.round(e.p * 100) : 0;
+      var lista = i === atual && e.f.length ? '<ul class="fl">' + e.f.slice(0, 6).map(function (x) { return '<li><a href="#" data-alvo="' + txt(x.alvo) + '">' + txt(x.txt.replace(/^Item \d+\s*\(([^)]*)\):\s*/i, function (_, n) { return n.slice(0, 22) + (n.length > 22 ? '…' : '') + ': '; })) + '</a></li>'; }).join('') + (e.f.length > 6 ? '<li class="mais">e mais ' + (e.f.length - 6) + '</li>' : '') + '</ul>' : '';
+      return '<div class="et ' + cl + '" style="--p:' + prog + '%"><span class="n">' + (i < atual ? '✓' : i + 1) + '</span><span class="t">' + e.t + (e.c ? ' <small>· ' + e.c + '</small>' : '') + '</span>' + lista + '</div>';
     }).join('');
     if (g('v2etapas').dataset.h !== eh) { g('v2etapas').innerHTML = eh; g('v2etapas').dataset.h = eh; }
-    var falta = f1.concat(f2);
-    g('v2falta').classList.toggle('oculto', !falta.length);
-    g('v2falta').innerHTML = falta.length ? '<b>Falta acertar:</b> ' + txt(falta.slice(0, 3).join(' · ')) + (falta.length > 3 ? ' …' : '') : '';
+    g('v2falta').classList.add('oculto');
   }
 
+  var ALVO_CARRO = { 'placa': 'placa', 'unidade': 'unidade', 'modelo': 'modelo', 'ano': 'ano', 'chassi': 'chassi', 'cor': 'cor', 'seguradora': 'seguradora', 'nº da ordem': 'ordem', 'carro': 'carro', 'motor': 'motor', 'sinistro': 'sinistro' };
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest && e.target.closest('#v2etapas a[data-alvo]'); if (!a) return;
+    e.preventDefault();
+    var alvo = a.dataset.alvo || '', el = null;
+    if (/^id:/.test(alvo)) el = g(alvo.slice(3));
+    else if (/^c:/.test(alvo)) {
+      var nome = alvo.slice(2).toLowerCase();
+      Object.keys(ALVO_CARRO).some(function (k) { if (nome.indexOf(k) === 0) { el = g(ALVO_CARRO[k]); return true; } });
+      if (!el && /pedido de seguradora|orçamento/.test(nome)) el = document.querySelector('.v2pc-docbar') || g('tituloDoc');
+    } else if (/^i:/.test(alvo)) {
+      var it = itensDoPedido()[+alvo.slice(2) - 1];
+      if (it) el = it.querySelector('.v2-falta') || it.querySelector('.f-desc, .f-medida, .f-codigo') || it;
+    }
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (el.focus) setTimeout(function () { try { el.focus({ preventScroll: true }); } catch (x) {} }, 350);
+    var dest = el.closest('.item') || el; dest.classList.add('v2-pisca'); setTimeout(function () { dest.classList.remove('v2-pisca'); }, 1400);
+  });
   function montarConferencia() {
     var v = function (id) { return g(id) ? String(g(id).value || '').trim() : ''; };
     var tipo = (document.querySelector('input[name=tipoPedido]:checked') || {}).value || '';
