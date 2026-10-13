@@ -2659,6 +2659,15 @@ iniciar();
   .v2pc #v2ped-placa input { width:212px; box-sizing:border-box; font-size:24px; font-weight:800; letter-spacing:2px; text-transform:uppercase; text-align:center;
     border:2px solid #172b4d; border-radius:6px; padding:0 6px; height:44px; line-height:40px; background:#fff; color:#172b4d; }
   .v2pc #v2ped-placa input::placeholder { color:#a5adba; font-weight:700; }
+  /* placa com cara de placa (Mercosul: branca, faixa azul BRASIL; antiga: cinza) */
+  .v2pc #v2ped-placa { position:relative; flex-direction:column; gap:0 !important; border:2px solid #1d2125; border-radius:7px; overflow:hidden; background:#fff; width:212px; box-sizing:border-box; }
+  .v2pc #v2ped-placa .pl-faixa { display:block; width:100%; background:#1d3f9a; color:#fff; font:700 9px/13px 'Roboto Condensed', 'Arial Narrow', Arial, sans-serif; letter-spacing:3px; text-align:center; }
+  .v2pc #v2ped-placa input { border:0 !important; border-radius:0 !important; width:100% !important; height:36px !important; line-height:36px !important; background:transparent !important;
+    font-family:'Roboto Condensed', 'Arial Narrow', Arial, sans-serif !important; font-weight:700 !important; font-size:30px !important; letter-spacing:3px !important; color:#1d2125 !important; padding:0 6px !important; }
+  .v2pc #v2ped-placa.pl-antiga { background:#c7c9cc; }
+  .v2pc #v2ped-placa.pl-antiga .pl-faixa { background:transparent; color:#1d2125; letter-spacing:2px; }
+  .v2pc #v2ped-placa.pl-erro { box-shadow:0 0 0 3px #f8a39d; }
+  .v2pc #v2topo #v2ped-placa input.v2-ok, .v2pc #v2topo #v2ped-placa input.v2-falta { background:transparent !important; }
   .v2pc #v2topo .v2ped-novo button { width:212px; height:44px; min-height:44px; box-sizing:border-box; padding:0 10px; font-size:16px; font-weight:600; border-radius:6px; }
   .v2pc #v2ped-tipo .chips { display:flex; gap:6px; margin:0 !important; flex-wrap:wrap; }
   .v2pc #v2ped-tipo .chip { min-height:30px; padding:3px 10px; font-size:14px; margin:0; }
@@ -2999,6 +3008,7 @@ iniciar();
     var u = new URLSearchParams(location.search); u.set('modo', 'forn'); if (window.CARD_EDICAO) u.set('card', window.CARD_EDICAO);
     location.href = location.pathname + '?' + u.toString() + location.hash;
   }
+  if (PC && !document.getElementById('v2fonte')) { var lk = document.createElement('link'); lk.id = 'v2fonte'; lk.rel = 'stylesheet'; lk.href = 'https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@700&display=swap'; document.head.appendChild(lk); }
   var DICA_TIPOPECA = 'Tipo da peça que o comprador vai cotar — marque 1 ou 2 (ex.: GENUÍNO + PARALELO = ele cota as duas opções).\nGENUÍNO: da montadora (concessionária).\nORIGINAL: do mesmo fabricante que fornece para a montadora, sem a marca dela.\nPARALELO: de outra marca.\nUSADO: peça usada (desmanche).';
   var DICA_TIPO = 'Seguradora: peças do orçamento autorizado pela seguradora.\nParticular: o cliente paga. Num card de seguradora, vira um pedido separado no mesmo card (mesmo carro).\nRetorno: a oficina paga (retrabalho ou garantia). Quem autoriza a compra é a diretoria.';
   if (form && secoes.length >= 5 && PC) { montarLado(); montarTopoPedido(); montarCarroPC(); }
@@ -3073,6 +3083,15 @@ iniciar();
     topo.insertBefore(wp, topo.firstChild);
     topo.appendChild(novo); topo.appendChild(tipo);
     wp.appendChild(placa); placa.placeholder = 'PLACA';
+    // 13/10/2026 (Weslley): cara de placa de verdade — Mercosul (faixa azul BRASIL) ou cinza antiga, conforme o que foi digitado
+    wp.insertAdjacentHTML('afterbegin', '<span class="pl-faixa">BRASIL</span>');
+    var estiloPlaca = function () {
+      var v = String(placa.value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      var merc = /^[A-Z]{3}\d[A-Z]\d{2}$/.test(v), antiga = /^[A-Z]{3}\d{4}$/.test(v);
+      wp.className = 'v2ped ' + (antiga ? 'pl-antiga' : 'pl-merc') + (v && !merc && !antiga && v.length >= 7 ? ' pl-erro' : '');
+    };
+    placa.addEventListener('input', estiloPlaca); placa.addEventListener('change', estiloPlaca);
+    setInterval(estiloPlaca, 1000); estiloPlaca();
     tipo.appendChild(chips);
     tipo.insertAdjacentHTML('beforeend', '<span class="v2q" tabindex="0" data-dica="' + txt(DICA_TIPO) + '"></span>');
     if (g('dicaPlaca')) tipo.appendChild(g('dicaPlaca'));
