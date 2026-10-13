@@ -3049,10 +3049,8 @@ iniciar();
   /* ações em ícones (o nome aparece ao parar o mouse); marcadas ficam coloridas */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado), .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado) { font-size:0 !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao { font-size:0 !important; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::before { content:"🚫"; font-size:12px; line-height:1; margin-right:5px; filter:grayscale(1); opacity:.65; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::before { filter:none; opacity:1; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::after { content:"Não\A comprar"; white-space:pre; text-align:left; font-size:11px; line-height:12px; font-weight:600; color:#626f86; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { content:"Não\A comprar"; color:#ae2e24; font-weight:700; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::after { content:"🚫 Não\A comprar"; white-space:pre; text-align:center; font-size:11px; line-height:12px; font-weight:600; color:#626f86; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { content:"🚫 Não\A comprar"; color:#ae2e24; font-weight:700; }
   /* textos dos botões bem centralizados */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip, .v2pc :is(#itens, #itensPart) > .item > .item-topo button { height:34px !important; min-height:34px !important; line-height:1 !important; vertical-align:middle; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip::after, .v2pc :is(#itens, #itensPart) > .item > .item-topo button::after { display:block; }
@@ -3063,10 +3061,11 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado::after { color:#fff !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao { border-color:#f3c4bf !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::after { color:#ae2e24 !important; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::before { filter:none !important; opacity:.8; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado { background:#ae2e24 !important; border-color:#ae2e24 !important; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { color:#fff !important; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::before { filter:brightness(0) invert(1) !important; opacity:1; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { color:#fff !important; filter:brightness(0) invert(1); }
+  /* Excluir pede confirmação (2º clique em até 4 s) */
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo.v2-armado { background:#5d1f1a !important; border-color:#5d1f1a !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo.v2-armado::after { content:"Confirmar?"; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .v2-obstog { border-color:#85b8ff !important; }
   .v2pc :is(#itens, #itensPart) > .item:is(.v2-obs, :has(.f-obs:not(:placeholder-shown))) > .item-topo .v2-obstog { background:#0c66e4 !important; border-color:#0c66e4 !important; color:#fff !important; }
   /* Excluir com mais ênfase: botão vermelho cheio */
@@ -3077,6 +3076,16 @@ iniciar();
   .v2 :is(#itens, #itensPart) > .item .grade .chips { width:fit-content; align-items:center; }
   .v2pc :is(#itens, #itensPart) > .item .grade .chips .v2q { margin:0 2px 0 4px; }
   .v2 :is(#itens, #itensPart) > .item:not(.nao-comprar) .chips.v2-falta { outline:1px solid #f3c4bf; outline-offset:2px; border-radius:6px; background:#fff7f6; }
+  /* 13/10/2026 (Weslley): tela mais compacta na vertical — menos espaço em cima e embaixo, mesma letra e mesma área de clique */
+  .v2pc #form > section { padding:8px 14px 10px !important; margin:0 0 8px !important; }
+  .v2pc #form > section h2 { margin:0 0 4px !important; }
+  .v2pc #form > section.v2-carro { gap:4px 12px !important; }
+  .v2pc #form label { margin-bottom:1px !important; line-height:16px; }
+  .v2pc #itens > .item, .v2pc #itensPart > .item { padding:6px 12px !important; gap:4px 10px !important; }
+  .v2pc .v2pc-cab { padding-top:4px !important; padding-bottom:2px !important; }
+  .v2pc .v2pc-docbar { margin-bottom:4px !important; }
+  .v2pc #v2topo { padding-top:4px !important; padding-bottom:4px !important; row-gap:4px !important; }
+  .v2pc main { padding-top:10px !important; }
   /* espaçamentos menores no computador (Weslley 09/10: "espaço entre o texto e a borda muito grande") */
   .v2pc #form > section { padding:10px 14px !important; margin:0 0 10px !important; }
   .v2pc #form > section h2 { margin:0 0 6px !important; font-size:16px; }
@@ -3890,6 +3899,14 @@ iniciar();
       return r;
     };
   }
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#itens button.perigo, #itensPart button.perigo');
+    if (!b || !PC) return;
+    if (b.classList.contains('v2-armado')) { b.classList.remove('v2-armado'); return; }   // 2º clique: deixa excluir
+    e.preventDefault(); e.stopImmediatePropagation();
+    b.classList.add('v2-armado'); b.title = 'Clique de novo para excluir a peça';
+    clearTimeout(b._v2t); b._v2t = setTimeout(function () { b.classList.remove('v2-armado'); b.title = 'Excluir a peça'; }, 4000);
+  }, true);
   function pintarObrigatorios() {
     try { arrumarValores(); } catch (e) {}
     if (!visivel(form)) return;
