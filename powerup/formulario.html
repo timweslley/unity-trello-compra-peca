@@ -3063,6 +3063,8 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::after { color:#ae2e24 !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado { background:#ae2e24 !important; border-color:#ae2e24 !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { color:#fff !important; filter:brightness(0) invert(1); }
+  .v2 :is(#itens, #itensPart) > .item .dica.v2-dicacomp { color:#5e4db2 !important; font-size:12px; margin-top:2px !important; }
+  .v2 :is(#itens, #itensPart) > .item .dica.v2-dicacomp b { color:#5e4db2; }
   /* Excluir pede confirmação (2º clique em até 4 s) */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo.v2-armado { background:#5d1f1a !important; border-color:#5d1f1a !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo.v2-armado::after { content:"Confirmar?"; }
@@ -3894,6 +3896,8 @@ iniciar();
           var auto = el.querySelector('.dica') && /Marcada como <b>complemento<\/b>/.test(el.innerHTML);
           var cc = el.querySelector('.chip-comp input');
           if (auto && cc && !cc.checked) { cc.checked = true; marcarComp(el.id, true); }
+          // aviso do complemento automático: roxo e com ✓, igual ao botão "✓ Comp." (Weslley 13/10)
+          if (auto) $$('.dica', el).forEach(function (d) { if (/Marcada como/.test(d.innerHTML)) { d.classList.add('v2-dicacomp'); d.innerHTML = d.innerHTML.replace(/^\s*➕/, '✓'); } });
         }
       } catch (e) {}
       return r;
