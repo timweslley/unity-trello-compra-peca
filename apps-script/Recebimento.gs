@@ -411,7 +411,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   // não tem o que cotar/autorizar -> FALTA CHEGAR (FO pendente) ou ENCERRADO (nada a receber). 05/10/2026 (QPG1B84)
   var soFo = '';
   if (!alvo && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
-      itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista); }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido
+      itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista) || i.ok; }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido; PAGAS já recebido não impede (13/10/2026, BBG3844: tudo 🚫 e compras antigas ✔)
     var an = vd_analisar_(card.desc, card.name);
     if (!an.pecas.length && (itens.length || (an.naoComprar || []).length)) {
       alvo = pend.length ? VDF_LISTA_CHEGAR : RC.LISTA_FIM;
