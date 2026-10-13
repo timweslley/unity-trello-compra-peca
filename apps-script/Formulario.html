@@ -2904,7 +2904,7 @@ iniciar();
   /* complemento marcado: selo roxo bem visível */
   .v2 :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado { background:#f3f0ff !important; border-color:#9f8fef !important; color:#5e4db2 !important; font-weight:700; font-size:12px !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado { font-size:0 !important; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado::after { content:"➕ Comp."; font-size:12px; font-weight:700; color:#5e4db2; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado::after { content:"✓ Comp."; font-size:12px; font-weight:700; color:#fff; }
   .v2 :is(#itens, #itensPart) > .item[data-comp="1"] .num + * { }
   .v2 :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado { border-color:#f3c4bf !important; background:#fff1f0 !important; }
   .v2pc :is(#itens, #itensPart) > .item .f-valor-orc { text-align:right; }
@@ -2919,6 +2919,18 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip, .v2pc :is(#itens, #itensPart) > .item > .item-topo button { height:34px !important; min-height:34px !important; line-height:1 !important; vertical-align:middle; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip::after, .v2pc :is(#itens, #itensPart) > .item > .item-topo button::after { display:block; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo select { height:34px !important; min-height:34px !important; }
+  /* 13/10/2026 (Weslley): ações no mesmo padrão dos tipos — contorno e texto na cor; marcado = cheio com letra branca */
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp { border-color:#b8acf6 !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado { background:#6e5dc6 !important; border-color:#6e5dc6 !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp.marcado::after { color:#fff !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao { border-color:#f3c4bf !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::after { color:#ae2e24 !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::before { filter:none !important; opacity:.8; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado { background:#ae2e24 !important; border-color:#ae2e24 !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { color:#fff !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::before { filter:brightness(0) invert(1) !important; opacity:1; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .v2-obstog { border-color:#85b8ff !important; }
+  .v2pc :is(#itens, #itensPart) > .item:is(.v2-obs, :has(.f-obs:not(:placeholder-shown))) > .item-topo .v2-obstog { background:#0c66e4 !important; border-color:#0c66e4 !important; color:#fff !important; }
   /* Excluir com mais ênfase: botão vermelho cheio */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { background:#c9372c !important; border-color:#c9372c !important; color:#fff !important; padding:0 12px !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo::after { color:#fff; }
