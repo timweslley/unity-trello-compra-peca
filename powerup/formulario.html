@@ -3049,8 +3049,18 @@ iniciar();
   /* ações em ícones (o nome aparece ao parar o mouse); marcadas ficam coloridas */
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-comp:not(.marcado), .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao:not(.marcado) { font-size:0 !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao { font-size:0 !important; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::after { content:"Não\A comprar"; white-space:pre; text-align:center; font-size:11px; line-height:12px; font-weight:600; color:#626f86; }
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { content:"🚫 Não\A comprar"; color:#ae2e24; font-weight:700; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::before { content:"🚫"; font-size:12px; line-height:1; margin-right:5px; filter:grayscale(1); opacity:.65; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::before { filter:none; opacity:1; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao::after { content:"Não\A comprar"; white-space:pre; text-align:left; font-size:11px; line-height:12px; font-weight:600; color:#626f86; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { content:"Não\A comprar"; color:#ae2e24; font-weight:700; }
+  /* textos dos botões bem centralizados */
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip, .v2pc :is(#itens, #itensPart) > .item > .item-topo button { height:34px !important; min-height:34px !important; line-height:1 !important; vertical-align:middle; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo .chip::after, .v2pc :is(#itens, #itensPart) > .item > .item-topo button::after { display:block; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo select { height:34px !important; min-height:34px !important; }
+  /* Excluir com mais ênfase: botão vermelho cheio */
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { background:#c9372c !important; border-color:#c9372c !important; color:#fff !important; padding:0 12px !important; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo::after { color:#fff; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo:hover { background:#ae2e24 !important; border-color:#ae2e24 !important; }
   /* cor dos campos obrigatórios da peça (mesmo padrão dos dados do carro) */
   .v2 :is(#itens, #itensPart) > .item .grade .chips { width:fit-content; align-items:center; }
   .v2pc :is(#itens, #itensPart) > .item .grade .chips .v2q { margin:0 2px 0 4px; }
