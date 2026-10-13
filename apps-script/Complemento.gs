@@ -169,6 +169,9 @@ function cp_comparar_(card, orc, excluirAnexo) {
         // FO: já está no checklist pelo código. Com código diferente e descrição conhecida, segue para o checklist,
         // que atualiza o item existente (código/descrição) em vez de repetir — vdf_checklistFornecimento_
         if (ehFo && !(kc.length >= 4 && (conh.chaves[kc] || conh.textos.some(function (t) { return t.indexOf(kc) >= 0; })))) { destino.push(p); return; }
+        // item FO com o código GRUDADO na descrição ("5Q0919275CGRUSENSOR DE …"): segue para o checklist, que reescreve o item
+        // como "CÓDIGO DESCRIÇÃO" (13/10/2026, STG3I57)
+        if (ehFo && kc.length >= 6 && cp_itemColado_(card, kc)) { destino.push(p); return; }
         out.jaTinha++; return;
       }
       var m = ehFo ? cp_casaManual_(conh, p, usadas) : null;
@@ -371,11 +374,21 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     // "5U7941006C FAROL DIREITO") não troca o código bom do item
     var itensFo = [];
     (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(String(i.name || '')); }); });
-    foFalta = foFalta.filter(function (p) { return !itensFo.some(function (n) { return cp_similar_(p.descricao || '', n.replace(/^\S*\d\S*\s+/, '').replace(/\s+-\s+[^-]+$/, '')) > 0; }); });
+    foFalta = foFalta.filter(function (p) { var kcF = cp_norm_(p.codigo || p.codigoOrc); if (kcF.length >= 6 && cp_itemColado_(card, kcF)) return true; return !itensFo.some(function (n) { return cp_similar_(p.descricao || '', n.replace(/^\S*\d\S*\s+/, '').replace(/\s+-\s+[^-]+$/, '')) > 0; }); });
     return { oficina: [], fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length, pareadas: [], atualizar: [], paraOficina: [], jaProcessado: true };
   }
   var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, excluir);
   return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };
+}
+
+/** Algum item de FORNECIMENTO do card tem esse código colado na descrição (código seguido direto de letra)? */
+function cp_itemColado_(card, kc) {
+  return (card.checklists || []).some(function (k) {
+    return /FORNECIMENTO/i.test(k.name || '') && (k.checkItems || []).some(function (i) {
+      var n = vd_semAcento_(String(i.name || '')).toUpperCase();
+      return n.indexOf(kc) === 0 && /^[A-Z]{3}/.test(n.slice(kc.length));
+    });
+  });
 }
 
 /** Anexos que o formulário subiu num complemento: o robô não precisa ler de novo. */

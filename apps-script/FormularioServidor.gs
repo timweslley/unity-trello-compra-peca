@@ -571,7 +571,7 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
   fo.forEach(function (p, k) {
     var cod0 = String(p.codigo || p.codigoOrc || '').trim().replace(/\*+$/, '').replace(/\s+/g, '');
     if (!cod0) return;
-    existentes.forEach(function (e, j) { if (porCodigo[j] === undefined && vd_casaItem_(e.norm, vd_semAcento_(cod0))) porCodigo[j] = k; });
+    existentes.forEach(function (e, j) { if (porCodigo[j] === undefined && (vd_casaItem_(e.norm, vd_semAcento_(cod0)) || vdf_foColado_(e.norm, cod0))) porCodigo[j] = k; });
   });
   var n = 0, usados = {};
   fo.forEach(function (p, k) {
@@ -582,7 +582,9 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
     // orçamento que já traz fornecedor/prazo da FO (ex.: grupo Porto): entra no item
     var nome = (cod ? cod + ' ' : '') + desc + (p.qtd && +p.qtd > 1 ? ' (x' + p.qtd + ')' : '') + (p.fornecedor ? ' - ' + String(p.fornecedor).toUpperCase() : '');
     var chave = vd_semAcento_(cod || desc);
-    var ja = existentes.filter(function (e, j) { return !usados[j] && vd_casaItem_(e.norm, chave); })[0];
+    var candJa = existentes.filter(function (e, j) { return !usados[j] && (vd_casaItem_(e.norm, chave) || (cod && vdf_foColado_(e.norm, cod))); });
+    // mesmo código em dois itens (sensor DIR/ESQ) com o código grudado: fica o de descrição mais parecida
+    var ja = candJa.length > 1 && desc ? candJa.slice().sort(function (a, b) { return cp_similar_(desc, b.norm.slice(cod.length)) - cp_similar_(desc, a.norm.slice(cod.length)); })[0] : candJa[0];
     // sem código igual: mesma peça pela descrição (igual ou parecida) = o código mudou no orçamento novo -> atualiza o item,
     // não repete (Weslley, 05/10/2026: "cuidar pra não duplicar e atualizar; pode haver mudança de código da peça")
     if (!ja && !p.pneu && desc) {
@@ -616,6 +618,12 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
     n++;
   });
   return n;
+}
+
+/** Item FO com o código grudado na descrição ("5Q0919275CGRUSENSOR DE …"): começa pelo código e segue direto com letras. */
+function vdf_foColado_(norm, cod) {
+  var n = String(norm || '').toUpperCase(), c = vd_semAcento_(String(cod || '')).toUpperCase().replace(/\s+/g, '');
+  return c.length >= 6 && n.indexOf(c) === 0 && /^[A-Z]{3}/.test(n.slice(c.length));
 }
 
 /* ---------- checklist PAGAS (peças compradas pela oficina) ---------- */
