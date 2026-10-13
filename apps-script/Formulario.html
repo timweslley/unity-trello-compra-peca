@@ -2136,6 +2136,8 @@ function importarComplemento(o, anexoId) {
   var aviso = $('avisoOrc');
   aviso.innerHTML = '⏳ Comparando o orçamento ' + esc(o.origem) + ' com o que já está no card…'; mostrar('avisoOrc', true);
   chamar('vdf_compararComplemento', TOKEN, CARD_EDICAO, { oficina: o.oficina || [], fo: o.fo || [] }, anexoId || '').then(function (r) {
+    Array.prototype.slice.call($('itens').children).forEach(function (el) { if (itemVazio(el)) el.remove(); });   // tira o item em branco
+    numerar();
     // não repete o que já foi colocado na tela nesta mesma edição
     var naTela = [];
     Array.prototype.forEach.call(document.querySelectorAll('#itens .item, #itensPart .item'), function (el) {
@@ -2327,6 +2329,8 @@ function coletar() {
   var pecas = [], faltas = [], css = ehCss();
   var todos = Array.prototype.slice.call($('itens').children).concat(modoMisto() ? Array.prototype.slice.call($('itensPart').children) : []);
   todos.forEach(function (el) {
+    // item que ficou em branco (o formulário abre um vazio) não é peça: não trava o envio (13/10/2026, UIC5G94 — card só com FO)
+    if (itemVazio(el) && el.dataset.nao !== '1') return;
     var ehPart = el.parentNode.id === 'itensPart';
     var n = el.querySelector('.num').textContent;
     var qtd = (el.querySelector('.f-qtd') || {}).value || '';
@@ -2375,7 +2379,7 @@ function coletar() {
   } else if (d.chassi && d.chassi.length !== 17) carro.push('chassi (17 caracteres) — ou deixe em branco');
   if (carro.length) faltas.unshift('Dados do carro: falta ' + carro.join(', '));
   if (!part && !POS && !ORC && !css && !(modoMisto() && (CARD.doOrcamento || pedidoPart()))) faltas.unshift('Pedido de seguradora: anexe o orçamento autorizado (PDF do Cilia, HDI ou Websoma). Se for cliente particular, marque "Particular" no tipo do pedido.');
-  if (!pecas.length && !(ORC && ORC.fo.length) && !(COMP && COMP.fo.length)) faltas.push('Adicione pelo menos uma peça');
+  if (!pecas.length && !(ORC && ORC.fo.length) && !(COMP && COMP.fo.length) && !(CARD_EDICAO && CARD && (CARD.recebiveis || []).length)) faltas.push('Adicione pelo menos uma peça');
   return {
     faltas: faltas,
     payload: {
