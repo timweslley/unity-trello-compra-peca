@@ -1458,7 +1458,10 @@ function vd_conferirCard_(card, ctx) {
   } else {
     res.acao = card.idList === idFalta ? 'volta para EM COTAÇÃO' : 'ok';
     if (ctx.modoAtivo) {
-      if (card.idList === idFalta) {
+      // 13/10/2026: antes de mandar para EM COTAÇÃO, vê se ainda há o que cotar (tudo já comprado / 🚫 não comprar -> coluna certa)
+      var mvJ = ''; if (card.idList === idFalta) { try { mvJ = rc_reavaliarColuna_(card.id, null, 'robô'); } catch (e) { console.log('falta/coluna: ' + e); } }
+      if (mvJ) { res.acao = '→ ' + mvJ; }
+      else if (card.idList === idFalta) {
         vd_mover_(card, idCot, 'bottom');
         vd_comentar_(card, '✅ **DADOS COMPLETOS** → **EM COTAÇÃO**' + (res.importado ? '\n' + res.importado.texto : '') + (res.preenchido.length ? '\n🤖 Lido dos anexos: ' + res.preenchido.join(', ') : '') + txtAviso);
       } else if (res.importado) {

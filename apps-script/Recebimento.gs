@@ -419,6 +419,21 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
         (pend.length ? ' · ' + pend.length + ' peça(s) da seguradora para chegar' : (itens.length ? ' · fornecimento todo recebido' : ' · nada a receber'));
     }
   }
+  // toda peça da oficina JÁ COMPRADA (está no PAGAS) e o resto 🚫 não comprar, mas o card voltou para antes da compra
+  // (ex.: orçamento complementar trouxe peça nova que a diretoria marcou não comprar — RAM9I31, 13/10/2026):
+  // não tem o que cotar -> FALTA CHEGAR (falta receber) ou ENCERRADO (tudo recebido)
+  if (!alvo && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
+      itens.length && !vd_legado_(card.id)) {
+    try {
+      var anJ = vd_analisar_(card.desc, card.name), pagasJ = vdf_itensPagas_(card);
+      if ((anJ.pecas || []).length && pagasJ.length && !(anJ.faltas || []).length &&
+          anJ.pecas.every(function (p) { return pagasJ.some(function (n) { return vd_casaItem_(n, vd_chavePeca_(p)); }); })) {
+        alvo = pend.length ? VDF_LISTA_CHEGAR : RC.LISTA_FIM;
+        soFo = 'toda peça da oficina já comprada' + ((anJ.naoComprar || []).length ? ', ' + anJ.naoComprar.length + ' marcada(s) 🚫 não comprar' : '') +
+          (pend.length ? ' · ' + pend.length + ' peça(s) para chegar' : ' · tudo recebido');
+      }
+    } catch (e) { console.log('coluna/já comprado: ' + e); }
+  }
   if (!alvo || !ctx.listas[alvo]) return '';
   var movido = vdf_moverPara_(card, ctx, alvo, token, usuario || 'robô');
   if (movido && lista !== VDF_LISTA_CHEGAR) {

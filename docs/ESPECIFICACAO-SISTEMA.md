@@ -114,6 +114,7 @@ mover) e a trava de colunas também o reposicionam na hora (07/10/2026).
 | FALTA CHEGAR → ENCERRADO | `vdf_salvarRecebimento` → `rc_reavaliarColuna_` | todos os itens PAGAS* e FORNECIMENTO* com ✔ | "📦 **RECEBIMENTO**" com atraso por peça |
 | 2–6 → FALTA CHEGAR ou ENCERRADO | `rc_reavaliarColuna_` | card **sem peça da oficina** (só FO ou tudo 🚫 não comprar) | FALTA CHEGAR se há FO pendente, senão ENCERRADO; "↪️ Card → X" |
 | ENCERRADO/ENTREGUES → FALTA CHEGAR | `rc_reavaliarColuna_` (complemento, fornecimento, edição) | apareceu item a receber | "↪️" |
+| 2–6 → FALTA CHEGAR ou ENCERRADO | `rc_reavaliarColuna_` (também chamado pelo robô antes de mandar FALTA DADOS → EM COTAÇÃO) | **toda peça da oficina já está no PAGAS** e o resto é 🚫 não comprar (ex.: complementar trouxe peça nova que a diretoria marcou não comprar — RAM9I31, 13/10/2026) | FALTA CHEGAR se falta receber, senão ENCERRADO; "↪️ Card → X (toda peça da oficina já comprada…)" |
 | pós-cotação → FALTA DADOS / EM COTAÇÃO | robô `vd_conferirPosCotacao_` | **peça nova** na descrição (incompleta → FALTA DADOS; completa → EM COTAÇÃO) | "🆕 **PEÇA NOVA** (estava em X) → …" |
 | pós-cotação → EM COTAÇÃO | robô | card já tinha cotação/compra e tem peça da oficina sem cotação/autorização/compra | "🆕 **PEÇA SEM COTAÇÃO** (estava em X) → **EM COTAÇÃO**" |
 | ENCERRADO → ENTREGUES | rotina diária 7 h | > 15 dias em ENCERRADO, checklists completos | sem comentário |
