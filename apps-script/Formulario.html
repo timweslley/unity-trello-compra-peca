@@ -136,6 +136,8 @@
   .item.travada { background:#f7f8f9; }
   .item.travada button { display:none; }
   .devolvida { border-left-color:var(--amarelo) !important; background:var(--amarelo2) !important; }
+  .quem-paga { margin-top:8px; padding:8px 10px; border-radius:8px; background:var(--amarelo2); border:1px solid var(--amarelo); }
+  .quem-paga button { margin:4px 4px 0 0; }
   #telaSucesso section, #comprador > .aviso { background:#fff; }
 
   /* ===================== TEMA "TRELLO" (html.tt) — verso do card do Trello atual ===================== */
@@ -2248,12 +2250,19 @@ function novoItem(tipo, dados) {
   if (dados.complemento === undefined && !dados.codigo && !dados.descricao && !dados.medida && podeComp && (ORC || (CARD && CARD.doOrcamento))) { dados.complemento = true; compAuto = true; }
   // 13/10/2026 (Weslley): o aviso dizia "marcada como complemento" mas o chip não vinha marcado (a marca era lida antes) — agora vem
   if (compAuto) { div.dataset.comp = '1'; div.dataset.compData = ''; }
+  // 14/10/2026 (Weslley, NPG5429): peça incluída à mão em card da seguradora — o consultor diz quem paga antes de enviar
+  // (seguradora = complemento; cliente = particular). Sem resposta, o envio avisa.
+  var pergunta = compAuto && modoMisto();
+  if (pergunta) div.dataset.pergunta = '1';
+  // diretoria passa a peça entre seguradora e particular (o servidor só aceita isso da diretoria)
+  var podeMover = !!(CARD_EDICAO && CARD && CARD.diretoria && modoMisto());
   if (dados.chave) div.dataset.orig = JSON.stringify({ chave: dados.chave, codigo: dados.codigo || (dados.acessorio ? 'ACESSORIO' : ''), descricao: dados.descricao || '', tipos: (dados.tipos || []).slice().sort(), qtd: String(dados.qtd || 1), pneu: tipo === 'pneu', medida: dados.medida || '' });
   var h = '<div class="item-topo"><strong class="num"></strong>'
     + (podeComp ? '<label class="chip chip-comp' + (div.dataset.comp ? ' marcado' : '') + '" title="Peça fora do orçamento autorizado: entra no orçamento complementar da seguradora (linha | COMPLEMENTO dd/mm; compra vai para PAGAS COMPLEMENTO)"><input type="checkbox" class="f-comp"' + (div.dataset.comp ? ' checked' : '') + ' onchange="marcarComp(\'' + id + '\', this.checked)"> ➕ Complemento' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</label>'
                : (div.dataset.comp ? '<span class="selo-comp">➕ COMPLEMENTO' + (div.dataset.compData ? ' ' + esc(div.dataset.compData) : '') + '</span>' : ''))
     + '<label class="chip chip-nao' + (div.dataset.nao ? ' marcado' : '') + '" title="Peça do orçamento que a oficina NÃO vai comprar (recuperar, cliente já tem...). Fica no card só de registro: sai da cotação, da autorização, da compra e dos totais."><input type="checkbox" class="f-nao"' + (div.dataset.nao ? ' checked' : '') + ' onchange="marcarNao(\'' + id + '\', this.checked)"> 🚫 Não comprar</label>'
     + '<select onchange="trocarTipo(\'' + id + '\', this.value)"><option value="peca"' + (tipo === 'peca' ? ' selected' : '') + '>Peça</option><option value="pneu"' + (tipo === 'pneu' ? ' selected' : '') + '>Pneu</option></select>'
+    + (podeMover ? '<button type="button" class="secundario bt-mover" title="Diretoria: passa a peça entre seguradora e particular (cliente paga)" onclick="moverPart(\'' + id + '\')">' + (caixa.id === 'itensPart' ? '🛡️ p/ seguradora' : '👤 p/ particular') + '</button>' : '')
     + '<button type="button" class="perigo" onclick="removerItem(\'' + id + '\')">remover</button></div>';
   if (tipo === 'pneu') {
     h += '<div class="grade">'
@@ -2284,7 +2293,8 @@ function novoItem(tipo, dados) {
   }
   // observação do consultor sobre a peça (06/10/2026): vai na linha da peça do card e aparece para o comprador
   h += '<div class="inteiro" style="margin-top:8px"><label>Observação da peça <span style="font-size:12px">(opcional — o comprador vê)</span></label><input type="text" class="f-obs" maxlength="120" placeholder="Ex.: fotos em anexo; só o lado direito; pedir foto antes de comprar" value="' + esc(dados.obs || '') + '"></div>';
-  if (compAuto) h += '<div class="dica" style="margin-top:6px">➕ Marcada como <b>complemento</b> porque não está no orçamento da seguradora. Se estiver no orçamento, desmarque o chip.</div>';
+  if (pergunta) h += '<div class="inteiro quem-paga">❓ <b>Peça incluída à mão — quem paga?</b> <button type="button" class="secundario" onclick="quemPaga(\'' + id + '\', \'seg\')">➕ Seguradora (complemento)</button> <button type="button" class="secundario" onclick="quemPaga(\'' + id + '\', \'part\')">👤 Cliente (particular)</button></div>';
+  else if (compAuto) h += '<div class="dica" style="margin-top:6px">➕ Marcada como <b>complemento</b> porque não está no orçamento da seguradora. Se estiver no orçamento, desmarque o chip.</div>';
   h += '<div class="nao-motivo' + (div.dataset.nao ? '' : ' oculto') + '"><label>Motivo de não comprar <span style="font-size:12px">(vai para o card)</span></label><input type="text" class="f-nao-motivo maiusc" placeholder="Ex.: recuperar a peça; cliente já tem; não precisa" value="' + esc(div.dataset.naoMotivo || '') + '"></div>';
   div.innerHTML = h;
   caixa.appendChild(div);
@@ -2325,6 +2335,38 @@ function marcarComp(id, sim) {
   if (sim && div.dataset.nao === '1') { marcarNao(id, false); var cn = div.querySelector('.f-nao'); if (cn) cn.checked = false; }   // marcar complemento é pedir a compra: tira o 🚫 não comprar
   if (sim) { div.dataset.comp = '1'; if (!div.dataset.compData) div.dataset.compData = ''; } else { delete div.dataset.comp; delete div.dataset.compData; }
   var ch = div.querySelector('.chip-comp'); if (ch) ch.classList.toggle('marcado', !!sim);
+}
+/** Resposta do consultor à pergunta "quem paga?" da peça incluída à mão (14/10/2026). */
+function quemPaga(id, q) {
+  var div = $(id); if (!div) return;
+  delete div.dataset.pergunta;
+  var b = div.querySelector('.quem-paga'); if (b) b.remove();
+  if (q === 'part') moverPart(id, true);
+  else { marcarComp(id, true); var c = div.querySelector('.f-comp'); if (c) c.checked = true; }
+}
+/** Passa a peça entre a lista da seguradora (#itens) e a particular (#itensPart), sem perder o que foi digitado. */
+function moverPart(id, paraPart) {
+  var div = $(id); if (!div) return;
+  if (paraPart === undefined) paraPart = div.parentNode.id !== 'itensPart';
+  if (div.dataset.travada === 'COMPRADA') { avisoMov('🔒 Esta peça já foi comprada — para mudar quem paga, cancele a compra primeiro (aba Compra).'); return; }
+  if (paraPart) {
+    marcarComp(id, false); var c = div.querySelector('.f-comp'); if (c) c.checked = false;
+    // quem autoriza a particular: o consultor do pedido (diretoria movendo) ou quem lançou (consultor respondendo)
+    if (!div.dataset.partPor && CARD && CARD.diretoria) div.dataset.partPor = CARD.solicitante || '';
+  } else div.dataset.partPor = '';
+  var ch = div.querySelector('.chip-comp'); if (ch) ch.style.display = paraPart ? 'none' : '';
+  var bt = div.querySelector('.bt-mover'); if (bt) bt.textContent = paraPart ? '🛡️ p/ seguradora' : '👤 p/ particular';
+  (paraPart ? $('itensPart') : $('itens')).appendChild(div);
+  numerar();
+  var d = (div.querySelector('.f-desc') || div.querySelector('.f-medida') || {}).value || 'peça';
+  avisoMov(paraPart ? '👤 «' + d + '» passou para as peças <b>particulares</b> (cliente paga). Para ver, escolha Particular em "Quem paga". Clique em Enviar para gravar.'
+                    : '🛡️ «' + d + '» voltou para as peças da <b>seguradora</b>. Clique em Enviar para gravar.');
+}
+function avisoMov(html) {
+  var a = $('avisoMov');
+  if (!a) { a = document.createElement('div'); a.id = 'avisoMov'; a.className = 'aviso'; a.style.margin = '8px 0'; $('itens').parentNode.insertBefore(a, $('itens')); }
+  a.innerHTML = html; a.classList.remove('oculto');
+  var t = $('v2toast'); if (t) { t.textContent = a.textContent; t.classList.add('on'); clearTimeout(avisoMov.t); avisoMov.t = setTimeout(function () { t.classList.remove('on'); }, 3000); }
 }
 function trocarTipo(id, tipo) {
   var velho = $(id), caixa = velho.parentNode;
@@ -2372,6 +2414,7 @@ function coletar() {
     if (itemVazio(el) && el.dataset.nao !== '1') return;
     var ehPart = el.parentNode.id === 'itensPart';
     var n = el.querySelector('.num').textContent;
+    if (el.dataset.pergunta === '1') faltas.push(n + ': diga quem paga esta peça — ➕ Seguradora (complemento) ou 👤 Cliente (particular)');
     var qtd = (el.querySelector('.f-qtd') || {}).value || '';
     if (el.dataset.tipo === 'pneu') {
       var medida = el.querySelector('.f-medida').value.trim();
@@ -2877,6 +2920,7 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item > .item-topo button { min-height:28px !important; padding:2px 6px !important; font-size:12px !important; }
   .v2pc :is(#itens, #itensPart) > .item > .item-topo .v2-obstog { background:transparent !important; color:#0c66e4 !important; }
   .v2pc :is(#itens, #itensPart) > .item > .inteiro:has(.f-obs) { order:3; grid-column:2 / -1; }
+  .v2pc :is(#itens, #itensPart) > .item > .quem-paga { order:4; grid-column:2 / -1; margin:6px 0 !important; }
   .v2pc :is(#itens, #itensPart) > .item:not(.v2-obs) > .inteiro:has(.f-obs:placeholder-shown) { display:none; }
   .v2pc :is(#itens, #itensPart) > .item > .dica, .v2pc :is(#itens, #itensPart) > .item > .nao-motivo, .v2pc :is(#itens, #itensPart) > .item > .grade > .dica { order:4; grid-column:2 / -1; margin:0 !important; }
   .v2pc :is(#itens, #itensPart) > .item input[type=text], .v2pc :is(#itens, #itensPart) > .item input[type=number], .v2pc :is(#itens, #itensPart) > .item select { height:36px; min-height:36px; padding:4px 8px; font-size:14px; }
