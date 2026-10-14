@@ -578,6 +578,7 @@ function aoMudarTipo() {
   $('tituloPecas').textContent = pp ? '4. Peças particulares (cliente paga)' : (misto ? '4. Peças da seguradora' : '4. Peças');
   if (pp && !$('itensPart').children.length) novoItem('peca');
   if ($('itens').children.length || $('itensPart').children.length) numerar();
+  try { avisoOutraLista(); } catch (e) {}
 }
 
 function $(id) { return document.getElementById(id); }
@@ -2359,7 +2360,7 @@ function moverPart(id, paraPart) {
   (paraPart ? $('itensPart') : $('itens')).appendChild(div);
   numerar();
   var d = (div.querySelector('.f-desc') || div.querySelector('.f-medida') || {}).value || 'peça';
-  avisoMov(paraPart ? '👤 «' + d + '» passou para as peças <b>particulares</b> (cliente paga). Para ver, escolha Particular em "Quem paga". Clique em Enviar para gravar.'
+  avisoMov(paraPart ? '👤 «' + d + '» passou para as peças <b>particulares</b> (cliente paga). Use "Ver peças particulares" acima. Clique em Enviar para gravar.'
                     : '🛡️ «' + d + '» voltou para as peças da <b>seguradora</b>. Clique em Enviar para gravar.');
 }
 function avisoMov(html) {
@@ -2382,6 +2383,28 @@ function numerar() {
   Array.prototype.forEach.call($('itens').children, function (el, i) { el.querySelector('.num').textContent = 'Item ' + (i + 1); });
   Array.prototype.forEach.call($('itensPart').children, function (el, i) { el.querySelector('.num').textContent = '👤 Particular ' + (i + 1); });
   contarPecas();
+  try { avisoOutraLista(); } catch (e) {}
+}
+/* 14/10/2026 (Weslley, NPG5429): na edição de card da seguradora só uma lista aparece por vez (seguradora OU particular) — avisa
+ * que a outra tem peças e leva até ela. */
+function avisoOutraLista() {
+  var a = $('avisoOutra');
+  if (!a) { a = document.createElement('div'); a.id = 'avisoOutra'; a.className = 'aviso info'; a.style.margin = '8px 0'; $('itens').parentNode.insertBefore(a, $('itens')); }
+  if (!modoMisto()) { a.classList.add('oculto'); return; }
+  var conta = function (box) { return Array.prototype.filter.call(box.children, function (el) { return !itemVazio(el); }).length; };
+  var vendoPart = pedidoPart(), n = conta(vendoPart ? $('itens') : $('itensPart'));
+  if (!n) { a.classList.add('oculto'); return; }
+  a.innerHTML = vendoPart
+    ? '🛡️ Este card tem <b>' + n + ' peça(s) da seguradora</b>. <button type="button" class="secundario" onclick="verLista(false)">Ver peças da seguradora</button>'
+    : '👤 Este card tem <b>' + n + ' peça(s) particular(es)</b> (cliente paga). <button type="button" class="secundario" onclick="verLista(true)">Ver peças particulares</button>';
+  a.classList.remove('oculto');
+}
+function verLista(part) {
+  var r = document.querySelector('input[name=tipoPedido][value="' + (part ? 'PARTICULAR' : 'SEGURADORA') + '"]'); if (!r) return;
+  r.checked = true;
+  Array.prototype.forEach.call(document.querySelectorAll('input[name=tipoPedido]'), function (x) { x.parentNode.classList.toggle('marcado', x.checked); });
+  aoMudarTipo();
+  var l = $(part ? 'itensPart' : 'itens'); if (l) l.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function limitarTipos(id) {
