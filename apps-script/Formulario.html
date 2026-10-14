@@ -5877,6 +5877,8 @@ iniciar();
         ops.forEach(function (l) { tb.appendChild(l); });
       }
       $$('.v2c-tabaut > label.opcao-aut', it).forEach(function (l) { opcaoAut(it, l); });
+      // "Não comprar": o "Não autorizar" (marcado) não fica com o cinza de desabilitado; as outras opções continuam travadas
+      var rn = it.querySelector('label.v2c-naoaut input[type=radio]'); if (rn && rn.disabled && it.classList.contains('nao-comprar')) rn.disabled = false;
       obsToggle(it, it.querySelector('input.a-obs'), 'Observação para o comprador');
       estadoObs(it);
       $$(':scope > .dica', it).forEach(function (d) { if (d.querySelector('b') || /^\s*📝/.test(d.textContent) || d.querySelector('.v2i-note')) d.classList.add('v2c-nota'); });
@@ -6020,7 +6022,9 @@ iniciar();
         var conta = auts.length ? !!it.dataset.aut : semCotJust.indexOf(it.dataset.chave) < 0;
         if (conta) semCompra.push({ it: it, sem: !sel });
       }
-      it.classList.toggle('v2c-falta', fs.length > 0); it.classList.toggle('v2c-ok', !fs.length && (feito || !!(sel && sel.value)));
+      // peça que o servidor ainda espera comprar também fica com a faixa vermelha (está na lista do que falta)
+      var semC = !!semCompra.length && semCompra[semCompra.length - 1].it === it;
+      it.classList.toggle('v2c-falta', fs.length > 0 || semC); it.classList.toggle('v2c-ok', !fs.length && !semC && (feito || !!(sel && sel.value)));
       linhaFalta(it, fs);
       if (fs.length) pend.push({ it: it, fs: fs });
       // ordem da tela: correções e peças sem compra intercaladas
