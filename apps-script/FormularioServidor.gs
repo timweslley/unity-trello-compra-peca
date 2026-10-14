@@ -826,7 +826,7 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
       forn = '';
       return;
     }
-    if (/^COMPRAD[OA]\s*:/i.test(l) || /^AUTORIZAD[OA]\s*:/i.test(l) || /^(RE)?COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^DEVOLVIDA PARA COTA/i.test(l) || /^OBS GERAL\s*:/i.test(l) || /^\(texto que estava/i.test(l)) { if (/^(AUTORIZA|DEVOLVIDA)/i.test(l)) forn = ''; return; }
+    if (/^COMPRAD[OA]\s*:/i.test(l) || /^AUTORIZAD[OA]\s*:/i.test(l) || /^(RE)?COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^DEVOLVIDA PARA COTA/i.test(l) || /^MANTIDA\s*\(comprada\)/i.test(l) || /^OBS GERAL\s*:/i.test(l) || /^\(texto que estava/i.test(l)) { if (/^(AUTORIZA|DEVOLVIDA)/i.test(l)) forn = ''; return; }
     /* SEM COTAÇÃO <peça>: motivo — comprador justificou por que não cotou a peça */
     var ms = l.match(/^SEM COTA[ÇC][ÃA]O\s+(.+?)\s*:\s*(.+)$/i);
     if (ms) {
@@ -1098,12 +1098,14 @@ function vd_autorizacoesDaDescricao_(desc, pecas) {
   var resto = vd_dividir_(desc).resto;
   if (!resto) return [];
   var chaves = (pecas || []).map(function (p) { return { chave: vd_chavePeca_(p), desc: vd_semAcento_(p.pneu ? 'PNEU ' + p.medida : p.descricao).replace(/\s+/g, ' ').trim(), cod: vd_semAcento_(String(p.codigo || '').replace(/\s+/g, '')) }; });
-  var porChave = {}, quem = '', quando = '';
+  var porChave = {}, antes = {}, quem = '', quando = '';
   resto.split('\n').forEach(function (raw) {
     var l = vd_limpar_(raw).trim();
     var h = l.match(/^AUTORIZA[ÇC][ÃA]O\s+(\d{1,2}\/\d{1,2}\/\d{2,4}(?:\s+\d{1,2}:\d{2})?)\s+-\s+(.+)$/i);
     if (h) { quando = h[1]; quem = h[2].trim(); return; }
-    if (/^DEVOLVIDA PARA COTA/i.test(l)) { porChave = {}; return; }   // devolução anula autorizações anteriores
+    if (/^DEVOLVIDA PARA COTA/i.test(l)) { antes = porChave; porChave = {}; return; }   // devolução anula autorizações anteriores…
+    var mk = l.match(/^MANTIDA\s*\(comprada\)\s*:\s*(.+)$/i);   // …menos a das peças já compradas (14/10/2026)
+    if (mk) { var kk = vd_semAcento_(mk[1]).replace(/\s+/g, ' ').trim(); if (antes[kk]) porChave[kk] = antes[kk]; return; }
     var rmA = vdf_lerRemocao_(l, chaves);
     if (rmA) { if (rmA.tipo === 'INDISPONIVEL' && rmA.chave && porChave[rmA.chave] && porChave[rmA.chave].fornecedor === rmA.forn) delete porChave[rmA.chave]; return; }
     var m = l.match(/^AUTORIZAD[OA]\s*:\s*(.+?)\s+-\s+(.+)\s+-\s+R?\$?\s*([\d.]+(?:,\d{1,2})?)\s*$/i);
@@ -1279,7 +1281,8 @@ function vdf_linhasObs_(p, porChave, rotulo) {
 /**
  * p = {shortLink, obs:[{chave, texto}], geral}
  * Quem autoriza devolve a cotação ao comprador (incompleta / precisa de mais opções).
- * Grava o bloco DEVOLVIDA PARA COTAÇÃO (anula autorizações anteriores) e volta o card para EM COTAÇÃO.
+ * Grava o bloco DEVOLVIDA PARA COTAÇÃO (anula autorizações anteriores, menos as das peças já compradas — linhas
+ * "MANTIDA (comprada)") e volta o card para EM COTAÇÃO.
  */
 function vdf_devolverCotacao(token, p) {
   var me = vdf_usuario_(token);
@@ -1289,10 +1292,15 @@ function vdf_devolverCotacao(token, p) {
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
   var an = vd_analisar_(card.desc, card.name);
   if (!vdf_podeDevolver_(me, card, an)) return { ok: false, faltas: ['Só a diretoria pode devolver a cotação' + (an.pecas.some(function (x) { return x.particular; }) ? ' deste card (tem peças da seguradora junto com as particulares)' : '') + ' — sua conta: ' + me.username + '. Escreva a observação na peça e autorize só o que estiver certo.'] };
-  // depois da compra não volta para cotação (anularia a autorização de peça já comprada)
+  // card com peça já comprada (14/10/2026, BBM4739): devolve só as peças SEM compra. A autorização das compradas é
+  // mantida pelas linhas "MANTIDA (comprada): <chave>" logo abaixo do cabeçalho (vd_autorizacoesDaDescricao_ as preserva).
+  var mantidas = [];
   try {
     var cCk = vd_api_('/cards/' + card.id, { query: { fields: 'name', checklists: 'all', checkItem_fields: 'name' } });
-    if (vdf_itensPagas_(cCk).length) return { ok: false, faltas: ['Este card já tem peça comprada — não volta para cotação. Para trocar uma peça, use "cotação autorizada indisponível" na aba Compra, ou inclua a peça nova pelo ✏️ EDITAR/INCLUIR PEÇA.'] };
+    var autsAnt = vd_autorizacoesDaDescricao_(card.desc, an.pecas);
+    var compradas = an.pecas.filter(function (x) { return vdf_travaPeca_(x, autsAnt, cCk) === 'COMPRADA'; });
+    if (compradas.length && compradas.length >= an.pecas.length) return { ok: false, faltas: ['Todas as peças deste card já foram compradas — não há o que devolver para cotação. Para trocar uma peça, use "cotação autorizada indisponível" na aba Compra, ou inclua a peça nova pelo ✏️ EDITAR/INCLUIR PEÇA.'] };
+    compradas.forEach(function (x) { var k = vd_chavePeca_(x); if (autsAnt.some(function (a) { return a.chave === k; })) mantidas.push(k); });
   } catch (e) { return { ok: false, faltas: ['Não consegui conferir as compras do card agora. Tente de novo em alguns segundos.'] }; }
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
@@ -1302,7 +1310,8 @@ function vdf_devolverCotacao(token, p) {
   var div = vd_dividir_(card.desc);
   var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
   vd_backup_(card, 'cotação devolvida pelo formulário por ' + me.username);
-  vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n**DEVOLVIDA PARA COTAÇÃO ' + agora + ' - ' + me.fullName + '**\n' + obsL.linhas.join('\n'), token);
+  vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n**DEVOLVIDA PARA COTAÇÃO ' + agora + ' - ' + me.fullName + '**\n' +
+    mantidas.map(function (k) { return 'MANTIDA (comprada): ' + k + '\n'; }).join('') + obsL.linhas.join('\n'), token);
   try { ev_registrar_('DEVOLUÇÃO', card, me.username, null, { detalhe: [String(p.geral || '').trim()].concat((p.obs || []).map(function (o) { return o.texto; })).filter(String).join(' | ').slice(0, 500) }); } catch (e) {}
   var movido = '';
   try { movido = vdf_moverPara_(card, ctx, VD.LISTA_COTACAO, token, me.username); } catch (e) {}

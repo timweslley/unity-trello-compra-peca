@@ -113,7 +113,7 @@ mover) e a trava de colunas também o reposicionam na hora (07/10/2026).
 | PENDENTE/FINALIZADA (fica) | autorizador `vdf_autorizar` com `parcial=true` (botão **💾 Salvar parcial**, 07/10/2026) | grava as autorizações escolhidas | linhas `AUTORIZADO:`; comentário "💾 AUTORIZAÇÃO PARCIAL salva" sem menções; o card não anda |
 | PENDENTE/FINALIZADA → AUTORIZADO COMPRA | autorizador `vdf_autorizar` (botão **✅ Enviar autorização**; pode vir sem escolha nova, só para fechar o que foi salvo) | pedido misto só move quando seguradora **e** particular têm ≥ 1 autorização | linhas `AUTORIZADO:` na descrição; "✅ **AUTORIZADO**" mencionando o comprador |
 | (não move) | comprador `vdf_salvarCotacao` em peça **já autorizada/comprada** (07/10/2026; vale com os dois botões) | toda cotação do envio é de peça autorizada, sem remoção nem "sem cotação" junto | **cotação de registro**: vai para a descrição e para a vitrine ("📝 também cotado"); autorização, coluna e etiqueta não mudam; comentário "📝 COTAÇÃO DE REGISTRO" sem menções. Trocar fornecedor autorizado continua pela "cotação indisponível" |
-| qualquer → EM COTAÇÃO | `vdf_devolverCotacao` | motivo obrigatório; bloqueado se já há compra (PAGAS) | bloco `DEVOLVIDA PARA COTAÇÃO` anula autorizações; "↩️ **COTAÇÃO DEVOLVIDA**" |
+| qualquer → EM COTAÇÃO | `vdf_devolverCotacao` | motivo obrigatório; com peça já comprada devolve só as sem compra (14/10/2026, BBM4739) — bloqueado só se **todas** já foram compradas | bloco `DEVOLVIDA PARA COTAÇÃO` anula autorizações (menos as das compradas, `MANTIDA (comprada)`); "↩️ **COTAÇÃO DEVOLVIDA**" |
 | AUTORIZADO → EM COTAÇÃO / PENDENTE / FINALIZADA | comprador `vdf_cotacaoIndisponivel` | sem cotação nova → EM COTAÇÃO; com nova → PENDENTE (ou FINALIZADA se só particular) | linha `INDISPONÍVEL:`; "⚠️ **COTAÇÃO INDISPONÍVEL**" |
 | AUTORIZADO (fica) | comprador `vdf_salvarCompra` com `parcial=true` (botão **💾 Salvar parcial**, 07/10/2026) | exige etiqueta `ORDEM AUTORIZADA` e card **em AUTORIZADO COMPRA ou adiante** (autorização parcial é rascunho: antes de a diretoria enviar, a compra é recusada — revisão 07/10/2026) | itens no checklist PAGAS*; "💾 COMPRA PARCIAL salva · falta comprar N"; fora da autorização idem abaixo |
 | AUTORIZADO → FALTA CHEGAR (ou direto ENCERRADO se tudo já foi recebido — 13/10/2026) | comprador `vdf_salvarCompra` (botão **✅ Enviar compra**; pode vir sem compra nova) | exige etiqueta `ORDEM AUTORIZADA`; **toda peça autorizada comprada** (senão recusa e sugere Salvar parcial; 🚫 não comprar e "sem cotação" nunca são pendência) | itens no checklist PAGAS*; "🛒 **COMPRA**"; compra fora da autorização exige justificativa e menciona a diretoria |
@@ -252,6 +252,7 @@ SEM COTAÇÃO NOME PEÇA: motivo
 AUTORIZADO: FORN - NOME PEÇA - R$ 95,50
 OBS GERAL: (autorização) texto
 **DEVOLVIDA PARA COTAÇÃO dd/MM/yyyy HH:mm - Nome**
+MANTIDA (comprada): CHAVE DA PEÇA
 **RECOTAÇÃO dd/MM/yyyy - Nome**
 INDISPONÍVEL: FORN - NOME PEÇA - R$ 140,00 - motivo
 ```
@@ -285,7 +286,7 @@ checklist casa pelo prefixo `chave + ' '` (código/pneu) ou `chave + ' - '` (des
   viram `%28 %29`; até 1 500 caracteres — 07/10/2026; a cotação nova da "cotação indisponível" também aceita link),
   OBS por peça, `SEM COTAÇÃO <peça>: motivo`, `NT` por fornecedor, `REMOVIDA:` tira a cotação igual mais recente.
   Toda peça precisa de cotação **ou** justificativa para o card seguir.
-- Autorização: vale a mais recente por peça; `DEVOLVIDA PARA COTAÇÃO` anula todas; `INDISPONÍVEL` do mesmo
+- Autorização: vale a mais recente por peça; `DEVOLVIDA PARA COTAÇÃO` anula todas, menos as listadas logo abaixo em `MANTIDA (comprada): <chave>` (peças já no PAGAS); `INDISPONÍVEL` do mesmo
   fornecedor anula a daquela peça. A cotação autorizada tem de existir no card (mesmo fornecedor e valor).
 - Compra: **não vai para a descrição** — vira item no checklist `PAGAS` (`PAGAS PARTICULAR`, `PAGAS COMPLEMENTO`)
   com nome `CÓDIGO DESCRIÇÃO - FORNECEDOR - R$ x` e `due` = previsão (data ou hoje + dias úteis).
