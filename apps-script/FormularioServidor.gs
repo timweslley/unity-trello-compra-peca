@@ -652,7 +652,7 @@ function vd_valorNum_(s) {
   s = String(s == null ? '' : s).replace(/R\$/i, '').replace(/\s/g, '');
   if (!s) return NaN;
   if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
-  else if (!/^\d+\.\d{1,2}$/.test(s)) s = s.replace(/\./g, '');
+  else if (!/^-?\d*\.\d{1,2}$/.test(s)) s = s.replace(/\./g, '');   // 14/10/2026 (A01): ".5" = 0,50 e "-12.5" = -12,50, igual ao formulário
   return parseFloat(s);
 }
 

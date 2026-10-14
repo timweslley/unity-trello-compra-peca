@@ -2476,6 +2476,8 @@ function pintarChips(id) {
  * checklist FORNECIMENTO. Aqui só não exigimos código/tipo nem orçamento para essas peças. */
 var VD_CSS = /\bZACARIAS\b/i;
 function ehCss() { return VD_CSS.test(((CARD && CARD.nome) || '') + ' ' + (($('carro') || {}).value || '')); }
+/* 14/10/2026 (A01): valor que não é número ("12abc") ou negativo não vai — antes o servidor gravava 12,00 sem o usuário ver */
+function valorInvalido(t) { t = String(t == null ? '' : t).trim(); if (!t) return false; var n = lerValorBR(t); return isNaN(n) || n < 0; }
 function coletar() {
   var pecas = [], faltas = [], css = ehCss();
   var todos = Array.prototype.slice.call($('itens').children).concat(modoMisto() ? Array.prototype.slice.call($('itensPart').children) : []);
@@ -2492,6 +2494,7 @@ function coletar() {
       var nao = el.dataset.nao === '1', naoMotivo = ((el.querySelector('.f-nao-motivo') || {}).value || '').trim();
       var p = { pneu: true, medida: medida, qtd: qtd, categoria: '', marca: '', particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: nao, naoMotivo: naoMotivo, valorOrc: lerValorOrc(el), obs: lerObsPeca(el) };
       if (!medida) faltas.push(n + ' (pneu): falta a medida');
+      if (valorInvalido(p.valorOrc)) faltas.push(n + ' (pneu): valor inválido (use 12,50)');
       if (sel && sel.value !== 'MARCA') p.categoria = sel.value;
       else if (marca) p.marca = marca;
       else if (!nao) faltas.push(n + ' (pneu): marque a categoria ou escreva a marca');
@@ -2506,6 +2509,7 @@ function coletar() {
       if (!cod && tipoPedido() !== 'PARTICULAR' && tipoPedido() !== 'RETORNO' && !ehPart && !naoP && !foCss) faltas.push(r + ': falta o código (buscar no Cilia)');
       if (!desc) faltas.push(r + ': falta a descrição');
       if (!tipos.length && !naoP && !foCss) faltas.push(r + ': marque o tipo de peça');
+      if (valorInvalido(lerValorOrc(el))) faltas.push(r + ': valor inválido (use 12,50)');
       pecas.push({ pneu: false, codigo: cod, descricao: desc, tipos: tipos, qtd: qtd, particular: ehPart, partPor: ehPart ? el.dataset.partPor : '', complemento: !ehPart && el.dataset.comp === '1', compData: el.dataset.compData || '', naoComprar: naoP, naoMotivo: naoMotivoP, valorOrc: lerValorOrc(el), obs: lerObsPeca(el) });
     }
   });
@@ -2625,7 +2629,7 @@ function enviar(ev) {
 function enviarParcial() {
   mostrar('erroGeral', false);
   var c = coletar();
-  var duras = c.faltas.filter(function (f) { return /placa|unidade|carro \(nome|pelo menos uma peça/i.test(f); });
+  var duras = c.faltas.filter(function (f) { return /placa|unidade|carro \(nome|pelo menos uma peça|valor inválido/i.test(f); });
   if (duras.length) return mostrarErros(duras);
   c.payload.parcial = true;
   if (CARD_EDICAO && POS) { var alt = pecasAlteradas(); if (alt.length) return perguntarRecotar(alt, c.payload); }
@@ -3500,24 +3504,23 @@ iniciar();
   .v2:not(.v2pc) .v2-ler .linha :is(.v2-tag, .v2-jalido) { margin-left:34px; }
   /* ---- 14/10/2026 (2ª parte): acabamento pedido na reavaliação (design, acessibilidade e QA) ---- */
   /* ✓ do tipo marcado: fica no recuo da esquerda, que todos os tipos já têm — marcar não muda a largura nem empurra os vizinhos */
-  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input.f-tipo) { position:relative; padding-left:17px !important; padding-right:9px !important; }
-  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip.marcado:has(input.f-tipo)::before { position:absolute; left:5px; top:50%; width:9px !important; height:9px !important; margin:-4.5px 0 0 0 !important; flex:none !important; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input.f-tipo) { position:relative; padding-left:13px !important; padding-right:13px !important; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip.marcado:has(input.f-tipo)::before { position:absolute; left:2px; top:50%; width:8px !important; height:8px !important; margin:-4px 0 0 0 !important; flex:none !important; }
   /* zoom 125% (linha apertada): sem o ✓ — o tipo marcado já é o chip cheio de cor (os outros só têm contorno) */
   @container pecas (max-width: 820px) {
     .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input.f-tipo) { padding-left:7px !important; padding-right:7px !important; }
     .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip.marcado:has(input.f-tipo)::before { display:none !important; }
   }
-  /* Excluir: nas listas que têm peça incluída à mão, as peças do orçamento guardam o lugar dele — Comp./Não comprar/Obs. ficam alinhados */
-  @container pecas (min-width: 821px) {
-    .v2pc:not(.v2-diretoria) :is(#itens, #itensPart):has(> .item[data-origem="mao"]) > .item[data-origem="orc"] > .item-topo button.perigo { display:inline-flex !important; visibility:hidden; pointer-events:none; }
-  }
+  /* Excluir no começo do grupo de ações: Comp./Não comprar/Obs. terminam sempre junto da coluna do valor, em toda peça e em qualquer largura
+     (e o "Confirmar?" do 2º clique cresce para a esquerda, sem empurrar os outros) */
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { order:-1; margin-right:6px; }
   /* MANUAL dentro do campo da descrição (no pneu, da medida) */
   .v2pc :is(#itens, #itensPart) > .item .v2-casaorig { position:relative; }
   .v2pc :is(#itens, #itensPart) > .item .v2-casaorig > .v2-origem { display:none; }
-  .v2pc .v2-comorc :is(#itens, #itensPart) > .item[data-origem="mao"] .v2-casaorig > .v2-origem { display:inline-flex !important; position:absolute; right:6px; top:50%; transform:translateY(-50%); align-items:center;
-    height:20px; padding:0 7px; border-radius:10px; font-size:11px; font-weight:700; letter-spacing:.3px; line-height:1; white-space:nowrap; background:#fff7d6; color:#7f5f01; pointer-events:none; z-index:1; }
-  .v2pc .v2-comorc :is(#itens, #itensPart) > .item[data-origem="mao"] .v2-casaorig > :is(.f-desc, .f-medida) { padding-right:76px !important; }
-  .v2pc .v2-comorc :is(#itens, #itensPart) > .item[data-origem="mao"] .v2-casaorig > .v2-desc2 { right:74px !important; }
+  .v2pc .v2-comorc #itens > .item[data-origem="mao"] .v2-casaorig > .v2-origem { display:inline-flex !important; position:absolute; right:6px; top:50%; transform:translateY(-50%); align-items:center;
+    height:20px; padding:0 7px; border-radius:10px; font-size:12px; font-weight:700; letter-spacing:.04em; line-height:1; white-space:nowrap; background:#fff7d6; color:#7f5f01; pointer-events:none; z-index:1; }
+  .v2pc .v2-comorc #itens > .item[data-origem="mao"] .v2-casaorig > :is(.f-desc, .f-medida) { padding-right:80px !important; }
+  .v2pc .v2-comorc #itens > .item[data-origem="mao"] .v2-casaorig > .v2-desc2 { right:78px !important; }
   /* Detalhes e Ajuda: botões fantasmas (o botão da barra é o Pedido novo); ligado = azul claro */
   .v2pc #v2ped-dir .v2hb { background:transparent !important; border-color:transparent !important; color:#44546f !important; box-shadow:none !important; }
   .v2pc #v2ped-dir .v2hb:hover { background:#091e420f !important; color:#172b4d !important; }
@@ -3535,8 +3538,35 @@ iniciar();
   .v2pc .v2-ler .v2-anteriores > .linha { margin-left:22px; }
   /* data do anexo na linha */
   .v2pc .v2-ler .linha .v2-quando { flex:0 0 auto; font-size:12px; color:#626f86; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  /* fim da página: a coluna da direita não passa por baixo da barra de baixo */
-  .v2pc.v2-pedtopo #form { padding-bottom:72px; }
+  /* fim da página: o espaço de baixo vira uma linha da grade — a coluna da direita "gruda" até o fim e não sobe por baixo da barra de cima */
+  .v2pc.v2-pedtopo main:has(> #form:not(.oculto)) { padding-bottom:0 !important; }
+  .v2pc.v2-pedtopo #form { padding-bottom:0 !important; }
+  .v2pc.v2-pedtopo #form::after { content:''; grid-column:1; height:40px; }
+  /* ---- 14/10/2026 (3ª rodada): balões, lateral a 125%, barra justa, acessibilidade ---- */
+  /* balões: largura que cabe os dois botões numa linha; botões nunca quebram; seta apontando para quem abriu */
+  .v2 .v2-balao { width:min(400px, calc(100vw - 24px)) !important; box-sizing:border-box; }
+  .v2 .v2-balao .v2-bt { margin:0; }
+  .v2 .v2-balao .dica { margin-top:4px; }
+  .v2 .v2-balao .bts { flex-wrap:wrap; }
+  .v2 .v2-balao .bts button { flex:0 0 auto; white-space:nowrap; height:auto !important; min-height:32px !important; padding:6px 12px !important; line-height:18px !important; }
+  .v2 .v2-balao::before, .v2 #v2tipoConf.v2-balao::before { content:''; position:absolute; top:-7px; left:var(--v2-seta, 24px); width:12px; height:12px; background:#fffbe8;
+    border-left:1px solid #f5cd47; border-top:1px solid #f5cd47; transform:rotate(45deg); }
+  /* dica de começo: não é falta — cinza, com o marcador azul, quebra equilibrada */
+  .v2pc #v2etapas .fl li.ini > a { color:#44546f !important; text-wrap:balance; }
+  .v2pc #v2etapas .fl li.ini::before { color:#0c66e4 !important; }
+  /* lateral estreita (zoom 125%): letra 12 px para os nomes das peças caberem */
+  @media (max-width:1150px) { .v2pc #v2etapas .fl li { font-size:12px; } }
+  /* "?" do chassi: 24 px (área de toque mínima), ainda dentro do campo */
+  .v2pc section.v2-carro .v2-inq { width:24px !important; height:24px !important; right:5px; bottom:5px; font-size:12px !important; }
+  .v2pc section.v2-carro #chassi { padding-right:36px; }
+  /* foco visível também no "Ver anteriores" e nas fotos recolhidas */
+  .v2pc summary:focus-visible { outline:2px solid #0c66e4; outline-offset:2px; border-radius:6px; }
+  /* barra de cima justa (Power-Up com Fechar, zoom 125%, 1024 px): Pedido novo só com o ícone */
+  .v2pc.v2-topo-justo #v2ped-dir .v2ped-novo button { width:36px !important; padding:0 !important; font-size:0 !important; display:inline-flex !important; align-items:center; justify-content:center; }
+  .v2pc.v2-topo-justo #v2ped-dir .v2ped-novo button .v2i { margin:0 !important; }
+  .v2pc.v2-topo-justo #v2ped-dir .v2ped-novo .v2q { display:none !important; }
+  .v2pc.v2-topo-justo2 #v2ped-tipo .chip { padding:0 8px !important; gap:5px !important; }
+  .v2pc.v2-topo-justo2 #v2ped-tipo .chip .v2i { display:none !important; }
 </style>
 <script>
 (function () {
@@ -3566,10 +3596,11 @@ iniciar();
   if (g('seloTeste')) g('seloTeste').textContent = 'TESTE';
   g('v2det').onclick = function () {
     html.classList.toggle('v2-detalhes'); var on = html.classList.contains('v2-detalhes');
-    if (PC) { this.innerHTML = '<span class="v2i v2i-clip" aria-hidden="true"></span>' + (on ? 'Esconder' : 'Detalhes'); this.setAttribute('aria-pressed', on ? 'true' : 'false'); }
-    else this.textContent = on ? '📎 Esconder' : '📎 Detalhes';
+    this.setAttribute('aria-expanded', on ? 'true' : 'false');   // computador: o nome fica "Detalhes"; ligado = azul claro
+    if (!PC) this.textContent = on ? '📎 Esconder' : '📎 Detalhes';
   };
-  g('v2aj').onclick = function () { html.classList.toggle('v2-ajuda'); if (PC) this.setAttribute('aria-pressed', html.classList.contains('v2-ajuda') ? 'true' : 'false'); };
+  g('v2aj').onclick = function () { html.classList.toggle('v2-ajuda'); this.setAttribute('aria-pressed', html.classList.contains('v2-ajuda') ? 'true' : 'false'); };
+  g('v2det').setAttribute('aria-expanded', 'false'); if (g('modoEdicao')) g('v2det').setAttribute('aria-controls', 'modoEdicao'); g('v2aj').setAttribute('aria-pressed', 'false');
   g('v2det').title = 'Detalhes do card'; g('v2aj').title = 'Ajuda: mostra as explicações de cada parte da tela';
   var PROXIMO = {
     'FALTA DADOS PARA COTAR': 'Falta completar o pedido', 'EM COTAÇÃO': 'O comprador está cotando', 'COTAÇÃO FINALIZADA': 'Esperando autorização',
@@ -3599,7 +3630,25 @@ iniciar();
     if (g('v2etapa').dataset.h !== etH) { g('v2etapa').innerHTML = etH; g('v2etapa').dataset.h = etH; }
     var temDet = (visivel(g('form')) && g('modoEdicao') && !g('modoEdicao').classList.contains('oculto')) || visivel(g('comprador'));
     g('v2det').style.display = temDet ? '' : 'none';
+    // título da página para o leitor de tela (o h1 do cabeçalho fica escondido com a barra única)
+    var h1 = g('v2h1'); if (!h1 && PC) { h1 = document.createElement('h1'); h1.id = 'v2h1'; h1.className = 'v2-sr'; topo.insertBefore(h1, topo.firstChild); }
+    if (h1) { var th = (etapa || 'Pedido de peça') + (pedTopo && placa ? ' ' + placa.toUpperCase() : ''); if (h1.textContent !== th) h1.textContent = th; h1.hidden = !pedTopo; }
+    ajustarTopo();
   }
+  /* 14/10/2026 (QA): barra de cima justa (Power-Up com o Fechar, zoom 125%, 1024 px) — o Pedido novo fica só com o ícone
+     (o nome continua no leitor de tela e ao parar o mouse), em vez de o tipo do pedido passar por cima dele */
+  var TOPO_CHAVE = '';
+  function ajustarTopo() {
+    if (!PC || !html.classList.contains('v2-pedtopo')) { html.classList.remove('v2-topo-justo', 'v2-topo-justo2'); TOPO_CHAVE = ''; return; }
+    var tp = g('v2ped-tipo'), et = g('v2etapa'); if (!tp) return;
+    var chave = innerWidth + '|' + ((g('usuario') || {}).textContent || '') + '|' + (et ? et.textContent : '') + '|' + !!(g('btnFechar') && g('btnFechar').offsetParent) + '|' + !!(g('v2novo') && g('v2novo').offsetParent) + '|' + !!(g('v2det') && g('v2det').offsetParent);
+    if (chave === TOPO_CHAVE) return; TOPO_CHAVE = chave;
+    html.classList.remove('v2-topo-justo', 'v2-topo-justo2');
+    var falta = function () { return tp.scrollWidth > tp.clientWidth + 1 || (!!et && et.scrollWidth > et.clientWidth + 1); };
+    if (falta()) { html.classList.add('v2-topo-justo'); if (falta()) html.classList.add('v2-topo-justo2'); }   // 2º degrau: tipos mais justos e sem o ícone do Retorno
+    if (g('v2novo') && !g('v2novo').title) g('v2novo').title = 'Pedido novo';
+  }
+  window.addEventListener('resize', function () { try { ajustarTopo(); } catch (e) {} });
 
   /* ---------- 2. pedido em 3 passos ---------- */
   var form = g('form');
@@ -3865,7 +3914,7 @@ iniciar();
     var todosIt = itensDoPedido(), visIt = itensVisiveis(), porNum = [];
     todosIt.forEach(function (it, k) { var nt = ((it.querySelector('.num') || {}).textContent || '').trim(); if (nt) porNum.push({ nt: nt, it: it, k: k }); });
     porNum.sort(function (a, b) { return b.nt.length - a.nt.length; });
-    var curto = function (x) { return /valor inv/i.test(x) ? 'valor' : /c[óo]digo/i.test(x) ? 'código' : /tipo de pe/i.test(x) ? 'tipo' : /descri/i.test(x) ? 'descrição' : /medida/i.test(x) ? 'medida' : /categoria|marca/i.test(x) ? 'categoria ou marca' : x; };
+    var curto = function (x) { return /valor inv/i.test(x) ? 'valor' : /c[óo]digo/i.test(x) ? 'código' : /tipo de pe/i.test(x) ? 'tipo' : /descri/i.test(x) ? 'descrição' : /medida/i.test(x) ? 'medida' : /categoria|marca/i.test(x) ? 'categoria/marca' : x; };
     var grp = {}, ordemGrp = [], soltos = [], itPendVis = {};
     f2.forEach(function (x) {
       var dono = null; porNum.some(function (o) { if (x.indexOf(o.nt + ' (') === 0 || x.indexOf(o.nt + ':') === 0) { dono = o; return true; } return false; });
@@ -3882,7 +3931,7 @@ iniciar();
       var nome = it.dataset.tipo === 'pneu' ? 'Pneu ' + q('.f-medida') : q('.f-desc') || q('.f-codigo');
       nome = (nome || o.nt).trim(); var cheio = nome + ' — ' + grp[o.k].join(', ');
       var vis = visIt.indexOf(it) >= 0;
-      return { html: (vis ? '' : '<i>' + (it.parentNode.id === 'itens' ? 'Seguradora' : 'Particular') + ' ·&nbsp;</i>') + '<b class="nm">' + txt(nome) + '</b><span class="fx">&nbsp;— ' + txt(grp[o.k].join(', ')) + '</span>', alvo: vis ? 'k:' + o.k : '', titulo: cheio };
+      return { html: (vis ? '' : '<i>' + (it.parentNode.id === 'itens' ? 'Seguradora' : 'Particular') + ' ·&nbsp;</i>') + '<b class="nm">' + txt(nome) + '</b><span class="fx">:&nbsp;' + txt(grp[o.k].join(', ')) + '</span>', alvo: vis ? 'k:' + o.k : '', titulo: cheio };
     }).concat(soltos);
     // 2ª rodada: enquanto falta, o Enviar fica só com contorno e leva até o 1º item que falta (quem decide é a conferência do envio)
     var nFaltam = (f1.length || f2.length) ? Math.max(1, falta1.length + falta2.length) : 0;
@@ -3896,9 +3945,9 @@ iniciar();
       var nPec = falta2.filter(function (x) { return /^k:/.test(x.alvo || ''); }).length, nInc = falta2.filter(function (x) { return /^id:(itens|v2addPeca)$/.test(x.alvo || ''); }).length;
       var dados = function (n, longo) { return n === 1 ? '1 dado' + (longo ? ' do carro' : '') : n + ' dados' + (longo ? ' do carro' : ''); };
       var pecs = function (n, longo) { return (n === 1 ? '1 peça' : n + ' peças') + (longo ? ' com pendência' : ''); };
-      var rot;
-      if (nCar && nPec) rot = 'Faltam ' + (nDoc ? 'orçamento, ' : '') + (nCarro ? dados(nCarro) + ' e ' : '') + pecs(nPec);
-      else if (nCar) rot = nDoc && !nCarro ? 'Falta o orçamento' : nDoc ? 'Faltam o orçamento e ' + dados(nCarro) : (nCarro === 1 ? 'Falta ' : 'Faltam ') + dados(nCarro, true);
+      var rot, partes = [];
+      if (nDoc) partes.push('o orçamento'); if (nCarro) partes.push(dados(nCarro, !nDoc && !nPec)); if (nPec && (nDoc || nCarro)) partes.push(pecs(nPec));
+      if (partes.length) rot = (partes.length === 1 && (nDoc || nCarro === 1) ? 'Falta ' : 'Faltam ') + juntarE(partes);
       else if (nPec) rot = pecs(nPec, true);
       else if (nInc) rot = 'Inclua pelo menos uma peça';
       else rot = nFaltam === 1 ? 'Falta 1 item' : 'Faltam ' + nFaltam + ' itens';
@@ -4444,16 +4493,7 @@ iniciar();
         }
         var falta = obrigExtras().filter(function (id) { return !String(g(id).value || '').trim(); }).map(function (id) { return NOMES_EXTRA[id]; });
         if (falta.length && r && r.faltas) r.faltas.unshift('Dados do carro: falta ' + falta.join(', '));
-        // 14/10/2026 (QA): valor que não é número (ou negativo) segura o envio — antes ia "12abc" e o servidor gravava 12,00
-        if (r && r.faltas) {
-          var caixas = $$('#itens > .item').concat(typeof modoMisto === 'function' && modoMisto() ? $$('#itensPart > .item') : []);
-          caixas.forEach(function (it) {
-            var vi = it.querySelector('.f-valor-orc'); if (!vi) return;
-            var tv = String(vi.value || '').trim(), nv = lerValorBR(tv); if (!tv || (!isNaN(nv) && nv >= 0)) return;
-            var nn = ((it.querySelector('.num') || {}).textContent || '').trim(), dd = String((it.querySelector('.f-desc') || it.querySelector('.f-medida') || {}).value || '').trim();
-            r.faltas.push(nn + (dd ? ' (' + dd + ')' : '') + ': valor inválido (use 12,50)');
-          });
-        }
+        // (14/10/2026: o "valor inválido" agora vem do coletar principal — vale também no quadro principal)
         // 13/10/2026 (Weslley): pedido Particular dentro de card de seguradora pode seguir mesmo com a parte da seguradora
         // incompleta ("não é comum, mas possível") — as faltas das peças da seguradora não seguram o envio do particular
         if (r && r.faltas && typeof pedidoPart === 'function' && pedidoPart()) {
@@ -4692,15 +4732,22 @@ iniciar();
   function abrirBalao(bal, gatilho, html, focoId, devolverEm) {
     bal.className = 'v2-balao'; bal.setAttribute('role', 'alertdialog'); bal.setAttribute('aria-labelledby', bal.id + '-t');
     bal.innerHTML = html; var p0 = bal.querySelector('.v2-bt'); if (p0) p0.id = bal.id + '-t';
-    if (gatilho && gatilho.parentNode && bal.previousElementSibling !== gatilho) gatilho.insertAdjacentElement('afterend', bal);
-    var rt = topo.getBoundingClientRect(), rr = gatilho.getBoundingClientRect();
-    bal.style.left = Math.max(8, Math.min(rr.left - rt.left - 10, rt.width - 380)) + 'px'; bal.style.top = (rr.bottom - rt.top + 10) + 'px'; bal.style.display = '';
+    var d0 = bal.querySelector('.dica'); if (d0) { d0.id = bal.id + '-d'; bal.setAttribute('aria-describedby', d0.id); } else bal.removeAttribute('aria-describedby');
+    // no DOM logo depois do gatilho; no tipo, depois do grupo de rádios (para o leitor de tela o balão não fica "dentro" do grupo)
+    var ponto = (gatilho.closest && gatilho.closest('[role=radiogroup]')) || gatilho;
+    if (ponto.parentNode && bal.previousElementSibling !== ponto) ponto.insertAdjacentElement('afterend', bal);
+    bal.style.display = '';
+    var rt = topo.getBoundingClientRect(), rr = gatilho.getBoundingClientRect(), lw = bal.offsetWidth || 360;
+    var esq = Math.max(8, Math.min(rr.left - rt.left - 10, rt.width - lw - 8));
+    bal.style.left = esq + 'px'; bal.style.top = (rr.bottom - rt.top + 10) + 'px';
+    bal.style.setProperty('--v2-seta', Math.round(Math.max(12, Math.min(rr.left - rt.left + rr.width / 2 - esq - 7, lw - 26))) + 'px');   // a seta aponta para o gatilho
     bal._gatilho = gatilho; bal._devolver = devolverEm || gatilho;   // label não recebe foco: no tipo, o foco volta para o rádio marcado
     setTimeout(function () { var f = g(focoId); if (f) f.focus(); }, 30);
   }
   function fecharBalao(bal, devolver) { if (!bal || bal.style.display === 'none') return; bal.style.display = 'none'; var d = bal._devolver || bal._gatilho; if (devolver && d && d.focus) { try { d.focus(); } catch (e) {} } }
   document.addEventListener('keydown', function (e) { if (e.key !== 'Escape') return; $$('.v2-balao').forEach(function (b) { if (b.style.display !== 'none') { fecharBalao(b, true); e.stopPropagation(); } }); }, true);
   document.addEventListener('mousedown', function (e) { $$('.v2-balao').forEach(function (b) { if (b.style.display !== 'none' && !b.contains(e.target) && !(b._gatilho && b._gatilho.contains && b._gatilho.contains(e.target))) fecharBalao(b, false); }); }, true);
+  document.addEventListener('focusout', function (e) { var rel = e.relatedTarget; if (!rel) return; $$('.v2-balao').forEach(function (b) { if (b.style.display !== 'none' && b.contains(e.target) && !b.contains(rel)) fecharBalao(b, false); }); }, true);
   document.addEventListener('change', function (e) {
     var r = e.target; if (!r || r.name !== 'tipoPedido' || !PC) return;
     var antes = TIPO_ATUAL || 'SEGURADORA';
@@ -4713,6 +4760,7 @@ iniciar();
     e.stopImmediatePropagation(); e.stopPropagation();
     var prev = document.querySelector('input[name=tipoPedido][value="' + antes + '"]'); if (prev) prev.checked = true;
     $$('input[name=tipoPedido]').forEach(function (x) { x.parentNode.classList.toggle('marcado', x.checked); });
+    try { pintarObrigatorios(); } catch (x) {}
     var bal = g('v2tipoConf'); if (!bal) { bal = document.createElement('div'); bal.id = 'v2tipoConf'; topo.appendChild(bal); }
     var h, foco = 'v2tipoNao';
     if (cardSeg && r.value === 'PARTICULAR') {
@@ -4851,7 +4899,7 @@ iniciar();
     itensDoPedido().forEach(function (it) {
       var n = ((it.querySelector('.num') || {}).textContent || '').replace(/\D+/g, '') || '';
       var rot = { '.f-codigo': 'Código', '.f-desc': 'Descrição', '.f-medida': 'Medida do pneu', '.f-qtd': 'Quantidade', '.f-valor-orc': 'Valor unitário', '.f-marca': 'Marca do pneu', '.f-obs': 'Observação', '.f-nao-motivo': 'Motivo de não comprar' };
-      var maoOrc = it.dataset.origem === 'mao' && form.classList.contains('v2-comorc');
+      var maoOrc = it.dataset.origem === 'mao' && form.classList.contains('v2-comorc') && it.parentNode.id === 'itens';   // na lista particular tudo é à mão
       $$('.chip.desab', it).forEach(function (c) { if (!c.title) c.title = 'Já há 2 tipos marcados — desmarque um para trocar'; });
       Object.keys(rot).forEach(function (sl) { var e = it.querySelector(sl); var t = rot[sl] + ' da peça ' + n + (maoOrc && (sl === '.f-desc' || sl === '.f-medida') ? ' (incluída à mão)' : ''); if (e && e.getAttribute('aria-label') !== t) e.setAttribute('aria-label', t); });
       var obt = it.querySelector('.v2-obstog'); if (obt) { var tob = 'Obs. da peça ' + n + (String((it.querySelector('.f-obs') || {}).value || '').trim() ? ' (preenchida)' : ''); if (obt.getAttribute('aria-label') !== tob) obt.setAttribute('aria-label', tob); }
