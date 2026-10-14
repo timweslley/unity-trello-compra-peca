@@ -3714,7 +3714,8 @@ iniciar();
   .v2pc.v2-comp #infoComprador > :is(.dica, .aviso) { margin:0 !important; }
   .v2pc.v2-comp #v2totais { display:none !important; }
   .v2pc.v2-comp #totaisCard { display:none !important; }
-  .v2pc.v2-comp #totaisCard .totais td.destaque { background:none !important; color:inherit !important; font-weight:700 !important; }
+  .v2pc.v2-comp #totaisCard .totais td.destaque { background:none !important; color:inherit !important; font-weight:inherit !important; }
+  .v2pc.v2-comp #totaisCard .totais tr.tot td.destaque { background:var(--fundo2, #f1f2f4) !important; }
   .v2pc.v2-comp.v2-detalhes #comprador #totaisCard:not(.oculto) { display:block !important; margin:0 0 12px; padding:10px 14px; background:#fff; border:1px solid #091e4224; border-radius:var(--r-lg); overflow-x:auto; }
   .v2pc.v2-comp #erroComprador { margin:0 0 12px !important; }
   .v2pc.v2-comp #erroComprador:focus:not(:focus-visible) { outline:none; }
@@ -3797,7 +3798,9 @@ iniciar();
   .v2pc #comprador.v2c .item > .dica.v2c-links-cot { font-size:13px !important; margin:6px 0 0 !important; }
   .v2pc #comprador.v2c .item > .dica.v2c-links-cot.v2c-dup { display:none !important; }
   /* cotações (no card e novas) em tabela: as colunas batem de uma peça para a outra — e entre Cotação e Autorizar (mesmo molde) */
-  .v2pc #comprador.v2c .v2c-tab { display:grid !important; grid-template-columns:minmax(196px, 1.6fr) minmax(104px, .9fr) 104px 80px minmax(170px, 1.2fr) 124px; column-gap:10px; margin:2px 0 4px !important; }
+  .v2pc #comprador.v2c .v2c-tab { display:grid !important; grid-template-columns:minmax(180px, 1.6fr) minmax(96px, .9fr) 104px 76px minmax(160px, 1.2fr) 124px; column-gap:8px; margin:2px 0 4px !important; }
+  /* a largura vem do cartão da peça (não da janela): entre ~1200 e ~1290 px as linhas passavam da borda */
+  .v2pc #comprador.v2c :is(#cotItens, #autItens) > .item { container:peca / inline-size; }
   .v2pc #comprador.v2c .v2c-tab.v2c-tabaut > .v2c-th > span:first-child { padding-left:22px; }
   .v2pc #comprador.v2c .v2c-tab > .v2c-lin { grid-column:1 / -1; grid-template-columns:subgrid !important; column-gap:inherit; }
   .v2pc #comprador.v2c .v2c-lin { display:grid !important; grid-template-columns:minmax(120px, 1.4fr) minmax(96px, 1fr) 104px 100px minmax(0, 1.5fr) auto; column-gap:12px; row-gap:2px; align-items:center; min-height:34px; padding:3px 0 !important; margin:0 !important;
@@ -3820,19 +3823,22 @@ iniciar();
   .v2pc #comprador.v2c .v2c-lin .c-acoes a { font-size:13px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; }
   .v2pc #comprador.v2c .v2c-lin .c-acoes a .v2i { width:13px; height:13px; flex-basis:13px; margin:0 !important; }
   /* selos leves: "menor preço/prazo" neutros com o ícone colorido; só a economia leva cor (clara); 12 px */
-  .v2pc #comprador.v2c :is(.c-selos, .q-eco, .v2c-ajtxt) :is(.selo, .selo-eco) { display:inline-flex !important; align-items:center; gap:4px; height:20px; box-sizing:border-box; padding:0 8px !important; margin:0 !important; border:1px solid transparent; border-radius:10px !important;
+  .v2pc #comprador.v2c :is(.c-selos, .q-eco, .v2c-ajtxt, .v2-ajudatxt) :is(.selo, .selo-eco) { display:inline-flex !important; align-items:center; gap:4px; height:20px; box-sizing:border-box; padding:0 8px !important; margin:0 !important; border:1px solid transparent; border-radius:10px !important;
     font-size:12px !important; font-weight:600 !important; line-height:18px !important; letter-spacing:0 !important; text-transform:none !important; white-space:nowrap; }
-  .v2pc #comprador.v2c :is(.c-selos, .q-eco, .v2c-ajtxt) .selo { background:#f1f2f4 !important; color:#44546f !important; border-color:#dcdfe4; }
-  .v2pc #comprador.v2c :is(.c-selos, .q-eco, .v2c-ajtxt) .selo .v2i { width:13px; height:13px; flex:0 0 13px; margin:0 !important; }
-  .v2pc #comprador.v2c :is(.c-selos, .q-eco, .v2c-ajtxt) .selo .v2i-dollar { color:#1f845a; } .v2pc #comprador.v2c :is(.c-selos, .q-eco, .v2c-ajtxt) .selo .v2i-clock { color:#0c66e4; }
-  .v2pc #comprador.v2c .selo.preco.prazo .v2i + .v2i { margin-left:-2px !important; }
-  .v2pc #comprador.v2c :is(.c-selos, .c-valor, .q-eco, .v2c-ajtxt) .selo-eco { --tc:#ae2e24; color:var(--tc) !important; background:color-mix(in srgb, var(--tc) 9%, #fff) !important; border-color:color-mix(in srgb, var(--tc) 40%, #fff); }
-  .v2pc #comprador.v2c :is(.c-selos, .c-valor, .q-eco, .v2c-ajtxt) .selo-eco.bom { --tc:#216e4e; }
-  .v2pc #comprador.v2c :is(.c-selos, .c-valor, .q-eco, .v2c-ajtxt) .selo-eco.medio { --tc:#7f5f01; background:#fff7d6 !important; border-color:#f5cd47; }
+  .v2pc #comprador.v2c :is(.c-selos, .q-eco, .v2c-ajtxt, .v2-ajudatxt) .selo { background:#f1f2f4 !important; color:#44546f !important; border-color:#dcdfe4; }
+  .v2pc #comprador.v2c :is(.c-selos, .q-eco, .v2c-ajtxt, .v2-ajudatxt) .selo .v2i { width:13px; height:13px; flex:0 0 13px; margin:0 !important; }
+  .v2pc #comprador.v2c :is(.c-selos, .q-eco, .v2c-ajtxt, .v2-ajudatxt) .selo .v2i-dollar { color:#1f845a; } .v2pc #comprador.v2c :is(.c-selos, .q-eco, .v2c-ajtxt, .v2-ajudatxt) .selo .v2i-clock { color:#0c66e4; }
+
+  .v2pc #comprador.v2c :is(.c-selos, .c-valor, .q-eco, .v2c-ajtxt, .v2-ajudatxt) .selo-eco { --tc:#ae2e24; color:var(--tc) !important; background:color-mix(in srgb, var(--tc) 9%, #fff) !important; border-color:color-mix(in srgb, var(--tc) 40%, #fff); }
+  .v2pc #comprador.v2c :is(.c-selos, .c-valor, .q-eco, .v2c-ajtxt, .v2-ajudatxt) .selo-eco.bom { --tc:#216e4e; }
+  .v2pc #comprador.v2c :is(.c-selos, .c-valor, .q-eco, .v2c-ajtxt, .v2-ajudatxt) .selo-eco.medio { --tc:#7f5f01; background:#fff7d6 !important; border-color:#f5cd47; }
   /* economia embaixo do valor, como texto colorido (antes era um selo a mais na coluna dos selos) — também na cotação nova */
-  .v2pc #comprador.v2c :is(.v2c-lin .c-valor, .cot.v2c-nova .q-eco) .selo-eco { display:block !important; height:auto; padding:0 !important; margin:1px 0 0 !important; border:0 !important; background:none !important; border-radius:0 !important;
-    font-size:11px !important; font-weight:600 !important; line-height:14px !important; letter-spacing:0 !important; text-transform:none !important; white-space:nowrap; }
-  .v2pc #comprador.v2c .v2c-lin .c-valor .selo-eco { text-align:right; }
+  .v2pc #comprador.v2c :is(.v2c-lin .c-valor, .cot.v2c-nova .q-eco) .selo-eco { display:inline-flex !important; align-items:center; gap:3px; height:auto; padding:0 !important; margin:1px 0 0 !important; border:0 !important; background:none !important; border-radius:0 !important;
+    font-size:12px !important; font-weight:600 !important; line-height:15px !important; letter-spacing:0 !important; text-transform:none !important; white-space:nowrap; }
+  .v2pc #comprador.v2c :is(.v2c-lin .c-valor, .cot.v2c-nova .q-eco) .selo-eco .v2i { width:12px; height:12px; flex:0 0 12px; margin:0 !important; }
+  .v2pc #comprador.v2c .v2c-lin .c-valor { position:relative; }
+  .v2pc #comprador.v2c .v2c-lin .c-valor .selo-eco { position:absolute; right:0; top:100%; }
+  .v2pc #comprador.v2c .v2c-tab > .v2c-lin:has(.c-valor .selo-eco) { padding-bottom:16px !important; }
   .v2pc #comprador.v2c .v2c-lin.removida .c-valor .selo-eco { color:#626f86 !important; }
   /* cotação marcada para remover: riscada em cinza legível (com opacidade ficava em 1,9:1) */
   .v2pc #comprador.v2c .v2c-lin.removida > :not(.c-acoes) { color:#626f86 !important; text-decoration:line-through; text-decoration-color:#8590a2; }
@@ -3883,7 +3889,7 @@ iniciar();
   .v2pc #comprador.v2c #compraItens .v2c-bmini { display:inline-flex; gap:6px; margin:8px 6px 0 0 !important; vertical-align:middle; }
   .v2pc #comprador.v2c #compraItens > .item > .comprado { vertical-align:middle; margin-right:6px !important; }
   .v2pc #comprador.v2c #compraItens > .item > .comprado ~ .v2c-bmini { margin-top:2px !important; margin-bottom:6px !important; }
-  .v2pc #comprador.v2c #compraItens :is(.k-just, .k-dias) { margin-top:0; max-width:640px; }
+  .v2pc #comprador.v2c #compraItens :is(.k-just, .k-dias) { margin-top:0; max-width:760px; width:100%; }
   .v2pc #comprador.v2c #compraItens label.v2c-rot:has(+ :is(.k-just, .k-dias)) { margin-top:8px !important; }
   .v2pc #comprador.v2c #compraItens .k-dias { max-width:120px; }
   .v2pc #comprador.v2c #compraItens .k-aviso { margin:4px 0 0 !important; }
@@ -3898,15 +3904,17 @@ iniciar();
   .v2pc #comprador.v2c #compraItens .compl-box input[type=radio] { width:16px; height:16px; flex:0 0 16px; margin:0 !important; accent-color:#0c66e4; }
   .v2pc #comprador.v2c #compraItens .compl-box .k-compl-por { width:100%; max-width:420px; margin-top:6px !important; }
   .v2pc #comprador.v2c #compraItens .prev .grade { display:grid !important; grid-template-columns:150px minmax(0, 1fr) !important; gap:8px 12px !important; max-width:640px; }
-  .v2pc #comprador.v2c #compraItens :is(.prev, .cancel, .indisp) > button.principal { margin-top:10px !important; height:34px; min-height:34px !important; padding:0 14px !important; font-size:14px !important; }
-  .v2pc #comprador.v2c #compraItens .cancel input, .v2pc #comprador.v2c #compraItens .indisp > input { width:100%; max-width:640px; }
+  .v2pc #comprador.v2c #compraItens :is(.prev, .cancel, .indisp) > button.principal, .v2pc #comprador.v2c #compraItens .indisp > div > button.principal { margin-top:10px !important; height:32px !important; min-height:32px !important; padding:0 12px !important; font-size:13px !important; font-weight:600 !important; display:inline-flex !important; align-items:center; gap:6px; }
+  .v2pc #comprador.v2c #compraItens :is(.prev, .cancel, .indisp) button.principal .v2i { width:14px; height:14px; flex-basis:14px; margin:0 !important; }
+  .v2pc #comprador.v2c .v2c-arqlin > .v2c-bmini.v2c-bdir .v2c-mini { height:32px !important; min-height:32px !important; }
+  .v2pc #comprador.v2c #compraItens .cancel input, .v2pc #comprador.v2c #compraItens .indisp > input { width:100%; max-width:none; }
   .v2pc #comprador.v2c #compraItens .indisp .cot { display:flex !important; flex-wrap:wrap; gap:8px 10px; align-items:flex-start; margin:6px 0 0 !important; padding:0 !important; background:none !important; border:0 !important; box-shadow:none !important; position:static !important; }
   .v2pc #comprador.v2c #compraItens .indisp .cot > div { min-width:0; flex:1 1 104px; }
   .v2pc #comprador.v2c #compraItens .indisp .cot > div:first-child { flex:2 1 200px; }
   .v2pc #comprador.v2c #compraItens .indisp > .dica { margin:10px 0 2px !important; }
   .v2pc #comprador.v2c #compraItens .indisp > div:has(> .i-link) { margin-top:8px !important; }
   .v2pc #comprador.v2c #compraItens .indisp .cot :is(input, select) { width:100%; }
-  .v2pc #comprador.v2c #compraItens .indisp input.i-link { width:100%; max-width:640px; }
+  .v2pc #comprador.v2c #compraItens .indisp input.i-link { width:100%; max-width:none; }
   /* arquivos dentro das peças: botão compacto (o botão azul grande era para o celular) */
   .v2pc #comprador.v2c :is(#compraItens, #recItens, #painelRec) label.v2-btnarq { display:inline-flex !important; width:auto !important; min-height:32px !important; height:32px; padding:0 12px !important; margin:0 !important;
     font-size:13px !important; font-weight:600; background:#fff !important; color:#0c66e4 !important; border:1px solid #388bff !important; border-radius:var(--r-sm) !important; box-shadow:none !important; }
@@ -3951,7 +3959,7 @@ iniciar();
   .v2pc #comprador.v2c #retJa > div:first-child:not(.item) { margin:12px 0 6px !important; font-size:13px; font-weight:600 !important; color:#44546f; }
   .v2pc #comprador.v2c #retJa .t-desf { margin:8px 0 0 !important; max-width:520px; }
   .v2pc #comprador.v2c #retJa .t-desf input { width:100%; }
-  .v2pc #comprador.v2c section.v2c-sec2 > .grade { display:grid !important; grid-template-columns:minmax(0, 1fr) 180px !important; gap:8px 12px !important; max-width:560px; align-items:end; }
+  .v2pc #comprador.v2c section.v2c-sec2 > .grade { display:grid !important; grid-template-columns:minmax(0, 1fr) 180px !important; gap:8px 12px !important; max-width:560px; align-items:start; }
   .v2pc #comprador.v2c section.v2c-sec2 > .grade :is(input, select) { width:100%; }
   /* Fornecimento: campos numa linha; o motivo aparece quando a previsão fica para depois */
   .v2pc #comprador.v2c #fornItens > .item > .grade { display:grid !important; grid-template-columns:minmax(0, 1.2fr) 150px minmax(0, 1.2fr) !important; gap:6px 12px !important; margin:6px 0 0 !important; align-items:start; }
@@ -3985,7 +3993,7 @@ iniciar();
   .v2pc #comprador.v2c .cot.v2c-nova > div { min-width:0; }
   .v2pc #comprador.v2c .cot.v2c-nova > div > :is(input, select) { width:100%; }
   .v2pc #comprador.v2c .cot.v2c-nova > .q-link-caixa { grid-column:1 / -1; }
-  .v2pc #comprador.v2c .cot.v2c-nova > .q-link-caixa input { max-width:640px; }
+  .v2pc #comprador.v2c .cot.v2c-nova > .q-link-caixa input { width:100%; max-width:none; }
   .v2pc #comprador.v2c .cot.v2c-nova > div > label { display:block; line-height:16px; }
   .v2pc #comprador.v2c .cot.v2c-nova .q-eco:empty { display:none; }
   .v2pc #comprador.v2c .cot.v2c-nova .q-eco { margin-top:3px; }
@@ -4063,6 +4071,11 @@ iniciar();
   .v2pc #v2cLado #v2cTotais .kv > span { color:#44546f; display:inline-flex; align-items:center; gap:4px; }
   .v2pc #v2cLado #v2cTotais .kv b { font-variant-numeric:tabular-nums; white-space:nowrap; }
   .v2pc #v2cLado #v2cTotais .kv.tot { border-top:1px solid #dcdfe4; margin-top:2px; padding-top:4px; }
+  .v2pc #v2cLado #v2cTotais .kv.tot > span { font-weight:600; color:#172b4d; }
+  .v2pc #v2cLado #v2cTotais .v2c-vazio { visibility:hidden; }
+  /* lateral apertada (tela baixa com lista longa): o resumo fica só com o nome do card e os links */
+  .v2pc #v2cLado.v2c-aperto #v2cResumo .kv:not([data-k="Quem paga!"]) { display:none; }
+  .v2pc #v2cLado #v2cEtapas .v2c-nq { white-space:nowrap; }
   .v2pc #v2cLado .v2c-total .v2i { width:13px; height:13px; flex-basis:13px; margin:0 3px 0 0 !important; vertical-align:-2px; }
   .v2pc #v2cLado .v2c-total[hidden] { display:none !important; }
   .v2pc #v2cLado #v2cEstado:empty { display:none; }
@@ -4072,9 +4085,10 @@ iniciar();
   .v2pc #v2cLado .v2c-forn { position:relative; display:flex !important; flex-direction:column; align-items:stretch !important; gap:6px !important; margin:0 !important; padding:0 !important; background:none !important; border:0 !important; box-shadow:none !important; }
   .v2pc #v2cLado .v2c-forn.oculto { display:none !important; }
   .v2pc #v2cLado .v2c-forn > strong { display:block !important; }
-  .v2pc #v2cLado .v2c-forn label.v2c-lerforn { display:flex !important; align-items:center; justify-content:center; gap:6px; height:36px; min-height:36px !important; padding:0 10px !important; margin:0 !important; font-size:13px !important; font-weight:600 !important;
-    background:#fff !important; color:#0c66e4 !important; border:1px solid #388bff !important; border-radius:var(--r-sm) !important; cursor:pointer; box-shadow:none !important; white-space:nowrap; }
-  .v2pc #v2cLado .v2c-forn label.v2c-lerforn:hover { background:#e9f2ff !important; }
+  .v2pc #v2cLado .v2c-forn label.v2c-lerforn { display:flex !important; align-items:center; justify-content:center; gap:6px; height:36px; min-height:36px !important; padding:0 10px !important; margin:0 !important; font-size:14px !important; font-weight:500 !important;
+    background:#fff !important; color:#44546f !important; border:1px solid #758195 !important; border-radius:var(--r-sm) !important; cursor:pointer; box-shadow:none !important; white-space:nowrap; }
+  .v2pc #v2cLado .v2c-forn label.v2c-lerforn:hover { background:#f7f8f9 !important; border-color:#626f86 !important; color:#172b4d !important; }
+  .v2pc #v2cLado .v2c-forn label.v2c-lerforn .v2i { color:#0c66e4; }
   .v2pc #v2cLado .v2c-forn label.v2c-lerforn.v2-focado { outline:2px solid #0c66e4 !important; outline-offset:2px; }
   .v2pc #v2cLado .v2c-forn label.v2c-lerforn .v2i { margin:0 !important; width:15px; height:15px; flex-basis:15px; }
   .v2pc #v2cLado .v2c-forn .dica { display:none !important; }
@@ -4095,7 +4109,8 @@ iniciar();
   /* balão de confirmação dentro da lateral: no fluxo, logo abaixo do botão que o abriu */
   .v2pc #v2cLado .v2-balao.v2c-balao { position:relative !important; left:auto !important; top:auto !important; width:auto !important; margin:4px 0 2px; --v2-seta:40px; }
   .v2pc #v2cLado .v2-balao.v2c-balao .bts button { flex:1 1 auto; }
-  .v2pc.v2-comp .v2-balao .bts .secundario { background:#fff !important; }
+  .v2pc.v2-comp .v2-balao .bts .secundario, .v2pc #v2cLado .v2-balao .bts button.secundario { background:#fff !important; }
+  .v2pc #v2cLado .v2-balao .bts button.secundario:hover { background:#f7f8f9 !important; }
   /* topo da tela do comprador: sem o "Pedido novo"; a situação e o "?" como no pedido */
   .v2pc.v2-comp #v2ped-dir { margin-left:auto; }
   /* "?" fechado com Esc mesmo com o mouse em cima (1.4.13) */
@@ -4105,17 +4120,19 @@ iniciar();
     .v2pc.v2-comp #v2c-placa { zoom:.84; }
     .v2pc.v2-comp #v2ped-dir #btnFechar { height:32px !important; min-height:32px !important; padding-top:0 !important; padding-bottom:0 !important; }
   }
-  @media (max-width:1200px) {
-    .v2pc #comprador.v2c .v2c-tab { grid-template-columns:minmax(150px, 1.4fr) minmax(96px, 1fr) 104px 80px 124px; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos { grid-column:1 / 5; grid-row:2; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-acoes { grid-column:5; grid-row:1; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin.v2c-th > span:nth-child(5) { display:none; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos:empty { display:none; }
+  @container peca (max-width:790px) {
+    /* cartão estreito (Power-Up a 125%, janelas médias): selos só com o ícone (o texto fica no title e no leitor de tela) */
+    .v2pc #comprador.v2c .v2c-tab { grid-template-columns:minmax(130px, 1.5fr) minmax(90px, .8fr) 88px 72px 44px 124px; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos .selo { font-size:0 !important; padding:0 5px !important; gap:2px !important; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos .selo .v2i { width:14px !important; height:14px !important; flex-basis:14px !important; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos { flex-wrap:nowrap !important; }
+  }
+  @container peca (max-width:780px) {
+    .v2pc #comprador.v2c .cot.v2c-nova, .v2pc #comprador.v2c .cot.v2c-nova.v2c-pneu { grid-template-columns:minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) !important; }
+    .v2pc #comprador.v2c .cot.v2c-nova > div:has(> button.perigo) { justify-self:start; }
   }
   @media (max-width:1180px) {
     .v2pc #comprador.v2c { grid-template-columns:minmax(0, 1fr) 300px; gap:0 16px; }
-    .v2pc #comprador.v2c .cot.v2c-nova, .v2pc #comprador.v2c .cot.v2c-nova.v2c-pneu { grid-template-columns:minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) !important; }
-    .v2pc #comprador.v2c .cot.v2c-nova > div:has(> button.perigo) { justify-self:start; }
     .v2pc #comprador.v2c #fornItens > .item > .grade { grid-template-columns:minmax(0, 1fr) 140px minmax(0, 1.3fr) !important; }
     .v2pc #comprador.v2c #recItens > .item > .grade { grid-template-columns:140px 150px minmax(0, 1fr) !important; }
   }
@@ -4146,6 +4163,9 @@ iniciar();
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-acoes { margin-left:auto; }
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-acoes:empty { display:none; }
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos { flex:1 1 auto; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos .selo { font-size:12px !important; padding:0 8px !important; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:has(.c-valor .selo-eco) { padding-bottom:6px !important; }
+    .v2pc #comprador.v2c .v2c-lin .c-valor .selo-eco { position:static; margin-left:8px !important; }
     .v2pc #comprador.v2c > .abas { row-gap:4px !important; }
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos:empty { display:none; }
     .v2pc #comprador.v2c label.opcao-aut.v2c-lin { margin:0 !important; }
@@ -4169,6 +4189,8 @@ iniciar();
     .v2pc .v2i, .v2pc #comprador > .abas .aba::before { forced-color-adjust:none; }   /* ícones por máscara usam o fundo, que o sistema apaga */
     .v2pc #v2cLado button.v2c-env.v2-pronto { outline:2px solid Highlight; outline-offset:1px; }
     .v2pc #comprador :is(.aviso, .v2num), .v2pc #v2cLado .v2c-total { border:1px solid CanvasText !important; }
+    .v2pc #comprador :is(.selo, .selo-eco, .chip, button, label) .v2i, .v2pc #v2cLado :is(button, label) .v2i { background:CanvasText !important; }
+    .v2pc #v2cLado #v2cAnexos .linha { border-radius:0 !important; }
   }
 </style>
 <script>
@@ -5289,6 +5311,7 @@ iniciar();
     pencil: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
     trash: '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>',
     arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+    circleMinus: '<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/>',
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'
   };
   var EMO = { '📎': 'clip', '🚚': 'truck', '📁': 'folder', '🖼️': 'image', '🖼': 'image', '📥': 'down', '📖': 'book', '💾': 'save', '🔁': 'repeat', '🔄': 'refresh',
@@ -5840,7 +5863,8 @@ iniciar();
     var t = sp.textContent, m = t.match(/^([−+-])(\d+)%\s*\((R\$\s*[\d.,]+)\s+(abaixo|acima) do orç\.\)/);
     if (!m) return;
     var nivel = sp.classList.contains('bom') ? 'boa economia' : sp.classList.contains('medio') ? 'economia média' : 'pouca economia';
-    sp.innerHTML = txt(m[2] + '% ' + m[4] + ' do orç.') + '<span class="v2-sr"> (' + nivel + ', ' + txt(m[3]) + ')</span>';
+    var ico = sp.classList.contains('bom') ? 'circleCheck' : sp.classList.contains('medio') ? 'circleMinus' : 'alert';
+    sp.innerHTML = '<span class="v2i v2i-' + ico + '" aria-hidden="true"></span>' + txt(m[2] + '% ' + m[4] + ' do orç.') + '<span class="v2-sr"> (' + nivel + ', ' + txt(m[3]) + ')</span>';
     sp.title = m[3] + ' ' + m[4] + ' do valor desta peça no orçamento da seguradora (verde: mais de 30% abaixo · amarelo: 20 a 30% · vermelho: menos de 20% ou mais caro)';
   }
   function selosCelula(cel) { $$('.selo-eco', cel).forEach(ecoCurto); }
@@ -5848,9 +5872,10 @@ iniciar();
   function juntarSelos(cel) {
     var pr = cel.querySelector('.selo.preco:not(.prazo)'), pz = cel.querySelector('.selo.prazo:not(.preco):not(.selo-codnovo)');
     if (!pr || !pz) return;
-    pr.innerHTML = '<span class="v2i v2i-dollar" aria-hidden="true"></span><span class="v2i v2i-clock" aria-hidden="true"></span>menor preço e prazo';
+    pr.innerHTML = '<span class="v2i v2i-dollar" aria-hidden="true"></span>menor preço e prazo';
     pr.classList.add('prazo'); pz.remove();
   }
+  function tituloSelos(cel) { $$('.selo', cel).forEach(function (x) { var t = x.textContent.replace(/\s+/g, ' ').trim(); if (t && x.title !== t) x.title = t; }); }
   function linhaCotLida(it, linha) {
     if (linha.dataset.v2c) return;
     var lidas = []; try { lidas = JSON.parse(it.dataset.lidas || '[]'); } catch (e) {}
@@ -5863,7 +5888,7 @@ iniciar();
     c('c-tipo', txt([q.tipo, q.marca].filter(String).join(' · ') || '—'));
     var cv = c('c-valor', txt(fmtValor(q.valor)));
     c('c-prazo', txt(prazoTxt(q)));
-    var s = c('c-selos'); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); if (link) { linkCurto(link, q); s.appendChild(link); } if (autz) s.appendChild(autz); selosCelula(cv); juntarSelos(s);
+    var s = c('c-selos'); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); if (link) { linkCurto(link, q); s.appendChild(link); } if (autz) s.appendChild(autz); selosCelula(cv); juntarSelos(s); tituloSelos(s);
     c('v2-sr v2c-remtxt', '');
     var a = c('c-acoes'); bts.forEach(function (b) { b.classList.add('v2c-mini'); a.appendChild(b); });
     $$('button', a).forEach(function (b) {
@@ -5957,7 +5982,7 @@ iniciar();
       var motivo = box && !box.classList.contains('oculto') ? vl(inp) : '';
       var coberta = lidas + novas.length > 0 || !!motivo || it.dataset.semja === '1';
       if (box && !box.classList.contains('oculto')) pintarCampo(inp, it.classList.contains('v2c-semcot') && !motivo, !!motivo);
-      if (!coberta) fs.push({ t: 'uma cotação ou o motivo de não cotar', c: 'sem cotação', el: it.classList.contains('v2c-semcot') ? inp : it.querySelector('.v2c-addcot'), cob: 1 });
+      if (!coberta) fs.push(it.classList.contains('v2c-semcot') ? { t: 'o motivo de não cotar', c: 'motivo de não cotar', el: inp, cob: 1 } : { t: 'uma cotação ou o motivo de não cotar', c: 'sem cotação', el: it.querySelector('.v2c-addcot'), cob: 1 });
       it.classList.toggle('v2c-falta', fs.length > 0); it.classList.toggle('v2c-ok', !fs.length);
       linhaFalta(it, fs);
       if (fs.length) pend.push({ it: it, fs: fs });
@@ -5982,7 +6007,7 @@ iniciar();
     var f = c('c-forn', ''); f.appendChild(r); f.insertAdjacentHTML('beforeend', '<b>' + txt(q.fornecedor) + '</b>');
     var ct = c('c-tipo', txt([q.tipo, q.marca].filter(String).join(' · ') || '—')); idDe(ct, 'v2cat');
     var cv = c('c-valor', txt(fmtValor(q.valor))); c('c-prazo', txt(prazoTxt(q)));
-    var s = c('c-selos', ''); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); selosCelula(cv); juntarSelos(s); idDe(s, 'v2cas'); idDe(cv, 'v2cav');
+    var s = c('c-selos', ''); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); selosCelula(cv); juntarSelos(s); tituloSelos(s); idDe(s, 'v2cas'); idDe(cv, 'v2cav');
     var ca = c('c-acoes', ''); if (link) { linkCurto(link, q); ca.appendChild(link); }   // o link do anúncio vai na coluna da direita (vazia na autorização)
     r.setAttribute('aria-label', q.fornecedor + ', ' + fmtValor(q.valor) + ', ' + prazoTxt(q) + ' — ' + nm);
     r.setAttribute('aria-describedby', ct.id + ' ' + s.id + ' ' + cv.id);
@@ -6121,10 +6146,12 @@ iniciar();
           if (/\(obrigatório\)/.test(l.textContent) || l.querySelector('.obr') || /^(Novo prazo|Nova previsão)/.test(l.textContent.trim())) { l.innerHTML = txt(l.textContent.replace(/\s*\(obrigatório\)\s*/, '').replace(/\s*\*\s*$/, '')) + ' <span class="obr" aria-hidden="true">*</span>'; if (e) e.setAttribute('aria-required', 'true'); }
           if (/^Marca \(opcional\)$/.test(l.textContent.trim())) l.textContent = 'Marca';
           if (/^Link do anúncio/.test(l.textContent.trim())) l.textContent = 'Link do anúncio (opcional)';
-          if (/^Prazo \(dias úteis\)$/.test(l.textContent.trim()) || /^Novo prazo/.test(l.textContent.trim())) { if (e && !e.placeholder) e.placeholder = 'Ex.: 5'; if (e) e.setAttribute('inputmode', 'numeric'); }
+          if (/^Prazo \(dias úteis\)$/.test(l.textContent.trim()) || /^Novo prazo/.test(l.textContent.trim())) { if (e && !e.placeholder) e.placeholder = 'Ex.: 3'; if (e) e.setAttribute('inputmode', 'numeric'); }
         });
         var cotI = bx.querySelector('.cot'); if (cotI) cotI.classList.add('v2c-cotind');
+        $$('.i-dias', bx).forEach(function (e) { e.placeholder = 'Ex.: 3'; }); $$('.i-marca', bx).forEach(function (e) { if (!e.placeholder) e.placeholder = 'GM / DTS'; });
       });
+      $$('.prev[data-tipo="COT"] > button.principal', it).forEach(function (b) { if (b.textContent === 'Salvar previsão') b.textContent = 'Salvar novo prazo'; });
       // links dos anúncios: some a linha quando só repete o anúncio da cotação autorizada (já está no "Autorizado: …")
       $$(':scope > .dica.v2c-links-cot', it).forEach(function (d) {
         var la = $$('a[target=_blank]', d), az = it.querySelector(':scope > .comprado.v2c-autz a[target=_blank]');
@@ -6142,7 +6169,11 @@ iniciar();
     its.forEach(function (it) {
       var fs = [], sel = it.querySelector('.k-sel'), feito = !!it.querySelector('.v2c-feito');
       if (feito) jaC++;
-      if (sel && sel.value) {
+      var ind = it.querySelector('.indisp:not(.oculto)');
+      if (ind) {
+        var im = ind.querySelector('.i-motivo');
+        fs.push(vl(im) ? { t: 'enviar a cotação indisponível (botão "Enviar para nova autorização")', c: 'indisponível: enviar para nova autorização', el: ind.querySelector('button.principal') } : { t: 'o motivo da cotação indisponível', c: 'motivo da indisponibilidade', el: im });
+      } else if (sel && sel.value) {
         agora++;
         var cots = []; try { cots = JSON.parse(it.dataset.cots || '[]'); } catch (e) {}
         var q = cots[+sel.value], kj = it.querySelector('.k-just'), kd = it.querySelector('.k-dias');
@@ -6155,7 +6186,7 @@ iniciar();
         if (cpl && cpl.falta) fs.push({ t: /quem liberou/.test(cpl.falta) ? 'quem liberou a compra antecipada' : 'a situação do complementar', c: /quem liberou/.test(cpl.falta) ? 'quem liberou' : 'complementar', el: it.querySelector('.k-compl-por:not(.oculto)') || it.querySelector('.k-compl') });
         if (cb) cb.classList.toggle('v2c-cxfalta', !!(cpl && cpl.falta));
         var pr = it.querySelector('.k-compl-por'); if (pr && !pr.classList.contains('oculto')) pintarCampo(pr, !vl(pr), vl(pr));
-      } else if (!feito) {
+      } else if (!feito && !ind) {
         // o que o servidor ainda espera comprar (vdf_salvarCompra): peça autorizada sem compra — ou qualquer peça, se o card não tem autorização
         var conta = auts.length ? !!it.dataset.aut : semCotJust.indexOf(it.dataset.chave) < 0;
         if (conta) semCompra.push({ it: it, sem: !sel });
@@ -6292,7 +6323,7 @@ iniciar();
       it.classList.toggle('v2c-motivo', adiou || !!vl(fm));
       if (fm) pintarCampo(fm, adiou && !vl(fm), adiou && vl(fm));
       if (adiou && !vl(fm)) fs.push({ t: 'o motivo da nova previsão', c: 'motivo da previsão', el: fm });
-      linhaFalta(it, fs); it.classList.toggle('v2c-falta', fs.length > 0);
+      linhaFalta(it, fs); it.classList.toggle('v2c-falta', fs.length > 0); it.classList.toggle('v2c-ok', !fs.length && it.dataset.ok === '1');
       if (fs.length) pend.push({ it: it, fs: fs });
     });
     var arqs = (typeof FORN_ARQS !== 'undefined' && FORN_ARQS) ? FORN_ARQS.length : 0;
@@ -6318,10 +6349,10 @@ iniciar();
       + (T.comp ? kv('Comprado', txt(fmtValor(T.comp))) : '')
       + '<div class="v2c-links"><a href="' + txt(c.url || '#') + '" target="_blank" rel="noopener">Abrir o card no Trello</a><a href="#" data-v2c="editar">Editar o pedido</a></div>';
   }
-  function etapasComp(e1, e2, k) {
-    var atual = e1.f.length || !e1.ok ? 0 : 1;
+  function etapasComp(e1, e2, k, lim, semAtual) {
+    var atual = semAtual ? -1 : (e1.f.length || !e1.ok ? 0 : 1);
     COMP_ALVOS = [];
-    var lim = window.V2C_TUDO ? 99 : (window.matchMedia('(max-height:720px)').matches ? 3 : 5);
+    lim = lim || 5;
     return [e1, e2].map(function (e, i) {
       var cl = i < atual ? 'feito' : i === atual ? 'atual' : '';
       var prog = i < atual ? 100 : i === atual ? Math.round((e.p || 0) * 100) : 0;
@@ -6335,19 +6366,26 @@ iniciar();
   function faltaHtml(it, fs) {
     var nm = it ? nomeDoItem(it) : '';
     var o = fs.map(function (x) { return x.c || x.t; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).join(', ');
-    return { html: (nm ? '<b class="nm">' + txt(nm).replace(/-/g, '\u2011') + '</b><span class="fx">:&nbsp;' + txt(o) + '</span>' : '<b class="nm">' + txt(o.charAt(0).toUpperCase() + o.slice(1)) + '</b>'),
+    return { html: (nm ? '<b class="nm">' + txt(nm).replace(/(\S*-\S*)/g, '<span class="v2c-nq">$1</span>') + '</b><span class="fx">:&nbsp;' + txt(o) + '</span>' : '<b class="nm">' + txt(o.charAt(0).toUpperCase() + o.slice(1)) + '</b>'),
       txt: nm ? nm + ': ' + o : o.charAt(0).toUpperCase() + o.slice(1), el: fs[0] && fs[0].el, it: it };
   }
   var VIVO_T = 0, AVISO_LADO = null;
   /* aviso curto embaixo dos botões (ex.: Salvar parcial que não pode salvar): fica 6 s e é anunciado */
   function avisoLado(t) { AVISO_LADO = { t: t, ate: Date.now() + 6000 }; try { estadoComp(); } catch (e) {} var st = g('v2cEstado'); if (st) try { st.focus({ preventScroll: true }); } catch (e) {} }
-  function anunciar(t) { clearTimeout(VIVO_T); VIVO_T = setTimeout(function () { var vv = g('v2cVivo'); if (vv && vv.textContent !== t) vv.textContent = t; }, 1500); }
+  function anunciar() {
+    clearTimeout(VIVO_T);
+    VIVO_T = setTimeout(function () {
+      var k = abaAtual(), b = k && g(ABA_BTN[k][0]), vv = g('v2cVivo'); if (!b || !vv || !b.offsetParent) return;
+      var r = ((b.querySelector('.v2c-rot') || b).textContent || '').trim(), t = b.classList.contains('v2-pronto') ? ABA_BTN[k][1] + ': pronto para enviar' : r.replace(/ →$/, '');
+      if (vv.textContent !== t) vv.textContent = t;
+    }, 1500);
+  }
   function botaoComp(k, estado, rotFalta) {
     var b = g(ABA_BTN[k][0]); if (!b) return;
     var pronto = estado === 'pronto', neutro = estado === 'neutro';
     var rot = pronto ? ABA_BTN[k][1] : rotFalta;
     var sp = b.querySelector('.v2c-rot'); if (!sp) { b.innerHTML = '<span class="v2c-rot"></span>'; sp = b.querySelector('.v2c-rot'); }
-    if (sp.textContent !== rot) { sp.textContent = rot; if (b.offsetParent) anunciar(pronto ? ABA_BTN[k][1] + ': pronto para enviar' : rot.replace(/ →$/, '')); }
+    if (sp.textContent !== rot) { sp.textContent = rot; if (b.offsetParent) anunciar(); }
     if (pronto && b.classList.contains('v2c-pend')) { b.classList.add('v2-ficou-pronto'); setTimeout(function () { b.classList.remove('v2-ficou-pronto'); }, 800); }
     b.classList.toggle('v2-pronto', pronto); b.classList.toggle('v2c-pend', !pronto && !neutro); b.classList.toggle('v2c-neutro', neutro);
     if (neutro) { if (b.getAttribute('aria-disabled') !== 'true') b.setAttribute('aria-disabled', 'true'); } else if (b.hasAttribute('aria-disabled')) b.removeAttribute('aria-disabled');
@@ -6424,25 +6462,50 @@ iniciar();
         ttH = '<div class="v2c-tt">' + (k === 'aut' ? 'Nesta autorização' : 'Comprando agora') + '</div>'
           + '<div class="kv"><span><span class="v2i v2i-shield" aria-hidden="true"></span>Seguradora</span><b>' + vT(sg) + '</b></div>'
           + '<div class="kv"><span><span class="v2i v2i-user" aria-hidden="true"></span>Particular</span><b>' + vT(pt) + '</b></div>'
-          + '<div class="kv tot"><span>Total</span><b>' + vT(sg + pt) + '</b></div>';
+          + '<div class="kv tot"><span><span class="v2i v2c-vazio" aria-hidden="true"></span>Total</span><b>' + vT(sg + pt) + '</b></div>';
       }
     }
     var tt = g('v2cTotais'); if (tt) { if (tt.dataset.h !== ttH) { tt.innerHTML = ttH; tt.dataset.h = ttH; } if (tt.hidden !== !ttH) tt.hidden = !ttH; }
-    var eh = etapasComp(e1, e2, k);
+    var semAtual = estado === 'neutro' && /^Nada a /.test(rot), ldo = g('v2cLado');
+    // o que cabe acima dos botões presos é calculado uma vez para cada conteúdo (refazer a lista a cada passada tirava o foco do link)
+    var chaveL = function () { return [parseFloat(getComputedStyle(ldo).maxHeight) || 0, e1.f.length, k, g('v2cAcoes').offsetHeight, g('v2cTotais').offsetHeight, window.V2C_TUDO ? 1 : 0].join('|'); };
+    var cacheL = LIM_FALTA.chave === chaveL() ? LIM_FALTA : null;
+    var lim = window.V2C_TUDO ? 99 : cacheL ? cacheL.lim : 5, aperto = cacheL ? cacheL.aperto : false;
+    if (ldo.classList.contains('v2c-aperto') !== aperto) ldo.classList.toggle('v2c-aperto', aperto);
+    var eh = etapasComp(e1, e2, k, lim, semAtual);
     var dTxt = e1.f.length ? 'Falta: ' + e1.f.map(function (x) { return x.txt || String(x.html || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' '); }).join('; ') + '.' : '';
     var dEl = g('v2cFaltaDesc'); if (dEl && dEl.textContent !== dTxt) dEl.textContent = dTxt;
     if (g('v2cLado').dataset.aba !== k) g('v2cLado').dataset.aba = k;
     // Salvar parcial também fica neutro quando o servidor recusaria de qualquer jeito (Compra antes da autorização)
     var bpk = g(ABA_PARCIAL[k]), offP = k === 'compra' && estado === 'neutro' && !lerOnly;
     if (bpk) { bpk.classList.toggle('v2c-off', offP); if (offP) { if (bpk.getAttribute('aria-disabled') !== 'true') bpk.setAttribute('aria-disabled', 'true'); } else if (bpk.getAttribute('aria-disabled') === 'true') bpk.removeAttribute('aria-disabled'); }
-    if (g('v2cEtapas').dataset.h !== eh) {
-      var antes = $$('.et', g('v2cEtapas')).map(function (x) { return x.style.getPropertyValue('--p'); });
-      g('v2cEtapas').innerHTML = eh; g('v2cEtapas').dataset.h = eh;
-      $$('.et', g('v2cEtapas')).forEach(function (x, i) { var alvoP = x.style.getPropertyValue('--p'); if (antes[i] && antes[i] !== alvoP) { x.style.setProperty('--p', antes[i]); void x.offsetWidth; requestAnimationFrame(function () { x.style.setProperty('--p', alvoP); }); } });
-    } else { // a lista não mudou de texto, mas os alvos são reconstruídos a cada passada
-      COMP_ALVOS = []; e1.f.slice(0, window.V2C_TUDO ? 99 : (window.matchMedia('(max-height:720px)').matches ? 3 : 5)).forEach(function (x) { COMP_ALVOS.push(x.el || (x.it && (x.it.querySelector('.v2-falta') || x.it)) || null); });
+    desenharEtapas(eh);
+    // o caminho não passa por baixo dos botões presos: 1º o resumo fica só com o nome do card; depois a lista corta e põe "e mais N"
+    if (!cacheL) {
+      var guarda = 0;
+      while (sobraLado() < 0 && guarda++ < 8) {
+        if (!aperto) { aperto = true; ldo.classList.add('v2c-aperto'); continue; }
+        if (!window.V2C_TUDO && lim > 1 && e1.f.length > 1) { lim = Math.min(lim, e1.f.length) - 1; eh = etapasComp(e1, e2, k, lim, semAtual); desenharEtapas(eh); continue; }
+        break;
+      }
+      LIM_FALTA = { chave: chaveL(), lim: lim, aperto: aperto };
     }
     botaoComp(k, estado, rot);
+  }
+  var LIM_FALTA = { chave: '', lim: 5, aperto: false };
+  function desenharEtapas(eh) {
+    var et = g('v2cEtapas'); if (et.dataset.h === eh) return;
+    var antes = $$('.et', et).map(function (x) { return x.style.getPropertyValue('--p'); });
+    et.innerHTML = eh; et.dataset.h = eh;
+    $$('.et', et).forEach(function (x, i) { var alvoP = x.style.getPropertyValue('--p'); if (antes[i] && antes[i] !== alvoP) { x.style.setProperty('--p', antes[i]); void x.offsetWidth; requestAnimationFrame(function () { x.style.setProperty('--p', alvoP); }); } });
+  }
+  /* espaço que sobra na lateral (altura máxima − resumo − total − caminho − botões − espaços); negativo = os botões presos cobrem o caminho */
+  function sobraLado() {
+    var l = g('v2cLado'), ac = g('v2cAcoes'); if (!l || !ac) return 1;
+    var mh = parseFloat(getComputedStyle(l).maxHeight); if (!(mh > 0)) return 1;
+    var gap = parseFloat(getComputedStyle(l).rowGap) || 0, tot = 0, n = 0;
+    ['v2cResumo', 'v2cEtapas', 'v2cTotais', 'v2cAcoes'].forEach(function (id) { var e = g(id); if (e && !e.hidden && e.offsetParent !== null) { tot += e.offsetHeight; n++; } });
+    return mh - (tot - (parseFloat(getComputedStyle(ac).paddingTop) || 0)) - gap * Math.max(0, n - 1);
   }
   // o que falta (lateral) leva ao campo; "e mais N" abre a lista toda
   document.addEventListener('click', function (e) {
@@ -6729,11 +6792,25 @@ iniciar();
     var errosCompOrig = window.errosComprador;
     window.errosComprador = function () { var r = errosCompOrig.apply(this, arguments); try { if (PC) { var ec = g('erroComprador'); if (ec) { ec.setAttribute('role', 'alert'); ec.tabIndex = -1; ec.focus({ preventScroll: true }); } } } catch (e) {} return r; };
   }
+  /* emoji visível, mas fora do leitor de tela (aviso "Enviado", mensagem de sucesso): o texto continua o mesmo */
+  var RE_EMOJI = /(?:[\u2600-\u27BF\u2B50\u2B55\u2190-\u21FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDD00-\uDFFF])\uFE0F?/;
+  function emojiMudo(raiz) {
+    if (!raiz) return;
+    var w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT, { acceptNode: function (n) { return n.parentNode && n.parentNode.closest && n.parentNode.closest('[data-v2emo]') ? NodeFilter.FILTER_REJECT : RE_EMOJI.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP; } });
+    var nos = []; while (w.nextNode()) nos.push(w.currentNode);
+    nos.forEach(function (n) {
+      var t = n.nodeValue, frag = document.createDocumentFragment(), m, guard = 0;
+      while ((m = t.match(RE_EMOJI)) && guard++ < 12) { if (m.index) frag.appendChild(document.createTextNode(t.slice(0, m.index))); var sp = document.createElement('span'); sp.setAttribute('aria-hidden', 'true'); sp.dataset.v2emo = '1'; sp.textContent = m[0]; frag.appendChild(sp); t = t.slice(m.index + m[0].length); }
+      if (t) frag.appendChild(document.createTextNode(t)); n.parentNode.replaceChild(frag, n);
+    });
+  }
+  var tst = g('v2toast');
+  if (tst && PC) new MutationObserver(function () { if (!tst.querySelector('[data-v2emo]')) emojiMudo(tst); }).observe(tst, { childList: true, characterData: true, subtree: true });
   if (typeof window.sucesso === 'function') {   // envio deu certo: o foco vai para a mensagem (antes caía no corpo da página)
     var sucessoOrig = window.sucesso;
     window.sucesso = function () {
       var doComp = compPC(), r = sucessoOrig.apply(this, arguments);
-      if (doComp) setTimeout(function () { try { trocarEmojisComp(g('telaSucesso')); var m = g('msgSucesso'); if (m) { m.tabIndex = -1; m.focus({ preventScroll: true }); } } catch (e) {} }, 0);
+      if (doComp) setTimeout(function () { try { emojiMudo(g('msgSucesso')); var m = g('msgSucesso'); if (m) { m.tabIndex = -1; m.focus({ preventScroll: true }); } } catch (e) {} }, 0);
       return r;
     };
   }
