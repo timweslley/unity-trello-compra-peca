@@ -868,8 +868,8 @@ function lerValorBR(v) {
   var s = String(v == null ? '' : v).replace(/R\$/i, '').replace(/\s/g, '');
   if (!s) return NaN;
   if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
-  else if (!/^-?\d+\.\d{1,2}$/.test(s)) s = s.replace(/\./g, '');
-  return /^-?\d+(\.\d+)?$/.test(s) ? parseFloat(s) : NaN;
+  else if (!/^-?\d*\.\d{1,2}$/.test(s)) s = s.replace(/\./g, '');
+  return /^-?(\d+(\.\d+)?|\.\d+)$/.test(s) ? parseFloat(s) : NaN;
 }
 function fmtValor(v) {
   var n = lerValorBR(v);
@@ -3216,7 +3216,8 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item.nao-comprar .v2-desc2 { opacity:.6; }
   /* botão Enviar: quanto falta; verde quando está tudo pronto */
   .v2pc #btnEnviar.v2-pend-env { background:#fff !important; color:#0c66e4 !important; border:2px solid #0c66e4 !important; font-size:0 !important; }
-  .v2pc #btnEnviar.v2-pend-env::after { content:attr(data-rot); display:block; font-size:16px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; padding:0 10px; }
+  .v2pc #btnEnviar.v2-pend-env { display:flex !important; align-items:center; justify-content:center; line-height:0 !important; height:auto !important; min-height:44px; padding:6px 12px !important; }
+  .v2pc #btnEnviar.v2-pend-env::after { content:attr(data-rot); display:block; font-size:15px; line-height:20px; font-weight:600; white-space:normal; text-align:center; text-wrap:balance; }
   .v2pc #btnEnviar.v2-pend-env:hover { background:#e9f2ff !important; }
   .v2pc #btnEnviar.v2-pronto { background:#1f845a !important; border-color:#1f845a !important; }
   .v2pc #btnEnviar.v2-pronto:hover { background:#216e4e !important; }
@@ -3497,6 +3498,45 @@ iniciar();
   .v2:not(.v2pc) .v2-ler .linha { flex-wrap:wrap; }
   .v2:not(.v2pc) .v2-ler .linha .nome { flex:1 1 calc(100% - 40px) !important; min-width:0; }
   .v2:not(.v2pc) .v2-ler .linha :is(.v2-tag, .v2-jalido) { margin-left:34px; }
+  /* ---- 14/10/2026 (2ª parte): acabamento pedido na reavaliação (design, acessibilidade e QA) ---- */
+  /* ✓ do tipo marcado: fica no recuo da esquerda, que todos os tipos já têm — marcar não muda a largura nem empurra os vizinhos */
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input.f-tipo) { position:relative; padding-left:17px !important; padding-right:9px !important; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip.marcado:has(input.f-tipo)::before { position:absolute; left:5px; top:50%; width:9px !important; height:9px !important; margin:-4.5px 0 0 0 !important; flex:none !important; }
+  /* zoom 125% (linha apertada): sem o ✓ — o tipo marcado já é o chip cheio de cor (os outros só têm contorno) */
+  @container pecas (max-width: 820px) {
+    .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input.f-tipo) { padding-left:7px !important; padding-right:7px !important; }
+    .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip.marcado:has(input.f-tipo)::before { display:none !important; }
+  }
+  /* Excluir: nas listas que têm peça incluída à mão, as peças do orçamento guardam o lugar dele — Comp./Não comprar/Obs. ficam alinhados */
+  @container pecas (min-width: 821px) {
+    .v2pc:not(.v2-diretoria) :is(#itens, #itensPart):has(> .item[data-origem="mao"]) > .item[data-origem="orc"] > .item-topo button.perigo { display:inline-flex !important; visibility:hidden; pointer-events:none; }
+  }
+  /* MANUAL dentro do campo da descrição (no pneu, da medida) */
+  .v2pc :is(#itens, #itensPart) > .item .v2-casaorig { position:relative; }
+  .v2pc :is(#itens, #itensPart) > .item .v2-casaorig > .v2-origem { display:none; }
+  .v2pc .v2-comorc :is(#itens, #itensPart) > .item[data-origem="mao"] .v2-casaorig > .v2-origem { display:inline-flex !important; position:absolute; right:6px; top:50%; transform:translateY(-50%); align-items:center;
+    height:20px; padding:0 7px; border-radius:10px; font-size:11px; font-weight:700; letter-spacing:.3px; line-height:1; white-space:nowrap; background:#fff7d6; color:#7f5f01; pointer-events:none; z-index:1; }
+  .v2pc .v2-comorc :is(#itens, #itensPart) > .item[data-origem="mao"] .v2-casaorig > :is(.f-desc, .f-medida) { padding-right:76px !important; }
+  .v2pc .v2-comorc :is(#itens, #itensPart) > .item[data-origem="mao"] .v2-casaorig > .v2-desc2 { right:74px !important; }
+  /* Detalhes e Ajuda: botões fantasmas (o botão da barra é o Pedido novo); ligado = azul claro */
+  .v2pc #v2ped-dir .v2hb { background:transparent !important; border-color:transparent !important; color:#44546f !important; box-shadow:none !important; }
+  .v2pc #v2ped-dir .v2hb:hover { background:#091e420f !important; color:#172b4d !important; }
+  .v2pc #v2ped-dir .v2hb:active { background:#091e4224 !important; }
+  .v2pc.v2-detalhes #v2ped-dir #v2det, .v2pc.v2-ajuda #v2ped-dir #v2aj { background:#e9f2ff !important; border-color:transparent !important; color:#0055cc !important; }
+  /* pendência na lateral: o nome da peça encurta ("…"), o que falta fica sempre à vista */
+  .v2pc #v2etapas .fl li > :is(a, .v2-semlink):has(> .fx) { display:flex !important; min-width:0; }
+  .v2pc #v2etapas .fl li > :is(a, .v2-semlink) > :is(.nm, .fx, i) { white-space:nowrap; }
+  .v2pc #v2etapas .fl li > :is(a, .v2-semlink) > .nm { flex:0 1 auto; min-width:2.5em; overflow:hidden; text-overflow:ellipsis; }
+  .v2pc #v2etapas .fl li > :is(a, .v2-semlink) > .fx { flex:0 0 auto; max-width:72%; overflow:hidden; text-overflow:ellipsis; }
+  .v2pc #v2etapas .fl li > :is(a, .v2-semlink) > i { flex:0 0 auto; }
+  /* a dica de começo pode quebrar linha (não é uma falta) */
+  .v2pc #v2etapas .fl li.ini > a { white-space:normal !important; overflow:visible !important; }
+  /* "Ver anteriores": as linhas recolhidas ficam recuadas, como parte do grupo */
+  .v2pc .v2-ler .v2-anteriores > .linha { margin-left:22px; }
+  /* data do anexo na linha */
+  .v2pc .v2-ler .linha .v2-quando { flex:0 0 auto; font-size:12px; color:#626f86; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  /* fim da página: a coluna da direita não passa por baixo da barra de baixo */
+  .v2pc.v2-pedtopo #form { padding-bottom:72px; }
 </style>
 <script>
 (function () {
@@ -3529,7 +3569,7 @@ iniciar();
     if (PC) { this.innerHTML = '<span class="v2i v2i-clip" aria-hidden="true"></span>' + (on ? 'Esconder' : 'Detalhes'); this.setAttribute('aria-pressed', on ? 'true' : 'false'); }
     else this.textContent = on ? '📎 Esconder' : '📎 Detalhes';
   };
-  g('v2aj').onclick = function () { html.classList.toggle('v2-ajuda'); };
+  g('v2aj').onclick = function () { html.classList.toggle('v2-ajuda'); if (PC) this.setAttribute('aria-pressed', html.classList.contains('v2-ajuda') ? 'true' : 'false'); };
   g('v2det').title = 'Detalhes do card'; g('v2aj').title = 'Ajuda: mostra as explicações de cada parte da tela';
   var PROXIMO = {
     'FALTA DADOS PARA COTAR': 'Falta completar o pedido', 'EM COTAÇÃO': 'O comprador está cotando', 'COTAÇÃO FINALIZADA': 'Esperando autorização',
@@ -3716,23 +3756,28 @@ iniciar();
       // 14/10/2026 (revisão A08): com alterações não salvas, confirma antes de descartar
       if (typeof pedidoSujo === 'function' && pedidoSujo() && !g('v2novo').dataset.forcar) {
         var bal = g('v2novoConf');
-        if (!bal) { bal = document.createElement('div'); bal.id = 'v2novoConf'; bal.className = 'v2-balao'; topo.appendChild(bal); }
-        bal.innerHTML = 'Este pedido tem <b>alterações não salvas</b>. Começar um pedido novo e descartar o que foi feito aqui?'
-          + '<div class="bts"><button type="button" class="perigo" id="v2novoSim">Descartar e começar</button><button type="button" class="secundario" id="v2novoNao">Continuar editando</button></div>';
-        var rt = topo.getBoundingClientRect(), rb = g('v2novo').getBoundingClientRect();
-        bal.style.left = Math.max(8, Math.min(rb.left - rt.left - 120, rt.width - 380)) + 'px'; bal.style.top = (rb.bottom - rt.top + 10) + 'px'; bal.style.display = '';
-        g('v2novoNao').onclick = function () { bal.style.display = 'none'; };
-        g('v2novoSim').onclick = function () { bal.style.display = 'none'; g('v2novo').dataset.forcar = '1'; g('v2novo').click(); delete g('v2novo').dataset.forcar; };
+        if (!bal) { bal = document.createElement('div'); bal.id = 'v2novoConf'; topo.appendChild(bal); }
+        abrirBalao(bal, g('v2novo'), '<p class="v2-bt">Este pedido tem <b>alterações não salvas</b>. Começar um pedido novo e descartar o que foi feito aqui?</p>'
+          + '<div class="bts"><button type="button" class="perigo" id="v2novoSim">Descartar e começar</button><button type="button" class="secundario" id="v2novoNao">Continuar editando</button></div>', 'v2novoNao');
+        g('v2novoNao').onclick = function () { fecharBalao(bal, true); };
+        g('v2novoSim').onclick = function () { fecharBalao(bal, false); g('v2novo').dataset.forcar = '1'; g('v2novo').click(); delete g('v2novo').dataset.forcar; };
         return;
       }
       modoNovo();
       ['placa', 'modelo', 'ano', 'motor', 'chassi', 'carro', 'cor', 'seguradora', 'sinistro', 'obs'].forEach(function (id) { if (g(id)) g(id).value = ''; });
+      // 14/10/2026 (QA): anexos escolhidos no card anterior não passam para o pedido novo
+      try { ANEXOS = []; FILE_IDS = []; CAPA_ID = ''; listarAnexos(); } catch (e) {}
+      $$('#form input[type=file]').forEach(function (i) { try { i.value = ''; } catch (e) {} });
+      $$('.v2-nomearq').forEach(function (x) { x.textContent = ''; });
+      ['dicaCapa', 'dicaArquivo'].forEach(function (id) { if (g(id)) { g(id).textContent = ''; g(id).className = 'dica'; } });
+      if (g('v2fornPrevia')) { g('v2fornPrevia').className = 'oculto'; g('v2fornPrevia').innerHTML = ''; }
       if (g('itens')) g('itens').innerHTML = ''; if (g('itensPart')) g('itensPart').innerHTML = '';
       window.ORC = null; try { ORC = null; } catch (e) {}
       window.V2_PAIS = ''; window.V2_PAIS_PLACA = ''; window.V2_ET_TUDO = false;
       if (g('dicaChassi')) { g('dicaChassi').textContent = ''; g('dicaChassi').className = 'dica'; }
       try { setTipoPedido('SEGURADORA'); } catch (e) {}
       atualizarTopo(); placa.focus(); varrer();
+      try { BASE_SIG = assinaturaPedido(); BASE_PEND = 0; SALVO_EM = ''; } catch (e) {}
     };
   }
   /* 13/10/2026 (Weslley): dados do carro no computador em 3 linhas, cada campo do tamanho do que cabe nele
@@ -3783,6 +3828,12 @@ iniciar();
     var res = '<div class="cab"><span>' + (editando && titulo === window.CARD.nome ? 'Card' : 'O card vai se chamar') + '</span><b>' + txt(titulo || v('placa').toUpperCase() || '—') + '</b></div>'
       + kv('Quem paga', tipo === 'PARTICULAR' ? 'Cliente (particular)' : tipo === 'RETORNO' ? 'Oficina (retorno)' : 'Seguradora')
       + kv('Unidade', unTxt) + kv('Oficina compra', (preenchidas.length - preenchidas.filter(function (it) { return it.dataset.nao === '1'; }).length) + ' peça(s)') + (nao ? kv('Não comprar', String(nao)) : '')
+      + (function () {   // 14/10/2026 (QA): card de seguradora com pedido particular — a outra lista (escondida) também vai no envio
+        if (typeof modoMisto !== 'function' || !modoMisto()) return '';
+        var cheias = function (sel) { return $$(sel).filter(function (it) { return $$('.f-codigo, .f-desc, .f-medida', it).some(function (el) { return String(el.value || '').trim(); }); }).length; };
+        if (tipo === 'PARTICULAR') { var ns = cheias('#itens > .item'); return ns ? kv('Peças da seguradora', ns + ' (não mudam)') : ''; }
+        var np = cheias('#itensPart > .item'); return np ? kv('Particulares (cliente paga)', np + ' — vão junto') : '';
+      })()
       + (function () {   // 2ª rodada: total das peças no orçamento (valor líquido × qtd), para bater com o PDF
         if (!(window.ORC || (window.CARD && window.CARD.doOrcamento))) return '';
         var tot = 0; pecas.forEach(function (it) {
@@ -3814,11 +3865,11 @@ iniciar();
     var todosIt = itensDoPedido(), visIt = itensVisiveis(), porNum = [];
     todosIt.forEach(function (it, k) { var nt = ((it.querySelector('.num') || {}).textContent || '').trim(); if (nt) porNum.push({ nt: nt, it: it, k: k }); });
     porNum.sort(function (a, b) { return b.nt.length - a.nt.length; });
-    var curto = function (x) { return /c[óo]digo/i.test(x) ? 'código' : /tipo de pe/i.test(x) ? 'tipo' : /descri/i.test(x) ? 'descrição' : /medida/i.test(x) ? 'medida' : /categoria|marca/i.test(x) ? 'categoria ou marca' : x; };
+    var curto = function (x) { return /valor inv/i.test(x) ? 'valor' : /c[óo]digo/i.test(x) ? 'código' : /tipo de pe/i.test(x) ? 'tipo' : /descri/i.test(x) ? 'descrição' : /medida/i.test(x) ? 'medida' : /categoria|marca/i.test(x) ? 'categoria ou marca' : x; };
     var grp = {}, ordemGrp = [], soltos = [], itPendVis = {};
     f2.forEach(function (x) {
       var dono = null; porNum.some(function (o) { if (x.indexOf(o.nt + ' (') === 0 || x.indexOf(o.nt + ':') === 0) { dono = o; return true; } return false; });
-      if (!dono) { soltos.push({ txt: x, alvo: 'id:itens' }); return; }
+      if (!dono) { soltos.push({ txt: x, alvo: g('v2addPeca') && g('v2addPeca').offsetParent ? 'id:v2addPeca' : 'id:itens' }); return; }
       var resto = x.slice(dono.nt.length).replace(/^\s*\([^)]*\)/, '').replace(/^\s*:\s*/, '');
       if (!grp[dono.k]) { grp[dono.k] = []; ordemGrp.push(dono); }
       var c = curto(resto); if (grp[dono.k].indexOf(c) < 0) grp[dono.k].push(c);
@@ -3831,7 +3882,7 @@ iniciar();
       var nome = it.dataset.tipo === 'pneu' ? 'Pneu ' + q('.f-medida') : q('.f-desc') || q('.f-codigo');
       nome = (nome || o.nt).trim(); var cheio = nome + ' — ' + grp[o.k].join(', ');
       var vis = visIt.indexOf(it) >= 0;
-      return { html: (vis ? '' : '<i>' + (it.parentNode.id === 'itens' ? 'Seguradora' : 'Particular') + ' · </i>') + '<b>' + txt(nome) + '</b> — ' + txt(grp[o.k].join(', ')), alvo: vis ? 'k:' + o.k : '', titulo: cheio };
+      return { html: (vis ? '' : '<i>' + (it.parentNode.id === 'itens' ? 'Seguradora' : 'Particular') + ' ·&nbsp;</i>') + '<b class="nm">' + txt(nome) + '</b><span class="fx">&nbsp;— ' + txt(grp[o.k].join(', ')) + '</span>', alvo: vis ? 'k:' + o.k : '', titulo: cheio };
     }).concat(soltos);
     // 2ª rodada: enquanto falta, o Enviar fica só com contorno e leva até o 1º item que falta (quem decide é a conferência do envio)
     var nFaltam = (f1.length || f2.length) ? Math.max(1, falta1.length + falta2.length) : 0;
@@ -3840,21 +3891,26 @@ iniciar();
       if (be.dataset.faltam !== String(nFaltam)) be.dataset.faltam = String(nFaltam);
       if (!nFaltam && be.classList.contains('v2-pend-env')) { be.classList.add('v2-ficou-pronto'); setTimeout(function () { be.classList.remove('v2-ficou-pronto'); }, 800); }
       be.classList.toggle('v2-pronto', !nFaltam); be.classList.toggle('v2-pend-env', !!nFaltam);
-      // 14/10/2026 (revisão A04): dizer o que falta — dados do carro e/ou peças com pendência (antes: "Faltam N itens")
-      var nCar = falta1.length, nPec = falta2.filter(function (x) { return /^k:/.test(x.alvo || ''); }).length, nInc = falta2.filter(function (x) { return x.alvo === 'id:itens'; }).length;
-      var pDad = nCar === 1 ? '1 dado do carro' : nCar + ' dados do carro', pPec = nPec === 1 ? '1 peça com pendência' : nPec + ' peças com pendência';
-      var rot = nCar && nPec ? 'Faltam ' + (nCar === 1 ? '1 dado' : nCar + ' dados') + ' e ' + (nPec === 1 ? '1 peça' : nPec + ' peças') + ' · ir para o 1º'
-        : nCar ? (nCar === 1 ? 'Falta ' : 'Faltam ') + pDad + ' · ir para o 1º'
-        : nPec ? pPec + ' · ir para ' + (nPec === 1 ? 'ela' : 'a 1ª')
-        : nInc ? 'Inclua pelo menos uma peça' : (nFaltam === 1 ? 'Falta 1 item · ir para ele' : 'Faltam ' + nFaltam + ' itens · ir para o 1º');
+      // 14/10/2026 (revisão A04 + QA): dizer o que falta, curto e com seta; "ir para o 1º" fica no title/aria-label
+      var nCar = falta1.length, nDoc = falta1.filter(function (x) { return x.alvo === 'c:orçamento'; }).length, nCarro = nCar - nDoc;
+      var nPec = falta2.filter(function (x) { return /^k:/.test(x.alvo || ''); }).length, nInc = falta2.filter(function (x) { return /^id:(itens|v2addPeca)$/.test(x.alvo || ''); }).length;
+      var dados = function (n, longo) { return n === 1 ? '1 dado' + (longo ? ' do carro' : '') : n + ' dados' + (longo ? ' do carro' : ''); };
+      var pecs = function (n, longo) { return (n === 1 ? '1 peça' : n + ' peças') + (longo ? ' com pendência' : ''); };
+      var rot;
+      if (nCar && nPec) rot = 'Faltam ' + (nDoc ? 'orçamento, ' : '') + (nCarro ? dados(nCarro) + ' e ' : '') + pecs(nPec);
+      else if (nCar) rot = nDoc && !nCarro ? 'Falta o orçamento' : nDoc ? 'Faltam o orçamento e ' + dados(nCarro) : (nCarro === 1 ? 'Falta ' : 'Faltam ') + dados(nCarro, true);
+      else if (nPec) rot = pecs(nPec, true);
+      else if (nInc) rot = 'Inclua pelo menos uma peça';
+      else rot = nFaltam === 1 ? 'Falta 1 item' : 'Faltam ' + nFaltam + ' itens';
+      rot = nFaltam ? rot + ' →' : '';
       if (be.dataset.rot !== rot) {
         be.dataset.rot = rot;
-        var viv = g('v2vivo'); if (viv) viv.textContent = nFaltam ? rot.replace(/ · ir para .*$/, '') : 'Pedido pronto para enviar';
+        var viv = g('v2vivo'); if (viv) viv.textContent = nFaltam ? rot.replace(/ →$/, '') : 'Pedido pronto para enviar';
       }
-      be.setAttribute('aria-label', nFaltam ? rot : 'Enviar pedido');
+      be.setAttribute('aria-label', nFaltam ? rot.replace(/ →$/, '') + ' — ir para o primeiro item que falta' : 'Enviar pedido');
       if (nFaltam && (be.textContent === 'Enviar pedido' || be.textContent === be.dataset.rotPost) && be.textContent !== rot) { be.textContent = rot; be.dataset.rotPost = rot; }
       if (!nFaltam && be.dataset.rotPost && be.textContent === be.dataset.rotPost) { be.textContent = 'Enviar pedido'; be.dataset.rotPost = ''; }
-      be.title = nFaltam ? 'Ainda falta preencher. Clique para ir até o primeiro item que falta.' : '';
+      be.title = nFaltam ? rot.replace(/ →$/, '') + ' — clique para ir até o primeiro item que falta' : '';
     }
     var et = [
       { t: 'Orçamento e carro', c: tot1 ? ok1 + ' de ' + tot1 : '', p: tot1 ? ok1 / tot1 : 1,
@@ -3868,7 +3924,7 @@ iniciar();
       var lim = window.V2_ET_TUDO ? 99 : (window.matchMedia('(max-height:720px)').matches ? 3 : 6);
       var lista = i === atual && e.f.length ? '<ul class="fl">' + e.f.slice(0, lim).map(function (x) {
         var corpo = x.html || txt(x.txt), tt = txt(x.titulo || x.txt || '');
-        return '<li>' + (x.alvo ? '<a href="#" data-alvo="' + txt(x.alvo) + '" title="' + tt + '">' + corpo + '</a>' : '<span class="v2-semlink" title="' + tt + ' (peça de outra parte do pedido — confira antes de enviar)">' + corpo + '</span>') + '</li>';
+        return '<li' + (x.ini ? ' class="ini"' : '') + '>' + (x.alvo ? '<a href="#" data-alvo="' + txt(x.alvo) + '" title="' + tt + '">' + corpo + '</a>' : '<span class="v2-semlink" title="' + tt + ' (peça de outra parte do pedido — confira antes de enviar)">' + corpo + '</span>') + '</li>';
       }).join('') + (e.f.length > lim ? '<li class="mais"><a href="#" data-mais="1">e mais ' + (e.f.length - lim) + '</a></li>' : '') + '</ul>' : '';
       return '<div class="et ' + cl + '" style="--p:' + prog + '%"><span class="n">' + (i < atual ? '✓' : i + 1) + '</span><span class="t">' + e.t + (e.c ? ' <small>· ' + e.c + '</small>' : '') + '</span>' + lista + '</div>';
     }).join('');
@@ -3978,6 +4034,7 @@ iniciar();
       if (topoIt && it.querySelector('.f-obs')) {
         var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'secundario v2-obstog'; if (PC) ob.innerHTML = '<span class="v2i v2i-plus" aria-hidden="true"></span>Obs.'; else ob.textContent = '+ Obs.'; ob.title = 'Observação da peça (o comprador vê)';
         ob.onclick = function () { it.classList.toggle('v2-obs'); var ab = it.classList.contains('v2-obs'); ob.setAttribute('aria-expanded', ab ? 'true' : 'false'); if (ab) it.querySelector('.f-obs').focus(); };
+        var fob = it.querySelector('.f-obs'); if (!fob.id) fob.id = 'v2obs-' + (it.id || ('n' + (++V2_SEQ_OBS))); ob.setAttribute('aria-controls', fob.id);
         // 14/10/2026 (revisão A06): peça que já vem com observação abre com ela à vista; fechar não apaga o texto
         if (String(it.querySelector('.f-obs').value || '').trim()) it.classList.add('v2-obs');
         ob.setAttribute('aria-expanded', it.classList.contains('v2-obs') ? 'true' : 'false');
@@ -4230,6 +4287,12 @@ iniciar();
   if (form) { form.addEventListener('input', function () { clearTimeout(guardarRascunho.t); guardarRascunho.t = setTimeout(guardarRascunho, 800); }); form.addEventListener('change', function () { setTimeout(guardarRascunho, 300); }); }
 
   /* ---------- anexos do card: cartão com botão grande "Ler" ---------- */
+  /* data do anexo (vem do próprio id do Trello): "13/10 10:42"; de outro ano, "13/10/25" */
+  function quandoTxt(seg, longo) {
+    var d = new Date(seg * 1000), z = function (n) { return ('0' + n).slice(-2); }, hoje = new Date();
+    if (longo) return z(d.getDate()) + '/' + z(d.getMonth() + 1) + '/' + d.getFullYear() + ' às ' + z(d.getHours()) + ':' + z(d.getMinutes());
+    return z(d.getDate()) + '/' + z(d.getMonth() + 1) + (d.getFullYear() !== hoje.getFullYear() ? '/' + String(d.getFullYear()).slice(-2) : ' ' + z(d.getHours()) + ':' + z(d.getMinutes()));
+  }
   function cartaoLeitura(box, titulo, sub, onde) {
     if (!box) return;
     var lista = box._v2lista;
@@ -4262,6 +4325,7 @@ iniciar();
         var h = '<div class="linha' + (antigo ? ' v2-antigo' : '') + '"><span class="ico">' + (e.orc ? '📄' : e.foto ? '📸' : '📎') + '</span>'
           + (e.url ? '<a class="nome" href="' + txt(e.url) + '" target="_blank" rel="noopener">' : '<span class="nome">') + txt(e.nome.replace(/^[📄📸🚚📦🔗]\s*/u, ''))
           + (e.url ? '<small>abrir o arquivo</small></a>' : '</span>')
+          + (e.quando && PC ? '<span class="v2-quando" title="Anexado ao card em ' + quandoTxt(e.quando, true) + '">' + quandoTxt(e.quando) + '</span>' : '')
           + (e === maisNovo ? '<span class="v2-tag v2-tag-novo" title="Orçamento anexado por último neste card">📌 mais recente</span>' : antigo ? '<span class="v2-tag" title="Há um orçamento anexado depois deste">anterior</span>' : '')
           + (jaLido ? '<span class="v2-jalido" title="O sistema já importou este orçamento e as peças dele já estão no pedido">✓ importado<span class="v2-jl-extra"> · peças no pedido</span></span>' : '')
           // 13/10/2026: foto do carro não tem "Ler" (quase nunca é documento) — só abrir
@@ -4380,6 +4444,16 @@ iniciar();
         }
         var falta = obrigExtras().filter(function (id) { return !String(g(id).value || '').trim(); }).map(function (id) { return NOMES_EXTRA[id]; });
         if (falta.length && r && r.faltas) r.faltas.unshift('Dados do carro: falta ' + falta.join(', '));
+        // 14/10/2026 (QA): valor que não é número (ou negativo) segura o envio — antes ia "12abc" e o servidor gravava 12,00
+        if (r && r.faltas) {
+          var caixas = $$('#itens > .item').concat(typeof modoMisto === 'function' && modoMisto() ? $$('#itensPart > .item') : []);
+          caixas.forEach(function (it) {
+            var vi = it.querySelector('.f-valor-orc'); if (!vi) return;
+            var tv = String(vi.value || '').trim(), nv = lerValorBR(tv); if (!tv || (!isNaN(nv) && nv >= 0)) return;
+            var nn = ((it.querySelector('.num') || {}).textContent || '').trim(), dd = String((it.querySelector('.f-desc') || it.querySelector('.f-medida') || {}).value || '').trim();
+            r.faltas.push(nn + (dd ? ' (' + dd + ')' : '') + ': valor inválido (use 12,50)');
+          });
+        }
         // 13/10/2026 (Weslley): pedido Particular dentro de card de seguradora pode seguir mesmo com a parte da seguradora
         // incompleta ("não é comum, mas possível") — as faltas das peças da seguradora não seguram o envio do particular
         if (r && r.faltas && typeof pedidoPart === 'function' && pedidoPart()) {
@@ -4397,7 +4471,7 @@ iniciar();
     document.addEventListener('focusout', function (e) {
       var t = e.target; if (!t || !t.classList) return;
       if (t.classList.contains('f-valor-orc') && t.value.trim()) t.value = semRS(t.value) || t.value;
-      if (t.classList.contains('f-valor-orc')) t.classList.toggle('v2-invalido', !!t.value.trim() && isNaN(lerValorBR(t.value)));
+      if (t.classList.contains('f-valor-orc')) { var nv0 = lerValorBR(t.value), inv0 = !!t.value.trim() && (isNaN(nv0) || nv0 < 0); t.classList.toggle('v2-invalido', inv0); if (inv0) t.setAttribute('aria-invalid', 'true'); else t.removeAttribute('aria-invalid'); }
     });
     document.addEventListener('input', function (e) {
       var t = e.target; if (!t || !t.classList || !t.classList.contains('f-qtd')) return;
@@ -4586,8 +4660,12 @@ iniciar();
     form.classList.toggle('v2-comorc', comOrc);
     itensDoPedido().forEach(function (it) {
       var tp = it.querySelector('.item-topo'); if (!tp) return;
-      var et = tp.querySelector('.v2-origem');
-      if (!et) { et = document.createElement('span'); et.className = 'v2-origem'; var num = tp.querySelector('.num'); if (num) num.insertAdjacentElement('afterend', et); else tp.insertBefore(et, tp.firstChild); }
+      // 14/10/2026 (design): a etiqueta MANUAL fica dentro do campo da descrição (no pneu, da medida) — não ocupa a linha dos botões
+      // e continua à vista no zoom de 125% (antes sumia); para o leitor de tela, o "(incluída à mão)" vai no nome do campo
+      var et = it.querySelector('.v2-origem'), cd0 = it.querySelector('.grade .f-desc') || it.querySelector('.grade .f-medida'), casa = cd0 && cd0.parentNode;
+      if (!et) { et = document.createElement('span'); et.className = 'v2-origem'; et.setAttribute('aria-hidden', 'true'); }
+      if (casa && et.parentNode !== casa) { casa.appendChild(et); casa.classList.add('v2-casaorig'); }
+      else if (!casa && et.parentNode !== tp) { var num = tp.querySelector('.num'); if (num) num.insertAdjacentElement('afterend', et); else tp.insertBefore(et, tp.firstChild); }
       var t = it.dataset.origem === 'orc' ? 'ORÇAMENTO' : 'MANUAL';
       if (et.textContent !== t) { et.textContent = t; et.title = t === 'ORÇAMENTO' ? 'Veio do orçamento da seguradora' : 'Incluída à mão (não está no orçamento)'; }
       var vo = it.querySelector('.f-valor-orc'); if (vo) { var ph = comOrc ? '0,00' : 'opcional'; if (vo.placeholder !== ph) vo.placeholder = ph;
@@ -4595,7 +4673,8 @@ iniciar();
         var vu = lerValorBR(vo.value), qq = parseFloat((it.querySelector('.f-qtd') || {}).value) || 1;
         var tv = vu > 0 && qq > 1 ? 'Valor unitário. Subtotal: ' + fmtValor(vu * qq) + ' (' + qq + ' × ' + fmtValor(vu).replace(/^R\$\s*/, '') + ')' : 'Valor unitário (R$)';
         if (vo.title !== tv) vo.title = tv;
-        vo.classList.toggle('v2-invalido', !!String(vo.value || '').trim() && isNaN(vu)); }
+        var invv = !!String(vo.value || '').trim() && (isNaN(vu) || vu < 0); vo.classList.toggle('v2-invalido', invv);
+        if (invv) vo.setAttribute('aria-invalid', 'true'); else if (!vo.classList.contains('v2-falta')) vo.removeAttribute('aria-invalid'); }
       var fc = it.querySelector('.f-codigo');
       if (fc && /Buscar no Cilia/i.test(fc.placeholder)) { fc.placeholder = 'Código da peça'; fc.title = 'Consulte o código no Cilia'; }
     });
@@ -4604,40 +4683,72 @@ iniciar();
     $$('.v2pc-cab').forEach(function (c) { var bx = c.nextElementSibling; c.classList.toggle('v2-cab-vazio', !(bx && bx.querySelector(':scope > .item'))); });
     $$('.v2pc-cab span').forEach(function (sp) { if (/^Valor/.test(sp.textContent)) { var tv = 'Valor unit. (R$)'; if (sp.textContent !== tv) { sp.textContent = tv; sp.title = comOrc ? 'Valor unitário líquido do orçamento' : 'Valor unitário (opcional)'; } } });
   }
-  /* trocar quem paga (Seguradora / Particular / Retorno) num card que já existe pede confirmação */
-  var TIPO_NOME = { SEGURADORA: 'Seguradora', PARTICULAR: 'Particular (cliente paga)', RETORNO: 'Retorno (oficina paga)' }, tipoConfirmado = '';
-  document.addEventListener('click', function (e) {
-    var r = e.target && e.target.closest && e.target.closest('label.chip'); r = r ? r.querySelector('input[name=tipoPedido]') : (e.target && e.target.name === 'tipoPedido' ? e.target : null);
-    if (!r || !PC || !window.CARD_EDICAO || !window.CARD) return;
-    var atual = tipoPedidoV2();
-    if (r.value === atual || tipoConfirmado === r.value) { tipoConfirmado = ''; return; }
+  /* trocar quem paga (Seguradora / Particular / Retorno) num card que já existe pede confirmação.
+     14/10/2026 (QA/acessibilidade): pelo "change" (pega mouse, setas e Espaço — antes só o clique, e pelo teclado a confirmação era pulada) */
+  var TIPO_NOME = { SEGURADORA: 'Seguradora', PARTICULAR: 'Particular (cliente paga)', RETORNO: 'Retorno (oficina paga)' }, tipoConfirmado = '', TIPO_ATUAL = null;
+  try { TIPO_ATUAL = tipoPedidoV2(); } catch (e) {}
+  if (typeof window.setTipoPedido === 'function') { var setTipoOrig = window.setTipoPedido; window.setTipoPedido = function (t) { var rr = setTipoOrig.apply(this, arguments); TIPO_ATUAL = t; return rr; }; }
+  /* balão acessível: role=alertdialog, foco no botão seguro, Esc e clique fora fecham e devolvem o foco */
+  function abrirBalao(bal, gatilho, html, focoId, devolverEm) {
+    bal.className = 'v2-balao'; bal.setAttribute('role', 'alertdialog'); bal.setAttribute('aria-labelledby', bal.id + '-t');
+    bal.innerHTML = html; var p0 = bal.querySelector('.v2-bt'); if (p0) p0.id = bal.id + '-t';
+    if (gatilho && gatilho.parentNode && bal.previousElementSibling !== gatilho) gatilho.insertAdjacentElement('afterend', bal);
+    var rt = topo.getBoundingClientRect(), rr = gatilho.getBoundingClientRect();
+    bal.style.left = Math.max(8, Math.min(rr.left - rt.left - 10, rt.width - 380)) + 'px'; bal.style.top = (rr.bottom - rt.top + 10) + 'px'; bal.style.display = '';
+    bal._gatilho = gatilho; bal._devolver = devolverEm || gatilho;   // label não recebe foco: no tipo, o foco volta para o rádio marcado
+    setTimeout(function () { var f = g(focoId); if (f) f.focus(); }, 30);
+  }
+  function fecharBalao(bal, devolver) { if (!bal || bal.style.display === 'none') return; bal.style.display = 'none'; var d = bal._devolver || bal._gatilho; if (devolver && d && d.focus) { try { d.focus(); } catch (e) {} } }
+  document.addEventListener('keydown', function (e) { if (e.key !== 'Escape') return; $$('.v2-balao').forEach(function (b) { if (b.style.display !== 'none') { fecharBalao(b, true); e.stopPropagation(); } }); }, true);
+  document.addEventListener('mousedown', function (e) { $$('.v2-balao').forEach(function (b) { if (b.style.display !== 'none' && !b.contains(e.target) && !(b._gatilho && b._gatilho.contains && b._gatilho.contains(e.target))) fecharBalao(b, false); }); }, true);
+  document.addEventListener('change', function (e) {
+    var r = e.target; if (!r || r.name !== 'tipoPedido' || !PC) return;
+    var antes = TIPO_ATUAL || 'SEGURADORA';
+    if (!window.CARD_EDICAO || !window.CARD || r.value === antes || tipoConfirmado === r.value) { tipoConfirmado = ''; TIPO_ATUAL = r.value; return; }
     var ct = String(window.CARD.tipo || 'SEGURADORA').toUpperCase(), cardSeg = ct !== 'PARTICULAR' && ct !== 'RETORNO';
     // 14/10/2026 (revisão A02): num card de seguradora, "Particular" é um pedido SEPARADO do cliente no mesmo card (não muda quem paga o card);
     // voltar para "Seguradora" só volta à lista da seguradora; "Retorno" vai num card próprio (o envio mantinha SEGURADORA — a troca não fazia nada)
-    if (cardSeg && r.value === 'SEGURADORA') { tipoConfirmado = ''; return; }
-    e.preventDefault(); e.stopPropagation();
-    var bal = g('v2tipoConf');
-    if (!bal) { bal = document.createElement('div'); bal.id = 'v2tipoConf'; topo.appendChild(bal); }
+    if (cardSeg && r.value === 'SEGURADORA') { TIPO_ATUAL = r.value; return; }
+    // segura a troca: volta a marcação anterior (o aoMudarTipo do formulário não roda) e pergunta
+    e.stopImmediatePropagation(); e.stopPropagation();
+    var prev = document.querySelector('input[name=tipoPedido][value="' + antes + '"]'); if (prev) prev.checked = true;
+    $$('input[name=tipoPedido]').forEach(function (x) { x.parentNode.classList.toggle('marcado', x.checked); });
+    var bal = g('v2tipoConf'); if (!bal) { bal = document.createElement('div'); bal.id = 'v2tipoConf'; topo.appendChild(bal); }
+    var h, foco = 'v2tipoNao';
     if (cardSeg && r.value === 'PARTICULAR') {
-      bal.innerHTML = 'Fazer um <b>pedido particular</b> (o cliente paga) separado neste card?'
-        + '<div class="dica" style="margin-top:4px">As peças da seguradora continuam como estão. Você lança só as peças do cliente — quem autoriza é você.</div>'
+      h = '<p class="v2-bt">Fazer um <b>pedido particular</b> (o cliente paga) separado neste card?</p>'
+        + '<div class="dica">As peças da seguradora continuam como estão. Você lança só as peças do cliente — quem autoriza é você.</div>'
         + '<div class="bts"><button type="button" class="principal" id="v2tipoSim">Sim, pedido particular</button><button type="button" class="secundario" id="v2tipoNao">Não</button></div>';
     } else if (cardSeg && r.value === 'RETORNO') {
-      bal.innerHTML = 'O <b>retorno</b> (a oficina paga) vai num card próprio.'
-        + '<div class="dica" style="margin-top:4px">Clique em <b>Pedido novo</b>, marque Retorno e digite a mesma placa: os dados do carro vêm deste card.</div>'
+      h = '<p class="v2-bt">O <b>retorno</b> (a oficina paga) vai num card próprio.</p>'
+        + '<div class="dica">Clique em <b>Pedido novo</b>, marque Retorno e digite a mesma placa: os dados do carro vêm deste card.</div>'
         + '<div class="bts"><button type="button" class="secundario" id="v2tipoNao">Entendi</button></div>';
     } else {
-      bal.innerHTML = 'Mudar quem paga deste card de <b>' + txt(TIPO_NOME[atual] || atual) + '</b> para <b>' + txt(TIPO_NOME[r.value] || r.value) + '</b>?'
-        + '<div class="dica" style="margin-top:4px">Isso muda as regras do card (autorização, complemento e compra).</div>'
+      h = '<p class="v2-bt">Mudar quem paga deste card de <b>' + txt(TIPO_NOME[antes] || antes) + '</b> para <b>' + txt(TIPO_NOME[r.value] || r.value) + '</b>?</p>'
+        + '<div class="dica">Isso muda as regras do card (autorização, complemento e compra).</div>'
         + '<div class="bts"><button type="button" class="principal" id="v2tipoSim">Sim, mudar</button><button type="button" class="secundario" id="v2tipoNao">Não</button></div>';
     }
-    var rt = topo.getBoundingClientRect(), rr = (r.closest('label') || r).getBoundingClientRect();
-    bal.style.left = Math.max(8, rr.left - rt.left - 10) + 'px'; bal.style.top = (rr.bottom - rt.top + 10) + 'px'; bal.style.display = '';
-    g('v2tipoNao').onclick = function () { bal.style.display = 'none'; };
-    if (g('v2tipoSim')) g('v2tipoSim').onclick = function () { bal.style.display = 'none'; tipoConfirmado = r.value; r.click(); };
+    abrirBalao(bal, r.closest('label') || r, h, foco, prev || r);
+    g('v2tipoNao').onclick = function () { fecharBalao(bal, true); };
+    if (g('v2tipoSim')) g('v2tipoSim').onclick = function () {
+      fecharBalao(bal, false); tipoConfirmado = r.value; r.checked = true;
+      r.dispatchEvent(new Event('change', { bubbles: true }));   // agora passa: o formulário troca a lista (aoMudarTipo)
+      try { r.focus(); } catch (x) {}
+    };
   }, true);
   /* ---- 14/10/2026 (revisão do outro modelo + modelo novo): estado do salvamento (A08) e erro escrito na peça ---- */
-  var BASE_SIG = null, BASE_PEND = 3, ULT_CARD = undefined, SALVO_EM = '';
+  var BASE_SIG = null, BASE_PEND = 1, ULT_CARD = undefined, SALVO_EM = '', SALVOS = {};
+  if (typeof window.carregarCard === 'function') {
+    var carregarOrig = window.carregarCard;
+    window.carregarCard = function () {
+      var antes = window.CARD, t0 = Date.now(), rr = carregarOrig.apply(this, arguments);
+      (function esperar() {   // assim que o card termina de abrir: linha de base na hora (uma mudança no 1º segundo também conta)
+        if (window.CARD && window.CARD !== antes) { ULT_CARD = window.CARD; BASE_SIG = assinaturaPedido(); BASE_PEND = 0; SALVO_EM = SALVOS[window.CARD.shortLink] || ''; return; }
+        if (Date.now() - t0 < 30000) setTimeout(esperar, 40);
+      })();
+      return rr;
+    };
+  }
   function assinaturaPedido() {
     try {
       var r = coletarOrig ? coletarOrig() : coletar(); var pl = (r && r.payload) || {};
@@ -4646,11 +4757,11 @@ iniciar();
     } catch (e) { return null; }
   }
   function pedidoSujo() { if (!PC || !visivel(form) || BASE_SIG === null) return false; var s0 = assinaturaPedido(); return s0 !== null && s0 !== BASE_SIG; }
-  function marcarSalvo() { BASE_SIG = assinaturaPedido(); var d = new Date(); SALVO_EM = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function marcarSalvo() { BASE_SIG = assinaturaPedido(); var d = new Date(); SALVO_EM = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); if (window.CARD_EDICAO) SALVOS[window.CARD_EDICAO] = SALVO_EM; }
   function estadoSalvar() {
     if (!PC) return;
     // linha de base: quando o card abre (ou o pedido novo começa), depois de a tela terminar de montar
-    if (window.CARD !== ULT_CARD) { ULT_CARD = window.CARD; BASE_PEND = 3; BASE_SIG = null; SALVO_EM = ''; }
+    if (window.CARD !== ULT_CARD) { ULT_CARD = window.CARD; BASE_PEND = 1; BASE_SIG = null; SALVO_EM = (window.CARD && SALVOS[window.CARD.shortLink]) || ''; }
     if (BASE_PEND > 0 && visivel(form)) { BASE_PEND--; if (!BASE_PEND) BASE_SIG = assinaturaPedido(); }
     var rod = rodapeEnviar; if (!rod) return;
     var el = g('v2estado'); if (!el) { el = document.createElement('div'); el.id = 'v2estado'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); rod.appendChild(el); }
@@ -4664,8 +4775,24 @@ iniciar();
     if (el.dataset.t !== t) { el.dataset.t = t; el.textContent = t; el.className = 'v2-estado ' + c; }
   }
   window.addEventListener('beforeunload', function (e) { if (pedidoSujo()) { e.preventDefault(); e.returnValue = ''; return ''; } });
+  document.addEventListener('click', function (e) {
+    if (!PC) return;
+    // o link antigo "Fazer pedido novo em vez disso" (Detalhes) usa o mesmo caminho do botão Pedido novo (confirmação + limpeza)
+    var a = e.target && e.target.closest && e.target.closest('#modoEdicao a');
+    if (a && /modoNovo/.test(a.getAttribute('onclick') || '') && g('v2novo')) { e.preventDefault(); e.stopPropagation(); g('v2novo').click(); return; }
+    // "Fechar" com alterações não salvas pergunta antes (o X do próprio Trello não dá para interceptar)
+    var fb = e.target && e.target.closest && e.target.closest('#btnFechar');
+    if (fb && !fb.dataset.forcar && pedidoSujo()) {
+      e.preventDefault(); e.stopPropagation();
+      var bal = g('v2fecharConf'); if (!bal) { bal = document.createElement('div'); bal.id = 'v2fecharConf'; topo.appendChild(bal); }
+      abrirBalao(bal, fb, '<p class="v2-bt">Fechar sem salvar as <b>alterações</b> deste pedido?</p>'
+        + '<div class="bts"><button type="button" class="perigo" id="v2fecharSim">Fechar sem salvar</button><button type="button" class="secundario" id="v2fecharNao">Continuar editando</button></div>', 'v2fecharNao');
+      g('v2fecharNao').onclick = function () { fecharBalao(bal, true); };
+      g('v2fecharSim').onclick = function () { fecharBalao(bal, false); fb.dataset.forcar = '1'; fb.click(); delete fb.dataset.forcar; };
+    }
+  }, true);
   window.__v2dbgEstado = function () { var sg = assinaturaPedido(); return { base: BASE_SIG === null ? null : BASE_SIG.length, pend: BASE_PEND, sig: sg === null ? null : sg.length, igual: sg === BASE_SIG, sujo: pedidoSujo(), mesmoCard: ULT_CARD === window.CARD, pc: PC, vis: visivel(form) }; };
-  var CURTO_FALTA = function (x) { return /c[óo]digo/i.test(x) ? 'código' : /tipo de pe/i.test(x) ? 'tipo' : /descri/i.test(x) ? 'descrição' : /medida/i.test(x) ? 'medida' : /categoria|marca/i.test(x) ? 'categoria ou marca' : x; };
+  var CURTO_FALTA = function (x) { return /valor inv/i.test(x) ? 'valor válido (use 12,50)' : /c[óo]digo/i.test(x) ? 'código' : /tipo de pe/i.test(x) ? 'tipo' : /descri/i.test(x) ? 'descrição' : /medida/i.test(x) ? 'medida' : /categoria|marca/i.test(x) ? 'categoria ou marca' : x; };
   function juntarE(l) { return l.length < 2 ? l.join('') : l.slice(0, -1).join(', ') + ' e ' + l[l.length - 1]; }
   function erroNaPeca(fs) {
     if (!PC) return;
@@ -4677,11 +4804,12 @@ iniciar();
       if (!fe) { fe = document.createElement('div'); fe.className = 'v2-faltaitem'; fe.id = 'v2fe-' + it.id; it.appendChild(fe); }
       var t = 'Falta ' + juntarE(l) + '.';
       if (fe.textContent !== t) fe.textContent = t;
-      $$('.v2-falta', it).forEach(function (x) { if (x.getAttribute('aria-describedby') !== fe.id) x.setAttribute('aria-describedby', fe.id); });
+      $$('[aria-describedby="' + fe.id + '"]', it).forEach(function (x) { if (!x.classList.contains('v2-falta') && !x.classList.contains('v2-invalido')) x.removeAttribute('aria-describedby'); });
+      $$('.v2-falta, .v2-invalido', it).forEach(function (x) { if (x.getAttribute('aria-describedby') !== fe.id) x.setAttribute('aria-describedby', fe.id); });
     });
   }
   /* 3ª rodada: acessibilidade e ordem de teclado (só computador) */
-  var A11Y_UMA = false;
+  var A11Y_UMA = false, V2_SEQ_OBS = 0;
   function acessivelPC() {
     if (!PC) return;
     if (!A11Y_UMA) {
@@ -4716,14 +4844,17 @@ iniciar();
     $$('.v2-ler h4:not([aria-level])').forEach(function (h) { h.setAttribute('role', 'heading'); h.setAttribute('aria-level', '3'); });
     $$('.item[data-tipo="pneu"] .f-marca').forEach(function (m) { if (m.placeholder !== 'Marca') { m.placeholder = 'Marca'; m.title = 'Marca do pneu (ex.: PIRELLI) — escrever a marca já marca a categoria'; } });
     $$('.v2q:not([role])').forEach(function (q) { q.setAttribute('role', 'button'); q.setAttribute('aria-label', 'Ajuda: ' + String(q.dataset.dica || '').replace(/\n/g, ' ')); });
+    if (!g('v2addPeca')) { var apc = document.querySelector('#form button[onclick="novoItem(\'peca\')"]'); if (apc) apc.id = 'v2addPeca'; }
     // com orçamento já no card (ou lido), "Orçamento" deixa de ser o botão principal do cartão
     var la = document.querySelector('label.v2-btnarq[for=arquivo]');
     if (la) la.classList.toggle('v2-sec', !!(window.ORC || (window.CARD && (window.CARD.anexos || []).some(function (a) { return a.pdf; }))));
     itensDoPedido().forEach(function (it) {
       var n = ((it.querySelector('.num') || {}).textContent || '').replace(/\D+/g, '') || '';
-      var rot = { '.f-codigo': 'Código', '.f-desc': 'Descrição', '.f-medida': 'Medida do pneu', '.f-qtd': 'Quantidade', '.f-valor-orc': 'Valor no orçamento', '.f-marca': 'Marca do pneu', '.f-obs': 'Observação', '.f-nao-motivo': 'Motivo de não comprar' };
+      var rot = { '.f-codigo': 'Código', '.f-desc': 'Descrição', '.f-medida': 'Medida do pneu', '.f-qtd': 'Quantidade', '.f-valor-orc': 'Valor unitário', '.f-marca': 'Marca do pneu', '.f-obs': 'Observação', '.f-nao-motivo': 'Motivo de não comprar' };
+      var maoOrc = it.dataset.origem === 'mao' && form.classList.contains('v2-comorc');
       $$('.chip.desab', it).forEach(function (c) { if (!c.title) c.title = 'Já há 2 tipos marcados — desmarque um para trocar'; });
-      Object.keys(rot).forEach(function (sl) { var e = it.querySelector(sl); var t = rot[sl] + ' da peça ' + n; if (e && e.getAttribute('aria-label') !== t) e.setAttribute('aria-label', t); });
+      Object.keys(rot).forEach(function (sl) { var e = it.querySelector(sl); var t = rot[sl] + ' da peça ' + n + (maoOrc && (sl === '.f-desc' || sl === '.f-medida') ? ' (incluída à mão)' : ''); if (e && e.getAttribute('aria-label') !== t) e.setAttribute('aria-label', t); });
+      var obt = it.querySelector('.v2-obstog'); if (obt) { var tob = 'Obs. da peça ' + n + (String((it.querySelector('.f-obs') || {}).value || '').trim() ? ' (preenchida)' : ''); if (obt.getAttribute('aria-label') !== tob) obt.setAttribute('aria-label', tob); }
       var ex = it.querySelector('.item-topo button.perigo');
       if (ex && ex.textContent === 'remover') ex.textContent = 'Excluir';   // texto escondido (o que aparece vem do CSS) igual ao visível
       if (ex) { var te = ex.classList.contains('v2-armado') ? 'Confirmar exclusão da peça ' + n : 'Excluir peça ' + n; if (ex.getAttribute('aria-label') !== te) ex.setAttribute('aria-label', te); }
