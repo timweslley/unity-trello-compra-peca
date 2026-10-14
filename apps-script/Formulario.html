@@ -722,8 +722,19 @@ function carregarCard(sl) {
 
 /* ---------- comprador: cotação / compra ---------- */
 
+/* 14/10/2026 (revisão A01, Weslley liberou no principal): uma regra só para ler valor em reais, igual à do servidor (vd_valorNum_).
+   Com vírgula = formato brasileiro ("1.234,56"); sem vírgula, ponto com 1 ou 2 casas é decimal ("12.5" = 12,50);
+   ponto com 3 casas é milhar ("1.234" = 1.234,00). Texto que não é número vira NaN (antes "12abc" virava 12 e "12.5" virava 125). */
+function lerValorBR(v) {
+  if (typeof v === 'number') return v;
+  var s = String(v == null ? '' : v).replace(/R\$/i, '').replace(/\s/g, '');
+  if (!s) return NaN;
+  if (s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+  else if (!/^-?\d+\.\d{1,2}$/.test(s)) s = s.replace(/\./g, '');
+  return /^-?\d+(\.\d+)?$/.test(s) ? parseFloat(s) : NaN;
+}
 function fmtValor(v) {
-  var n = typeof v === 'number' ? v : parseFloat(String(v || '').replace(/R\$|\s/g, '').replace(/\./g, '').replace(',', '.'));
+  var n = lerValorBR(v);
   if (isNaN(n)) return '';
   var s = n.toFixed(2).split('.');
   return 'R$ ' + s[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + s[1];
@@ -972,7 +983,7 @@ function selosPeca(lista) {
 
 /* ---------- valor da peça no orçamento × cotação (05/10/2026, Weslley) ----------
    Economia = (orçamento líquido − cotação) / orçamento. Faixas: < 20% (ou mais caro) vermelho · 20–30% amarelo · > 30% verde. */
-function numValor(v) { return typeof v === 'number' ? v : parseFloat(String(v || '').replace(/R\$|\s/g, '').replace(/\./g, '').replace(',', '.')); }
+function numValor(v) { return lerValorBR(v); }
 function ecoOrc(valorOrc, valorCot) {
   var o = numValor(valorOrc), c = numValor(valorCot);
   if (isNaN(o) || isNaN(c) || o <= 0 || c < 0) return null;
@@ -3067,7 +3078,7 @@ iniciar();
   .v2pc :is(#itens, #itensPart) > .item.nao-comprar .v2-desc2 { opacity:.6; }
   /* botão Enviar: quanto falta; verde quando está tudo pronto */
   .v2pc #btnEnviar.v2-pend-env { background:#fff !important; color:#0c66e4 !important; border:2px solid #0c66e4 !important; font-size:0 !important; }
-  .v2pc #btnEnviar.v2-pend-env::after { content:attr(data-rot); font-size:16px; font-weight:600; }
+  .v2pc #btnEnviar.v2-pend-env::after { content:attr(data-rot); display:block; font-size:16px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; padding:0 10px; }
   .v2pc #btnEnviar.v2-pend-env:hover { background:#e9f2ff !important; }
   .v2pc #btnEnviar.v2-pronto { background:#1f845a !important; border-color:#1f845a !important; }
   .v2pc #btnEnviar.v2-pronto:hover { background:#216e4e !important; }
@@ -3259,7 +3270,7 @@ iniciar();
   .v2pc.v2-pedtopo #v2lado > .rodape { padding-top:8px !important; margin-top:-4px !important; }
   /* cabeçalho preso das colunas: divisória e sombra (a peça de baixo não parece "cortada") */
   .v2pc .v2pc-cab { box-shadow:0 1px 0 #dcdfe4, 0 6px 6px -6px rgba(9,30,66,.18); padding-bottom:6px !important; }
-  .v2pc .v2pc-cab:has(+ :not(:has(> .item))) { display:none !important; }   /* sem peça ainda: sem cabeçalho solto */
+  .v2pc .v2pc-cab.v2-cab-vazio { display:none !important; }   /* sem peça ainda: sem cabeçalho solto (marcado em marcasPecas) */
   /* nome do arquivo numa linha só, com "…" */
   .v2pc .v2-ler .linha .nome { min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block !important; }
   .v2pc .v2-ler .linha a.nome small { display:none !important; }
@@ -3300,10 +3311,46 @@ iniciar();
   /* 4ª rodada, fecho: aviso de erro no padrão dos cartões; MANUAL some só no zoom (a faixa amarela + legenda + "Excluir" continuam) */
   .v2pc #erroGeral:not(.oculto) { border-radius:var(--r-lg) !important; border:1px solid #f5c2bd !important; padding:12px 16px !important; margin-bottom:12px !important; }
   @container pecas (max-width: 820px) {
-    .v2pc :is(#itens, #itensPart) > .item > .item-topo .v2-origem { display:none !important; }
+    .v2pc :is(#itens, #itensPart) > .item[data-origem="mao"] > .item-topo .v2-origem { position:absolute !important; width:1px !important; height:1px !important; overflow:hidden !important; clip:rect(0 0 0 0) !important; padding:0 !important; margin:-1px !important; }
     .v2pc .v2-comorc :is(#itens, #itensPart) > .item[data-origem="mao"] > .item-topo { grid-row:2 !important; grid-column:4 / -1 !important; }
     .v2pc :is(#itens, #itensPart) > .item > .item-topo { gap:4px !important; }
   }
+  /* ---- 14/10/2026: revisão do outro modelo (A04–A08) + modelo novo ---- */
+  /* Obs.: o botão abre/fecha sempre; com texto e fechada, ponto azul no botão (o texto não some) */
+  .v2pc :is(#itens, #itensPart) > .item:not(.v2-obs) > .inteiro:has(.f-obs) { display:none !important; }
+  .v2pc :is(#itens, #itensPart) > .item:not(.v2-obs):has(.f-obs:not(:placeholder-shown)) > .item-topo .v2-obstog { background:#e9f2ff !important; border-color:#1d7afc !important; color:#0c66e4 !important; }
+  .v2pc :is(#itens, #itensPart) > .item:not(.v2-obs):has(.f-obs:not(:placeholder-shown)) > .item-topo .v2-obstog::after { content:''; width:7px; height:7px; margin-left:5px; border-radius:50%; background:#0c66e4; flex:0 0 7px; }
+  /* erro escrito embaixo da peça */
+  .v2pc :is(#itens, #itensPart) > .item > .v2-faltaitem { order:5; grid-column:2 / -1; display:flex; align-items:center; gap:6px; margin:0; font-size:12.5px; line-height:16px; font-weight:500; color:#ae2e24; }
+  .v2pc :is(#itens, #itensPart) > .item > .v2-faltaitem::before { content:'!'; display:inline-grid; place-items:center; width:15px; height:15px; flex:0 0 15px; border-radius:50%; background:#c9372c; color:#fff; font-size:11px; font-weight:700; line-height:1; }
+  /* estado do salvamento embaixo dos botões */
+  .v2pc .v2-estado { display:flex; align-items:center; justify-content:center; gap:6px; min-height:18px; margin-top:6px; font-size:12.5px; color:#44546f; }
+  .v2pc .v2-estado:empty { display:none; }
+  .v2pc .v2-estado::before { content:''; width:8px; height:8px; border-radius:50%; flex:0 0 8px; background:#8590a2; }
+  .v2pc .v2-estado.sujo { color:#7f5f01; } .v2pc .v2-estado.sujo::before { background:#e2b203; }
+  .v2pc .v2-estado.ok { color:#216e4e; } .v2pc .v2-estado.ok::before { background:#1f845a; }
+  .v2pc .v2-estado.erro { color:#ae2e24; } .v2pc .v2-estado.erro::before { background:#c9372c; }
+  .v2pc .v2-estado.salvando::before { background:#0c66e4; animation:v2pulsa 1s ease-in-out infinite; }
+  @keyframes v2pulsa { 50% { opacity:.3; } }
+  /* balão genérico (Pedido novo com alterações) */
+  .v2 .v2-balao { position:absolute; z-index:40; width:360px; margin:0; padding:10px 12px; background:#fffbe8; border:1px solid #f5cd47; border-radius:8px; box-shadow:0 4px 12px #091e4226; font-size:14px; line-height:19px; color:#172b4d; animation:v2surge var(--t-base, .18s) var(--ease, ease); }
+  .v2 .v2-balao .bts { display:flex; gap:8px; margin-top:8px; }
+  .v2 .v2-balao button { min-height:32px; padding:0 12px; font-size:14px; }
+  /* "Ver anteriores (N)" no "Já está no card" */
+  .v2pc .v2-ler .v2-anteriores { border-top:1px solid #dcdfe4; }
+  .v2pc .v2-ler .v2-anteriores > summary { cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px; min-height:30px; padding:2px 6px; font-size:13px; font-weight:600; color:#44546f; border-radius:6px; }
+  .v2pc .v2-ler .v2-anteriores > summary::-webkit-details-marker { display:none; }
+  .v2pc .v2-ler .v2-anteriores > summary::before { content:''; width:8px; height:8px; border-right:2px solid #626f86; border-bottom:2px solid #626f86; transform:rotate(-45deg); transition:transform var(--t-fast, .12s) ease; margin:0 4px 0 2px; }
+  .v2pc .v2-ler .v2-anteriores[open] > summary::before { transform:rotate(45deg); }
+  .v2pc .v2-ler .v2-anteriores > summary:hover { background:#fff; }
+  /* 1ª linha da lista no pedido novo: dica de começo (não é falta) */
+  .v2pc #v2etapas .fl li:has(a[data-alvo="c:orçamento"]):first-child a b { color:#0c66e4; }
+  /* 14/10/2026 (revisão A07 + modelo novo): ✓ dentro do tipo marcado (não depende só da cor) */
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip:has(input.f-tipo) { display:inline-flex !important; align-items:center; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .chip.marcado:has(input.f-tipo)::before { content:''; width:12px; height:12px; margin-right:5px; flex:0 0 12px; background:#fff;
+    -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center / contain no-repeat; }
+  .v2pc :is(#itens, #itensPart) > .item .f-valor-orc.v2-invalido { background:#fff6f5 !important; border-color:#c9372c !important; }
   .v2 .v2-sr { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0 0 0 0) !important; white-space:nowrap !important; border:0 !important; opacity:0; }
   .v2pc label.v2-btnarq.v2-focado { outline:2px solid #0c66e4 !important; outline-offset:2px; }
   /* celular: a linha do "Já está no card" quebra (as etiquetas novas espremiam o nome em 1 letra por linha) */
@@ -3526,6 +3573,18 @@ iniciar();
     });
     secoes[0].classList.add('v2-s1');
     g('v2novo').onclick = function () {
+      // 14/10/2026 (revisão A08): com alterações não salvas, confirma antes de descartar
+      if (typeof pedidoSujo === 'function' && pedidoSujo() && !g('v2novo').dataset.forcar) {
+        var bal = g('v2novoConf');
+        if (!bal) { bal = document.createElement('div'); bal.id = 'v2novoConf'; bal.className = 'v2-balao'; topo.appendChild(bal); }
+        bal.innerHTML = 'Este pedido tem <b>alterações não salvas</b>. Começar um pedido novo e descartar o que foi feito aqui?'
+          + '<div class="bts"><button type="button" class="perigo" id="v2novoSim">Descartar e começar</button><button type="button" class="secundario" id="v2novoNao">Continuar editando</button></div>';
+        var rt = topo.getBoundingClientRect(), rb = g('v2novo').getBoundingClientRect();
+        bal.style.left = Math.max(8, Math.min(rb.left - rt.left - 120, rt.width - 380)) + 'px'; bal.style.top = (rb.bottom - rt.top + 10) + 'px'; bal.style.display = '';
+        g('v2novoNao').onclick = function () { bal.style.display = 'none'; };
+        g('v2novoSim').onclick = function () { bal.style.display = 'none'; g('v2novo').dataset.forcar = '1'; g('v2novo').click(); delete g('v2novo').dataset.forcar; };
+        return;
+      }
       modoNovo();
       ['placa', 'modelo', 'ano', 'motor', 'chassi', 'carro', 'cor', 'seguradora', 'sinistro', 'obs'].forEach(function (id) { if (g(id)) g(id).value = ''; });
       if (g('itens')) g('itens').innerHTML = ''; if (g('itensPart')) g('itensPart').innerHTML = '';
@@ -3587,8 +3646,8 @@ iniciar();
       + (function () {   // 2ª rodada: total das peças no orçamento (valor líquido × qtd), para bater com o PDF
         if (!(window.ORC || (window.CARD && window.CARD.doOrcamento))) return '';
         var tot = 0; pecas.forEach(function (it) {
-          var v = String((it.querySelector('.f-valor-orc') || {}).value || '').replace(/R\$|\s/g, '').replace(/\./g, '').replace(',', '.');
-          var q = parseFloat((it.querySelector('.f-qtd') || {}).value) || 1; if (parseFloat(v)) tot += parseFloat(v) * q; });
+          var v = lerValorBR((it.querySelector('.f-valor-orc') || {}).value);
+          var q = parseFloat((it.querySelector('.f-qtd') || {}).value) || 1; if (v > 0) tot += v * q; });
         return tot ? kv('Total no orçamento', (typeof fmtValor === 'function' ? fmtValor(tot) : 'R$ ' + tot.toFixed(2))) : '';
       })();
     if (g('v2resumo').dataset.h !== res) { g('v2resumo').innerHTML = res; g('v2resumo').dataset.h = res; }
@@ -3605,6 +3664,7 @@ iniciar();
     f1.forEach(function (x) { if (!/^(placa|modelo|ano|chassi|nº da ordem|unidade|carro|cor|seguradora|sinistro|motor)/i.test(x.split(',')[0].trim())) falta1.push({ txt: /seguradora:\s*anexe/i.test(x) ? 'Anexar o orçamento autorizado (ou marcar Particular)' : x, alvo: 'c:orçamento' }); });
     if (f1.length && !falta1.length) falta1 = f1.map(function (x) { return { txt: x, alvo: 'c:' + x }; });
     var docs = falta1.filter(function (x) { return x.alvo === 'c:orçamento'; }).length;
+    var inicio = !window.CARD_EDICAO && !window.ORC && !v('placa') && !v('modelo') && !v('chassi');
     if (tipo === 'SEGURADORA' && !docs) docs = 1;   // orçamento autorizado conta como um item da etapa (já anexado = pronto)
     var tot1 = obrCampos.length + docs, ok1 = Math.max(0, tot1 - falta1.length);
     // peça em branco (sem código, descrição nem medida) o envio ignora — não conta
@@ -3640,18 +3700,25 @@ iniciar();
       if (be.dataset.faltam !== String(nFaltam)) be.dataset.faltam = String(nFaltam);
       if (!nFaltam && be.classList.contains('v2-pend-env')) { be.classList.add('v2-ficou-pronto'); setTimeout(function () { be.classList.remove('v2-ficou-pronto'); }, 800); }
       be.classList.toggle('v2-pronto', !nFaltam); be.classList.toggle('v2-pend-env', !!nFaltam);
-      var rot = nFaltam === 1 ? 'Falta 1 item · ir para ele' : 'Faltam ' + nFaltam + ' itens · ir para o 1º';
+      // 14/10/2026 (revisão A04): dizer o que falta — dados do carro e/ou peças com pendência (antes: "Faltam N itens")
+      var nCar = falta1.length, nPec = falta2.filter(function (x) { return /^k:/.test(x.alvo || ''); }).length, nInc = falta2.filter(function (x) { return x.alvo === 'id:itens'; }).length;
+      var pDad = nCar === 1 ? '1 dado do carro' : nCar + ' dados do carro', pPec = nPec === 1 ? '1 peça com pendência' : nPec + ' peças com pendência';
+      var rot = nCar && nPec ? 'Faltam ' + (nCar === 1 ? '1 dado' : nCar + ' dados') + ' e ' + (nPec === 1 ? '1 peça' : nPec + ' peças') + ' · ir para o 1º'
+        : nCar ? (nCar === 1 ? 'Falta ' : 'Faltam ') + pDad + ' · ir para o 1º'
+        : nPec ? pPec + ' · ir para ' + (nPec === 1 ? 'ela' : 'a 1ª')
+        : nInc ? 'Inclua pelo menos uma peça' : (nFaltam === 1 ? 'Falta 1 item · ir para ele' : 'Faltam ' + nFaltam + ' itens · ir para o 1º');
       if (be.dataset.rot !== rot) {
         be.dataset.rot = rot;
-        var viv = g('v2vivo'); if (viv) viv.textContent = nFaltam ? rot.replace(' · ir para o 1º', '').replace(' · ir para ele', '') : 'Pedido pronto para enviar';
+        var viv = g('v2vivo'); if (viv) viv.textContent = nFaltam ? rot.replace(/ · ir para .*$/, '') : 'Pedido pronto para enviar';
       }
       be.setAttribute('aria-label', nFaltam ? rot : 'Enviar pedido');
-      if (nFaltam && (be.textContent === 'Enviar pedido' || /^Falta/.test(be.textContent)) && be.textContent !== rot) be.textContent = rot;
-      if (!nFaltam && /^Falta/.test(be.textContent)) be.textContent = 'Enviar pedido';
+      if (nFaltam && (be.textContent === 'Enviar pedido' || be.textContent === be.dataset.rotPost) && be.textContent !== rot) { be.textContent = rot; be.dataset.rotPost = rot; }
+      if (!nFaltam && be.dataset.rotPost && be.textContent === be.dataset.rotPost) { be.textContent = 'Enviar pedido'; be.dataset.rotPost = ''; }
       be.title = nFaltam ? 'Ainda falta preencher. Clique para ir até o primeiro item que falta.' : '';
     }
     var et = [
-      { t: 'Orçamento e carro', c: tot1 ? ok1 + ' de ' + tot1 : '', p: tot1 ? ok1 / tot1 : 1, f: falta1 },
+      { t: 'Orçamento e carro', c: tot1 ? ok1 + ' de ' + tot1 : '', p: tot1 ? ok1 / tot1 : 1,
+        f: (inicio && tipo === 'SEGURADORA' ? [{ html: '<b>Comece pelo orçamento</b> — preenche o resto', alvo: 'c:orçamento', titulo: 'Anexe o PDF do orçamento autorizado: o sistema lê e preenche o carro e as peças', ini: true }].concat(falta1.filter(function (x) { return x.alvo !== 'c:orçamento'; })) : falta1) },
       { t: 'Peças', c: tot2 ? ok2 + ' de ' + tot2 + ' prontas' : 'falta incluir', p: tot2 ? ok2 / tot2 : (f2.length ? 0 : 1), f: falta2 },
       { t: 'Enviar', c: '', p: 0, f: [] }
     ];
@@ -3770,7 +3837,10 @@ iniciar();
       var topoIt = it.querySelector(':scope > .item-topo');
       if (topoIt && it.querySelector('.f-obs')) {
         var ob = document.createElement('button'); ob.type = 'button'; ob.className = 'secundario v2-obstog'; if (PC) ob.innerHTML = '<span class="v2i v2i-plus" aria-hidden="true"></span>Obs.'; else ob.textContent = '+ Obs.'; ob.title = 'Observação da peça (o comprador vê)';
-        ob.onclick = function () { it.classList.toggle('v2-obs'); if (it.classList.contains('v2-obs')) it.querySelector('.f-obs').focus(); };
+        ob.onclick = function () { it.classList.toggle('v2-obs'); var ab = it.classList.contains('v2-obs'); ob.setAttribute('aria-expanded', ab ? 'true' : 'false'); if (ab) it.querySelector('.f-obs').focus(); };
+        // 14/10/2026 (revisão A06): peça que já vem com observação abre com ela à vista; fechar não apaga o texto
+        if (String(it.querySelector('.f-obs').value || '').trim()) it.classList.add('v2-obs');
+        ob.setAttribute('aria-expanded', it.classList.contains('v2-obs') ? 'true' : 'false');
         topoIt.insertBefore(ob, topoIt.querySelector('select')); var rm = topoIt.querySelector('button.perigo'); if (rm) rm.title = 'Remover a peça';
         var cc = topoIt.querySelector('.chip-comp'); if (cc) cc.title = 'Complemento: peça fora do orçamento autorizado (vai no orçamento complementar da seguradora)';
         var cn = topoIt.querySelector('.chip-nao'); if (cn) cn.title = 'Não comprar: peça do orçamento que a oficina não vai comprar (recuperar, cliente já tem…)';
@@ -3973,6 +4043,7 @@ iniciar();
   if (suc) new MutationObserver(function () {
     var t = suc.textContent || ''; if (!t || (avisar.ult && t.indexOf(avisar.ult) === 0)) return; avisar.ult = t;
     avisar(/parcial/i.test(t) ? '💾 Salvo ✓' : /recebimento/i.test(t) ? '📦 Registrado ✓' : '✅ Enviado ✓');
+    try { marcarSalvo(); } catch (e) {}
     apagarRascunho();
   }).observe(suc, { childList: true, characterData: true, subtree: true });
 
@@ -4030,7 +4101,7 @@ iniciar();
         lista = document.createElement('div'); lista.className = 'v2-ler'; box._v2lista = lista;
         if (onde) onde(lista); else box.insertAdjacentElement('beforebegin', lista);
       }
-      var docs = [], fotos = [], ents = [];
+      var docs = [], fotos = [], ents = [], antigos = [];
       lers.forEach(function (l, i) {
         var a = l.previousElementSibling; while (a && a.tagName !== 'A') a = a.previousElementSibling;
         var nome = a ? a.textContent.trim() : 'Anexo ' + (i + 1), url = a && a.href && !/#$/.test(a.href) ? a.href : '';
@@ -4056,7 +4127,7 @@ iniciar();
           // 13/10/2026: foto do carro não tem "Ler" (quase nunca é documento) — só abrir
           + (e.foto ? '' : '<button type="button" class="' + (e.orc && !jaLido && !antigo ? 'principal' : 'secundario') + '" data-i="' + e.i + '">' + (e.orc ? (e.de || jaLido ? '🔄 Importar de novo' : '📥 Importar peças') : (e.de ? '🔄 Ler de novo' : '📖 Ler')) + '</button>')
           + '</div>';
-        (e.foto ? fotos : docs).push(h);
+        (e.foto ? fotos : (antigo && PC && box.id === 'anexosCard' ? antigos : docs)).push(h);
       });
       // 09/10/2026: documentos primeiro; fotos (às vezes 10+) agrupadas e recolhidas — antes enchiam a tela
       var htmlFotos = fotos.length > 2
@@ -4068,7 +4139,9 @@ iniciar();
         cab = '<div class="v2-lercab"><h4>' + titulo + '<span class="v2q" tabindex="0" data-dica="' + txt(DICA_LER) + '"></span></h4>'
           + '</div>';
       }
-      lista.innerHTML = cab + docs.join('') + htmlFotos;
+      // 14/10/2026 (modelo novo): orçamentos anteriores recolhidos em "Ver anteriores (N)"
+      var htmlAnt = antigos.length ? '<details class="v2-anteriores"><summary>Ver anteriores (' + antigos.length + ')</summary>' + antigos.join('') + '</details>' : '';
+      lista.innerHTML = cab + docs.join('') + htmlAnt + htmlFotos;
       $$('button', lista).forEach(function (b) { b.onclick = function () { var l = lers[+b.dataset.i]; b.disabled = true; b.textContent = /Importar/.test(b.textContent) ? '⏳ Importando…' : '⏳ Lendo…'; l.click(); }; });
       // o que não é "ler" (links e outros anexos) continua aparecendo embaixo
       box.classList.add('v2-orig');
@@ -4184,6 +4257,7 @@ iniciar();
     document.addEventListener('focusout', function (e) {
       var t = e.target; if (!t || !t.classList) return;
       if (t.classList.contains('f-valor-orc') && t.value.trim()) t.value = semRS(t.value) || t.value;
+      if (t.classList.contains('f-valor-orc')) t.classList.toggle('v2-invalido', !!t.value.trim() && isNaN(lerValorBR(t.value)));
     });
     document.addEventListener('input', function (e) {
       var t = e.target; if (!t || !t.classList || !t.classList.contains('f-qtd')) return;
@@ -4376,11 +4450,19 @@ iniciar();
       if (!et) { et = document.createElement('span'); et.className = 'v2-origem'; var num = tp.querySelector('.num'); if (num) num.insertAdjacentElement('afterend', et); else tp.insertBefore(et, tp.firstChild); }
       var t = it.dataset.origem === 'orc' ? 'ORÇAMENTO' : 'MANUAL';
       if (et.textContent !== t) { et.textContent = t; et.title = t === 'ORÇAMENTO' ? 'Veio do orçamento da seguradora' : 'Incluída à mão (não está no orçamento)'; }
-      var vo = it.querySelector('.f-valor-orc'); if (vo) { var ph = comOrc ? '0,00' : 'opcional'; if (vo.placeholder !== ph) vo.placeholder = ph; }
+      var vo = it.querySelector('.f-valor-orc'); if (vo) { var ph = comOrc ? '0,00' : 'opcional'; if (vo.placeholder !== ph) vo.placeholder = ph;
+        // 14/10/2026 (revisão A05): o valor é UNITÁRIO; com qtd > 1, o subtotal aparece ao parar o mouse
+        var vu = lerValorBR(vo.value), qq = parseFloat((it.querySelector('.f-qtd') || {}).value) || 1;
+        var tv = vu > 0 && qq > 1 ? 'Valor unitário. Subtotal: ' + fmtValor(vu * qq) + ' (' + qq + ' × ' + fmtValor(vu).replace(/^R\$\s*/, '') + ')' : 'Valor unitário (R$)';
+        if (vo.title !== tv) vo.title = tv;
+        vo.classList.toggle('v2-invalido', !!String(vo.value || '').trim() && isNaN(vu)); }
+      var fc = it.querySelector('.f-codigo');
+      if (fc && /Buscar no Cilia/i.test(fc.placeholder)) { fc.placeholder = 'Código da peça'; fc.title = 'Consulte o código no Cilia'; }
     });
     var tp2 = g('tituloPecas');   // legenda da faixa ao lado da peça
     if (tp2 && !tp2.querySelector('.v2-legenda')) tp2.insertAdjacentHTML('beforeend', '<span class="v2-legenda"><span><i style="background:#1f845a"></i>do orçamento</span><span><i style="background:#e2b203"></i>incluída à mão</span></span>');
-    $$('.v2pc-cab span').forEach(function (sp) { if (/^Valor/.test(sp.textContent)) { var tv = comOrc ? 'Valor orç. (R$)' : 'Valor (R$)'; if (sp.textContent !== tv) sp.textContent = tv; } });
+    $$('.v2pc-cab').forEach(function (c) { var bx = c.nextElementSibling; c.classList.toggle('v2-cab-vazio', !(bx && bx.querySelector(':scope > .item'))); });
+    $$('.v2pc-cab span').forEach(function (sp) { if (/^Valor/.test(sp.textContent)) { var tv = 'Valor unit. (R$)'; if (sp.textContent !== tv) { sp.textContent = tv; sp.title = comOrc ? 'Valor unitário líquido do orçamento' : 'Valor unitário (opcional)'; } } });
   }
   /* trocar quem paga (Seguradora / Particular / Retorno) num card que já existe pede confirmação */
   var TIPO_NOME = { SEGURADORA: 'Seguradora', PARTICULAR: 'Particular (cliente paga)', RETORNO: 'Retorno (oficina paga)' }, tipoConfirmado = '';
@@ -4389,17 +4471,75 @@ iniciar();
     if (!r || !PC || !window.CARD_EDICAO || !window.CARD) return;
     var atual = tipoPedidoV2();
     if (r.value === atual || tipoConfirmado === r.value) { tipoConfirmado = ''; return; }
+    var ct = String(window.CARD.tipo || 'SEGURADORA').toUpperCase(), cardSeg = ct !== 'PARTICULAR' && ct !== 'RETORNO';
+    // 14/10/2026 (revisão A02): num card de seguradora, "Particular" é um pedido SEPARADO do cliente no mesmo card (não muda quem paga o card);
+    // voltar para "Seguradora" só volta à lista da seguradora; "Retorno" vai num card próprio (o envio mantinha SEGURADORA — a troca não fazia nada)
+    if (cardSeg && r.value === 'SEGURADORA') { tipoConfirmado = ''; return; }
     e.preventDefault(); e.stopPropagation();
     var bal = g('v2tipoConf');
     if (!bal) { bal = document.createElement('div'); bal.id = 'v2tipoConf'; topo.appendChild(bal); }
-    bal.innerHTML = 'Mudar quem paga deste card de <b>' + txt(TIPO_NOME[atual] || atual) + '</b> para <b>' + txt(TIPO_NOME[r.value] || r.value) + '</b>?'
-      + '<div class="dica" style="margin-top:4px">Isso muda as regras do card (autorização, complemento e compra).</div>'
-      + '<div class="bts"><button type="button" class="principal" id="v2tipoSim">Sim, mudar</button><button type="button" class="secundario" id="v2tipoNao">Não</button></div>';
+    if (cardSeg && r.value === 'PARTICULAR') {
+      bal.innerHTML = 'Fazer um <b>pedido particular</b> (o cliente paga) separado neste card?'
+        + '<div class="dica" style="margin-top:4px">As peças da seguradora continuam como estão. Você lança só as peças do cliente — quem autoriza é você.</div>'
+        + '<div class="bts"><button type="button" class="principal" id="v2tipoSim">Sim, pedido particular</button><button type="button" class="secundario" id="v2tipoNao">Não</button></div>';
+    } else if (cardSeg && r.value === 'RETORNO') {
+      bal.innerHTML = 'O <b>retorno</b> (a oficina paga) vai num card próprio.'
+        + '<div class="dica" style="margin-top:4px">Clique em <b>Pedido novo</b>, marque Retorno e digite a mesma placa: os dados do carro vêm deste card.</div>'
+        + '<div class="bts"><button type="button" class="secundario" id="v2tipoNao">Entendi</button></div>';
+    } else {
+      bal.innerHTML = 'Mudar quem paga deste card de <b>' + txt(TIPO_NOME[atual] || atual) + '</b> para <b>' + txt(TIPO_NOME[r.value] || r.value) + '</b>?'
+        + '<div class="dica" style="margin-top:4px">Isso muda as regras do card (autorização, complemento e compra).</div>'
+        + '<div class="bts"><button type="button" class="principal" id="v2tipoSim">Sim, mudar</button><button type="button" class="secundario" id="v2tipoNao">Não</button></div>';
+    }
     var rt = topo.getBoundingClientRect(), rr = (r.closest('label') || r).getBoundingClientRect();
     bal.style.left = Math.max(8, rr.left - rt.left - 10) + 'px'; bal.style.top = (rr.bottom - rt.top + 10) + 'px'; bal.style.display = '';
     g('v2tipoNao').onclick = function () { bal.style.display = 'none'; };
-    g('v2tipoSim').onclick = function () { bal.style.display = 'none'; tipoConfirmado = r.value; r.click(); };
+    if (g('v2tipoSim')) g('v2tipoSim').onclick = function () { bal.style.display = 'none'; tipoConfirmado = r.value; r.click(); };
   }, true);
+  /* ---- 14/10/2026 (revisão do outro modelo + modelo novo): estado do salvamento (A08) e erro escrito na peça ---- */
+  var BASE_SIG = null, BASE_PEND = 3, ULT_CARD = undefined, SALVO_EM = '';
+  function assinaturaPedido() {
+    try {
+      var r = coletarOrig ? coletarOrig() : coletar(); var pl = (r && r.payload) || {};
+      return JSON.stringify({ d: pl.dados, n: pl.novo, o: pl.obs, a: (pl.arquivos || []).length + '/' + (pl.fileIds || []).length + '/' + (pl.capaId || ''),
+        p: (pl.pecas || []).map(function (x) { var y = {}; Object.keys(x).forEach(function (k) { if (k === 'valorOrc') { var nv = lerValorBR(x[k]); y[k] = isNaN(nv) ? String(x[k] || '').trim() : nv; } else y[k] = x[k]; }); return y; }) });
+    } catch (e) { return null; }
+  }
+  function pedidoSujo() { if (!PC || !visivel(form) || BASE_SIG === null) return false; var s0 = assinaturaPedido(); return s0 !== null && s0 !== BASE_SIG; }
+  function marcarSalvo() { BASE_SIG = assinaturaPedido(); var d = new Date(); SALVO_EM = ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
+  function estadoSalvar() {
+    if (!PC) return;
+    // linha de base: quando o card abre (ou o pedido novo começa), depois de a tela terminar de montar
+    if (window.CARD !== ULT_CARD) { ULT_CARD = window.CARD; BASE_PEND = 3; BASE_SIG = null; SALVO_EM = ''; }
+    if (BASE_PEND > 0 && visivel(form)) { BASE_PEND--; if (!BASE_PEND) BASE_SIG = assinaturaPedido(); }
+    var rod = rodapeEnviar; if (!rod) return;
+    var el = g('v2estado'); if (!el) { el = document.createElement('div'); el.id = 'v2estado'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); rod.appendChild(el); }
+    var envi = g('enviando') && !g('enviando').classList.contains('oculto');
+    var erro = g('erroGeral') && !g('erroGeral').classList.contains('oculto');
+    var sujo = pedidoSujo(), t = '', c = '';
+    if (envi) { t = 'Salvando…'; c = 'salvando'; }
+    else if (sujo && erro) { t = 'Não foi salvo — veja o aviso no alto da página'; c = 'erro'; }
+    else if (sujo) { t = 'Alterações não salvas'; c = 'sujo'; }
+    else if (SALVO_EM) { t = 'Salvo às ' + SALVO_EM; c = 'ok'; }
+    if (el.dataset.t !== t) { el.dataset.t = t; el.textContent = t; el.className = 'v2-estado ' + c; }
+  }
+  window.addEventListener('beforeunload', function (e) { if (pedidoSujo()) { e.preventDefault(); e.returnValue = ''; return ''; } });
+  window.__v2dbgEstado = function () { var sg = assinaturaPedido(); return { base: BASE_SIG === null ? null : BASE_SIG.length, pend: BASE_PEND, sig: sg === null ? null : sg.length, igual: sg === BASE_SIG, sujo: pedidoSujo(), mesmoCard: ULT_CARD === window.CARD, pc: PC, vis: visivel(form) }; };
+  var CURTO_FALTA = function (x) { return /c[óo]digo/i.test(x) ? 'código' : /tipo de pe/i.test(x) ? 'tipo' : /descri/i.test(x) ? 'descrição' : /medida/i.test(x) ? 'medida' : /categoria|marca/i.test(x) ? 'categoria ou marca' : x; };
+  function juntarE(l) { return l.length < 2 ? l.join('') : l.slice(0, -1).join(', ') + ' e ' + l[l.length - 1]; }
+  function erroNaPeca(fs) {
+    if (!PC) return;
+    itensDoPedido().forEach(function (it) {
+      var fe = it.querySelector(':scope > .v2-faltaitem');
+      var nao = it.classList.contains('nao-comprar') || it.dataset.travada;
+      var l = nao ? [] : faltasDoItem(it, fs).map(CURTO_FALTA).filter(function (x, i, a) { return a.indexOf(x) === i; });
+      if (!l.length) { if (fe) fe.remove(); $$('[aria-describedby^="v2fe-"]', it).forEach(function (x) { x.removeAttribute('aria-describedby'); }); return; }
+      if (!fe) { fe = document.createElement('div'); fe.className = 'v2-faltaitem'; fe.id = 'v2fe-' + it.id; it.appendChild(fe); }
+      var t = 'Falta ' + juntarE(l) + '.';
+      if (fe.textContent !== t) fe.textContent = t;
+      $$('.v2-falta', it).forEach(function (x) { if (x.getAttribute('aria-describedby') !== fe.id) x.setAttribute('aria-describedby', fe.id); });
+    });
+  }
   /* 3ª rodada: acessibilidade e ordem de teclado (só computador) */
   var A11Y_UMA = false;
   function acessivelPC() {
@@ -4458,6 +4598,7 @@ iniciar();
   function varrer() {
     try { pintarObrigatorios(); } catch (e) {}
     try { marcasPecas(); nomesUnidade(); acessivelPC(); } catch (e) {}
+    try { if (PC && visivel(form)) erroNaPeca(faltasDoForm()); estadoSalvar(); } catch (e) {}
     try { atualizarLado(); } catch (e) {}
     try { if (PC) barraDoc(); } catch (e) {}
     cartaoLeitura(g('anexosCard'), '📎 Já está no card', 'Toque em <b>Importar peças</b> para o sistema preencher o carro e as peças.', function (lista) {
