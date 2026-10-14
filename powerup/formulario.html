@@ -4214,12 +4214,13 @@ iniciar();
   /* ===== 14/10/2026 (Weslley: "use a requisição de aparelho para saber qual interface usar") — pedido no computador com zoom alto =====
      Antes, abaixo de 640 px o computador caía no layout de celular. Agora fica no de computador, que se ajusta até 320 px (zoom de 400%). */
   @media (max-width:760px) {
-    /* barra de cima em até 3 linhas: placa menor; situação e tipo do pedido; Pedido novo · Detalhes · Ajuda à direita */
+    /* barra de cima em linhas: placa menor com Pedido novo · Detalhes · Ajuda à direita; embaixo, na largura toda, a situação e o
+       tipo do pedido (o grupo Seguradora | Particular | Retorno só quebra quando não cabe nem assim) */
     .v2pc.v2-pedtopo:not(.v2-comp) #v2topo { flex-wrap:wrap !important; row-gap:6px; column-gap:10px !important; padding-left:12px !important; padding-right:12px !important; }
     .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-placa { zoom:.7; flex:0 0 auto; }
-    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-meio { flex:1 1 220px !important; min-width:0; }
-    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo, .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chips { flex-wrap:wrap !important; row-gap:4px; }
-    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-dir { flex:1 1 100%; flex-wrap:wrap; justify-content:flex-end; row-gap:6px; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-dir { order:1 !important; margin-left:auto; flex:0 1 auto; flex-wrap:wrap; justify-content:flex-end; row-gap:6px; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-meio { order:2 !important; flex:1 1 100% !important; min-width:0; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo { flex-wrap:wrap !important; row-gap:4px; }
     .v2pc.v2-pedtopo:not(.v2-comp) #v2etapa { flex-wrap:wrap !important; row-gap:4px; white-space:normal !important; }
     .v2pc.v2-pedtopo:not(.v2-comp) #v2etapa > .v2sit-p { white-space:normal !important; }
     .v2pc:not(.v2-comp) main { padding-left:12px !important; padding-right:12px !important; }
@@ -4228,6 +4229,13 @@ iniciar();
     .v2pc section.v2-carro div:has(> :is(#modelo, #chassi)) { grid-column:span 12; }
     /* anexos já no card: a linha quebra (o "Importar de novo" passava da borda) */
     .v2pc .v2-ler .linha { flex-wrap:wrap; row-gap:4px; }
+  }
+  @media (max-width:420px) {
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip { padding:0 8px !important; gap:5px !important; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip .v2i { display:none !important; }
+  }
+  @media (max-width:360px) {
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chips { flex-wrap:wrap !important; row-gap:4px; }
   }
   /* uma coluna (zoom a partir de ~150%): a coluna da direita vem depois do pedido, inteira — sem rolagem própria nem botões presos
      (com a tela baixa ela virava uma caixinha de ~120 px rolando por dentro) */
