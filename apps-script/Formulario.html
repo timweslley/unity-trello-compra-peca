@@ -508,6 +508,7 @@
       <section>
         <h2>Recebimento — marque o que chegou</h2>
         <div class="dica" style="margin-bottom:10px">Marque cada peça que chegou, confira a data, diga <b>onde guardou</b> (prateleira) e, se precisar, escreva uma observação e anexe foto ou nota <b>da peça</b>. A chegada é comparada com a previsão (dias úteis) e fica registrada no card. Quando tudo chegar, o card segue sozinho.</div>
+        <div id="recRevertidas"></div>
         <div id="recItens"></div>
         <datalist id="dlLocais"></datalist>
       </section>
@@ -1140,6 +1141,8 @@ var REC_ANEXOS = [];   // [{fileId, nome, ids:[idItem]}]
 function hojeISO() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
 function montarRecebimento(c) {
   REC_ANEXOS = []; $('recGerais').innerHTML = '';
+  // FO revertida para a oficina (14/10/2026, JDC7H45): se a seguradora entregar mesmo assim, recusar/devolver — vem do Google
+  var rv = $('recRevertidas'); if (rv) { rv.innerHTML = ''; chamar('vdf_foRevertidas', TOKEN, CARD_EDICAO).then(montarRevertidas).catch(function () {}); }
   var box = $('recItens'); box.innerHTML = '';
   var pend = (c.recebiveis || []).filter(function (i) { return !i.ok; }), ja = (c.recebiveis || []).filter(function (i) { return i.ok; });
   if (!pend.length) box.innerHTML = '<div class="dica">Nada pendente de chegada neste card.</div>';
@@ -1180,6 +1183,27 @@ function montarRecebimento(c) {
     jaBox.appendChild(d);
   });
   dicasColar();
+}
+function montarRevertidas(lista) {
+  var rv = $('recRevertidas'); if (!rv) return;
+  lista = lista || []; rv.innerHTML = '';
+  if (!lista.length) return;
+  var h = '<div class="aviso devolvida" style="margin-bottom:12px">🔁 <b>Passaram para a oficina</b> (a seguradora não fornece mais) — se ela <b>entregar mesmo assim, RECUSAR na entrega</b> (ou devolver). Não dar entrada no FORNECIMENTO.';
+  lista.forEach(function (x, i) {
+    h += '<div class="item rev" data-nome="' + esc(x.nome) + '" style="margin-top:8px"><div class="item-topo"><strong>' + esc(x.nome) + '</strong> <span class="dica">desde ' + esc(x.quando) + '</span></div>'
+      + '<div class="grade" style="margin-top:6px"><div class="inteiro"><label>Observação (opcional)</label><input type="text" class="v-obs" placeholder="Ex.: transportadora levou de volta; protocolo nº"></div></div>'
+      + '<div style="margin-top:6px"><button type="button" class="secundario" onclick="enviarRevertida(this, \'recusada\')">🚫 Recusei na entrega</button> '
+      + '<button type="button" class="secundario" onclick="enviarRevertida(this, \'devolvida\')">↩️ Chegou e devolvi</button></div></div>';
+  });
+  rv.innerHTML = h + '</div>';
+}
+function enviarRevertida(btn, acao) {
+  var box = btn.closest('.rev'), obs = box.querySelector('.v-obs').value.trim();
+  Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = true; });
+  chamar('vdf_foRevertidaDevolvida', TOKEN, { shortLink: CARD_EDICAO, nome: box.dataset.nome, acao: acao, obs: obs }).then(function (r) {
+    if (!r.ok) { Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = false; }); return errosComprador(r.faltas); }
+    sucesso('↩️ Registrado no card <b>' + esc(r.nome) + '</b>: ' + esc(r.peca) + ' ' + (r.acao === 'recusada' ? 'recusada na entrega' : 'devolvida') + '.', r.url, 'Voltar ao card');
+  }).catch(function (e) { Array.prototype.forEach.call(box.querySelectorAll('button'), function (b) { b.disabled = false; }); errosComprador([e.message]); });
 }
 /* ---------- retirada (10/10/2026): peça recebida que saiu do estoque — quem levou e quando ---------- */
 function montarRetirada(c) {

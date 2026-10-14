@@ -336,6 +336,7 @@ function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTi
   (paraOficina || []).forEach(function (x) {
     t += '\n🔁 **Passou para a oficina:** ' + cp_nome_(x.peca) + ' — era fornecida pela seguradora (' + String(x.item.name).split(/\s+[-—]\s+/)[0] + '), saiu do checklist ' + (x.item.lista || 'FORNECIMENTO') + ' · verificar compra do item';
   });
+  if ((paraOficina || []).length) t += '\n⚠️ Se a seguradora entregar a peça revertida: **recusar na entrega** (ou devolver) e registrar na aba 📦 Recebimento.';
   (atualizadas || []).forEach(function (u) {
     t += '\n🔄 **Atualizada:** ' + (u.codigoAntigo || u.chave) + (u.codigo ? ' → código ' + u.codigo : '') + (u.valorOrc ? ' · orç. ' + u.valorOrc : '');
   });
@@ -547,6 +548,7 @@ function cp_aplicar_(card, cmp, o) {
   (cmp.paraOficina || []).forEach(function (x) {
     try { vd_api_('/cards/' + card.id + '/checkItem/' + x.item.id, { method: 'delete' }, o.token); } catch (e) { console.log('complemento/FO→oficina: ' + e); }
   });
+  try { cp_revGuardar_(card.id, (cmp.paraOficina || []).map(function (x) { return x.item.name; }), o.quem || 'robô'); } catch (e) {}
   vd_gravarDesc_(card.id, bloco + (div.temMarcador ? '\n\n' + resto : '\n\n' + VD.MARCADOR), o.token);
   var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
   var url = o.ctx && o.ctx.urlForm ? o.ctx.urlForm + '?card=' + card.shortLink + '&so=tipos' : '';
@@ -595,4 +597,70 @@ function cp_foNaOficina_(card, token, quem) {
   } catch (e) {}
   try { ev_registrar_('COMPLEMENTO', card, quem || 'robô', removidos.map(function (n) { return { peca: n.split(/\s+[-—]\s+/)[0], detalhe: 'FO → OFICINA (mesmo código ou mesma peça ➕ complemento na lista da oficina)' }; }), { detalhe: 'FO removida: ' + removidos.length }); } catch (e) {}
   return removidos;
+}
+
+
+/* ---------- FO revertida para a oficina (14/10/2026, JDC7H45) ----------
+ * A peça sai do FORNECIMENTO, mas a seguradora pode entregá-la mesmo assim. Regra (Weslley): RECUSAR na entrega / devolver.
+ * O card guarda as revertidas (FO_REV_<id>: [{nome, quando, por, fim}]) para a aba 📦 Recebimento avisar e registrar. */
+function cp_revLista_(cardId) {
+  try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('FO_REV_' + cardId) || '[]'); } catch (e) { return []; }
+}
+function cp_revGuardar_(cardId, nomes, por) {
+  nomes = (nomes || []).filter(String);
+  if (!nomes.length) return;
+  sg_secao_('FO_REV_' + cardId, function () {
+    var l = cp_revLista_(cardId), hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+    nomes.forEach(function (n) {
+      var base = rc_semMarcas_(n).split(/\s+[-—]\s+/)[0].trim();
+      if (!l.some(function (x) { return x.nome === base && !x.fim; })) l.push({ nome: base, quando: hoje, por: por || '' });
+    });
+    PropertiesService.getScriptProperties().setProperty('FO_REV_' + cardId, JSON.stringify(l.slice(-20)));
+  });
+}
+/** Formulário (📦 Recebimento): peças revertidas ainda sem desfecho. Vai sempre ao Google (as propriedades por card não
+ *  estão no servidor próprio). */
+function vdf_foRevertidas(token, shortLink) {
+  vdf_usuario_(token);
+  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard' } });
+  if (PropertiesService.getScriptProperties().getProperty('FO_REV_' + card.id) === null) { try { cp_revDosComentarios_(card.id); } catch (e) { console.log('FO revertida (comentários): ' + e); } }
+  return cp_revLista_(card.id).filter(function (x) { return !x.fim; });
+}
+/** Reversões anteriores a 14/10/2026 (ou sem a propriedade): lê os comentários "🔁 **Passou para a oficina:** X — era fornecida…"
+ *  e os desfechos "↩️ **FO REVERTIDA …** — X". Grava a propriedade (mesmo vazia, para não ler de novo). */
+function cp_revDosComentarios_(cardId) {
+  var acts = vd_api_('/cards/' + cardId + '/actions', { cru: true, query: { filter: 'commentCard', limit: 300, fields: 'data,date' } }) || [];
+  var l = [], fim = {};
+  acts.slice().reverse().forEach(function (a) {   // mais antigo primeiro
+    var txt = String((a.data && a.data.text) || ''), quando = Utilities.formatDate(new Date(a.date), 'America/Sao_Paulo', 'dd/MM/yyyy');
+    txt.split('\n').forEach(function (ln) {
+      var m = ln.match(/🔁 \*\*Passou para a oficina:\*\*\s*(.+?)\s+—\s+era fornecida/);
+      if (m && !l.some(function (x) { return x.nome === m[1].trim(); })) l.push({ nome: m[1].trim(), quando: quando, por: '' });
+      var f = ln.match(/↩️ \*\*FO REVERTIDA (RECUSADA|DEVOLVIDA)\*\*\s+—\s+(.+?)\s+·/);
+      if (f) fim[f[2].trim()] = f[1].toLowerCase() + ' ' + quando.slice(0, 5);
+    });
+  });
+  l.forEach(function (x) { if (fim[x.nome]) x.fim = fim[x.nome]; });
+  PropertiesService.getScriptProperties().setProperty('FO_REV_' + cardId, JSON.stringify(l.slice(-20)));
+}
+/** Formulário (📦 Recebimento): a seguradora entregou peça revertida e foi recusada/devolvida. p = {shortLink, nome, acao: 'recusada'|'devolvida', obs} */
+function vdf_foRevertidaDevolvida(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,shortLink,shortUrl,idBoard,idList' } });
+  if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Sua conta (' + me.username + ') não registra recebimento neste card.'] };
+  var acao = p.acao === 'devolvida' ? 'devolvida' : 'recusada', obs = String(p.obs || '').replace(/\s*\n\s*/g, ' ').trim();
+  var achou = null;
+  sg_secao_('FO_REV_' + card.id, function () {
+    var l = cp_revLista_(card.id);
+    achou = l.filter(function (x) { return x.nome === p.nome && !x.fim; })[0] || null;
+    if (!achou) return;
+    achou.fim = acao + ' ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM') + ' ' + me.username;
+    PropertiesService.getScriptProperties().setProperty('FO_REV_' + card.id, JSON.stringify(l));
+  });
+  if (!achou) return { ok: false, faltas: ['Peça revertida não encontrada (atualize a página).'] };
+  try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '↩️ **FO REVERTIDA ' + acao.toUpperCase() + '** — ' + achou.nome + ' · ' + me.fullName +
+    '\n_A seguradora entregou a peça que tinha passado para a oficina em ' + achou.quando + ' — ' + (acao === 'recusada' ? 'recusada na entrega' : 'devolvida') + '; não entra no FORNECIMENTO._' + (obs ? '\n📝 ' + obs : '') } }, token); } catch (e) {}
+  try { ev_registrar_('DEVOLUÇÃO FO', card, me.username, [{ peca: achou.nome, detalhe: 'revertida para a oficina — ' + acao }], { detalhe: 'FO revertida ' + acao + (obs ? ' — ' + obs : '') }); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, peca: achou.nome, acao: acao };
 }
