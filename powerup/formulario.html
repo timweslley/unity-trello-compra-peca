@@ -4119,7 +4119,7 @@ iniciar();
     .v2pc #comprador.v2c .item.v2c-semcot .v2c-naocot, .v2pc #comprador.v2c .item:is(.v2c-obsab, .v2c-obstxt) .v2c-obs,
     .v2pc #comprador.v2c label.opcao-aut.v2c-lin:has(input:checked) { outline:2px solid Highlight; outline-offset:1px; }
     .v2pc #comprador.v2c :is(#cotItens, #autItens, #compraItens, #recItens, #retItens, #fornItens, #recJa, #retJa) > .item::before { forced-color-adjust:none; }
-    .v2pc #comprador .v2i, .v2pc #v2cLado .v2i { forced-color-adjust:none; }
+    .v2pc .v2i, .v2pc #comprador > .abas .aba::before { forced-color-adjust:none; }   /* ícones por máscara usam o fundo, que o sistema apaga */
     .v2pc #v2cLado button.v2c-env.v2-pronto { outline:2px solid Highlight; outline-offset:1px; }
   }
 </style>
