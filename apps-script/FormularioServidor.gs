@@ -1642,6 +1642,7 @@ function vd_comprasDaDescricao_(desc) {
  *      criarMesmoAssim:true (card novo com placa que já tem card aberto: sem isso devolve {ok:false, duplicado:[{shortLink,nome,lista}]})}
  */
 function vdf_salvar(token, p) {
+  var trocasPart = { paraPart: [], paraSeg: [] };
   // 💾 Salvar parcial (13/10/2026, Weslley): grava o que já tem mesmo com dado faltando — o robô põe o card em FALTA DADOS e
   // comenta o que falta. Só placa, carro e ao menos uma peça continuam obrigatórios.
   var parcial = !!(p && p.parcial);
@@ -1756,6 +1757,17 @@ function vdf_salvar(token, p) {
         if (travaErr.length) return { ok: false, faltas: travaErr };
       } catch (e) { console.log('trava de peça: ' + e); return { ok: false, faltas: ['Não consegui conferir as peças travadas agora (Trello lento). Envie de novo em alguns segundos.'] }; }
     }
+    // 14/10/2026 (Weslley, NPG5429): peça que passou entre seguradora e particular nesta edição — vai num comentário no card
+    try {
+      var descTp = card.desc; try { var cmpTp = vd_completa_(card.id); if (cmpTp) descTp = cmpTp; } catch (e) {}   // vitrine -> descrição completa
+      var anTp = vd_analisar_(descTp, card.name), velhoP = {};
+      anTp.pecas.forEach(function (x) { velhoP[vd_chavePeca_(x)] = !!x.particular; });
+      pecas.forEach(function (x) {
+        var kTp = vd_chavePeca_(x);
+        if (!Object.prototype.hasOwnProperty.call(velhoP, kTp) || !!x.particular === velhoP[kTp]) return;
+        (x.particular ? trocasPart.paraPart : trocasPart.paraSeg).push({ nome: vd_nomePeca_(x), por: x.partPor || '' });
+      });
+    } catch (e) { console.log('troca seguradora/particular: ' + e); }
     // fora da diretoria: não muda o tipo do pedido nem passa peça de seguradora para particular (e vice-versa)
     if (!vdf_ehAutorizador_(me)) {
       var anOr = vd_analisar_(card.desc, card.name), cardOr = { name: card.name, labels: [] };
@@ -2059,6 +2071,15 @@ function vdf_salvar(token, p) {
       me.username, evPecas, { tipo: tipo, detalhe: (nFo ? nFo + ' peça(s) FO' : '') });
   } catch (e) {}
 
+  if (trocasPart.paraPart.length || trocasPart.paraSeg.length) {
+    try {
+      var donosTp = trocasPart.paraPart.map(function (x) { return x.por; }).filter(function (u, i, a) { return u && u !== String(me.username).toLowerCase() && a.indexOf(u) === i; });
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (donosTp.length ? donosTp.map(function (u) { return '@' + u; }).join(' ') + ' ' : '') + '🔀 **QUEM PAGA MUDOU** — ' + me.fullName +
+        (trocasPart.paraPart.length ? '\n👤 Passou para **particular** (cliente paga · autoriza o consultor): ' + trocasPart.paraPart.map(function (x) { return x.nome; }).join('; ') : '') +
+        (trocasPart.paraSeg.length ? '\n🛡️ Voltou para a **seguradora** (autoriza a diretoria): ' + trocasPart.paraSeg.map(function (x) { return x.nome; }).join('; ') : '') } }, token);
+    } catch (e) {}
+    try { ev_registrar_('PEDIDO EDITADO', card, me.username, trocasPart.paraPart.concat(trocasPart.paraSeg).map(function (x) { return { peca: x.nome, detalhe: '' }; }), { detalhe: 'quem paga mudou: ' + trocasPart.paraPart.length + ' → particular · ' + trocasPart.paraSeg.length + ' → seguradora' }); } catch (e) {}
+  }
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
