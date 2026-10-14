@@ -3513,7 +3513,9 @@ iniciar();
   }
   /* Excluir no começo do grupo de ações: Comp./Não comprar/Obs. terminam sempre junto da coluna do valor, em toda peça e em qualquer largura
      (e o "Confirmar?" do 2º clique cresce para a esquerda, sem empurrar os outros) */
-  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { order:-1; margin-right:6px; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { margin-right:6px; min-width:76px; justify-content:center; }
+  .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo.v2-armado::after { content:"Excluir?" !important; }
+  @container pecas (max-width: 820px) { .v2pc :is(#itens, #itensPart) > .item > .item-topo button.perigo { margin-right:0; } }
   /* MANUAL dentro do campo da descrição (no pneu, da medida) */
   .v2pc :is(#itens, #itensPart) > .item .v2-casaorig { position:relative; }
   .v2pc :is(#itens, #itensPart) > .item .v2-casaorig > .v2-origem { display:none; }
@@ -3552,19 +3554,21 @@ iniciar();
   .v2 .v2-balao::before, .v2 #v2tipoConf.v2-balao::before { content:''; position:absolute; top:-7px; left:var(--v2-seta, 24px); width:12px; height:12px; background:#fffbe8;
     border-left:1px solid #f5cd47; border-top:1px solid #f5cd47; transform:rotate(45deg); }
   /* dica de começo: não é falta — cinza, com o marcador azul, quebra equilibrada */
-  .v2pc #v2etapas .fl li.ini > a { color:#44546f !important; text-wrap:balance; }
+  .v2pc #v2etapas .fl li.ini > a { color:#44546f !important; }
+  .v2pc #v2etapas .fl li.ini > a > b { display:block; }
+  .v2pc #v2etapas .fl li.ini > a > .sub { display:block; font-size:12px; line-height:16px; color:#626f86; }
   .v2pc #v2etapas .fl li.ini::before { color:#0c66e4 !important; }
   /* lateral estreita (zoom 125%): letra 12 px para os nomes das peças caberem */
   @media (max-width:1150px) { .v2pc #v2etapas .fl li { font-size:12px; } }
   /* "?" do chassi: 24 px (área de toque mínima), ainda dentro do campo */
   .v2pc section.v2-carro .v2-inq { width:24px !important; height:24px !important; right:5px; bottom:5px; font-size:12px !important; }
-  .v2pc section.v2-carro #chassi { padding-right:36px; }
+  .v2pc #form section.v2-carro input#chassi { padding-right:36px !important; }
   /* foco visível também no "Ver anteriores" e nas fotos recolhidas */
   .v2pc summary:focus-visible { outline:2px solid #0c66e4; outline-offset:2px; border-radius:6px; }
   /* barra de cima justa (Power-Up com Fechar, zoom 125%, 1024 px): Pedido novo só com o ícone */
-  .v2pc.v2-topo-justo #v2ped-dir .v2ped-novo button { width:36px !important; padding:0 !important; font-size:0 !important; display:inline-flex !important; align-items:center; justify-content:center; }
-  .v2pc.v2-topo-justo #v2ped-dir .v2ped-novo button .v2i { margin:0 !important; }
-  .v2pc.v2-topo-justo #v2ped-dir .v2ped-novo .v2q { display:none !important; }
+  .v2pc.v2-topo-justo0 #v2ped-dir .v2ped-novo > .v2q, .v2pc.v2-topo-justo0 #v2etapa .v2sit-p { display:none !important; }
+  .v2pc.v2-topo-justo #v2ped-dir #v2novo { width:36px !important; padding:0 !important; font-size:0 !important; display:inline-flex !important; align-items:center; justify-content:center; }
+  .v2pc.v2-topo-justo #v2ped-dir #v2novo .v2i { margin:0 !important; }
   .v2pc.v2-topo-justo2 #v2ped-tipo .chip { padding:0 8px !important; gap:5px !important; }
   .v2pc.v2-topo-justo2 #v2ped-tipo .chip .v2i { display:none !important; }
 </style>
@@ -3639,13 +3643,13 @@ iniciar();
      (o nome continua no leitor de tela e ao parar o mouse), em vez de o tipo do pedido passar por cima dele */
   var TOPO_CHAVE = '';
   function ajustarTopo() {
-    if (!PC || !html.classList.contains('v2-pedtopo')) { html.classList.remove('v2-topo-justo', 'v2-topo-justo2'); TOPO_CHAVE = ''; return; }
+    if (!PC || !html.classList.contains('v2-pedtopo')) { html.classList.remove('v2-topo-justo0', 'v2-topo-justo', 'v2-topo-justo2'); TOPO_CHAVE = ''; return; }
     var tp = g('v2ped-tipo'), et = g('v2etapa'); if (!tp) return;
     var chave = innerWidth + '|' + ((g('usuario') || {}).textContent || '') + '|' + (et ? et.textContent : '') + '|' + !!(g('btnFechar') && g('btnFechar').offsetParent) + '|' + !!(g('v2novo') && g('v2novo').offsetParent) + '|' + !!(g('v2det') && g('v2det').offsetParent);
     if (chave === TOPO_CHAVE) return; TOPO_CHAVE = chave;
-    html.classList.remove('v2-topo-justo', 'v2-topo-justo2');
+    html.classList.remove('v2-topo-justo0', 'v2-topo-justo', 'v2-topo-justo2');
     var falta = function () { return tp.scrollWidth > tp.clientWidth + 1 || (!!et && et.scrollWidth > et.clientWidth + 1); };
-    if (falta()) { html.classList.add('v2-topo-justo'); if (falta()) html.classList.add('v2-topo-justo2'); }   // 2º degrau: tipos mais justos e sem o ícone do Retorno
+    ['v2-topo-justo0', 'v2-topo-justo', 'v2-topo-justo2'].some(function (c) { if (!falta()) return true; html.classList.add(c); return false; });
     if (g('v2novo') && !g('v2novo').title) g('v2novo').title = 'Pedido novo';
   }
   window.addEventListener('resize', function () { try { ajustarTopo(); } catch (e) {} });
@@ -3742,7 +3746,7 @@ iniciar();
     if (!placa || !chips) return;
     var wp = document.createElement('span'); wp.id = 'v2ped-placa'; wp.className = 'v2ped';
     var novo = document.createElement('span'); novo.className = 'v2ped v2ped-novo';
-    novo.innerHTML = '<button type="button" class="secundario" id="v2novo">➕ Pedido novo</button><span class="v2q v2q-dir" tabindex="0" data-dica="' + txt(DICA_NOVO) + '"></span>';
+    novo.innerHTML = '<button type="button" class="secundario" id="v2novo">🆕 Pedido novo</button><span class="v2q v2q-dir" tabindex="0" data-dica="' + txt(DICA_NOVO) + '"></span>';
     var tipo = document.createElement('div'); tipo.id = 'v2ped-tipo'; tipo.className = 'v2ped';
     topo.insertBefore(wp, topo.firstChild);
     // 13/10/2026 (revisão geral): barra de cima numa faixa só — meio = situação + tipo do pedido; direita = Pedido novo + Detalhes/Ajuda/usuário
@@ -3963,7 +3967,7 @@ iniciar();
     }
     var et = [
       { t: 'Orçamento e carro', c: tot1 ? ok1 + ' de ' + tot1 : '', p: tot1 ? ok1 / tot1 : 1,
-        f: (inicio && tipo === 'SEGURADORA' ? [{ html: '<b>Comece pelo orçamento</b> — preenche o resto', alvo: 'c:orçamento', titulo: 'Anexe o PDF do orçamento autorizado: o sistema lê e preenche o carro e as peças', ini: true }].concat(falta1.filter(function (x) { return x.alvo !== 'c:orçamento'; })) : falta1) },
+        f: (inicio && tipo === 'SEGURADORA' ? [{ html: '<b>Comece pelo orçamento</b><span class="sub">o sistema preenche o carro e as peças</span>', alvo: 'c:orçamento', titulo: 'Anexe o PDF do orçamento autorizado: o sistema lê e preenche o carro e as peças', ini: true }].concat(falta1.filter(function (x) { return x.alvo !== 'c:orçamento'; })) : falta1) },
       { t: 'Peças', c: tot2 ? ok2 + ' de ' + tot2 + ' prontas' : 'falta incluir', p: tot2 ? ok2 / tot2 : (f2.length ? 0 : 1), f: falta2 },
       { t: 'Enviar', c: '', p: 0, f: [] }
     ];
@@ -4088,6 +4092,8 @@ iniciar();
         if (String(it.querySelector('.f-obs').value || '').trim()) it.classList.add('v2-obs');
         ob.setAttribute('aria-expanded', it.classList.contains('v2-obs') ? 'true' : 'false');
         topoIt.insertBefore(ob, topoIt.querySelector('select')); var rm = topoIt.querySelector('button.perigo'); if (rm) rm.title = 'Remover a peça';
+        // 14/10/2026: Excluir no começo do grupo de ações — no DOM (o Tab segue a ordem da tela), não só no CSS
+        var prim = topoIt.querySelector('.chip-comp, .chip-nao, .v2-obstog'); if (rm && prim && rm.compareDocumentPosition(prim) & Node.DOCUMENT_POSITION_PRECEDING) topoIt.insertBefore(rm, prim);
         var cc = topoIt.querySelector('.chip-comp'); if (cc) cc.title = 'Complemento: peça fora do orçamento autorizado (vai no orçamento complementar da seguradora)';
         var cn = topoIt.querySelector('.chip-nao'); if (cn) cn.title = 'Não comprar: peça do orçamento que a oficina não vai comprar (recuperar, cliente já tem…)';
         var sl = topoIt.querySelector('select'); if (sl) sl.title = 'Peça ou pneu';
@@ -4498,7 +4504,7 @@ iniciar();
         // incompleta ("não é comum, mas possível") — as faltas das peças da seguradora não seguram o envio do particular
         if (r && r.faltas && typeof pedidoPart === 'function' && pedidoPart()) {
           var numsSeg = $$('#itens > .item').map(function (it) { return ((it.querySelector('.num') || {}).textContent || '').trim(); }).filter(String);
-          r.faltas = r.faltas.filter(function (f) { return !numsSeg.some(function (nt) { return f.indexOf(nt + ' (') === 0 || f.indexOf(nt + ':') === 0; }); });
+          r.faltas = r.faltas.filter(function (f) { return /valor inválido/.test(f) || !numsSeg.some(function (nt) { return f.indexOf(nt + ' (') === 0 || f.indexOf(nt + ':') === 0; }); });   // valor inválido vai para o card: segura sempre
         }
       } catch (e) {}
       return r;
@@ -4555,9 +4561,20 @@ iniciar();
   document.addEventListener('click', function (e) {
     var b = e.target && e.target.closest && e.target.closest('#itens button.perigo, #itensPart button.perigo');
     if (!b || !PC) return;
-    if (b.classList.contains('v2-armado')) { b.classList.remove('v2-armado'); return; }   // 2º clique: deixa excluir
+    if (b.classList.contains('v2-armado')) {   // 2º clique: deixa excluir
+      b.classList.remove('v2-armado');
+      var itx = b.closest('.item'), prox = itx && (itx.nextElementSibling || itx.previousElementSibling);
+      setTimeout(function () {
+        var at = document.activeElement; if (at && at !== document.body && document.contains(at)) return;
+        var alvo = prox && document.contains(prox) ? prox.querySelector('.f-codigo, .f-desc, .f-medida') : g('v2addPeca');
+        if (alvo) try { alvo.focus(); } catch (x) {}
+        var viv = g('v2vivo'); if (viv) viv.textContent = 'Peça excluída';
+      }, 60);
+      return;
+    }
     e.preventDefault(); e.stopImmediatePropagation();
     b.classList.add('v2-armado'); b.title = 'Clique de novo para excluir a peça';
+    try { var nn0 = ((b.closest('.item').querySelector('.num') || {}).textContent || '').replace(/\D+/g, ''); b.setAttribute('aria-label', 'Excluir? Confirme a exclusão da peça ' + nn0); } catch (x) {}
     clearTimeout(b._v2t); b._v2t = setTimeout(function () { b.classList.remove('v2-armado'); b.title = 'Excluir a peça'; }, 4000);
   }, true);
   /* 13/10/2026 (Weslley): "Não comprar" desmarca o complemento (um ou outro); desmarcando o "Não comprar", a peça volta ao que era */
@@ -4633,6 +4650,7 @@ iniciar();
     refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
     ban: '<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>',
     plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
+    filePlus: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 18v-6"/>',
     help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
     file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/>',
     camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
@@ -4643,7 +4661,7 @@ iniciar();
     user: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/>'
   };
   var EMO = { '📎': 'clip', '🚚': 'truck', '📁': 'folder', '🖼️': 'image', '🖼': 'image', '📥': 'down', '📖': 'book', '💾': 'save', '🔁': 'repeat', '🔄': 'refresh',
-    '🚫': 'ban', '➕': 'plus', '❔': 'help', '📄': 'file', '📸': 'camera', '📌': 'pin', '🔗': 'link', '🌎': 'globe', '⏳': 'clock', '👤': 'user' };
+    '🚫': 'ban', '➕': 'plus', '🆕': 'filePlus', '❔': 'help', '📄': 'file', '📸': 'camera', '📌': 'pin', '🔗': 'link', '🌎': 'globe', '⏳': 'clock', '👤': 'user' };
   if (PC) {
     var cssIco = Object.keys(ICO).map(function (k) {
       return '.v2 .v2i-' + k + '{--i:url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICO[k] + '</svg>') + '")}';
@@ -4717,6 +4735,10 @@ iniciar();
         if (invv) vo.setAttribute('aria-invalid', 'true'); else if (!vo.classList.contains('v2-falta')) vo.removeAttribute('aria-invalid'); }
       var fc = it.querySelector('.f-codigo');
       if (fc && /Buscar no Cilia/i.test(fc.placeholder)) { fc.placeholder = 'Código da peça'; fc.title = 'Consulte o código no Cilia'; }
+      // exemplo com "Ex.:" (sem isso o campo vazio parecia preenchido)
+      var fdx = it.querySelector('.f-desc'), fmx = it.querySelector('.f-medida');
+      if (fdx && fdx.placeholder && !/^Ex\./.test(fdx.placeholder)) fdx.placeholder = 'Ex.: ' + fdx.placeholder;
+      if (fmx && fmx.placeholder && !/^Ex\./.test(fmx.placeholder)) fmx.placeholder = 'Ex.: ' + fmx.placeholder;
     });
     var tp2 = g('tituloPecas');   // legenda da faixa ao lado da peça
     if (tp2 && !tp2.querySelector('.v2-legenda')) tp2.insertAdjacentHTML('beforeend', '<span class="v2-legenda"><span><i style="background:#1f845a"></i>do orçamento</span><span><i style="background:#e2b203"></i>incluída à mão</span></span>');
@@ -4902,10 +4924,11 @@ iniciar();
       var maoOrc = it.dataset.origem === 'mao' && form.classList.contains('v2-comorc') && it.parentNode.id === 'itens';   // na lista particular tudo é à mão
       $$('.chip.desab', it).forEach(function (c) { if (!c.title) c.title = 'Já há 2 tipos marcados — desmarque um para trocar'; });
       Object.keys(rot).forEach(function (sl) { var e = it.querySelector(sl); var t = rot[sl] + ' da peça ' + n + (maoOrc && (sl === '.f-desc' || sl === '.f-medida') ? ' (incluída à mão)' : ''); if (e && e.getAttribute('aria-label') !== t) e.setAttribute('aria-label', t); });
+      var slp = it.querySelector('.item-topo select'); if (slp) { var tsl = 'Peça ou pneu, item ' + n; if (slp.getAttribute('aria-label') !== tsl) slp.setAttribute('aria-label', tsl); }
       var obt = it.querySelector('.v2-obstog'); if (obt) { var tob = 'Obs. da peça ' + n + (String((it.querySelector('.f-obs') || {}).value || '').trim() ? ' (preenchida)' : ''); if (obt.getAttribute('aria-label') !== tob) obt.setAttribute('aria-label', tob); }
       var ex = it.querySelector('.item-topo button.perigo');
       if (ex && ex.textContent === 'remover') ex.textContent = 'Excluir';   // texto escondido (o que aparece vem do CSS) igual ao visível
-      if (ex) { var te = ex.classList.contains('v2-armado') ? 'Confirmar exclusão da peça ' + n : 'Excluir peça ' + n; if (ex.getAttribute('aria-label') !== te) ex.setAttribute('aria-label', te); }
+      if (ex) { var te = ex.classList.contains('v2-armado') ? 'Excluir? Confirme a exclusão da peça ' + n : 'Excluir peça ' + n; if (ex.getAttribute('aria-label') !== te) ex.setAttribute('aria-label', te); }
       var gt = it.querySelector('.grade .chips'); if (gt && !gt.getAttribute('role')) { gt.setAttribute('role', 'group'); gt.setAttribute('aria-label', (it.dataset.tipo === 'pneu' ? 'Categoria do pneu ' : 'Tipo da peça ') + n); }
       // ordem do Tab igual à da tela: código → descrição → qtd → valor → tipos → ações (o HTML vinha com as ações primeiro)
       var gr = it.querySelector(':scope > .grade'), tp = it.querySelector(':scope > .item-topo');
