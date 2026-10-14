@@ -3575,6 +3575,12 @@ iniciar();
   .v2pc summary:focus-visible { outline:2px solid #0c66e4; outline-offset:2px; border-radius:6px; }
   /* barra de cima justa (Power-Up com Fechar, zoom 125%, 1024 px): Pedido novo só com o ícone */
   .v2pc.v2-topo-justo0 #v2ped-dir .v2ped-novo > .v2q, .v2pc.v2-topo-justo0 #v2etapa .v2sit-p { display:none !important; }
+  /* 14/10/2026 (Weslley): o "?" do "Editar pedido" não mostrava nada — a linha cortava tudo que passasse dela (overflow:hidden).
+     Agora só o texto da situação encurta; a explicação do "?" aparece inteira */
+  .v2pc.v2-pedtopo #v2etapa { display:flex !important; align-items:center; min-width:0; overflow:visible !important; }
+  .v2pc.v2-pedtopo #v2etapa > b { flex:0 0 auto; display:inline-flex; align-items:center; }
+  .v2pc.v2-pedtopo #v2etapa > .v2sit { flex:0 0 auto; }
+  .v2pc.v2-pedtopo #v2etapa > .v2sit-p { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .v2pc.v2-topo-justo #v2ped-dir #v2novo { width:36px !important; padding:0 !important; font-size:0 !important; display:inline-flex !important; align-items:center; justify-content:center; }
   .v2pc.v2-topo-justo #v2ped-dir #v2novo .v2i { margin:0 !important; }
   .v2pc.v2-topo-justo2 #v2ped-tipo .chip { padding:0 8px !important; gap:5px !important; }
@@ -3656,7 +3662,8 @@ iniciar();
     var chave = innerWidth + '|' + ((g('usuario') || {}).textContent || '') + '|' + (et ? et.textContent : '') + '|' + !!(g('btnFechar') && g('btnFechar').offsetParent) + '|' + !!(g('v2novo') && g('v2novo').offsetParent) + '|' + !!(g('v2det') && g('v2det').offsetParent);
     if (chave === TOPO_CHAVE) return; TOPO_CHAVE = chave;
     html.classList.remove('v2-topo-justo0', 'v2-topo-justo', 'v2-topo-justo2');
-    var falta = function () { return tp.scrollWidth > tp.clientWidth + 1 || (!!et && et.scrollWidth > et.clientWidth + 1); };
+    var falta = function () { return tp.scrollWidth > tp.clientWidth + 1 || (!!et && (et.scrollWidth > et.clientWidth + 1
+      || $$('.v2sit-p', et).some(function (x) { return x.offsetParent !== null && x.scrollWidth > x.clientWidth + 1; }))); };   // situação cortada = degrau 0
     ['v2-topo-justo0', 'v2-topo-justo', 'v2-topo-justo2'].some(function (c) { if (!falta()) return true; html.classList.add(c); return false; });
     if (g('v2novo') && !g('v2novo').title) g('v2novo').title = 'Pedido novo';
   }
