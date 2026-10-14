@@ -185,7 +185,7 @@ function cp_comparar_(card, orc, excluirAnexo) {
 }
 
 /**
- * Item do checklist FORNECIMENTO (não entregue) que é a mesma peça de `p` (código igual ou descrição parecida),
+ * Item do checklist FORNECIMENTO que é a mesma peça de `p` — pelo código (mesmo já ✔) ou pela descrição parecida (só não entregue),
  * desde que a peça NÃO esteja na lista da oficina nem marcada 🚫 não comprar (aí o consultor já decidiu). null se não há.
  */
 function cp_foParaOficina_(conh, p) {
@@ -195,7 +195,10 @@ function cp_foParaOficina_(conh, p) {
   });
   if (naLista) return null;
   var cands = (conh.foItens || []).filter(function (i) { return i.state !== 'complete'; });
-  var porCod = kc.length >= 4 ? cands.filter(function (i) { return cp_norm_(i.name).indexOf(kc) >= 0; })[0] : null;
+  // pelo código vale também item já ✔ (14/10/2026, JDC7H45: a bandeja revertida para a oficina tinha sido marcada no
+  // FORNECIMENTO porque usaram uma do estoque); pela descrição, só o que ainda não chegou
+  var porCod = kc.length >= 6 ? (conh.foItens || []).filter(function (i) { return cp_norm_(i.name).indexOf(kc) >= 0; })[0] :
+    kc.length >= 4 ? cands.filter(function (i) { return cp_norm_(i.name).indexOf(kc) >= 0; })[0] : null;
   if (porCod) return porCod;
   var melhor = null, nota = 0;
   cands.forEach(function (i) {
@@ -375,7 +378,17 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     var itensFo = [];
     (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(String(i.name || '')); }); });
     foFalta = foFalta.filter(function (p) { var kcF = cp_norm_(p.codigo || p.codigoOrc); if (kcF.length >= 6 && cp_itemColado_(card, kcF)) return true; return !itensFo.some(function (n) { return cp_similar_(p.descricao || '', n.replace(/^\S*\d\S*\s+/, '').replace(/\s+-\s+[^-]+$/, '')) > 0; }); });
-    return { oficina: [], fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length, pareadas: [], atualizar: [], paraOficina: [], jaProcessado: true };
+    // ...e peça que ERA fornecida (está no checklist FORNECIMENTO) e o orçamento traz como da OFICINA (revertida pela
+    // seguradora) entra, casando só pelo CÓDIGO (14/10/2026, JDC7H45: bandeja revertida para a oficina; o card encerrou)
+    var revert = [];
+    try {
+      revert = (cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: [] }, idAnexo).paraOficina || []).filter(function (x) {
+        var kcR = cp_norm_(x.peca.codigo || x.peca.codigoOrc);
+        return kcR.length >= 6 && cp_norm_(x.item.name).indexOf(kcR) >= 0;
+      });
+    } catch (e) {}
+    return { oficina: revert.map(function (x) { return x.peca; }), fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - revert.length, pareadas: [], atualizar: [],
+      paraOficina: revert.map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }), jaProcessado: true };
   }
   var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, excluir);
   return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };

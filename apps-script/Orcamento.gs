@@ -297,8 +297,9 @@ function vd_lerOrcamento_(texto) {
     // Por isso o leitor anda em fila: cada ITEM entra numa fila e cada PREÇO (OFICINA/SEGURADORA …) sai para o item mais
     // antigo sem preço. O tipo pode vir colado ("GENUINAFAROL", "PPOJOGO") — vd_limparDescricao_ tira.
     var PROX = '\\bT (?:-|\\d+,\\d{2})(?: P \\d+,\\d{2})? \\d{1,3} [A-Z0-9]{4,20}\\b';
-    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P \\d+,\\d{2})? (\\d{1,3}) ([A-Z0-9]{4,20}) (?:\\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
+    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P \\d+,\\d{2})? (\\d{1,3}) ([A-Z0-9]{4,20})\\.? (?:\\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
       '|(OFICINA|SEGURADORA) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(\\d{1,3},\\d{2}) ?%)?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
+    // código com ponto no fim ("1312791700. BRAÇO OSCILANTE", 14/10/2026, JDC7H45): o item sumia e o preço OFICINA ficava sem dono
     var filaCi = [];
     while ((m = reCi.exec(U))) {
       if (m[2]) { filaCi.push({ qtd: m[1], codigo: m[2], tipo: m[3] || m[4] || '', desc: m[5] }); continue; }
