@@ -241,7 +241,7 @@ function sla_executar_(forcar) {
         var seg = falta.filter(function (p) { return !vdf_pecaParticular_(p, c, an); }), part = falta.filter(function (p) { return vdf_pecaParticular_(p, c, an); });
         var us = [];
         if (seg.length) us = us.concat(sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity'));
-        part.forEach(function (p) { us.push(p.partPor || criador); });
+        part.forEach(function (p) { us = us.concat(vdf_donosPart_(c, p, criador)); });   // equipe da unidade (14/10/2026)
         if (!us.length) return;
         mencao = sla_mencao_(us);
         txt = '⏰ Cotação aguardando autorização há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + ')' +

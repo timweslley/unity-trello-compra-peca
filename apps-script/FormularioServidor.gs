@@ -119,6 +119,46 @@ function vdf_ehParticular_(card, an) {
 /** Peça particular? (pedido todo particular, ou peça marcada PARTICULAR dentro do pedido de seguradora) */
 function vdf_pecaParticular_(peca, card, an) { return !!(peca && peca.particular) || vdf_ehParticular_(card, an); }
 
+/* ---------- equipe de consultores por unidade (14/10/2026, Weslley) ----------
+ * Rondon agora é Jeziel + Edilson (não mais a conta @unitycarservicemarechal); Cascavel é Natan/Laís + Lucas.
+ * Qualquer consultor da equipe da unidade do card autoriza as peças particulares e é quem o sistema menciona — inclusive em
+ * pedidos antigos abertos por outra conta. Unidade sem equipe: vale quem lançou a peça / criou o card, como antes.
+ * Para mudar sem código: propriedade VD_EQUIPES no formato "RONDON: jeziel, edilsontibes1; CASCAVEL: …". */
+var VDF_EQUIPES_PADRAO = 'RONDON: jeziel, edilsontibes1; CASCAVEL: laisalmeida9, lucasmoreira50';
+function vdf_equipes_() {
+  var out = {};
+  String(vd_prop_('VD_EQUIPES', VDF_EQUIPES_PADRAO)).split(';').forEach(function (bloco) {
+    var m = bloco.match(/^\s*([^:]+):\s*(.*)$/); if (!m) return;
+    out[vd_semAcento_(m[1]).trim()] = m[2].toLowerCase().split(/[,\s]+/).map(function (u) { return u.replace(/^@/, '').trim(); }).filter(String);
+  });
+  return out;
+}
+var VDF_EQUIPE_MEM = {};
+/** Usernames da equipe da unidade do card ([] se a unidade não tem equipe ou o card não tem unidade). */
+function vdf_equipeDoCard_(card) {
+  if (!card || !card.id) return [];
+  if (VDF_EQUIPE_MEM[card.id]) return VDF_EQUIPE_MEM[card.id];
+  var eq = [];
+  try {
+    var d = cf_defs_()['Unidade'];
+    if (d) {
+      var itens = card.customFieldItems || vd_api_('/cards/' + card.id + '/customFieldItems', { cru: true }) || [];
+      var it = itens.filter(function (i) { return i.idCustomField === d.id; })[0], nome = '';
+      if (it && it.idValue) Object.keys(d.opcoes).forEach(function (k) { if (d.opcoes[k] === it.idValue) nome = vd_semAcento_(k).trim(); });
+      eq = (nome && vdf_equipes_()[nome]) || [];
+    }
+  } catch (e) { console.log('equipe da unidade: ' + e); }
+  VDF_EQUIPE_MEM[card.id] = eq;
+  return eq;
+}
+/** Quem autoriza / é avisado pela peça particular: a equipe da unidade; sem equipe, quem lançou a peça (ou criou o card). */
+function vdf_donosPart_(card, peca, criador) {
+  var eq = vdf_equipeDoCard_(card);
+  if (eq.length) return eq.slice();
+  var u = (peca && peca.partPor) || criador || '';
+  return u ? [u] : [];
+}
+
 /** Pode autorizar ESTA peça? Diretoria sempre. Peça particular: também o consultor que a lançou
  *  (ou quem criou o card). Peça da seguradora: só a diretoria. criador = username (opcional, evita nova leitura). */
 function vdf_podeAutorizarPeca_(me, card, an, peca, criador) {
@@ -127,6 +167,7 @@ function vdf_podeAutorizarPeca_(me, card, an, peca, criador) {
   if (!vdf_pecaParticular_(peca, card, an)) return false;
   var u = String(me.username || '').toLowerCase();
   if (peca && peca.partPor && peca.partPor === u) return true;
+  if (vdf_equipeDoCard_(card).indexOf(u) >= 0) return true;   // consultor da equipe da unidade (14/10/2026)
   if (criador === undefined) { try { criador = vd_criador_(card.id); } catch (e) { criador = ''; } }
   return String(criador || '').toLowerCase() === u;
 }
@@ -136,7 +177,7 @@ function vdf_podeAutorizar_(me, card, an) {
   if (!me) return false;
   if (vdf_ehAutorizador_(me)) return true;
   var criador; try { criador = vd_criador_(card.id); } catch (e) { criador = ''; }
-  if (!an.pecas.length) return vdf_ehParticular_(card, an) && String(criador || '').toLowerCase() === String(me.username || '').toLowerCase();
+  if (!an.pecas.length) return vdf_ehParticular_(card, an) && (String(criador || '').toLowerCase() === String(me.username || '').toLowerCase() || vdf_equipeDoCard_(card).indexOf(String(me.username || '').toLowerCase()) >= 0);
   return an.pecas.some(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador); });
 }
 
@@ -1033,7 +1074,8 @@ function vdf_salvarCotacao(token, p) {
     // o consultor só é mencionado quando é ele quem autoriza (pedido particular / peças particulares dele)
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).toLowerCase().split(/[,;\s]+/).filter(function (u) { return u && u !== String(me.username).toLowerCase(); })[0] || '';   // 1º da lista (comprasunity), como no AUTORIZADO
     var quem = particular ? vd_criador_(card.id) : '';
-    var mencoes = [compr, quem].concat(an.pecas.map(function (x) { return x.partPor; })).filter(function (u, i, a) { return u && u !== String(me.username).toLowerCase() && a.indexOf(u) === i; });
+    var eqC = vdf_equipeDoCard_(card), temPartC = particular || an.pecas.some(function (x) { return x.particular; });
+    var mencoes = [compr].concat(temPartC && eqC.length ? eqC : [quem].concat(an.pecas.map(function (x) { return x.partPor; }))).filter(function (u, i, a) { return u && u !== String(me.username).toLowerCase() && a.indexOf(u) === i; });
     var txt = mencoes.map(function (u) { return '@' + u + ' '; }).join('') + '💰 **COTAÇÃO** — ' + me.fullName + ' · ' + (nada ? 'enviada (salva antes aos poucos)' : cots.length + ' cotação(ões) em ' + nPc + ' peça(s)' + (nt.length ? ' · ' + nt.length + ' NT' : '')) + (movido ? ' → **' + movido + '**' : '');
     if (cob.faltam.length) txt += '\n⏳ **PARCIAL** — falta cotar ou justificar: ' + cob.faltam.join(', ');
     else if (cob.semCot.length) txt += '\n⛔ **NÃO COTADAS:** ' + cob.semCot.map(function (s) { return s.nome + ' (' + s.texto + ')'; }).join('; ');
@@ -1245,7 +1287,7 @@ function vdf_autorizar(token, p) {
   if (grupoSeg.length && grupoPart.length) {
     if (!grupoSeg.some(temAut)) aguarda.push('peças da seguradora — diretoria');
     if (!grupoPart.some(temAut)) {
-      var donos = grupoPart.map(function (x) { return x.partPor || criador; }).filter(function (u, i, a) { return u && a.indexOf(u) === i; });
+      var donos = [].concat.apply([], grupoPart.map(function (x) { return vdf_donosPart_(card, x, criador); })).filter(function (u, i, a) { return u && a.indexOf(u) === i; });
       aguarda.push('peças particulares — ' + (donos.length ? donos.map(function (u) { return '@' + u; }).join(' ') : 'consultor'));
     }
   }
@@ -2073,7 +2115,8 @@ function vdf_salvar(token, p) {
 
   if (trocasPart.paraPart.length || trocasPart.paraSeg.length) {
     try {
-      var donosTp = trocasPart.paraPart.map(function (x) { return x.por; }).filter(function (u, i, a) { return u && u !== String(me.username).toLowerCase() && a.indexOf(u) === i; });
+      var eqTp = vdf_equipeDoCard_(card);
+      var donosTp = (eqTp.length ? eqTp : trocasPart.paraPart.map(function (x) { return x.por; })).filter(function (u, i, a) { return u && u !== String(me.username).toLowerCase() && a.indexOf(u) === i; });
       vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (donosTp.length ? donosTp.map(function (u) { return '@' + u; }).join(' ') + ' ' : '') + '🔀 **QUEM PAGA MUDOU** — ' + me.fullName +
         (trocasPart.paraPart.length ? '\n👤 Passou para **particular** (cliente paga · autoriza o consultor): ' + trocasPart.paraPart.map(function (x) { return x.nome; }).join('; ') : '') +
         (trocasPart.paraSeg.length ? '\n🛡️ Voltou para a **seguradora** (autoriza a diretoria): ' + trocasPart.paraSeg.map(function (x) { return x.nome; }).join('; ') : '') } }, token);
@@ -2153,7 +2196,7 @@ function vdf_cotacaoIndisponivel(token, p) {
   try { movido = vdf_moverPara_(card, ctx, destino, token, me.username); } catch (e) {}
   try {
     var us = [];
-    if (temNova) afetadas.forEach(function (x) { if (vdf_pecaParticular_(x, card, an)) us.push(x.partPor || criador); else us = us.concat(sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity')); });
+    if (temNova) afetadas.forEach(function (x) { if (vdf_pecaParticular_(x, card, an)) us = us.concat(vdf_donosPart_(card, x, criador)); else us = us.concat(sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity')); });
     us = us.filter(function (u, i) { return u && u !== me.username && us.indexOf(u) === i; });
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: us.map(function (u) { return '@' + u + ' '; }).join('') + '⚠️ **COTAÇÃO INDISPONÍVEL** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' +
       linhas.map(function (l) { return '- ' + l.replace(/^INDISPON[IÍ]VEL:\s*/i, ''); }).join('\n') +
