@@ -2755,7 +2755,8 @@ function enviarPayload(payload) {
 iniciar();
 </script>
 <!-- ===================== VERSÃO 2.0 — CELULAR (07/10/2026) =====================
-     Só no quadro TESTE (formulário pelo servidor, srv=1) e só em tela estreita (até 640 px).
+     Só no quadro TESTE (formulário pelo servidor, srv=1). Desde 14/10/2026 vale para celular e tablet, escolhidos pelo aparelho;
+     o computador usa a versão de computador (v2pc) em qualquer largura.
      Não muda a lógica do formulário: reorganiza a tela por cima do que já existe.
      1 topo fixo com placa/etapa · 2 pedido em 3 passos (Carro → Peças → Conferir) · 3 peça fechada como cartão
      4 ajuda escondida atrás de "Ajuda" · 5 só a aba da etapa (outras em "Outras etapas") · 6 botão grande de foto/PDF
@@ -3715,7 +3716,7 @@ iniciar();
   .v2pc.v2-comp #v2totais { display:none !important; }
   .v2pc.v2-comp #totaisCard { display:none !important; }
   .v2pc.v2-comp #totaisCard .totais td.destaque { background:none !important; color:inherit !important; font-weight:inherit !important; }
-  .v2pc.v2-comp #totaisCard .totais tr.tot td.destaque { background:var(--fundo2, #f1f2f4) !important; }
+  .v2pc.v2-comp #totaisCard .totais tr.tot td.destaque { background:var(--fundo2, #f1f2f4) !important; font-weight:600 !important; }
   .v2pc.v2-comp.v2-detalhes #comprador #totaisCard:not(.oculto) { display:block !important; margin:0 0 12px; padding:10px 14px; background:#fff; border:1px solid #091e4224; border-radius:var(--r-lg); overflow-x:auto; }
   .v2pc.v2-comp #erroComprador { margin:0 0 12px !important; }
   .v2pc.v2-comp #erroComprador:focus:not(:focus-visible) { outline:none; }
@@ -3798,7 +3799,9 @@ iniciar();
   .v2pc #comprador.v2c .item > .dica.v2c-links-cot { font-size:13px !important; margin:6px 0 0 !important; }
   .v2pc #comprador.v2c .item > .dica.v2c-links-cot.v2c-dup { display:none !important; }
   /* cotações (no card e novas) em tabela: as colunas batem de uma peça para a outra — e entre Cotação e Autorizar (mesmo molde) */
-  .v2pc #comprador.v2c .v2c-tab { display:grid !important; grid-template-columns:minmax(180px, 1.6fr) minmax(96px, .9fr) 104px 76px minmax(160px, 1.2fr) 124px; column-gap:8px; margin:2px 0 4px !important; }
+  .v2pc #comprador.v2c .v2c-tab { display:grid !important; grid-template-columns:minmax(176px, 1.6fr) minmax(96px, .9fr) 124px 84px minmax(172px, 1.2fr) 124px; column-gap:8px; margin:2px 0 4px !important; }
+  .v2pc #comprador.v2c .v2c-tab.v2c-tabaut { grid-template-columns:minmax(206px, 1.8fr) minmax(104px, .9fr) 124px 84px minmax(172px, 1.2fr) 84px; }
+  .v2pc #comprador.v2c .v2c-lin > .c-prazo, .v2pc #comprador.v2c .v2c-lin.v2c-th > span:nth-child(4) { padding-left:8px; }
   /* a largura vem do cartão da peça (não da janela): entre ~1200 e ~1290 px as linhas passavam da borda */
   .v2pc #comprador.v2c :is(#cotItens, #autItens) > .item { container:peca / inline-size; }
   .v2pc #comprador.v2c .v2c-tab.v2c-tabaut > .v2c-th > span:first-child { padding-left:22px; }
@@ -3838,7 +3841,10 @@ iniciar();
   .v2pc #comprador.v2c :is(.v2c-lin .c-valor, .cot.v2c-nova .q-eco) .selo-eco .v2i { width:12px; height:12px; flex:0 0 12px; margin:0 !important; }
   .v2pc #comprador.v2c .v2c-lin .c-valor { position:relative; }
   .v2pc #comprador.v2c .v2c-lin .c-valor .selo-eco { position:absolute; right:0; top:100%; }
-  .v2pc #comprador.v2c .v2c-tab > .v2c-lin:has(.c-valor .selo-eco) { padding-bottom:16px !important; }
+  @media (min-width:761px) {
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:has(.c-valor .selo-eco) { padding-bottom:16px !important; }
+    .v2pc #comprador.v2c .v2c-tab > label.opcao-aut.v2c-lin:has(.c-valor .selo-eco) { padding-bottom:21px !important; }
+  }
   .v2pc #comprador.v2c .v2c-lin.removida .c-valor .selo-eco { color:#626f86 !important; }
   /* cotação marcada para remover: riscada em cinza legível (com opacidade ficava em 1,9:1) */
   .v2pc #comprador.v2c .v2c-lin.removida > :not(.c-acoes) { color:#626f86 !important; text-decoration:line-through; text-decoration-color:#8590a2; }
@@ -3879,7 +3885,8 @@ iniciar();
   /* status da peça (autorizado / já comprado): leves, com " · " entre as partes */
   .v2pc #comprador.v2c .item > .comprado { display:inline-flex !important; flex-wrap:wrap; align-items:center; gap:4px 6px; margin:2px 0 6px !important; padding:3px 10px !important; border-radius:var(--r-sm) !important; font-size:13px !important; font-weight:500; line-height:20px; }
   .v2pc #comprador.v2c .item > .comprado b { font-weight:700; }
-  .v2pc #comprador.v2c .item > .comprado .v2i { margin:0 !important; }
+  .v2pc #comprador.v2c .item > .comprado { column-gap:0 !important; }
+  .v2pc #comprador.v2c .item > .comprado > .v2i { margin:0 6px 0 0 !important; }
   .v2pc #comprador.v2c .item > .comprado.v2c-autz { background:#f3fbf7 !important; border:1px solid #a6dfc4 !important; color:#216e4e !important; }
   .v2pc #comprador.v2c .item > .comprado.v2c-feito { background:#dcfff1 !important; border:1px solid #7ee2b8 !important; color:#164b35 !important; }
   .v2pc #comprador.v2c .item > .comprado :is(a, a:visited) { color:inherit !important; text-decoration:underline; text-underline-offset:2px; }
@@ -3942,6 +3949,8 @@ iniciar();
   .v2pc #comprador.v2c #recItens > .item > .grade > .inteiro { grid-column:1 / -1; }
   .v2pc #comprador.v2c #recItens > .item > .grade :is(input, select) { width:100%; }
   .v2pc #comprador.v2c #recItens > .item > .item-topo, .v2pc #comprador.v2c #retItens > .item > .item-topo, .v2pc #comprador.v2c :is(#recJa, #retJa) > .item > .item-topo { margin:0 !important; }
+  .v2pc #comprador.v2c :is(#recItens, #retItens) > .item > .item-topo:has(> .v2c-tit) { grid-template-columns:auto minmax(0, 1fr) !important; align-items:center !important; }
+  .v2pc #comprador.v2c :is(#recItens, #retItens) > .item > .item-topo > .v2c-tit { padding-top:0; }
   .v2pc #comprador.v2c :is(#retItens, #recJa, #retJa) > .item .selo { display:inline-flex !important; align-items:center; gap:4px; height:22px; box-sizing:border-box; font-size:12px !important; font-weight:600 !important; padding:0 8px !important; margin:0 !important; border-radius:11px !important; line-height:20px !important;
     text-transform:none !important; letter-spacing:0 !important; background:#f1f2f4 !important; color:#44546f !important; border:1px solid #dcdfe4; }
   .v2pc #comprador.v2c :is(#retItens, #recJa, #retJa) > .item .selo .v2i { width:13px; height:13px; flex-basis:13px; margin:0 !important; }
@@ -3953,18 +3962,18 @@ iniciar();
   .v2pc #comprador.v2c #recJa .v2c-seg .chip:has(input:focus-visible) { z-index:2; position:relative; outline:2px solid #0c66e4; outline-offset:2px; }
   .v2pc #comprador.v2c #recJa .v2c-seg .chip input { width:14px; height:14px; margin:0 !important; accent-color:#0c66e4; }
   .v2pc #comprador.v2c #recJa .v2c-seg .chip .v2i { width:14px; height:14px; flex-basis:14px; margin:0 !important; }
-  .v2pc #comprador.v2c #recJa :is(.j-local, .j-dev) { margin:8px 0 0 !important; max-width:520px; }
+  .v2pc #comprador.v2c #recJa :is(.j-local, .j-dev) { margin:8px 0 0 !important; max-width:640px; }
   .v2pc #comprador.v2c #recJa :is(.j-local, .j-dev) input { width:100%; }
   .v2pc #comprador.v2c #retItens > label.chip.v2c-todas { height:30px !important; min-height:30px !important; margin:0 0 8px !important; font-size:13px !important; }
   .v2pc #comprador.v2c #retJa > div:first-child:not(.item) { margin:12px 0 6px !important; font-size:13px; font-weight:600 !important; color:#44546f; }
-  .v2pc #comprador.v2c #retJa .t-desf { margin:8px 0 0 !important; max-width:520px; }
+  .v2pc #comprador.v2c #retJa .t-desf { margin:8px 0 0 !important; max-width:640px; }
   .v2pc #comprador.v2c #retJa .t-desf input { width:100%; }
   .v2pc #comprador.v2c section.v2c-sec2 > .grade { display:grid !important; grid-template-columns:minmax(0, 1fr) 180px !important; gap:8px 12px !important; max-width:560px; align-items:start; }
   .v2pc #comprador.v2c section.v2c-sec2 > .grade :is(input, select) { width:100%; }
   /* Fornecimento: campos numa linha; o motivo aparece quando a previsão fica para depois */
   .v2pc #comprador.v2c #fornItens > .item > .grade { display:grid !important; grid-template-columns:minmax(0, 1.2fr) 150px minmax(0, 1.2fr) !important; gap:6px 12px !important; margin:6px 0 0 !important; align-items:start; }
   .v2pc #comprador.v2c #fornItens > .item > .grade :is(input, select) { width:100%; }
-  .v2pc #comprador.v2c #fornItens > .item > .grade > .v2c-fmot { grid-column:1 / -1; max-width:520px; }
+  .v2pc #comprador.v2c #fornItens > .item > .grade > .v2c-fmot { grid-column:1 / -1; max-width:640px; }
   .v2pc #comprador.v2c #fornItens > .item:not(.v2c-motivo) > .grade > .v2c-fmot { display:none; }
   .v2pc #comprador.v2c #fornItens .selo { font-size:12px !important; padding:0 8px !important; border-radius:11px !important; line-height:20px !important; text-transform:none !important; letter-spacing:0 !important; }
   .v2pc #comprador.v2c #fornItens .selo .v2i { width:13px; height:13px; flex-basis:13px; margin:0 4px 0 0 !important; vertical-align:-2px; background:currentColor; }
@@ -4003,11 +4012,10 @@ iniciar();
   .v2pc #comprador.v2c .cot.v2c-nova button.v2c-tirar:hover { background:#fff6f5 !important; border-color:#e2483d !important; }
   .v2pc.v2-comp #v2fundo { display:none !important; }
   /* coluna lateral: resumo · caminho · botões (o resumo e o caminho usam o mesmo desenho do pedido) */
-  /* lateral mais alta que a tela: os botões ficam presos embaixo (como o Enviar do pedido); com balão aberto ou Ajuda, voltam ao fluxo
-     (antes cresciam por cima do caminho) */
+  /* lateral mais alta que a tela: os botões ficam presos embaixo (como o Enviar do pedido); em uma coluna só (zoom alto), voltam ao fluxo
+     (antes cresciam por cima do caminho). O balão de confirmação abre por cima da tela, preso ao botão, e não mexe na lateral. */
   .v2pc.v2-pedtopo #v2cLado > #v2cAcoes { position:sticky; bottom:0; z-index:2; }
   .v2pc.v2-pedtopo #v2cLado.v2c-transborda > #v2cAcoes { background:linear-gradient(rgba(238,240,243,0), #eef0f3 12px); padding-top:12px; margin-top:-12px; }
-  .v2pc.v2-pedtopo #v2cLado > #v2cAcoes:has(.v2c-balao:not([style*="none"])) { position:static; background:none; padding-top:0; margin-top:0; }
   .v2pc #comprador.v2c > #v2cLado.v2c-rolado { -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 18px); mask-image:linear-gradient(to bottom, transparent 0, #000 18px); }
   .v2pc #comprador.v2c > #v2cLado.v2c-mais { -webkit-mask-image:linear-gradient(to top, transparent 0, #000 18px); mask-image:linear-gradient(to top, transparent 0, #000 18px); }
   .v2pc #comprador.v2c > #v2cLado.v2c-rolado.v2c-mais { -webkit-mask-image:linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%); mask-image:linear-gradient(to bottom, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%); }
@@ -4100,17 +4108,20 @@ iniciar();
   .v2pc #v2cLado #v2cAnexos .v2-ler .linha { display:grid !important; grid-template-columns:18px minmax(0, 1fr) auto; align-items:center; gap:6px; padding:4px 0 !important; margin:0 !important; border:0 !important; border-top:1px solid #f1f2f4 !important; background:none !important; }
   .v2pc #v2cLado #v2cAnexos .v2-ler .linha:first-of-type { border-top:0 !important; }
   .v2pc #v2cLado #v2cAnexos .v2-ler .linha .ico .v2i { width:15px; height:15px; flex-basis:15px; margin:0 !important; color:#626f86; }
-  .v2pc #v2cLado #v2cAnexos .v2-ler .linha .nome { font-size:12px !important; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .v2pc #v2cLado #v2cAnexos .v2-ler .linha .nome { font-size:12px !important; line-height:16px; overflow:hidden; white-space:normal; overflow-wrap:anywhere; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
   .v2pc #v2cLado #v2cAnexos .v2-ler .linha .nome small, .v2pc #v2cLado #v2cAnexos .v2-ler .linha :is(.v2-quando, .v2-tag, .v2-jalido) { display:none !important; }
   .v2pc #v2cLado #v2cAnexos .v2-ler .linha button { height:28px !important; min-height:28px !important; padding:0 10px !important; font-size:12px !important; font-weight:600 !important; background:#fff !important; color:#44546f !important; border:1px solid #8590a2 !important; border-radius:var(--r-sm) !important; box-shadow:none !important; }
   .v2pc #v2cLado #v2cAnexos .v2-ler .linha button:hover { background:#f7f8f9 !important; color:#172b4d !important; }
   .v2pc #v2cLado #v2cAnexos .v2-ler :is(details, .anexos-orig) { font-size:12px; margin:4px 0 0 !important; }
   .v2pc #v2cLado .v2c-forn #fornAnexosTopo { display:none !important; }
   /* balão de confirmação dentro da lateral: no fluxo, logo abaixo do botão que o abriu */
-  .v2pc #v2cLado .v2-balao.v2c-balao { position:relative !important; left:auto !important; top:auto !important; width:auto !important; margin:4px 0 2px; --v2-seta:40px; }
-  .v2pc #v2cLado .v2-balao.v2c-balao .bts button { flex:1 1 auto; }
+  .v2pc .v2-balao.v2c-balao.v2c-flutua { position:fixed !important; z-index:60; margin:0 !important; width:var(--v2c-bw, 320px) !important; }
+  .v2pc .v2-balao.v2c-balao .bts button { flex:1 1 auto; }
+  .v2pc .v2-balao.v2c-balao.v2c-acima::before { top:auto !important; bottom:-7px; border-left:0 !important; border-top:0 !important; border-right:1px solid #f5cd47; border-bottom:1px solid #f5cd47; }
+  .v2pc .v2-balao.v2c-balao.v2c-alto { max-height:calc(100vh - 16px); overflow-y:auto; }
+  .v2pc .v2-balao.v2c-balao.v2c-alto::before { display:none; }
   .v2pc.v2-comp .v2-balao .bts .secundario, .v2pc #v2cLado .v2-balao .bts button.secundario { background:#fff !important; }
-  .v2pc #v2cLado .v2-balao .bts button.secundario:hover { background:#f7f8f9 !important; }
+  .v2pc .v2-balao.v2c-balao .bts button.secundario:hover { background:#f7f8f9 !important; }
   /* topo da tela do comprador: sem o "Pedido novo"; a situação e o "?" como no pedido */
   .v2pc.v2-comp #v2ped-dir { margin-left:auto; }
   /* "?" fechado com Esc mesmo com o mouse em cima (1.4.13) */
@@ -4120,13 +4131,34 @@ iniciar();
     .v2pc.v2-comp #v2c-placa { zoom:.84; }
     .v2pc.v2-comp #v2ped-dir #btnFechar { height:32px !important; min-height:32px !important; padding-top:0 !important; padding-bottom:0 !important; }
   }
-  @container peca (max-width:790px) {
-    /* cartão estreito (Power-Up a 125%, janelas médias): selos só com o ícone (o texto fica no title e no leitor de tela) */
-    .v2pc #comprador.v2c .v2c-tab { grid-template-columns:minmax(130px, 1.5fr) minmax(90px, .8fr) 88px 72px 44px 124px; }
-    .v2pc #comprador.v2c .v2c-tab .c-selos .selo { font-size:0 !important; padding:0 5px !important; gap:2px !important; }
-    .v2pc #comprador.v2c .v2c-tab .c-selos .selo .v2i { width:14px !important; height:14px !important; flex-basis:14px !important; }
-    .v2pc #comprador.v2c .v2c-tab .c-selos { flex-wrap:nowrap !important; }
-  }
+  @media (min-width:761px) { @container peca (max-width:820px) {
+    /* cartão estreito (Power-Up a 125%, janelas de ~1180 a ~1300 px): linha de 2 andares — em cima fornecedor, tipo, valor e prazo
+       (alinhados); embaixo, sob o nome, "menor preço/prazo" e o anúncio em texto, e sob o valor a economia. Antes os selos viravam
+       só ícone e o "anúncio" ficava embaixo do Editar. */
+    .v2pc #comprador.v2c .v2c-tab { grid-template-columns:minmax(130px, 1.5fr) minmax(90px, .8fr) 100px 80px 124px; }
+    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut { grid-template-columns:minmax(170px, 2fr) minmax(96px, .8fr) 100px 80px 76px; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin { grid-template-rows:auto auto; row-gap:0; align-content:center; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > :is(.c-forn, .c-tipo, .c-valor, .c-prazo) { grid-row:1; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > .c-forn { grid-column:1; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > .c-tipo { grid-column:2; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > .c-valor { grid-column:3; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > .c-prazo { grid-column:4; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos { grid-column:1; grid-row:2; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-acoes { grid-column:5; grid-row:1 / span 2; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(:has(> .c-selos > *)) > .c-acoes { grid-row:1; }
+    .v2pc #comprador.v2c .v2c-tab > :is(div, label).v2c-lin:has(> .c-selos > *):has(.c-valor .selo-eco) { padding-bottom:5px !important; }
+    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut > .v2c-lin > .c-acoes { grid-row:1; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin.v2c-th > span:nth-child(5) { display:none; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin.v2c-th > span:nth-child(6) { grid-column:5; }
+    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut > .v2c-lin > .c-selos { padding-left:22px; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos :is(.selo, a) { height:auto !important; padding:0 !important; border:0 !important; background:none !important; font-size:12px !important; line-height:15px !important; color:#44546f !important; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos a { color:#0c66e4 !important; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos { column-gap:10px !important; }
+    /* economia curta embaixo do valor ("14% abaixo"; o "do orç." fica para o leitor de tela) */
+    .v2pc #comprador.v2c .v2c-tab .v2c-lin .c-valor .v2c-ecoorc { position:absolute !important; width:1px !important; height:1px !important; overflow:hidden !important; clip:rect(0 0 0 0) !important; white-space:nowrap !important; }
+    /* botões do alto da peça só com o texto (o nome da peça cabia em 2 linhas a 125%) */
+    .v2pc #comprador.v2c .item-topo .v2c-acoes :is(.v2c-obs, .v2c-addcot, .chip) .v2i { display:none !important; }
+  } }
   @container peca (max-width:780px) {
     .v2pc #comprador.v2c .cot.v2c-nova, .v2pc #comprador.v2c .cot.v2c-nova.v2c-pneu { grid-template-columns:minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) !important; }
     .v2pc #comprador.v2c .cot.v2c-nova > div:has(> button.perigo) { justify-self:start; }
@@ -4165,7 +4197,7 @@ iniciar();
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos { flex:1 1 auto; }
     .v2pc #comprador.v2c .v2c-tab .c-selos .selo { font-size:12px !important; padding:0 8px !important; }
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin:has(.c-valor .selo-eco) { padding-bottom:6px !important; }
-    .v2pc #comprador.v2c .v2c-lin .c-valor .selo-eco { position:static; margin-left:8px !important; }
+    .v2pc #comprador.v2c .v2c-tab .v2c-lin .c-valor .selo-eco { position:static; display:inline-flex !important; margin:0 0 0 8px !important; }
     .v2pc #comprador.v2c > .abas { row-gap:4px !important; }
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos:empty { display:none; }
     .v2pc #comprador.v2c label.opcao-aut.v2c-lin { margin:0 !important; }
@@ -4178,6 +4210,70 @@ iniciar();
   }
   @media (max-width:960px) and (max-height:500px) {
     .v2pc.v2-comp #v2topo { position:static !important; }
+  }
+  /* ===== 14/10/2026 (Weslley: "use a requisição de aparelho para saber qual interface usar") — pedido no computador com zoom alto =====
+     Antes, abaixo de 640 px o computador caía no layout de celular. Agora fica no de computador, que se ajusta até 320 px (zoom de 400%). */
+  @media (max-width:760px) {
+    /* barra de cima em até 3 linhas: placa menor; situação e tipo do pedido; Pedido novo · Detalhes · Ajuda à direita */
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2topo { flex-wrap:wrap !important; row-gap:6px; column-gap:10px !important; padding-left:12px !important; padding-right:12px !important; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-placa { zoom:.7; flex:0 0 auto; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-meio { flex:1 1 220px !important; min-width:0; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo, .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chips { flex-wrap:wrap !important; row-gap:4px; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-dir { flex:1 1 100%; flex-wrap:wrap; justify-content:flex-end; row-gap:6px; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2etapa { flex-wrap:wrap !important; row-gap:4px; white-space:normal !important; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2etapa > .v2sit-p { white-space:normal !important; }
+    .v2pc:not(.v2-comp) main { padding-left:12px !important; padding-right:12px !important; }
+    /* dados do carro em 2 colunas; modelo e chassi na linha toda */
+    .v2pc section.v2-carro div:has(> :is(#ano, #motor, #ordem, #unidade, #carro, #cor, #seguradora, #sinistro)) { grid-column:span 6; }
+    .v2pc section.v2-carro div:has(> :is(#modelo, #chassi)) { grid-column:span 12; }
+    /* anexos já no card: a linha quebra (o "Importar de novo" passava da borda) */
+    .v2pc .v2-ler .linha { flex-wrap:wrap; row-gap:4px; }
+  }
+  /* uma coluna (zoom a partir de ~150%): a coluna da direita vem depois do pedido, inteira — sem rolagem própria nem botões presos
+     (com a tela baixa ela virava uma caixinha de ~120 px rolando por dentro) */
+  @media (max-width:960px) {
+    .v2pc.v2-pedtopo #v2lado { max-height:none; overflow:visible; }
+    .v2pc.v2-pedtopo #v2lado > .rodape { position:static; background:none; padding-top:0; margin-top:0; }
+  }
+  /* janela baixa com zoom (200–400% num notebook): a barra de cima rola junto, para não cobrir a tela */
+  @media (max-width:960px) and (max-height:500px) {
+    .v2pc.v2-pedtopo #v2topo { position:static !important; }
+    .v2pc.v2-pedtopo .v2pc-cab { top:0; }
+    html.v2pc.v2-pedtopo { scroll-padding-top:48px; }
+  }
+  /* lista de peças estreita (zoom de 250% ou mais): os botões da peça ficam embaixo também na peça manual e no pneu
+     (as regras deles para 125% punham os botões na coluna do valor, por cima do campo) */
+  @container pecas (max-width: 540px) {
+    .v2pc :is(.v2-comorc :is(#itens, #itensPart), :is(#itens, #itensPart).v2-comorc, #itens, #itensPart) > .item:is([data-origem="mao"], [data-tipo="pneu"]) > .item-topo { grid-row:4 !important; grid-column:2 / -1 !important; justify-content:flex-start !important; flex-wrap:wrap !important; }
+    .v2pc :is(#itens, #itensPart) > .item[data-tipo="pneu"] > .grade > .inteiro:has(.f-marca) { max-width:none !important; }
+  }
+  /* zoom de 300–400%: descrição na linha toda; quantidade e valor juntos, com o nome em cima (o cabeçalho das colunas some) */
+  @container pecas (max-width: 400px) {
+    .v2pc #itens > .item, .v2pc #itensPart > .item { grid-template-columns:28px minmax(0, 1fr) minmax(0, 1fr) !important; gap:6px 8px !important; padding:10px 8px !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(> .f-codigo), div:has(.f-medida)) { grid-row:1 !important; grid-column:2 / -1 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc) { grid-row:2 !important; grid-column:2 / -1 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(.f-qtd) { grid-row:3 !important; grid-column:2 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) { grid-row:3 !important; grid-column:3 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > :is(.inteiro:has(.f-tipo), .inteiro:has(.f-marca)) { grid-row:4 !important; grid-column:2 / -1 !important; }
+    .v2pc :is(.v2-comorc :is(#itens, #itensPart), :is(#itens, #itensPart).v2-comorc, #itens, #itensPart) > .item:is([data-origem], [data-tipo], .item) > .item-topo { grid-row:5 !important; grid-column:2 / -1 !important; justify-content:flex-start !important; flex-wrap:wrap !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(.f-qtd), div:has(> .f-valor-orc)) > label { display:block !important; margin:0 0 2px !important; font-size:12px !important; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) > label > span { display:none; }
+  }
+  @media (min-width:641px) {
+    html.v2.v2toque body { font-size:16px; line-height:24px; }
+    html.v2.v2toque main { padding:12px 12px 96px; }
+    html.v2.v2toque label { font-size:14px; line-height:20px; }
+    html.v2.v2toque .dica { font-size:14px; line-height:20px; }
+    html.v2.v2toque :is(input[type=text], input[type=number], input[type=date], select) { font-size:16px; min-height:48px; padding:10px 12px; border-radius:6px; }
+    html.v2.v2toque textarea { font-size:16px; border-radius:6px; }
+    html.v2.v2toque :is(button, .botao) { min-height:48px; font-size:16px; font-weight:600; border-radius:6px; padding:10px 16px; }
+    html.v2.v2toque button.mini { min-height:36px; font-size:14px; }
+    html.v2.v2toque .chip { min-height:44px; font-size:15px; font-weight:600; border-width:2px; border-radius:22px; padding:8px 14px; }
+    html.v2.v2toque .chip input { width:20px; height:20px; }
+    html.v2.v2toque .opcao-aut { min-height:48px; display:flex; align-items:center; font-size:16px; }
+    html.v2.v2toque .opcao-aut input { width:20px; height:20px; }
+    html.v2.v2toque .rodape { position:sticky; bottom:0; z-index:4; background:#fff; border-top:1px solid var(--borda); margin:0 -12px; padding:12px 12px 16px; }
+    html.v2.v2toque .aba { min-height:48px; }
   }
   /* alto contraste do Windows: aba marcada, botões ligados e a faixa da peça (sumiam com as cores do sistema) */
   @media (forced-colors:active) {
@@ -4201,7 +4297,17 @@ iniciar();
      (título e Fechar repetidos, anexos numa linha embolada). Em tela larga ganha a classe v2pc (conteúdo centralizado). */
   var html = document.documentElement;
   html.classList.add('v2');
-  if (!window.matchMedia('(max-width:640px)').matches) html.classList.add('v2pc');
+  /* 14/10/2026 (Weslley: "use a requisição de aparelho para saber qual interface usar"): o modo vem do aparelho, não da largura.
+     Computador com zoom alto ou janela estreita continua no layout de computador (que se ajusta até 320 px); celular e tablet
+     (toque como entrada principal) ficam no layout de celular. Antes, abrir o Power-Up com zoom de ~214% num notebook caía no celular. */
+  var ehAparelhoDeToque = (function () {
+    var ua = navigator.userAgent || '';
+    try { if (navigator.userAgentData && navigator.userAgentData.mobile === true) return true; } catch (e) {}
+    if (/Android|iPhone|iPad|iPod|Mobile|Windows Phone|Silk|Kindle|BlackBerry/i.test(ua)) return true;
+    if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return true;   // iPad que se apresenta como Mac
+    try { return window.matchMedia('(pointer:coarse)').matches && !window.matchMedia('(any-pointer:fine)').matches; } catch (e) { return false; }
+  })();
+  if (!ehAparelhoDeToque) html.classList.add('v2pc'); else html.classList.add('v2toque');
   /* 09/10/2026 (revisão das regras): só os textos de AJUDA que já estão na página ao abrir ficam atrás de "❔ Ajuda".
      Mensagens que o formulário escreve depois (estado do card: "nada pendente de chegada", "já recebidas", "sem peça FO"…) ficam à vista. */
   Array.prototype.forEach.call(document.querySelectorAll('.dica:not(.ruim):not(.boa):not([id])'), function (d) { if (!d.closest('.item')) d.classList.add('v2-ajudatxt'); });
@@ -5420,7 +5526,11 @@ iniciar();
     bal._gatilho = gatilho; bal._devolver = devolverEm || gatilho;   // label não recebe foco: no tipo, o foco volta para o rádio marcado
     setTimeout(function () { var f = g(focoId); if (f) f.focus(); }, 30);
   }
-  function fecharBalao(bal, devolver) { if (!bal || bal.style.display === 'none') return; bal.style.display = 'none'; var d = bal._devolver || bal._gatilho; if (devolver && d && d.focus) { try { d.focus(); } catch (e) {} } }
+  function fecharBalao(bal, devolver) {
+    if (!bal || bal.style.display === 'none') return; bal.style.display = 'none'; var d = bal._devolver || bal._gatilho;
+    // 14/10: o foco volta ao botão sem rolar a tela quando ele já está à vista (o botão preso da lateral fazia a lateral pular)
+    if (devolver && d && d.focus) { try { var r = d.getBoundingClientRect(), vis = r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth; d.focus(vis ? { preventScroll: true } : undefined); } catch (e) {} }
+  }
   document.addEventListener('keydown', function (e) { if (e.key !== 'Escape') return; $$('.v2-balao').forEach(function (b) { if (b.style.display !== 'none') { fecharBalao(b, true); e.stopPropagation(); } }); }, true);
   document.addEventListener('mousedown', function (e) { $$('.v2-balao').forEach(function (b) { if (b.style.display !== 'none' && !b.contains(e.target) && !(b._gatilho && b._gatilho.contains && b._gatilho.contains(e.target))) fecharBalao(b, false); }); }, true);
   document.addEventListener('focusout', function (e) { var rel = e.relatedTarget; if (!rel) return; $$('.v2-balao').forEach(function (b) { if (b.style.display !== 'none' && b.contains(e.target) && !b.contains(rel)) fecharBalao(b, false); }); }, true);
@@ -5864,7 +5974,7 @@ iniciar();
     if (!m) return;
     var nivel = sp.classList.contains('bom') ? 'boa economia' : sp.classList.contains('medio') ? 'economia média' : 'pouca economia';
     var ico = sp.classList.contains('bom') ? 'circleCheck' : sp.classList.contains('medio') ? 'circleMinus' : 'alert';
-    sp.innerHTML = '<span class="v2i v2i-' + ico + '" aria-hidden="true"></span>' + txt(m[2] + '% ' + m[4] + ' do orç.') + '<span class="v2-sr"> (' + nivel + ', ' + txt(m[3]) + ')</span>';
+    sp.innerHTML = '<span class="v2i v2i-' + ico + '" aria-hidden="true"></span>' + txt(m[2] + '% ' + m[4]) + '<span class="v2c-ecoorc"> do orç.</span><span class="v2-sr"> (' + nivel + ', ' + txt(m[3]) + ')</span>';
     sp.title = m[3] + ' ' + m[4] + ' do valor desta peça no orçamento da seguradora (verde: mais de 30% abaixo · amarelo: 20 a 30% · vermelho: menos de 20% ou mais caro)';
   }
   function selosCelula(cel) { $$('.selo-eco', cel).forEach(ecoCurto); }
@@ -5872,10 +5982,10 @@ iniciar();
   function juntarSelos(cel) {
     var pr = cel.querySelector('.selo.preco:not(.prazo)'), pz = cel.querySelector('.selo.prazo:not(.preco):not(.selo-codnovo)');
     if (!pr || !pz) return;
-    pr.innerHTML = '<span class="v2i v2i-dollar" aria-hidden="true"></span>menor preço e prazo';
+    pr.innerHTML = '<span class="v2i v2i-dollar" aria-hidden="true"></span><span class="v2i v2i-clock" aria-hidden="true"></span>menor preço e prazo';
     pr.classList.add('prazo'); pz.remove();
   }
-  function tituloSelos(cel) { $$('.selo', cel).forEach(function (x) { var t = x.textContent.replace(/\s+/g, ' ').trim(); if (t && x.title !== t) x.title = t; }); }
+  function tituloSelos(cel) { $$('.selo', cel).forEach(function (x) { x.removeAttribute('title'); }); }
   function linhaCotLida(it, linha) {
     if (linha.dataset.v2c) return;
     var lidas = []; try { lidas = JSON.parse(it.dataset.lidas || '[]'); } catch (e) {}
@@ -6010,7 +6120,7 @@ iniciar();
     var s = c('c-selos', ''); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); selosCelula(cv); juntarSelos(s); tituloSelos(s); idDe(s, 'v2cas'); idDe(cv, 'v2cav');
     var ca = c('c-acoes', ''); if (link) { linkCurto(link, q); ca.appendChild(link); }   // o link do anúncio vai na coluna da direita (vazia na autorização)
     r.setAttribute('aria-label', q.fornecedor + ', ' + fmtValor(q.valor) + ', ' + prazoTxt(q) + ' — ' + nm);
-    r.setAttribute('aria-describedby', ct.id + ' ' + s.id + ' ' + cv.id);
+    var ecoA = cv.querySelector('.selo-eco'); r.setAttribute('aria-describedby', ct.id + ' ' + s.id + (ecoA ? ' ' + idDe(ecoA, 'v2cae') : ''));
   }
   /* "anúncio" com nome que começa pelo texto visível e cita o fornecedor (o title repetia a URL inteira) */
   function linkCurto(a, q) { a.removeAttribute('title'); a.setAttribute('aria-label', 'anúncio — ' + ((q && q.fornecedor) || 'cotação')); }
@@ -6172,7 +6282,7 @@ iniciar();
       var ind = it.querySelector('.indisp:not(.oculto)');
       if (ind) {
         var im = ind.querySelector('.i-motivo');
-        fs.push(vl(im) ? { t: 'enviar a cotação indisponível (botão "Enviar para nova autorização")', c: 'indisponível: enviar para nova autorização', el: ind.querySelector('button.principal') } : { t: 'o motivo da cotação indisponível', c: 'motivo da indisponibilidade', el: im });
+        fs.push(vl(im) ? { t: 'enviar a cotação indisponível (botão "Enviar para nova autorização")', c: 'indisponível: enviar para nova autorização', el: ind.querySelector('button.principal'), ind: 1 } : { t: 'o motivo da cotação indisponível', c: 'motivo da indisponibilidade', el: im, ind: 1 });
       } else if (sel && sel.value) {
         agora++;
         var cots = []; try { cots = JSON.parse(it.dataset.cots || '[]'); } catch (e) {}
@@ -6216,6 +6326,7 @@ iniciar();
       var atras = r.dueIso && r.dueIso < hojeIso();
       tags.insertAdjacentHTML('beforeend', '<span class="v2c-prev' + (atras ? ' v2c-atras' : '') + '" title="Previsão de chegada">' + (r.dueTxt ? 'Previsão ' + txt(String(r.dueTxt).replace(/\s*·.*$/, '')) + (atras ? ' · atrasada' : '') : 'Sem previsão') + '</span>');
       st.insertAdjacentElement('afterend', tags);
+      var titR = document.createElement('span'); titR.className = 'v2c-tit'; st.insertAdjacentElement('beforebegin', titR); titR.appendChild(st); titR.appendChild(tags);
       it.setAttribute('role', 'group'); it.setAttribute('aria-labelledby', st.id);
       var ch = tp.querySelector('label.chip'); if (ch) { ch.classList.add('v2c-marca'); var cb = ch.querySelector('input'); if (cb) cb.setAttribute('aria-label', 'Chegou — ' + st.textContent.trim()); }
       var lc = it.querySelector('.r-local'); if (lc) { lc.placeholder = 'Ex.: D3'; var ll = lc.parentNode.querySelector('label'); if (ll) ll.textContent = 'Prateleira (onde guardou)'; }
@@ -6323,7 +6434,7 @@ iniciar();
       it.classList.toggle('v2c-motivo', adiou || !!vl(fm));
       if (fm) pintarCampo(fm, adiou && !vl(fm), adiou && vl(fm));
       if (adiou && !vl(fm)) fs.push({ t: 'o motivo da nova previsão', c: 'motivo da previsão', el: fm });
-      linhaFalta(it, fs); it.classList.toggle('v2c-falta', fs.length > 0); it.classList.toggle('v2c-ok', !fs.length && it.dataset.ok === '1');
+      linhaFalta(it, fs); it.classList.toggle('v2c-falta', fs.length > 0); it.classList.toggle('v2c-ok', !fs.length && (it.dataset.ok === '1' || (!!(pv && pv.value) && !sit)));
       if (fs.length) pend.push({ it: it, fs: fs });
     });
     var arqs = (typeof FORN_ARQS !== 'undefined' && FORN_ARQS) ? FORN_ARQS.length : 0;
@@ -6510,7 +6621,12 @@ iniciar();
   // o que falta (lateral) leva ao campo; "e mais N" abre a lista toda
   document.addEventListener('click', function (e) {
     var m = e.target && e.target.closest && e.target.closest('#v2cEtapas a[data-cmais]');
-    if (m) { e.preventDefault(); window.V2C_TUDO = true; try { atualizarLadoComp(); } catch (x) {} return; }
+    if (m) {
+      e.preventDefault(); var n0 = $$('#v2cEtapas .fl li a[data-c]').length;
+      window.V2C_TUDO = true; try { atualizarLadoComp(); } catch (x) {}
+      var novo = $$('#v2cEtapas .fl li a[data-c]')[n0]; if (novo) try { novo.focus(); } catch (x) {}
+      return;
+    }
     var a = e.target && e.target.closest && e.target.closest('#v2cEtapas a[data-c]'); if (!a) return;
     e.preventDefault(); irPara(COMP_ALVOS[+a.dataset.c]);
   });
@@ -6540,10 +6656,10 @@ iniciar();
       if (dur.length) { e.preventDefault(); e.stopImmediatePropagation(); irPara(dur[0].fs.filter(function (f) { return !f.cob; })[0].el); return; }
     }
     if (k === 'compra' && b.id === 'btnCompraParcial') {
-      var cpp = analisarCompra();
-      if (cpp.cartao.length || cpp.pend.length || !cpp.its.length) {
+      var cpp = analisarCompra(), pendP = cpp.pend.filter(function (x) { return !x.fs.every(function (f) { return f.ind; }); });
+      if (cpp.cartao.length || pendP.length || !cpp.its.length) {
         e.preventDefault(); e.stopImmediatePropagation();
-        if (cpp.pend.length && !cpp.cartao.length) irPara(cpp.pend[0].fs[0].el);
+        if (pendP.length && !cpp.cartao.length) irPara(pendP[0].fs[0].el);
         else avisoLado(!cpp.its.length ? 'Nada a comprar neste card.' : 'A compra só pode ser registrada depois da autorização (o card está em ' + ((window.CARD && window.CARD.lista) || '') + ').');
         return;
       }
@@ -6636,12 +6752,34 @@ iniciar();
     }
     bal.innerHTML = html; var p0 = bal.querySelector('.v2-bt'); if (p0) p0.id = bal.id + '-t';
     var d0 = bal.querySelector('.dica'); if (d0) { d0.id = bal.id + '-d'; bal.setAttribute('aria-describedby', d0.id); } else bal.removeAttribute('aria-describedby');
-    gatilho.insertAdjacentElement('afterend', bal);
+    document.body.appendChild(bal); bal.classList.add('v2c-flutua');
     bal.style.display = '';
-    bal._gatilho = gatilho; bal._devolver = gatilho;
+    bal._gatilho = gatilho; bal._devolver = gatilho; bal._t0 = performance.now();
+    posBalao(bal, gatilho);
     var f = g(focoId); if (f) f.focus({ preventScroll: true });
-    try { bal.scrollIntoView({ block: 'nearest' }); } catch (x) {}
   }
+  /* posição do balão: embaixo do botão; acima, quando não cabe embaixo; seta apontando para o meio do botão.
+     Tela muito baixa (zoom de 400%): o balão rola por dentro e fica sem a seta. */
+  function posBalao(bal, gat) {
+    var r = gat.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = innerHeight;
+    var w = Math.min(Math.max(r.width, 300), vw - 16), left = Math.min(Math.max(8, r.left + r.width - w), vw - w - 8);
+    bal.style.setProperty('--v2c-bw', w + 'px'); bal.style.left = Math.round(left) + 'px';
+    bal.classList.remove('v2c-alto');
+    var h = bal.offsetHeight, emb = vh - 8 - (r.bottom + 10), emc = r.top - 10 - 8;
+    var abaixo = h <= emb || (h > emc && emb >= emc), cabe = h <= (abaixo ? emb : emc);
+    bal.classList.toggle('v2c-acima', !abaixo); bal.classList.toggle('v2c-alto', !cabe);
+    if (!cabe) h = bal.offsetHeight;
+    var top = abaixo ? r.bottom + 10 : r.top - 10 - h;
+    bal.style.top = Math.round(Math.max(8, Math.min(top, vh - 8 - h))) + 'px';
+    bal.style.setProperty('--v2-seta', Math.round(Math.max(14, Math.min(w - 26, r.left + r.width / 2 - 6 - left))) + 'px');
+  }
+  function reposBaloes() { $$('.v2c-flutua').forEach(function (b) { if (b.style.display !== 'none' && b._gatilho) { if (!b._gatilho.offsetParent) fecharBalao(b, false); else posBalao(b, b._gatilho); } }); }
+  window.addEventListener('scroll', reposBaloes, true); window.addEventListener('resize', reposBaloes);
+  /* clique duplo não confirma: os botões do balão só valem 400 ms depois de ele abrir */
+  document.addEventListener('click', function (e) {
+    var bt = e.target && e.target.closest && e.target.closest('.v2c-balao button'); if (!bt) return;
+    var bal = bt.closest('.v2c-balao'); if (bal && bal._t0 && performance.now() - bal._t0 < 400) { e.preventDefault(); e.stopImmediatePropagation(); }
+  }, true);
   document.addEventListener('click', function (e) {
     if (!compPC()) return;
     var dv = e.target && e.target.closest && e.target.closest('#btnDev');
@@ -6751,6 +6889,7 @@ iniciar();
   function anexosLado() {
     var fl = g('fornAnexosTopo') && g('fornAnexosTopo')._v2lista, anx = g('v2cAnexos'); if (!anx) return;
     if (fl && fl.parentNode !== anx) anx.appendChild(fl);
+    if (fl) $$('.linha .nome', fl).forEach(function (n) { var t = (n.firstChild && n.firstChild.nodeType === 3 ? n.firstChild.nodeValue : n.textContent).trim(); if (t && n.title !== t) n.title = t; });
     var fa = g('fornAtalho'), vis = !!fl && fl.style.display !== 'none' && !!fl.querySelector('.linha') && !!fa && !fa.classList.contains('oculto');
     if (anx.hidden === vis) anx.hidden = !vis;
   }
@@ -6816,7 +6955,7 @@ iniciar();
   }
   if (typeof window.mostrarAba === 'function') {
     var mostrarAbaOrig = window.mostrarAba;
-    window.mostrarAba = function () { var r = mostrarAbaOrig.apply(this, arguments); try { if (PC) { atualizarTopo(); atualizarCompPC(); } } catch (e) {} return r; };
+    window.mostrarAba = function () { window.V2C_TUDO = false; var r = mostrarAbaOrig.apply(this, arguments); try { if (PC) { atualizarTopo(); atualizarCompPC(); } } catch (e) {} return r; };
   }
   if (typeof window.telaComprador === 'function') {
     var telaCompOrig = window.telaComprador;
