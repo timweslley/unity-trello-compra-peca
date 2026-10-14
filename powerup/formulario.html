@@ -4305,6 +4305,12 @@ iniciar();
         }
         var falta = obrigExtras().filter(function (id) { return !String(g(id).value || '').trim(); }).map(function (id) { return NOMES_EXTRA[id]; });
         if (falta.length && r && r.faltas) r.faltas.unshift('Dados do carro: falta ' + falta.join(', '));
+        // 13/10/2026 (Weslley): pedido Particular dentro de card de seguradora pode seguir mesmo com a parte da seguradora
+        // incompleta ("não é comum, mas possível") — as faltas das peças da seguradora não seguram o envio do particular
+        if (r && r.faltas && typeof pedidoPart === 'function' && pedidoPart()) {
+          var numsSeg = $$('#itens > .item').map(function (it) { return ((it.querySelector('.num') || {}).textContent || '').trim(); }).filter(String);
+          r.faltas = r.faltas.filter(function (f) { return !numsSeg.some(function (nt) { return f.indexOf(nt + ' (') === 0 || f.indexOf(nt + ':') === 0; }); });
+        }
       } catch (e) {}
       return r;
     };
