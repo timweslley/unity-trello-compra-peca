@@ -701,6 +701,7 @@ function vd_anexoLegivel_(a) {
  */
 /* Versão do leitor de anexos: quando o leitor de orçamento muda (ex.: 05/10/2026, layout Soma), as leituras
  * guardadas com a versão antiga são lidas de novo — senão "ler de novo" e o robô do complemento devolvem a leitura velha. */
+var VD_LEITOR_V = 2;   // versão do leitor de orçamento (2 = 14/10/2026, código Cilia com ponto no fim)
 var VD_ANX_V = 3;   // 3 (06/10/2026): o cache do orçamento passou a guardar o valor líquido de cada peça
 function vd_lerAnexoTrello_(a, opt) {
   opt = opt || {};
@@ -718,6 +719,9 @@ function vd_lerAnexoTrello_(a, opt) {
     else if (r && r.orc && r.orc.o.some(function (x) { return x[0] !== 'P' && x.length < 4; })) r = null;
     // formulário precisa das peças e o cache não as tem
     else if (r && opt.orcCompleto && r.orcamento && !r.orc) r = null;
+    // leitor do Cilia corrigido (14/10/2026, JDC7H45: código com ponto no fim sumia): o formulário relê orçamento Cilia lido
+    // pelo leitor antigo — só quando alguém pede no formulário, sem reler tudo de uma vez
+    else if (r && opt.orcCompleto && r.orcamento === 'CILIA' && (r.rl || 0) < VD_LEITOR_V) r = null;
     // cache sem a placa "com rótulo" e com placas ambíguas: lê de novo uma vez
     else if (r && !r.placasRot && (r.placas || []).length > 1) r = null;
     if (r) r.doCache = true;
@@ -748,7 +752,7 @@ function vd_lerAnexoTrello_(a, opt) {
       console.log('leitura do anexo ' + a.name + ': ' + e);
       return { erro: String(e).slice(0, 100), chassis: [], placas: [] };
     }
-    r.v = VD_ANX_V;
+    r.v = VD_ANX_V; r.rl = VD_LEITOR_V;
     var js = JSON.stringify(r);
     if (js.length > 8500 && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
     // cache cheio (limite de 500 KB das propriedades) não pode derrubar a leitura: segue sem guardar (10/10/2026)
