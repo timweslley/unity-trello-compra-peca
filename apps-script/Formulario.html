@@ -2631,6 +2631,7 @@ iniciar();
   .v2 #v2topo button { min-height:40px; font-size:14px; padding:6px 10px; }
   .v2 header { position:static; padding:6px 12px; gap:8px; flex-wrap:nowrap; }
   .v2 header h1 { display:none; }
+  html.v2.v2toque header h1 { display:block !important; position:absolute !important; width:1px !important; height:1px !important; margin:-1px !important; padding:0 !important; overflow:hidden !important; clip:rect(0 0 0 0) !important; white-space:nowrap !important; border:0 !important; }
   .v2 header .selo { font-size:10px; padding:2px 6px; }
   .v2 header .usuario { font-size:12px; white-space:nowrap; margin-left:auto; }
   .v2 header .v2hb { min-height:36px !important; font-size:13px !important; padding:4px 10px !important; white-space:nowrap; }
@@ -3661,8 +3662,11 @@ iniciar();
   .v2pc #comprador.v2c .item > .dica.v2c-links-cot { font-size:13px !important; margin:6px 0 0 !important; }
   .v2pc #comprador.v2c .item > .dica.v2c-links-cot.v2c-dup { display:none !important; }
   /* cotações (no card e novas) em tabela: as colunas batem de uma peça para a outra — e entre Cotação e Autorizar (mesmo molde) */
-  .v2pc #comprador.v2c .v2c-tab { display:grid !important; grid-template-columns:minmax(176px, 1.6fr) minmax(96px, .9fr) 124px 84px minmax(172px, 1.2fr) 124px; column-gap:8px; margin:2px 0 4px !important; }
-  .v2pc #comprador.v2c .v2c-tab.v2c-tabaut { grid-template-columns:minmax(206px, 1.8fr) minmax(104px, .9fr) 124px 84px minmax(172px, 1.2fr) 84px; }
+  /* 5ª rodada (design 4): linha de 2 andares em todas as larguras — "menor preço/prazo" e o anúncio sob o nome; a coluna "Tipo · marca"
+     ficou larga (marca longa quebrava em 3 a 5 linhas) e o prazo com folga do Editar */
+  .v2pc #comprador.v2c .v2c-tab { display:grid !important; grid-template-columns:minmax(171px, 1fr) minmax(165px, 1fr) 124px 92px 124px; column-gap:8px; margin:2px 0 4px !important; }
+  .v2pc #comprador.v2c .v2c-tab.v2c-tabaut { grid-template-columns:minmax(193px, 1fr) minmax(165px, 1fr) 124px 92px 84px; }
+  .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > .c-tipo { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
   .v2pc #comprador.v2c .v2c-lin > .c-prazo, .v2pc #comprador.v2c .v2c-lin.v2c-th > span:nth-child(4) { padding-left:8px; }
   /* a largura vem do cartão da peça (não da janela): entre ~1200 e ~1290 px as linhas passavam da borda */
   .v2pc #comprador.v2c :is(#cotItens, #autItens) > .item { container:peca / inline-size; }
@@ -3705,7 +3709,24 @@ iniciar();
   .v2pc #comprador.v2c .v2c-lin .c-valor .selo-eco { position:absolute; right:0; top:100%; }
   @media (min-width:761px) {
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin:has(.c-valor .selo-eco) { padding-bottom:16px !important; }
-    .v2pc #comprador.v2c .v2c-tab > label.opcao-aut.v2c-lin:has(.c-valor .selo-eco) { padding-bottom:21px !important; }
+    .v2pc #comprador.v2c .v2c-tab > label.opcao-aut.v2c-lin:has(.c-valor .selo-eco) { padding-bottom:22px !important; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin { grid-template-rows:auto auto; row-gap:0; align-content:center; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th):not(.v2c-naoaut) > :is(.c-forn, .c-tipo, .c-valor, .c-prazo) { grid-row:1; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th):not(.v2c-naoaut) > .c-forn { grid-column:1; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th):not(.v2c-naoaut) > .c-tipo { grid-column:2; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th):not(.v2c-naoaut) > .c-valor { grid-column:3; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th):not(.v2c-naoaut) > .c-prazo { grid-column:4; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos { grid-column:1; grid-row:2; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-acoes { grid-column:5; grid-row:1 / span 2; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(:has(> .c-selos > *)) > .c-acoes { grid-row:1; }
+    .v2pc #comprador.v2c .v2c-tab > :is(div, label).v2c-lin:has(> .c-selos > *):has(.c-valor .selo-eco) { padding-bottom:7px !important; }
+    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut > .v2c-lin > .c-acoes { grid-row:1; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin.v2c-th > span:nth-child(5) { display:none; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin.v2c-th > span:nth-child(6) { grid-column:5; }
+    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut > .v2c-lin > .c-selos { padding-left:22px; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos :is(.selo, a) { height:auto !important; padding:0 !important; border:0 !important; background:none !important; font-size:12px !important; line-height:15px !important; color:#44546f !important; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos a { color:#0c66e4 !important; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos { column-gap:10px !important; }
   }
   .v2pc #comprador.v2c .v2c-lin.removida .c-valor .selo-eco { color:#626f86 !important; }
   /* cotação marcada para remover: riscada em cinza legível (com opacidade ficava em 1,9:1) */
@@ -3745,10 +3766,9 @@ iniciar();
   .v2pc #comprador.v2c #autItens .nao-motivo { margin:6px 0 0 !important; }
   .v2pc #comprador.v2c #autItens .nao-motivo input { width:100%; max-width:640px; }
   /* status da peça (autorizado / já comprado): leves, com " · " entre as partes */
-  .v2pc #comprador.v2c .item > .comprado { display:inline-flex !important; flex-wrap:wrap; align-items:center; gap:4px 6px; margin:2px 0 6px !important; padding:3px 10px !important; border-radius:var(--r-sm) !important; font-size:13px !important; font-weight:500; line-height:20px; }
+  .v2pc #comprador.v2c .item > .comprado { display:inline-block !important; margin:2px 0 6px !important; padding:3px 10px !important; border-radius:var(--r-sm) !important; font-size:13px !important; font-weight:500; line-height:20px; }
   .v2pc #comprador.v2c .item > .comprado b { font-weight:700; }
-  .v2pc #comprador.v2c .item > .comprado { column-gap:0 !important; }
-  .v2pc #comprador.v2c .item > .comprado > .v2i { margin:0 6px 0 0 !important; }
+  .v2pc #comprador.v2c .item > .comprado > .v2i { margin:0 6px 0 0 !important; vertical-align:-3px; }
   .v2pc #comprador.v2c .item > .comprado.v2c-autz { background:#f3fbf7 !important; border:1px solid #a6dfc4 !important; color:#216e4e !important; }
   .v2pc #comprador.v2c .item > .comprado.v2c-feito { background:#dcfff1 !important; border:1px solid #7ee2b8 !important; color:#164b35 !important; }
   .v2pc #comprador.v2c .item > .comprado :is(a, a:visited) { color:inherit !important; text-decoration:underline; text-underline-offset:2px; }
@@ -3767,8 +3787,9 @@ iniciar();
   .v2pc #comprador.v2c #compraItens :is(.v2c-caixa, .compl-box) { margin:8px 0 2px !important; padding:10px 12px !important; background:#f7f8f9 !important; border:1px solid #dcdfe4 !important; border-radius:var(--r-md) !important; }
   .v2pc #comprador.v2c #compraItens .v2c-caixa.oculto { display:none !important; }
   .v2pc #comprador.v2c #compraItens .compl-box.v2c-cxfalta { background:#fff6f5 !important; border-color:#f3c4bf !important; }
-  .v2pc #comprador.v2c #compraItens .compl-box > div:first-child { font-size:13px; font-weight:600 !important; color:#172b4d; margin:0 0 6px !important; display:flex; align-items:center; gap:6px; }
-  .v2pc #comprador.v2c #compraItens .compl-box > div:first-child .v2i { width:14px; height:14px; flex-basis:14px; margin:0 !important; color:#5e4db2; }
+  .v2pc #comprador.v2c #compraItens .compl-box > div:first-child { font-size:13px; font-weight:600 !important; color:#172b4d; margin:0 0 6px !important; display:block; }
+  .v2pc #comprador.v2c #compraItens .compl-box > div:first-child .v2i { width:14px; height:14px; margin:0 6px 0 0 !important; vertical-align:-2px; color:#5e4db2; }
+  .v2pc #comprador.v2c #compraItens .k-aviso { max-width:760px; box-sizing:border-box; }
   .v2pc #comprador.v2c #compraItens .compl-box > label { display:flex !important; align-items:center; gap:8px; margin:4px 0 !important; font-size:14px !important; font-weight:400 !important; color:#172b4d !important; cursor:pointer; }
   .v2pc #comprador.v2c #compraItens .compl-box input[type=radio] { width:16px; height:16px; flex:0 0 16px; margin:0 !important; accent-color:#0c66e4; }
   .v2pc #comprador.v2c #compraItens .compl-box .k-compl-por { width:100%; max-width:420px; margin-top:6px !important; }
@@ -3977,7 +3998,8 @@ iniciar();
   .v2pc #v2cLado #v2cAnexos .v2-ler :is(details, .anexos-orig) { font-size:12px; margin:4px 0 0 !important; }
   .v2pc #v2cLado .v2c-forn #fornAnexosTopo { display:none !important; }
   /* balão de confirmação dentro da lateral: no fluxo, logo abaixo do botão que o abriu */
-  .v2pc .v2-balao.v2c-balao.v2c-flutua { position:fixed !important; z-index:60; margin:0 !important; width:var(--v2c-bw, 320px) !important; }
+  .v2pc .v2-balao.v2c-balao.v2c-flutua { position:fixed !important; z-index:60; margin:0 !important; width:var(--v2c-bw, 320px) !important; box-shadow:0 10px 28px rgba(9,30,66,.22), 0 2px 6px rgba(9,30,66,.12) !important; }
+  .v2pc .v2-balao.v2c-balao.v2c-semseta::before { display:none; }
   .v2pc .v2-balao.v2c-balao .bts button { flex:1 1 auto; }
   .v2pc .v2-balao.v2c-balao.v2c-acima::before { top:auto !important; bottom:-7px; border-left:0 !important; border-top:0 !important; border-right:1px solid #f5cd47; border-bottom:1px solid #f5cd47; }
   .v2pc .v2-balao.v2c-balao.v2c-alto { max-height:calc(100vh - 16px); overflow-y:auto; }
@@ -3988,38 +4010,28 @@ iniciar();
   .v2pc.v2-comp #v2ped-dir { margin-left:auto; }
   /* "?" fechado com Esc mesmo com o mouse em cima (1.4.13) */
   .v2 .v2q.v2q-fechado::after { display:none !important; }
+  .v2pc .v2q:hover::after, .v2pc .v2q:focus::after { left:var(--v2q-dx, -10px) !important; right:auto !important; width:var(--v2q-w, 320px) !important; max-width:none !important; box-sizing:border-box; }
+  .v2pc .v2q.v2q-acima:hover::after, .v2pc .v2q.v2q-acima:focus::after { top:auto !important; bottom:26px !important; }
   /* tela baixa (notebook com zoom, Power-Up): placa e Fechar menores — a barra cai de ~114 para ~80 px */
   @media (max-height:640px) {
     .v2pc.v2-comp #v2c-placa { zoom:.84; }
     .v2pc.v2-comp #v2ped-dir #btnFechar { height:32px !important; min-height:32px !important; padding-top:0 !important; padding-bottom:0 !important; }
   }
   @media (min-width:761px) { @container peca (max-width:820px) {
-    /* cartão estreito (Power-Up a 125%, janelas de ~1180 a ~1300 px): linha de 2 andares — em cima fornecedor, tipo, valor e prazo
-       (alinhados); embaixo, sob o nome, "menor preço/prazo" e o anúncio em texto, e sob o valor a economia. Antes os selos viravam
-       só ícone e o "anúncio" ficava embaixo do Editar. */
-    .v2pc #comprador.v2c .v2c-tab { grid-template-columns:minmax(130px, 1.5fr) minmax(90px, .8fr) 100px 80px 124px; }
-    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut { grid-template-columns:minmax(170px, 2fr) minmax(96px, .8fr) 100px 80px 76px; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin { grid-template-rows:auto auto; row-gap:0; align-content:center; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > :is(.c-forn, .c-tipo, .c-valor, .c-prazo) { grid-row:1; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > .c-forn { grid-column:1; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > .c-tipo { grid-column:2; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > .c-valor { grid-column:3; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th) > .c-prazo { grid-column:4; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos { grid-column:1; grid-row:2; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-acoes { grid-column:5; grid-row:1 / span 2; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(:has(> .c-selos > *)) > .c-acoes { grid-row:1; }
-    .v2pc #comprador.v2c .v2c-tab > :is(div, label).v2c-lin:has(> .c-selos > *):has(.c-valor .selo-eco) { padding-bottom:5px !important; }
-    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut > .v2c-lin > .c-acoes { grid-row:1; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin.v2c-th > span:nth-child(5) { display:none; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin.v2c-th > span:nth-child(6) { grid-column:5; }
-    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut > .v2c-lin > .c-selos { padding-left:22px; }
-    .v2pc #comprador.v2c .v2c-tab .c-selos :is(.selo, a) { height:auto !important; padding:0 !important; border:0 !important; background:none !important; font-size:12px !important; line-height:15px !important; color:#44546f !important; }
-    .v2pc #comprador.v2c .v2c-tab .c-selos a { color:#0c66e4 !important; }
-    .v2pc #comprador.v2c .v2c-tab .c-selos { column-gap:10px !important; }
+    /* cartão estreito (Power-Up a 125%, janelas de ~1180 a ~1300 px): colunas mais justas e a economia curta */
+    .v2pc #comprador.v2c .v2c-tab { grid-template-columns:minmax(171px, 1.2fr) minmax(110px, 1fr) 100px 92px 124px; }
+    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut { grid-template-columns:minmax(193px, 1.2fr) minmax(110px, 1fr) 100px 92px 76px; }
     /* economia curta embaixo do valor ("14% abaixo"; o "do orç." fica para o leitor de tela) */
     .v2pc #comprador.v2c .v2c-tab .v2c-lin .c-valor .v2c-ecoorc { position:absolute !important; width:1px !important; height:1px !important; overflow:hidden !important; clip:rect(0 0 0 0) !important; white-space:nowrap !important; }
-    /* botões do alto da peça só com o texto (o nome da peça cabia em 2 linhas a 125%) */
-    .v2pc #comprador.v2c .item-topo .v2c-acoes :is(.v2c-obs, .v2c-addcot, .chip) .v2i { display:none !important; }
+    /* Autorizar estreito: "+ Comp." (como no pedido) e "Não comprar" sem o ícone — o nome da peça cabe numa linha; a Cotação fica inteira */
+    .v2pc #comprador.v2c #autItens .item-topo .v2c-acoes .chip-nao .v2i { display:none !important; }
+    .v2pc #comprador.v2c #autItens .item-topo .v2c-acoes .chip-comp { font-size:0 !important; }
+    .v2pc #comprador.v2c #autItens .item-topo .v2c-acoes .chip-comp::after { content:"Comp."; font-size:13px; }
+  } }
+  @media (min-width:761px) { @container peca (max-width:640px) {
+    /* janela de 961 a ~1020 px com a coluna da direita: a tabela ainda cabe no cartão */
+    .v2pc #comprador.v2c .v2c-tab { grid-template-columns:minmax(120px, 1fr) minmax(96px, 1fr) 96px 92px 124px; }
+    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut { grid-template-columns:minmax(140px, 1fr) minmax(96px, 1fr) 96px 92px 76px; }
   } }
   @container peca (max-width:780px) {
     .v2pc #comprador.v2c .cot.v2c-nova, .v2pc #comprador.v2c .cot.v2c-nova.v2c-pneu { grid-template-columns:minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) !important; }
@@ -4041,8 +4053,8 @@ iniciar();
   @media (max-width:760px) {
     .v2pc.v2-comp main:has(> #comprador:not(.oculto)) { padding:12px 12px 0 !important; }
     .v2pc.v2-comp #v2topo { flex-wrap:wrap !important; row-gap:6px; padding-left:12px !important; padding-right:12px !important; }
-    .v2pc.v2-comp #v2ped-meio { flex:1 1 160px !important; }
-    .v2pc.v2-comp #v2ped-dir { flex:1 1 100%; flex-wrap:wrap; justify-content:flex-end; row-gap:6px; }
+    .v2pc.v2-comp #v2ped-dir { order:1 !important; margin-left:auto; flex:0 1 auto !important; flex-wrap:wrap; justify-content:flex-end; row-gap:6px; }
+    .v2pc.v2-comp #v2ped-meio { order:2 !important; flex:1 1 100% !important; min-width:0; }
     .v2pc.v2-comp #v2c-placa { zoom:.7; }
     .v2pc.v2-comp #v2etapa { display:flex !important; flex-wrap:wrap !important; white-space:normal !important; overflow:visible !important; row-gap:4px; align-items:center; }
     .v2pc.v2-comp #v2etapa > .v2sit, .v2pc.v2-comp #v2etapa .v2sit { white-space:normal !important; flex:0 1 auto !important; max-width:100%; }
@@ -4052,14 +4064,20 @@ iniciar();
     .v2pc #comprador.v2c .item > .item-topo > .v2c-acoes { grid-column:1 / -1; margin-left:0; flex-wrap:wrap; }
     .v2pc #comprador.v2c .v2c-tab { display:block !important; }
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin.v2c-th { display:none !important; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin { display:flex !important; flex-wrap:wrap; align-items:center; gap:2px 10px; padding:6px 0 !important; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-forn { flex:1 1 100%; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-acoes { margin-left:auto; }
+    /* cada cotação no mesmo desenho: fornecedor | valor; tipo · marca | economia; selos e anúncio | prazo; botões embaixo */
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:not(.v2c-th):not(.v2c-naoaut) { display:grid !important; grid-template-columns:minmax(0, 1fr) auto; grid-template-areas:"forn valor" "tipo valor" "selos prazo" "acoes acoes"; column-gap:12px; row-gap:2px; align-items:start; padding:8px 0 !important; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-forn { grid-area:forn; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-tipo { grid-area:tipo; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-valor { grid-area:valor; text-align:right; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-prazo { grid-area:prazo; justify-self:end; padding-left:0 !important; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos { grid-area:selos; }
+    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-acoes { grid-area:acoes; justify-self:end; }
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-acoes:empty { display:none; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos { flex:1 1 auto; }
-    .v2pc #comprador.v2c .v2c-tab .c-selos .selo { font-size:12px !important; padding:0 8px !important; }
-    .v2pc #comprador.v2c .v2c-tab > .v2c-lin:has(.c-valor .selo-eco) { padding-bottom:6px !important; }
-    .v2pc #comprador.v2c .v2c-tab .v2c-lin .c-valor .selo-eco { position:static; display:inline-flex !important; margin:0 0 0 8px !important; }
+    .v2pc #comprador.v2c .v2c-tab.v2c-tabaut > .v2c-lin > :is(.c-tipo, .c-selos) { padding-left:22px; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos :is(.selo, a) { height:auto !important; padding:0 !important; border:0 !important; background:none !important; font-size:12px !important; line-height:15px !important; color:#44546f !important; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos a { color:#0c66e4 !important; }
+    .v2pc #comprador.v2c .v2c-tab .c-selos { column-gap:10px !important; }
+    .v2pc #comprador.v2c .v2c-tab .v2c-lin .c-valor .selo-eco { position:static; display:flex !important; justify-content:flex-end; margin:2px 0 0 !important; }
     .v2pc #comprador.v2c > .abas { row-gap:4px !important; }
     .v2pc #comprador.v2c .v2c-tab > .v2c-lin > .c-selos:empty { display:none; }
     .v2pc #comprador.v2c label.opcao-aut.v2c-lin { margin:0 !important; }
@@ -4069,6 +4087,12 @@ iniciar();
     .v2pc #comprador.v2c #compraItens .indisp .cot { grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); }
     .v2pc #comprador.v2c .v2c-arqlin > .v2c-bmini.v2c-bdir { margin:0 !important; }
     .v2pc #comprador.v2c #recJa .v2c-seg .chip { margin:0 0 4px -1px !important; }
+    .v2pc #comprador.v2c .v2c-tags :is(.v2c-fornt, span) { white-space:normal !important; overflow-wrap:anywhere; }
+  }
+  @media (max-width:480px) {
+    .v2pc #comprador.v2c > .abas { display:grid !important; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); gap:4px !important; }
+    .v2pc #comprador.v2c > .abas > .aba { justify-content:center; margin:0 !important; }
+    .v2pc #comprador.v2c .v2c-tab .v2c-lin .c-valor .v2c-ecoorc { position:absolute !important; width:1px !important; height:1px !important; overflow:hidden !important; clip:rect(0 0 0 0) !important; white-space:nowrap !important; }
   }
   @media (max-width:960px) and (max-height:500px) {
     .v2pc.v2-comp #v2topo { position:static !important; }
@@ -4082,15 +4106,35 @@ iniciar();
     .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-placa { zoom:.7; flex:0 0 auto; }
     .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-dir { order:1 !important; margin-left:auto; flex:0 1 auto; flex-wrap:wrap; justify-content:flex-end; row-gap:6px; }
     .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-meio { order:2 !important; flex:1 1 100% !important; min-width:0; }
-    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo { flex-wrap:wrap !important; row-gap:4px; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo { flex-wrap:nowrap !important; align-items:flex-start; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chips { min-width:0; }
+    .v2pc.v2-pedtopo #v2ped-dir .v2ped-novo > .v2q { display:none !important; }
+    .v2pc.v2-pedtopo #v2ped-dir #v2aj { width:auto !important; padding:0 10px !important; font-size:13px !important; }
+    .v2pc.v2-pedtopo #v2ped-dir #v2aj .v2i { margin:0 5px 0 0 !important; }
     .v2pc.v2-pedtopo:not(.v2-comp) #v2etapa { flex-wrap:wrap !important; row-gap:4px; white-space:normal !important; }
     .v2pc.v2-pedtopo:not(.v2-comp) #v2etapa > .v2sit-p { white-space:normal !important; }
     .v2pc:not(.v2-comp) main { padding-left:12px !important; padding-right:12px !important; }
     /* dados do carro em 2 colunas; modelo e chassi na linha toda */
     .v2pc section.v2-carro div:has(> :is(#ano, #motor, #ordem, #unidade, #carro, #cor, #seguradora, #sinistro)) { grid-column:span 6; }
     .v2pc section.v2-carro div:has(> :is(#modelo, #chassi)) { grid-column:span 12; }
-    /* anexos já no card: a linha quebra (o "Importar de novo" passava da borda) */
+    /* anexos já no card: a linha quebra (o "Importar de novo" passava da borda) e o nome fica inteiro, em até 2 linhas */
     .v2pc .v2-ler .linha { flex-wrap:wrap; row-gap:4px; }
+    .v2pc #form .v2-ler .linha .nome { flex:1 1 calc(100% - 40px); min-width:min(10em, 100%); white-space:normal; overflow-wrap:anywhere; display:-webkit-box !important; -webkit-box-orient:vertical; -webkit-line-clamp:2; text-overflow:clip; }
+    /* rótulos do carro quebram em vez de cortar; os campos ficam alinhados embaixo */
+    .v2pc #form > section.v2-carro { align-items:end; }
+    .v2pc section.v2-carro label { white-space:normal !important; overflow:visible !important; text-overflow:clip !important; }
+    /* "Não comprar" numa linha só (há espaço) */
+    .v2pc #form :is(#itens, #itensPart) > .item > .item-topo .chip-nao::after, .v2pc #form :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { content:"Não comprar" !important; white-space:nowrap !important; }
+  }
+  @media (max-width:480px) {
+    /* barra de cima rola junto (em tela estreita ela ocupa de 3 a 4 linhas) */
+    .v2pc.v2-pedtopo #v2topo { position:static !important; }
+    .v2pc.v2-pedtopo .v2pc-cab { top:0; }
+    html.v2pc.v2-pedtopo { scroll-padding-top:48px; }
+    .v2pc #form :is(button#v2addPeca, button[onclick^="novoItem"]) { padding-left:12px !important; padding-right:12px !important; }
+  }
+  @media (max-width:420px) {
+    .v2pc section.v2-carro div:has(> :is(#ano, #motor, #ordem, #unidade, #carro, #cor, #seguradora, #sinistro)) { grid-column:span 12; }
   }
   @media (max-width:420px) {
     .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip { padding:0 8px !important; gap:5px !important; }
@@ -4126,10 +4170,14 @@ iniciar();
     .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) { grid-row:3 !important; grid-column:3 !important; }
     .v2pc :is(#itens, #itensPart) > .item > .grade > :is(.inteiro:has(.f-tipo), .inteiro:has(.f-marca)) { grid-row:4 !important; grid-column:2 / -1 !important; }
     .v2pc :is(.v2-comorc :is(#itens, #itensPart), :is(#itens, #itensPart).v2-comorc, #itens, #itensPart) > .item:is([data-origem], [data-tipo], .item) > .item-topo { grid-row:5 !important; grid-column:2 / -1 !important; justify-content:flex-start !important; flex-wrap:wrap !important; }
-    .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(.f-qtd), div:has(> .f-valor-orc)) > label { display:block !important; margin:0 0 2px !important; font-size:12px !important; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) > label > span { display:none; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(.f-qtd), div:has(> .f-valor-orc)) { align-self:end; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(.f-qtd), div:has(> .f-valor-orc)) > label { display:block !important; margin:0 0 2px !important; font-size:12px !important; line-height:16px; white-space:normal; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) > label { font-size:0 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) > label > span { display:none !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) > label::before { content:"Valor unitário (R$)"; font-size:12px; }
   }
   @media (min-width:641px) {
+    html.v2.v2toque :is(#infoComprador, #infoComprador b, .anexos-orig > b, #ntExistentes, #dicaNotaUnica, .dica:not(.ruim):not(.boa)) { color:#44546f !important; }
     html.v2.v2toque body { font-size:16px; line-height:24px; }
     html.v2.v2toque main { padding:12px 12px 96px; }
     html.v2.v2toque label { font-size:14px; line-height:20px; }
@@ -4208,7 +4256,15 @@ iniciar();
     'PENDENTE AUTORIZAR': 'Esperando autorização', 'AUTORIZADO COMPRA': 'O comprador vai comprar', 'FALTA CHEGAR': 'Esperando a peça chegar',
     'ENCERRADO COMPRAS/FORNEC.': 'Tudo chegou', 'ESPERA/NÃO AUTORIZADO': 'Em espera'
   };
+  var MQ_TOPO = window.matchMedia('(max-width:760px)');
+  function ordemTopo() {
+    var d = g('v2ped-dir'), m = g('v2ped-meio'); if (!d || !m || !PC) return;
+    if (MQ_TOPO.matches) { if (m.previousElementSibling !== d) m.insertAdjacentElement('beforebegin', d); }
+    else if (m.nextElementSibling !== d) m.insertAdjacentElement('afterend', d);
+  }
+  try { MQ_TOPO.addEventListener('change', ordemTopo); } catch (e) {}
   function atualizarTopo() {
+    try { ordemTopo(); } catch (e) {}
     var c = window.CARD || null;
     var placa = (g('placa') && g('placa').value) || (c && c.dados && c.dados.placa) || ((c && c.nome) || '').split(' ')[0] || '';
     g('v2placa').textContent = placa ? placa.toUpperCase() : 'NOVO';
@@ -4603,7 +4659,9 @@ iniciar();
   });
   // Enviar com contorno (ainda falta): o clique (ou Enter num campo) leva até o 1º item que falta em vez de enviar
   document.addEventListener('click', function (e) {
-    var b = e.target && e.target.closest && e.target.closest('#btnEnviar.v2-pend-env'); if (!b || !PC) return;
+    var b = e.target && e.target.closest && e.target.closest('#btnEnviar'); if (!b || !PC) return;
+    try { varrer(); } catch (x) {}   // 15/10 (QA): recalcula antes de decidir — o último campo pode ter sido preenchido agora mesmo
+    if (!b.classList.contains('v2-pend-env')) return;
     var a = document.querySelector('#v2etapas .fl a[data-alvo]'); if (!a) return;   // nada clicável: o envio segue e o sistema explica o que falta
     e.preventDefault(); e.stopPropagation(); a.click();
   }, true);
@@ -5033,6 +5091,8 @@ iniciar();
       + '<span class="v2q" tabindex="0" data-dica="' + txt(DICA_ARQS) + '"></span>');
     if (lc) bar.appendChild(lc);   // capa por último
     bar.appendChild(bar.querySelector('.v2q'));
+    var ia = g('arquivo'); if (ia) la.insertAdjacentElement('afterend', ia);
+    var ic = g('capa'); if (lc && ic) lc.insertAdjacentElement('afterend', ic);
     g('v2arqForn').onchange = function () { subirExtra(this, 'forn'); };
     g('v2arqOutro').onchange = function () { subirExtra(this, 'outro'); };
     var prev = document.createElement('div'); prev.id = 'v2fornPrevia'; prev.className = 'oculto';
@@ -5394,7 +5454,8 @@ iniciar();
     bal.style.left = esq + 'px'; bal.style.top = (rr.bottom - rt.top + 10) + 'px';
     bal.style.setProperty('--v2-seta', Math.round(Math.max(12, Math.min(rr.left - rt.left + rr.width / 2 - esq - 7, lw - 26))) + 'px');   // a seta aponta para o gatilho
     bal._gatilho = gatilho; bal._devolver = devolverEm || gatilho;   // label não recebe foco: no tipo, o foco volta para o rádio marcado
-    setTimeout(function () { var f = g(focoId); if (f) f.focus(); }, 30);
+    // 15/10 (QA): com a tela muito baixa (400%), mostra o balão inteiro antes de pôr o foco (o foco rolava a tela e cortava o topo do balão)
+    setTimeout(function () { try { bal.scrollIntoView({ block: 'nearest' }); } catch (x) {} var f = g(focoId); if (f) f.focus({ preventScroll: true }); }, 30);
   }
   function fecharBalao(bal, devolver) {
     if (!bal || bal.style.display === 'none') return; bal.style.display = 'none'; var d = bal._devolver || bal._gatilho;
@@ -5865,7 +5926,7 @@ iniciar();
     linha.innerHTML = ''; linha.classList.add('v2c-lin');
     var c = function (cl, h) { var d = document.createElement('span'); d.className = cl; if (h != null) d.innerHTML = h; linha.appendChild(d); return d; };
     c('c-forn', '<b>' + txt(q.fornecedor) + '</b>');
-    c('c-tipo', txt([q.tipo, q.marca].filter(String).join(' · ') || '—'));
+    var ctl = c('c-tipo', txt([q.tipo, q.marca].filter(String).join(' · ') || '—')); if (ctl.textContent.length > 26) ctl.title = ctl.textContent;
     var cv = c('c-valor', txt(fmtValor(q.valor)));
     c('c-prazo', txt(prazoTxt(q)));
     var s = c('c-selos'); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); if (link) { linkCurto(link, q); s.appendChild(link); } if (autz) s.appendChild(autz); selosCelula(cv); juntarSelos(s); tituloSelos(s);
@@ -5985,7 +6046,7 @@ iniciar();
     lab.innerHTML = '';
     var c = function (cl, h) { var d = document.createElement('span'); d.className = cl; d.innerHTML = h; lab.appendChild(d); return d; };
     var f = c('c-forn', ''); f.appendChild(r); f.insertAdjacentHTML('beforeend', '<b>' + txt(q.fornecedor) + '</b>');
-    var ct = c('c-tipo', txt([q.tipo, q.marca].filter(String).join(' · ') || '—')); idDe(ct, 'v2cat');
+    var ct = c('c-tipo', txt([q.tipo, q.marca].filter(String).join(' · ') || '—')); idDe(ct, 'v2cat'); if (ct.textContent.length > 26) ct.title = ct.textContent;
     var cv = c('c-valor', txt(fmtValor(q.valor))); c('c-prazo', txt(prazoTxt(q)));
     var s = c('c-selos', ''); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); selosCelula(cv); juntarSelos(s); tituloSelos(s); idDe(s, 'v2cas'); idDe(cv, 'v2cav');
     var ca = c('c-acoes', ''); if (link) { linkCurto(link, q); ca.appendChild(link); }   // o link do anúncio vai na coluna da direita (vazia na autorização)
@@ -6163,7 +6224,7 @@ iniciar();
         pintarCampo(kd, semPz && (!vl(kd) || pzInv), semPz && vl(kd) && !pzInv);
         if (semPz && !vl(kd)) fs.push({ t: 'o prazo de entrega', c: 'prazo', el: kd }); else if (pzInv) fs.push({ t: 'o prazo em dias úteis, só número (ex.: 3)', c: 'prazo inválido', el: kd });
         var cpl = complDoItem(it, ''), cb = it.querySelector('.compl-box');
-        if (cpl && cpl.falta) fs.push({ t: /quem liberou/.test(cpl.falta) ? 'quem liberou a compra antecipada' : 'a situação do complementar', c: /quem liberou/.test(cpl.falta) ? 'quem liberou' : 'complementar', el: it.querySelector('.k-compl-por:not(.oculto)') || it.querySelector('.k-compl') });
+        if (cpl && cpl.falta) fs.push({ t: /quem liberou/.test(cpl.falta) ? 'quem liberou a compra antecipada' : 'a situação do complementar', c: /quem liberou/.test(cpl.falta) ? 'quem liberou' : 'situação do complementar', el: it.querySelector('.k-compl-por:not(.oculto)') || it.querySelector('.k-compl') });
         if (cb) cb.classList.toggle('v2c-cxfalta', !!(cpl && cpl.falta));
         var pr = it.querySelector('.k-compl-por'); if (pr && !pr.classList.contains('oculto')) pintarCampo(pr, !vl(pr), vl(pr));
       } else if (!feito && !ind) {
@@ -6472,6 +6533,8 @@ iniciar();
       LIM_FALTA = { chave: chaveL(), lim: lim, aperto: aperto };
     }
     botaoComp(k, estado, rot);
+    var acS = g('v2cAcoes'), spb = acS && getComputedStyle(acS).position === 'sticky' ? (acS.offsetHeight + 8) + 'px' : '';
+    if (ldo.style.scrollPaddingBottom !== spb) ldo.style.scrollPaddingBottom = spb;
   }
   var LIM_FALTA = { chave: '', lim: 5, aperto: false };
   function desenharEtapas(eh) {
@@ -6564,6 +6627,16 @@ iniciar();
     var it = tb.closest('.item'); setTimeout(function () { var a = it && it.querySelector('.v2c-addcot'); if (a && (!document.activeElement || document.activeElement === document.body)) a.focus(); }, 0);
   }, true);
   /* "?" (ajuda): Esc fecha o texto também com o mouse em cima e não tira o foco; Enter/Espaço abre e fecha (1.4.13) */
+  function posQ(q) {
+    if (!PC || !q || !q.getBoundingClientRect) return;
+    var r = q.getBoundingClientRect(), vw = document.documentElement.clientWidth, vh = innerHeight;
+    var w = Math.min(q.closest('.v2pc-docbar') ? 360 : 340, vw - 16), x = Math.min(Math.max(8, r.left - 10), vw - w - 8);
+    q.style.setProperty('--v2q-dx', Math.round(x - r.left) + 'px'); q.style.setProperty('--v2q-w', Math.round(w) + 'px');
+    q.classList.toggle('v2q-acima', r.top > vh * 0.6);
+  }
+  document.addEventListener('mouseover', function (e) { var q = e.target && e.target.closest && e.target.closest('.v2q'); if (q) posQ(q); }, true);
+  document.addEventListener('focusin', function (e) { var q = e.target; if (q && q.classList && q.classList.contains('v2q')) posQ(q); }, true);
+  window.addEventListener('scroll', function () { var q = document.querySelector('.v2q:focus') || document.querySelector('.v2q:hover'); if (q) posQ(q); }, true);
   function expQ(q) { var v = !q.classList.contains('v2q-fechado') && (q === document.activeElement || q.matches(':hover')) ? 'true' : 'false'; if (q.getAttribute('aria-expanded') !== v) q.setAttribute('aria-expanded', v); }
   document.addEventListener('keydown', function (e) {
     if (!PC) return;
@@ -6642,13 +6715,14 @@ iniciar();
     var top = abaixo ? r.bottom + 10 : r.top - 10 - h;
     bal.style.top = Math.round(Math.max(8, Math.min(top, vh - 8 - h))) + 'px';
     bal.style.setProperty('--v2-seta', Math.round(Math.max(14, Math.min(w - 26, r.left + r.width / 2 - 6 - left))) + 'px');
+    bal.classList.toggle('v2c-semseta', r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw);
   }
   function reposBaloes() { $$('.v2c-flutua').forEach(function (b) { if (b.style.display !== 'none' && b._gatilho) { if (!b._gatilho.offsetParent) fecharBalao(b, false); else posBalao(b, b._gatilho); } }); }
   window.addEventListener('scroll', reposBaloes, true); window.addEventListener('resize', reposBaloes);
   /* clique duplo não confirma: os botões do balão só valem 400 ms depois de ele abrir */
   document.addEventListener('click', function (e) {
     var bt = e.target && e.target.closest && e.target.closest('.v2c-balao button'); if (!bt) return;
-    var bal = bt.closest('.v2c-balao'); if (bal && bal._t0 && performance.now() - bal._t0 < 400) { e.preventDefault(); e.stopImmediatePropagation(); }
+    var bal = bt.closest('.v2c-balao'); if (bal && bal._t0 && e.detail > 0 && performance.now() - bal._t0 < 400) { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
   document.addEventListener('click', function (e) {
     if (!compPC()) return;
@@ -6831,8 +6905,23 @@ iniciar();
     var telaCompOrig = window.telaComprador;
     window.telaComprador = function () { var r = telaCompOrig.apply(this, arguments); try { if (PC) { atualizarTopo(); atualizarCompPC(); } } catch (e) {} return r; };
   }
+  function acessivelToque() {
+    if (PC) return;
+    if (!html.getAttribute('lang')) html.setAttribute('lang', 'pt-BR');
+    var tp = g('v2topo'); if (tp && !tp.getAttribute('role')) { tp.setAttribute('role', 'region'); tp.setAttribute('aria-label', 'Placa e etapa'); }
+    $$('#compraItens .k-sel:not([aria-label])').forEach(function (sl) { sl.setAttribute('aria-label', 'Comprar de'); });
+    $$('#comprador :is(input, select, textarea), #form :is(input, select, textarea)').forEach(function (el) {
+      if (/^(hidden|file|radio|checkbox|button|submit)$/.test(el.type) || el.getAttribute('aria-label') || el.getAttribute('aria-labelledby') || (el.labels && el.labels.length) || el.title) return;
+      var l = null, pv = el.previousElementSibling;
+      while (pv && !l) { if (pv.tagName === 'LABEL' && !pv.htmlFor && !pv.querySelector('input, select, textarea')) l = pv; pv = pv.previousElementSibling; }
+      if (!l && el.parentElement) l = el.parentElement.querySelector(':scope > label:not([for])');
+      var t = l ? l.textContent.replace(/[*❔]/g, '').replace(/\s+/g, ' ').trim() : String(el.placeholder || '').trim();
+      if (t) el.setAttribute('aria-label', t);
+    });
+  }
   function varrer() {
     try { pintarObrigatorios(); } catch (e) {}
+    try { acessivelToque(); } catch (e) {}
     try { marcasPecas(); nomesUnidade(); acessivelPC(); } catch (e) {}
     try { if (PC && visivel(form)) erroNaPeca(faltasDoForm()); estadoSalvar(); } catch (e) {}
     try { atualizarLado(); } catch (e) {}
@@ -6856,6 +6945,7 @@ iniciar();
     cartaoLeitura(g('fornAnexosTopo'), '🚚 Ler fornecimento de um anexo do card', 'Status do Pedido (Cilia), Peças do sinistro (HDI) ou print do portal.', null);
     cartaoLeitura(g('fornAnexos'), '🚚 Ler fornecimento de um anexo do card', '', null);
     try { if (PC) anexosLado(); } catch (e) {}   // 14/10/2026: a lista dos anexos do card vai para o cartão da lateral assim que nasce (fora do bloco preso)
+    if (PC) $$('#form .v2-ler .linha .nome').forEach(function (n) { var t = (n.firstChild && n.firstChild.nodeType === 3 ? n.firstChild.nodeValue : n.textContent).trim(); if (t && n.title !== t) n.title = t; });
     teclados();
     if (pedidoNovo()) oferecerRascunho();
     $$('.dica.ruim, #compraAviso, .aviso.trava, .aviso.info').forEach(encurtar);
