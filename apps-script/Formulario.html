@@ -699,6 +699,10 @@ function carregarCard(sl) {
       + '<a href="#" onclick="modoNovo();return false">Fazer pedido novo em vez disso</a></span>';
     mostrar('modoEdicao', true);
     POS = !!c.posCotacao; LISTA = c.lista || '';
+    // 15/10/2026 (Weslley, RHR9A41): card com o 📄 ORÇ anexado (robô da API do Cilia) mas SEM nenhuma peça: o orçamento
+    // ainda não foi importado. Antes ficava como "já importado" (ORC) e o PDF não era lido — nem pelo "ler" — e as peças
+    // digitadas viravam ➕ complemento. Agora lê o PDF e importa as peças como pedido novo.
+    if (c.doOrcamento && !(c.pecas || []).length && !(c.recebiveis || []).length) { c.orcAnexo = true; c.doOrcamento = false; }
     if (c.doOrcamento) ORC = ORC || { origem: c.origemOrc || 'ORÇAMENTO', fo: [] };
     setTipoPedido(c.tipo === 'PARTICULAR' || c.tipo === 'RETORNO' ? c.tipo : 'SEGURADORA');
     var d = c.dados, t = c.titulo || {};
@@ -2044,7 +2048,7 @@ function mostrarAnexosCard(c) {
   if (outros.length) $('anexosCard').innerHTML += linksAnexos({ todosAnexos: outros }).replace('📎 Anexos:', '🔗 Links e outros anexos:');
   mostrar('anexosCard', true);
   // card sem peças e sem orçamento importado: lê sozinho o primeiro PDF que já está no card
-  var pdf = ans.filter(function (a) { return a.pdf; })[0];
+  var pdf = ans.filter(function (a) { return a.pdf && /^📄 ORÇ/.test(a.nome); }).pop() || ans.filter(function (a) { return a.pdf; })[0];   // o 📄 ORÇ mais novo primeiro
   if (pdf && !c.doOrcamento && !ORC && !(c.pecas || []).length && !ANEXOS_LIDOS[pdf.id]) lerAnexoCard(pdf.id);
 }
 function lerAnexoCard(id) {
@@ -2486,7 +2490,7 @@ function coletar() {
     if (d.chassi.length !== 17) carro.push('chassi (17 caracteres)');
   } else if (d.chassi && d.chassi.length !== 17) carro.push('chassi (17 caracteres) — ou deixe em branco');
   if (carro.length) faltas.unshift('Dados do carro: falta ' + carro.join(', '));
-  if (!part && !POS && !ORC && !css && !(modoMisto() && (CARD.doOrcamento || pedidoPart()))) faltas.unshift('Pedido de seguradora: anexe o orçamento autorizado (PDF do Cilia, HDI ou Websoma). Se for cliente particular, marque "Particular" no tipo do pedido.');
+  if (!part && !POS && !ORC && !css && !(modoMisto() && (CARD.doOrcamento || CARD.orcAnexo || pedidoPart()))) faltas.unshift('Pedido de seguradora: anexe o orçamento autorizado (PDF do Cilia, HDI ou Websoma). Se for cliente particular, marque "Particular" no tipo do pedido.');
   if (!pecas.length && !(ORC && ORC.fo.length) && !(COMP && COMP.fo.length) && !(CARD_EDICAO && CARD && (CARD.recebiveis || []).length)) faltas.push('Adicione pelo menos uma peça');
   return {
     faltas: faltas,
