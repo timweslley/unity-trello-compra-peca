@@ -4153,12 +4153,13 @@ iniciar();
     .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip .v2i { display:none !important; }
   }
   @media (max-width:360px) {
-    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chips { display:grid !important; grid-template-columns:repeat(3, minmax(0, 1fr)); flex:1 1 auto; }
-    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip { padding:0 6px !important; font-size:13px !important; justify-content:center; min-width:0; }
+    /* colunas pelo tamanho de cada nome (com ✓ e negrito do marcado): o ✓ não espreme "Seguradora" e nada muda de largura ao trocar */
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chips { display:grid !important; grid-template-columns:minmax(92px, 1.2fr) minmax(78px, 1fr) minmax(67px, .9fr); flex:1 1 auto; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip { padding:0 4px !important; gap:2px !important; font-size:13px !important; justify-content:center; min-width:0; white-space:nowrap; }
     .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip input { position:absolute !important; opacity:0 !important; width:1px !important; height:1px !important; margin:0 !important; }
     .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip:has(input:focus-visible) { outline:2px solid #388bff; outline-offset:1px; z-index:1; }
     .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip.marcado { box-shadow:inset 0 0 0 2px #0c66e4 !important; }
-    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip.marcado::before { content:'✓'; margin-right:3px; font-weight:800; }
+    .v2pc.v2-pedtopo:not(.v2-comp) #v2ped-tipo .chip.marcado::before { content:'✓'; font-size:11px; font-weight:800; }
   }
   /* uma coluna (zoom a partir de ~150%): a coluna da direita vem depois do pedido, inteira — sem rolagem própria nem botões presos
      (com a tela baixa ela virava uma caixinha de ~120 px rolando por dentro) */
