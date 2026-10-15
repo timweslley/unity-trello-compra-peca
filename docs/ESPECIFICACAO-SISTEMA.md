@@ -493,7 +493,11 @@ transforma o HTML salvo do portal em dados — casa pelo CNPJ do login, versão 
 SOMA desligadas no principal** até o OK do Weslley. Anexo `HDI - Orçamento laudo <v> - <PLACA>.pdf`, sem repetir (o "…_laudo1.0.pdf"
 anexado pela rotina conta), peças com origem HDI (vale a regra do laudo HDI no complemento). Base que ainda não existe ou pasta não
 compartilhada com sistema@: o robô procura de novo a cada 6 h, sem erro. Versão esperando o card nascer: nova tentativa a cada 15 min
-(antes era a cada ciclo de 1 min). Teste no TESTE (`CL.TESTE_V = '3'`, só HDI): roda sozinho quando a base HDI fica acessível.
+(antes era a cada ciclo de 1 min). Teste no TESTE (`CL.TESTE_V = '3'` e `'4'`, só HDI): rodou em 15/10 às 15h29 e 16h28 — PDF
+"HDI - Orçamento laudo <v> - <PLACA>.pdf" anexado em 10 cards do TESTE (cards antigos: só o anexo; card em ESPERA: comentário sem
+notificar); o teste registra na aba quando espera a base e quando termina. **Ao ligar uma base de portal** (HDI, SOMA), a 1ª leitura
+marca o início (`CLH_DESDE_`/`CLS_DESDE_` = agora): vale só o laudo que mudar daqui para frente — os que já estavam na base a rotina já
+anexou (no Cilia continua valendo a rodada do dia).
 
 Tipos de evento novos (10/10/2026): RETIRADA, COMPRA CANCELADA, DEVOLUÇÃO FO.
 

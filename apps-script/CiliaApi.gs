@@ -279,7 +279,9 @@ function cl_executarBase_(B, board, opt, prazo) {
   if (opt.teste || props.getProperty(kLido) !== atu) {
     var j = cl_json_(B);
     var desde = props.getProperty(kDesde);
-    if (!desde) { desde = new Date(new Date(j.gerado_em).getTime() - 60 * 1000).toISOString(); props.setProperty(kDesde, desde); }
+    // 1ª leitura: Cilia vale a rodada do dia; base de portal (HDI, SOMA) vale daqui para frente — ao ligar, os laudos que já
+    // estavam na base (a rotina já anexou) não voltam para os cards (15/10/2026)
+    if (!desde) { desde = B.obrigatoria ? new Date(new Date(j.gerado_em).getTime() - 60 * 1000).toISOString() : agora.toISOString(); props.setProperty(kDesde, desde); }
     var naFila = {}; fila.forEach(function (x) { naFila[x.k] = 1; });
     var escolhidas = [];
     Object.keys(j.orcamentos || {}).forEach(function (casa) {

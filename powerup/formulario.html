@@ -4393,6 +4393,9 @@ iniciar();
      sem nome — WCAG 3.3.2) */
   @container pecas (max-width: 700px) {
     .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(> .f-codigo), div:has(.f-medida), .inteiro:has(.f-desc)) > label { display:block !important; margin:0 0 2px !important; font-size:12px !important; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#44546f; }
+    /* 15/10 (GPT, 3ª rodada): o tipo (e a categoria do pneu) também com o nome em cima — sem o cabeçalho das colunas, o
+       obrigatório só aparecia na mensagem de erro */
+    .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(> .chips) > label:not(.chip) { display:block !important; margin:0 0 2px !important; font-size:12px !important; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#44546f; }
   }
   /* "?" com área de clique de 24 px (WCAG 2.5.8): o círculo continua de 20 px — borda transparente de 2 px e margem negativa
      que devolve o espaço (nada se mexe na tela) */
