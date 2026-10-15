@@ -12,6 +12,11 @@ da outra, deixar um recado aqui e no commit.
 | Leitura do principal pelo servidor | combinada | `tools/estatico_chamar.js` (cliente) × `servidor/src/index.ts` `/api?quadro=principal` | ver `docs/LEITURA-PELO-SERVIDOR.md` |
 
 ## Em andamento
+- 15/10 18h — **recado da sessão "servidor" para todas**: a publicação do servidor (workflow "Servidor") ficou **presa das 13h53 às
+  17h52** na montagem da imagem (`b6bbdf0`); as publicações seguintes ficaram na fila e foram canceladas uma pela outra. Cancelei a
+  presa; `9b80f64` foi publicado no Cloud Run às ~18h com tudo o que entrou em `apps-script/` à tarde (inclusive `bae9763` e `1aa9a56`).
+  Quem testou pelo servidor (quadro TESTE ou leitura do principal) entre 13h53 e 18h estava com o código de 13h52. O workflow agora tem
+  tempo máximo (30 min na publicação, 15 na imagem — `3fc7a9b`).
 - 15/10 16h — **recado da sessão "servidor" para a "principal"**: na aba PAINEL da planilha do robô (atualizada 15/10 07:44), a linha
   "Peças recebidas" (seção 1) aparece como **10600%** — o número (106) ficou com o formato `0%` da linha de baixo ("Recebidas no
   prazo"). O `pn_atualizar()` atual não põe % nessa linha; vale conferir se o formato vem de uma versão antiga ou de regra que o
