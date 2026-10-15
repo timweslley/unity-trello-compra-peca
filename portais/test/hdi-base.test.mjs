@@ -94,7 +94,7 @@ test('grava a base e copia o PDF só quando a versão é nova', async () => {
   const pdf = path.join(dir, 'x.pdf'); await writeFile(pdf, '%PDF-1.4 teste');
   const a = await gravarHdi({ html: PAG, nomeHtml: 'Orcamento_HDI_ZZT9A99_sin099999999999999_laudo1.0.html', pdf, saida: dir });
   assert.equal(a.ok, true); assert.equal(a.situacao, 'novo');
-  assert.equal(a.registro.pdf, 'PDF/HDI/Toledo/ZZT9A99 - HDI - laudo 1.0.pdf');
+  assert.equal(a.registro.pdf, 'PDF/Toledo/ZZT9A99 - HDI - laudo 1.0.pdf');
   const base = JSON.parse(await readFile(path.join(dir, 'HDI-HOJE.json'), 'utf8'));
   assert.equal(base.orcamentos.TOLEDO[0].pdf, a.registro.pdf);
   assert.ok(base.gerado_em);

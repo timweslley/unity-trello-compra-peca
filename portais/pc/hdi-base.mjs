@@ -6,14 +6,16 @@
  * O HDI não tem API oficial: a rotina da madrugada lê o orçamento no portal HDI Prestador (fetch na aba logada, sem
  * navegar), salva o HTML e gera o PDF no padrão do "Imprimir" (ferramentas/hdipdf.ps1). Este script TRADUZ o HTML salvo
  * em dados — sem ler PDF — e grava no mesmo formato da base do Cilia (CILIA-HOJE.json), que o robô já sabe tratar:
- *   <SAIDA>/HDI-HOJE.json                         — um registro por sinistro (versão do laudo, status, peças HDI × oficina)
- *   <SAIDA>/PDF/HDI/<Casa>/<PLACA> - HDI - laudo <v>.pdf — cópia do PDF da versão (uma vez por versão)
+ *   <SAIDA>/HDI-HOJE.json                     — um registro por sinistro (versão do laudo, status, peças HDI × oficina)
+ *   <SAIDA>/PDF/<Casa>/<PLACA> - HDI - laudo <v>.pdf — cópia do PDF da versão (uma vez por versão)
+ * Pastas (Weslley 15/10: "colocar Cilia dentro da mesma pasta, vamos organizar melhor nossas pastas"): Rotina Unity/Orçamentos/
+ * Cilia, HDI e SOMA — a pasta Orçamentos é a antiga "Cilia" renomeada, já compartilhada com sistema@.
  *
  * Uso (PC do Weslley, depois do hdipdf.ps1):
  *   node hdi-base.mjs --html <orçamento.html> [--pdf <orçamento.pdf>] [--saida <pasta da base>] [--casa TOLEDO|CASCAVEL|RONDON|MOURAO]
  *   node hdi-base.mjs --html <orçamento.html> --mostrar      (só mostra o registro, sem gravar)
  *   (--casa só quando o HTML não traz o CNPJ do login; normalmente a casa sai da própria página)
- * SAIDA padrão: G:\Meu Drive\Arquivos de IA\Claude\Rotina Unity\Portais
+ * SAIDA padrão: G:\Meu Drive\Arquivos de IA\Claude\Rotina Unity\Orçamentos\HDI
  *
  * Regras:
  *  - peças das tabelas "Peças Fornecidas pela HDI" (fornece SEGURADORA) e "Peças Fornecidas pela Oficina" (OFICINA);
@@ -26,7 +28,7 @@ import { readFile, writeFile, mkdir, rename, copyFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 
-export const SAIDA_PADRAO = 'G:\\Meu Drive\\Arquivos de IA\\Claude\\Rotina Unity\\Portais';
+export const SAIDA_PADRAO = 'G:\\Meu Drive\\Arquivos de IA\\Claude\\Rotina Unity\\Orçamentos\\HDI';
 export const ARQUIVO = 'HDI-HOJE.json';
 const GUARDAR_DIAS = 90;   // registro sem novidade há mais de 90 dias sai da base
 
@@ -240,11 +242,11 @@ export async function gravarHdi({ html, nomeHtml, pdf, saida = SAIDA_PADRAO, ago
   const { situacao, registro } = juntarNaBase(base, reg, agoraIso);
   if (situacao === 'antiga') return { ok: true, situacao, registro };
   if (situacao !== 'igual' && pdf) {
-    const pasta = path.join(saida, 'PDF', 'HDI', NOME_CASA[reg.casa]);
+    const pasta = path.join(saida, 'PDF', NOME_CASA[reg.casa]);
     await mkdir(pasta, { recursive: true });
     const nome = nomeArquivoSeguro(`${reg.placa} - HDI - laudo ${reg.versao_baixada}.pdf`);
     await copyFile(pdf, path.join(pasta, nome));
-    registro.pdf = `PDF/HDI/${NOME_CASA[reg.casa]}/${nome}`;
+    registro.pdf = `PDF/${NOME_CASA[reg.casa]}/${nome}`;
   }
   if (situacao !== 'igual') {
     base.gerado_em = agoraIso;

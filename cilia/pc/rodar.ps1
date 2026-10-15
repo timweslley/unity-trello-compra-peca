@@ -13,7 +13,8 @@ foreach ($c in 'TOLEDO','CASCAVEL','RONDON','MOURAO') {
     finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b) }
   }
 }
-$env:CILIA_SAIDA = 'G:\Meu Drive\Arquivos de IA\Claude\Rotina Unity\Cilia'
+# 15/10/2026 (Weslley): a pasta Cilia virou Rotina Unity\Orcamentos\Cilia ([char]0x00E7 = c-cedilha, sem depender da codificacao deste arquivo)
+$env:CILIA_SAIDA = 'G:\Meu Drive\Arquivos de IA\Claude\Rotina Unity\Or' + [char]0x00E7 + 'amentos\Cilia'
 if ($Casas) { $env:CASAS = $Casas }
 $inicio = Get-Date
 $saida = & node (Join-Path $base 'pc\sincronizar-pc.mjs') 2>&1 | Out-String

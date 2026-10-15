@@ -79,7 +79,14 @@ function cf_opcao_(defs, campo, texto) {
  *   valor = por peça, o comprado quando já comprada, senão o autorizado.
  * c = card com desc completa, name, labels e checklists.
  */
+/** 15/10/2026 (Weslley: "digita o da unidade" — na cotação o comprador digita o valor da UNIDADE): os totais multiplicam pela
+ *  quantidade da peça (antes somavam o valor de uma unidade: 2 × R$ 236,00 dava R$ 236,00). Ligado no quadro TESTE; no
+ *  principal só com VD_TOTAIS_QTD=SIM (OK do Weslley depois do teste). */
+function vd_totaisPorQtd_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_TOTAIS_QTD', 'NAO') === 'SIM'; } catch (e) { return false; } }
+function vd_qtdNum_(q) { var n = parseFloat(String(q == null ? '' : q).replace(',', '.')); return n > 0 ? n : 1; }
+
 function vd_totais_(c) {
+  var porQtd = vd_totaisPorQtd_();
   var an = vd_analisar_(c.desc || '', c.name || '');
   var cardPart = an.dados.tipo === 'PARTICULAR' || (/\bPARTICULAR\b/i.test(c.name || '') && !an.pecas.some(function (p) { return !p.particular; }));
   var cardRet = an.dados.tipo === 'RETORNO';   // oficina paga: grupo próprio (09/10/2026)
@@ -100,14 +107,14 @@ function vd_totais_(c) {
     });
   });
   an.pecas.forEach(function (p) {
-    var g = T[grupo(p)], k = vd_chavePeca_(p);
-    var minhas = cots.filter(function (q) { return q.chave === k && !isNaN(q.valor); }).map(function (q) { return q.valor; });
-    if (minhas.length) g.cot += Math.min.apply(null, minhas);
+    var g = T[grupo(p)], k = vd_chavePeca_(p), q = porQtd ? vd_qtdNum_(p.qtd) : 1;
+    var minhas = cots.filter(function (x) { return x.chave === k && !isNaN(x.valor); }).map(function (x) { return x.valor; });
+    if (minhas.length) g.cot += Math.min.apply(null, minhas) * q;
     var a = auts.filter(function (x) { return x.chave === k; })[0];
-    if (a && !isNaN(a.valor)) { g.aut += a.valor; g.nAut++; }
+    if (a && !isNaN(a.valor)) { g.aut += a.valor * q; g.nAut++; }
     var it = itens.filter(function (x) { return !x.usado && k && vd_casaItem_(x.nome, k); })[0];
-    if (it) { it.usado = true; g.comp += it.valor; g.nComp++; g.valor += it.valor; }
-    else if (a && !isNaN(a.valor)) g.valor += a.valor;
+    if (it) { it.usado = true; g.comp += it.valor * q; g.nComp++; g.valor += it.valor * q; }
+    else if (a && !isNaN(a.valor)) g.valor += a.valor * q;
   });
   // compra que não casou com peça da lista (card antigo): entra pelo nome do checklist
   itens.forEach(function (it) { if (it.usado) return; var g = T[cardPart || it.part ? 'part' : cardRet ? 'ret' : 'seg']; g.comp += it.valor; g.valor += it.valor; g.nComp++; });

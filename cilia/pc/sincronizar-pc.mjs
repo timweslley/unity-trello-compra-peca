@@ -5,7 +5,8 @@
  *  - estado em <SAIDA>/estado.json (assinatura de cada orçamento + última versão baixada, peças e PDF);
  *  - PDF oficial em <SAIDA>/PDF/<casa>/<PLACA> - <SEGURADORA> - Cilia <nº.versão>.pdf (uma vez por versão);
  *  - <SAIDA>/CILIA-HOJE.json (retrato completo para a rotina) e <SAIDA>/Diario/CILIA-AAAA-MM-DD.json (o que mudou).
- * SAIDA = pasta do Google Drive sincronizada (G:\Meu Drive\Arquivos de IA\Claude\Rotina Unity\Cilia).
+ * SAIDA = pasta do Google Drive sincronizada (G:\Meu Drive\Arquivos de IA\Claude\Rotina Unity\Orçamentos\Cilia — 15/10/2026,
+ * a antiga "Rotina Unity\Cilia" renomeada para Orçamentos, com as subpastas Cilia, HDI e SOMA).
  * Tokens: variáveis CILIA_TOKEN_<CASA>, preenchidas pelo rodar.ps1 a partir do cofre criptografado do Windows (DPAPI).
  */
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';

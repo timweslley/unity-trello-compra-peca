@@ -4378,6 +4378,25 @@ iniciar();
     html.v2.v2toque .rodape { position:sticky; bottom:0; z-index:4; background:#fff; border-top:1px solid var(--borda); margin:0 -12px; padding:12px 12px 16px; }
     html.v2.v2toque .aba { min-height:48px; }
   }
+  /* ---- 15/10/2026: avaliação do GPT e do Gemini (pedido do Weslley: "peça para o GPT e o Gemini fazerem uma avaliação também") ---- */
+  /* pedido NOVO não abre com os obrigatórios em vermelho: o campo vazio fica neutro até a pessoa passar por ele (ou pela peça
+     digitada à mão) ou tentar enviar — o que falta continua na coluna da direita e embaixo de cada peça */
+  html.v2pc.v2-novo:not(.v2-tentou) #form section.v2-carro :is(input, select).v2-falta:not(.v2-tocado),
+  html.v2pc.v2-novo:not(.v2-tentou) :is(#itens, #itensPart) > .item[data-origem="mao"]:not(.v2-tocado) input.v2-falta:not(.v2-tocado) { background:#fff !important; border-color:#8590a2 !important; box-shadow:none !important; }
+  html.v2pc.v2-novo:not(.v2-tentou) :is(#itens, #itensPart) > .item[data-origem="mao"]:not(.v2-tocado):not(.nao-comprar) .chips.v2-falta { background:transparent !important; box-shadow:none !important; outline:0 !important; }
+  /* lista de até 700 px: código e descrição também com o nome em cima (sem o cabeçalho das colunas, o campo preenchido ficava
+     sem nome — WCAG 3.3.2) */
+  @container pecas (max-width: 700px) {
+    .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(> .f-codigo), div:has(.f-medida), .inteiro:has(.f-desc)) > label { display:block !important; margin:0 0 2px !important; font-size:12px !important; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#44546f; }
+  }
+  /* "?" com área de clique de 24 px (WCAG 2.5.8): o círculo continua de 20 px — borda transparente de 2 px e margem negativa
+     que devolve o espaço (nada se mexe na tela) */
+  .v2pc .v2q:not(.v2-inq) { width:24px !important; height:24px !important; border:2px solid transparent !important; background-clip:padding-box !important; box-shadow:inset 0 0 0 1px #8590a2; margin:-2px -2px -2px 2px; }
+  .v2pc :is(#itens, #itensPart) > .item .grade .chips .v2q:not(.v2-inq) { margin:-2px 0 -2px 2px; }
+  .v2pc #usuario a { display:inline-block; padding:4px 3px; margin:-4px -3px; }
+  /* atalho de teclado "Pular para as peças" (WCAG 2.4.1): 1ª parada do Tab, só aparece com o foco */
+  .v2pc .v2-pular { position:absolute; left:8px; top:-48px; z-index:1000; background:#0c66e4; color:#fff !important; font:600 14px/20px system-ui, sans-serif; padding:8px 14px; border-radius:6px; text-decoration:none; }
+  .v2pc .v2-pular:focus { top:8px; outline:2px solid #172b4d; outline-offset:2px; }
   /* alto contraste do Windows: aba marcada, botões ligados e a faixa da peça (sumiam com as cores do sistema) */
   @media (forced-colors:active) {
     .v2pc #comprador.v2c > .abas .aba.marcada { outline:3px solid Highlight; outline-offset:-4px; }
@@ -4519,6 +4538,23 @@ iniciar();
   nav.innerHTML = '<button type="button" class="secundario" id="v2voltar">Voltar</button><button type="button" class="principal" id="v2seguir">Continuar</button>';
   var rodapeEnviar = g('btnEnviar') ? g('btnEnviar').closest('.rodape') : null;
   var PC = html.classList.contains('v2pc');
+  /* 15/10/2026 (GPT e Gemini, WCAG 2.4.1): "Pular para as peças" — 1ª parada do Tab, aparece só com o foco do teclado */
+  if (PC) (function () {
+    var pular = document.createElement('a');
+    pular.href = '#'; pular.className = 'v2-pular'; pular.textContent = 'Pular para as peças';
+    pular.addEventListener('click', function (e) {
+      e.preventDefault();
+      var vis = function (el) { return !!el && el.offsetParent !== null; };
+      var alvo = Array.prototype.filter.call(document.querySelectorAll('[id^="painel"] h2'), vis)[0] || (vis(document.getElementById('tituloPecas')) ? document.getElementById('tituloPecas') : null);
+      if (!alvo) return;
+      if (!alvo.hasAttribute('tabindex')) alvo.setAttribute('tabindex', '-1');
+      try { alvo.focus({ preventScroll: true }); } catch (x) { alvo.focus(); }
+      alvo.scrollIntoView({ block: 'start' });
+    });
+    // dentro de um <nav> próprio: todo conteúdo da página fica numa região (axe "region")
+    var nav = document.createElement('nav'); nav.className = 'v2-pular-nav'; nav.setAttribute('aria-label', 'Atalho de teclado'); nav.appendChild(pular);
+    if (document.body) document.body.insertBefore(nav, document.body.firstChild);
+  })();
   var DICA_EDITAR = 'Você está alterando o pedido deste card.\nO que já foi cotado continua no card.\nSe o card já passou da cotação, só a peça nova é conferida e o card volta para EM COTAÇÃO.';
   var DICA_NOVO = 'Começa um pedido em branco, para outro carro ou outro sinistro.\nEste card não é alterado.';
   var DICA_LER = 'Importar peças: o sistema lê o orçamento e preenche o carro e as peças. Para abrir o arquivo, clique no nome dele.\nO que está marcado ✓ importado já está no pedido — só importe de novo se o orçamento mudou (ex.: versão nova ou complemento).\nCom 2 ou mais orçamentos, o que vale é o marcado como "mais recente".';
@@ -4867,6 +4903,7 @@ iniciar();
     var b = e.target && e.target.closest && e.target.closest('#btnEnviar'); if (!b || !PC) return;
     try { varrer(); } catch (x) {}   // 15/10 (QA): recalcula antes de decidir — o último campo pode ter sido preenchido agora mesmo
     if (!b.classList.contains('v2-pend-env')) return;
+    if (!html.classList.contains('v2-tentou')) { html.classList.add('v2-tentou'); try { pintarObrigatorios(); } catch (x) {} }   // 15/10: tentou enviar — o que falta fica vermelho
     var a = document.querySelector('#v2etapas .fl a[data-alvo]'); if (!a) return;   // nada clicável: o envio segue e o sistema explica o que falta
     e.preventDefault(); e.stopPropagation(); a.click();
   }, true);
@@ -4891,6 +4928,7 @@ iniciar();
   document.addEventListener('click', function (e) {
     var a = e.target && e.target.closest && e.target.closest('#v2etapas a[data-alvo]'); if (!a) return;
     e.preventDefault();
+    if (!html.classList.contains('v2-tentou')) { html.classList.add('v2-tentou'); try { pintarObrigatorios(); } catch (x) {} }   // 15/10: foi atrás do que falta
     var alvo = a.dataset.alvo || '', el = null;
     if (/^id:/.test(alvo)) el = g(alvo.slice(3));
     else if (/^c:/.test(alvo)) {
@@ -5480,9 +5518,19 @@ iniciar();
       return r;
     };
   }
+  /* 15/10/2026 (GPT e Gemini): no computador, pedido NOVO não abre com os obrigatórios em vermelho — o vermelho (e o
+     aria-invalid) aparece depois que a pessoa passa pelo campo (ou pela peça digitada à mão) ou tenta enviar. Edição de pedido e
+     peças vindas do orçamento continuam mostrando o que falta de cara. Quem conta o que falta continua sendo a classe v2-falta. */
+  function faltaVisivel(el) {
+    if (!PC || !html.classList.contains('v2-novo') || html.classList.contains('v2-tentou') || el.classList.contains('v2-tocado')) return true;
+    var it = el.closest('#itens > .item, #itensPart > .item');
+    if (it) return it.dataset.origem !== 'mao' || it.classList.contains('v2-tocado');
+    return !el.closest('section.v2-carro');
+  }
   function pintarObrigatorios() {
     try { arrumarValores(); } catch (e) {}
     if (!visivel(form)) return;
+    html.classList.toggle('v2-novo', PC && !window.CARD_EDICAO);
     try { marcarAsteriscos(); } catch (e) {}
     $$('label[for]').forEach(function (lb) {
       if (!lb.querySelector('.obr')) {   // deixou de ser obrigatório (ex.: virou Particular): tira o rosado/verde que ficava preso
@@ -5495,7 +5543,7 @@ iniciar();
       var vis = el.offsetParent !== null;
       var v = String(el.value || '').trim(), ok = el.tagName === 'SELECT' ? el.selectedIndex > 0 : !!v && (!VALIDA[el.id] || VALIDA[el.id](v));
       el.classList.toggle('v2-ok', vis && ok); el.classList.toggle('v2-falta', vis && !ok);
-      el.setAttribute('aria-required', 'true'); if (vis && !ok) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
+      el.setAttribute('aria-required', 'true'); if (vis && !ok && faltaVisivel(el)) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
     });
     // peças: código (quando obrigatório), descrição/medida e tipo
     $$('#itens > .item, #itensPart > .item').forEach(function (it) {
@@ -5504,7 +5552,7 @@ iniciar();
         var lb = el.parentNode.querySelector('label'), obr = lb && lb.querySelector('.obr');
         var v = String(el.value || '').trim();
         el.classList.toggle('v2-ok', !nao && !!v); el.classList.toggle('v2-falta', !nao && !!obr && !v);
-        if (!nao && !!obr && !v) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
+        if (!nao && !!obr && !v && faltaVisivel(el)) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
       });
       it.classList.toggle('v2-vazio', !$$('.f-codigo, .f-desc, .f-medida', it).some(function (el) { return String(el.value || '').trim(); }));
       var fd = it.querySelector('.f-desc');
@@ -5520,10 +5568,22 @@ iniciar();
       }
       var ch = it.querySelector('.grade .chips');
       if (ch) { var marc = !!ch.querySelector('input:checked') || !!String((it.querySelector('.f-marca') || {}).value || '').trim(); ch.classList.toggle('v2-falta', !nao && !marc);
-        if (!nao && !marc) ch.setAttribute('aria-invalid', 'true'); else ch.removeAttribute('aria-invalid'); }
+        if (!nao && !marc && faltaVisivel(ch)) ch.setAttribute('aria-invalid', 'true'); else ch.removeAttribute('aria-invalid'); }
     });
   }
   document.addEventListener('input', function (e) { if (e.target && e.target.closest && e.target.closest('#form, #v2topo')) pintarObrigatorios(); }, true);
+  // campo (ou peça digitada à mão) por onde a pessoa passou: daqui em diante o que falta nele fica vermelho
+  if (PC) {
+    var tocou = function (e) {
+      var el = e.target; if (!el || !el.closest || !el.closest('#form, #v2topo')) return;
+      var mudou = false;
+      if (/^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName) && !el.classList.contains('v2-tocado')) { el.classList.add('v2-tocado'); mudou = true; }
+      var it = el.closest('#itens > .item, #itensPart > .item'); if (it && !it.classList.contains('v2-tocado')) { it.classList.add('v2-tocado'); mudou = true; }
+      if (mudou) setTimeout(function () { try { pintarObrigatorios(); } catch (x) {} }, 0);
+    };
+    document.addEventListener('focusout', tocou, true);
+    document.addEventListener('change', tocou, true);
+  }
   document.addEventListener('change', function (e) { if (e.target && e.target.closest && e.target.closest('#form, #v2topo')) pintarObrigatorios(); }, true);
   /* ---- 13/10/2026, 2ª rodada (avaliação de UX) ---- */
   /* ícones de traço no lugar dos emojis (no Windows o emoji muda de cara e de cor) — só no computador, só nas áreas da tela de pedido */
@@ -5912,6 +5972,10 @@ iniciar();
   var V2C_SEQ = 0;
   function idDe(el, pre) { if (!el.id) el.id = (pre || 'v2c') + (++V2C_SEQ); return el.id; }
   var CAB_COT = '<div class="v2c-lin v2c-th" aria-hidden="true"><span>Fornecedor</span><span>Tipo · marca</span><span class="c-valor">Valor</span><span>Prazo</span><span></span><span></span></div>';
+  /* 15/10/2026 (Weslley: na cotação o comprador digita o valor da UNIDADE): peça com mais de 1 unidade diz "Valor unit." no
+     cabeçalho e "Valor unitário (R$)" no campo; os totais da lateral multiplicam pela quantidade */
+  function qtdChave(chave) { var pc = {}; try { pc = (typeof pecaDaChave === 'function' && pecaDaChave(chave)) || {}; } catch (e) {} var q = parseFloat(String(pc.qtd || '1').replace(',', '.')); return q > 0 ? q : 1; }
+  function cabCot(it) { return qtdChave(it.dataset.chave) > 1 ? CAB_COT.replace('<span class="c-valor">Valor</span>', '<span class="c-valor">Valor unit.</span>') : CAB_COT; }
   /* ícones de traço no lugar dos emojis também nestas telas (como na tela de pedido) */
   var EMO_C = { '📎': 'clip', '🚚': 'truck', '📁': 'folder', '📥': 'down', '📖': 'book', '💾': 'save', '🔁': 'repeat', '🔄': 'refresh', '🚫': 'ban', '➕': 'plus', '📄': 'file', '📸': 'camera', '📷': 'camera',
     '📌': 'pin', '🔗': 'link', '⏳': 'clock', '👤': 'user', '✅': 'circleCheck', '✔️': 'check', '✔': 'check', '💲': 'dollar', '⏱️': 'clock', '⏱': 'clock', '📋': 'clipboard', '🗒️': 'note', '🗒': 'note', '📝': 'note',
@@ -6131,7 +6195,10 @@ iniciar();
     if (!m) return;
     var nivel = sp.classList.contains('bom') ? 'boa economia' : sp.classList.contains('medio') ? 'economia média' : 'pouca economia';
     var ico = sp.classList.contains('bom') ? 'circleCheck' : sp.classList.contains('medio') ? 'circleMinus' : 'alert';
-    sp.innerHTML = '<span class="v2i v2i-' + ico + '" aria-hidden="true"></span>' + txt(m[2] + '% ' + m[4]) + '<span class="v2c-ecoorc"> do orç.</span><span class="v2-sr"> (' + nivel + ', ' + txt(m[3]) + ')</span>';
+    // 15/10/2026 (GPT e Gemini acharam que o vermelho parecia erro de preço; Weslley: "sigo a sua recomendação"): no vermelho
+    // abaixo do orçamento, "só 14% abaixo" — cores e faixas iguais (regra de 05/10)
+    var so = sp.classList.contains('ruim') && m[4] === 'abaixo' ? 'só ' : '';
+    sp.innerHTML = '<span class="v2i v2i-' + ico + '" aria-hidden="true"></span>' + txt(so + m[2] + '% ' + m[4]) + '<span class="v2c-ecoorc"> do orç.</span><span class="v2-sr"> (' + nivel + ', ' + txt(m[3]) + ')</span>';
     sp.title = m[3] + ' ' + m[4] + ' do valor desta peça no orçamento da seguradora (verde: mais de 30% abaixo · amarelo: 20 a 30% · vermelho: menos de 20% ou mais caro)';
   }
   function selosCelula(cel) { $$('.selo-eco', cel).forEach(ecoCurto); }
@@ -6204,7 +6271,7 @@ iniciar();
       estadoObs(it);
       // cotações que já estão no card: em tabela (as colunas batem de uma peça para a outra)
       var lidas = $$('.cot-lida', it);
-      if (lidas.length) { var cx = lidas[0].parentNode; if (!cx.classList.contains('v2c-tab')) { cx.classList.add('v2c-tab'); cx.removeAttribute('style'); cx.insertAdjacentHTML('afterbegin', CAB_COT); } lidas.forEach(function (l) { linhaCotLida(it, l); }); }
+      if (lidas.length) { var cx = lidas[0].parentNode; if (!cx.classList.contains('v2c-tab')) { cx.classList.add('v2c-tab'); cx.removeAttribute('style'); cx.insertAdjacentHTML('afterbegin', cabCot(it)); } lidas.forEach(function (l) { linhaCotLida(it, l); }); }
       // aviso "sem cotação" do formulário: a linha "Falta …" da peça diz a mesma coisa e acompanha o que é digitado
       $$(':scope > .dica.ruim', it).forEach(function (d) { if (/sem cota/i.test(d.textContent) && !/motivo/i.test(d.textContent)) d.classList.add('v2c-dup'); });
       $$(':scope > .dica', it).forEach(function (d) { if (/^\s*(Obs\. já no card|Obs\. do pedido)/.test(d.textContent) || d.querySelector('b')) d.classList.add('v2c-nota'); });
@@ -6213,7 +6280,7 @@ iniciar();
         if (!r.dataset.v2c) {
           r.dataset.v2c = '1'; r.classList.add('v2c-nova'); r.classList.toggle('v2c-pneu', it.dataset.pneu === '1');
           var nm = nomeDoItem(it);
-          var ro = { '.q-forn': 'Fornecedor', '.q-tipo': 'Tipo', '.q-marca': it.dataset.pneu === '1' ? 'Marca do pneu' : 'Marca', '.q-valor': 'Valor (R$)', '.q-dias': 'Prazo (dias úteis)', '.q-link': 'Link do anúncio (opcional)' };
+          var ro = { '.q-forn': 'Fornecedor', '.q-tipo': 'Tipo', '.q-marca': it.dataset.pneu === '1' ? 'Marca do pneu' : 'Marca', '.q-valor': qtdChave(it.dataset.chave) > 1 ? 'Valor unitário (R$)' : 'Valor (R$)', '.q-dias': 'Prazo (dias úteis)', '.q-link': 'Link do anúncio (opcional)' };
           $$(':scope > div > label', r).forEach(function (l) {
             var e = l.parentNode.querySelector('input:not([type=hidden]), select'); if (!e) return;
             var cls = Object.keys(ro).filter(function (sl) { return e.matches(sl); })[0]; if (!cls) return;
@@ -6307,7 +6374,7 @@ iniciar();
       if (ops.length && !it.querySelector(':scope > .v2c-tab')) {
         var tb = document.createElement('div'); tb.className = 'v2c-tab v2c-tabaut'; tb.setAttribute('role', 'radiogroup');
         tb.setAttribute('aria-label', 'Cotação autorizada — ' + nm);
-        tb.innerHTML = CAB_COT;
+        tb.innerHTML = cabCot(it);
         ops[0].insertAdjacentElement('beforebegin', tb);
         ops.forEach(function (l) { tb.appendChild(l); });
       }
@@ -6614,7 +6681,7 @@ iniciar();
     var pecs = []; try { pecs = pecasOficina(c); } catch (e) {}
     var kv = function (a, b, k) { return b ? '<div class="kv" data-k="' + (k || a) + '"><span>' + a + '</span><b>' + b + '</b></div>' : ''; };
     var T = (c.totais && c.totais.tot) || {}, orc = 0, seg = c.tipo !== 'PARTICULAR' && c.tipo !== 'RETORNO';
-    pecs.forEach(function (p) { if (!p.particular && +p.valorOrc > 0) orc += +p.valorOrc; });
+    pecs.forEach(function (p) { if (!p.particular && +p.valorOrc > 0) orc += +p.valorOrc * qtdChave(p.chave); });   // valor do orçamento é por unidade (15/10)
     return '<div class="cab"><span>Card</span><b>' + txt(c.nome) + '</b></div>'
       // quem paga só some na tela baixa quando é seguradora (particular e retorno precisam aparecer)
       + kv('Quem paga', txt(c.tipo === 'PARTICULAR' ? 'Cliente (particular)' : c.tipo === 'RETORNO' ? 'Oficina (retorno)' : 'Seguradora'), seg ? 'Quem paga' : 'Quem paga!')
@@ -6677,7 +6744,7 @@ iniciar();
     var k = abaAtual(); if (!k || !g('v2cResumo')) return;
     var res = resumoComp(); if (g('v2cResumo').dataset.h !== res) { g('v2cResumo').innerHTML = res; g('v2cResumo').dataset.h = res; }
     $$('#v2cAcoes > .v2c-rod').forEach(function (r) { var h = r.dataset.aba !== k; if (r.hidden !== h) r.hidden = h; });
-    var somaTxt = function (l) { var t = 0; l.forEach(function (x) { t += +x.valor || 0; }); return t ? fmtValor(t) : ''; };
+    var somaTxt = function (l) { var t = 0; l.forEach(function (x) { t += (+x.valor || 0) * qtdChave(x.chave); }); return t ? fmtValor(t) : ''; };   // valor por unidade × quantidade (15/10)
     var e1, e2 = { t: ABA_BTN[k][1], c: '', p: 0, f: [] }, estado = 'falta', rot = '';
     var pn = g(ABA_PAINEL[k]), lerOnly = !!(pn && pn.dataset.leitura);
     if (k === 'cot') {
@@ -6689,7 +6756,8 @@ iniciar();
     } else if (k === 'aut') {
       var b = analisarAut(), na = b.its.length, escA = []; try { escA = escolhasAut(); } catch (x) {}
       var totA = somaTxt(escA), todosA = b.pend.concat(b.cartao);
-      e1 = { t: 'Escolhas', c: na ? (b.esc + b.nao) + ' de ' + pecasTxt(na) + (totA ? ' · ' + totA + ' agora' : '') : '', p: na ? (na - b.pend.length) / na : 1, ok: !todosA.length, f: todosA.map(function (x) { return faltaHtml(x.it, x.fs); }) };
+      // 15/10 (GPT): conta só a escolha pronta — "Não comprar" sem motivo não conta (antes dava "4 de 4" com 1 para corrigir)
+      e1 = { t: 'Escolhas', c: na ? Math.max(0, b.esc + b.nao - b.pend.length) + ' de ' + pecasTxt(na) + (totA ? ' · ' + totA + ' agora' : '') : '', p: na ? (na - b.pend.length) / na : 1, ok: !todosA.length, f: todosA.map(function (x) { return faltaHtml(x.it, x.fs); }) };
       if (!todosA.length) estado = 'pronto';
       rot = b.pend.length ? 'Falta o motivo →' : 'Escolha uma cotação →';
       if (!na) { estado = 'neutro'; rot = 'Nada a autorizar'; e1.f = []; }
@@ -6697,7 +6765,9 @@ iniciar();
       var cp = analisarCompra(), nc = cp.its.length;
       var escC = []; try { $$('#compraItens .item').forEach(function (it) { var sl = it.querySelector('.k-sel'); if (sl && sl.value && it.dataset.cots) { var q = JSON.parse(it.dataset.cots)[+sl.value]; if (q) escC.push({ chave: it.dataset.chave, valor: q.valor }); } }); } catch (x) {}
       var totC = somaTxt(escC), faltam = cp.cartao.map(function (x) { return faltaHtml(x.it, x.fs); }).concat(cp.lista);
-      e1 = { t: 'Compras', c: nc ? (cp.jaC + cp.agora) + ' de ' + pecasTxt(nc) + (totC ? ' · ' + totC + ' agora' : '') : '', p: nc ? Math.max(0, cp.jaC + cp.agora - cp.pend.length) / nc : 1, ok: !faltam.length, f: faltam };
+      // 15/10 (GPT): conta só a compra pronta — escolhida com algo a corrigir não conta (antes dava "4 de 4" com "Corrija 1 peça")
+      var prontC = Math.max(0, cp.jaC + cp.agora - cp.pend.filter(function (x) { return !(x.fs || []).some(function (f) { return f.ind; }); }).length);
+      e1 = { t: 'Compras', c: nc ? prontC + ' de ' + pecasTxt(nc) + (totC ? ' · ' + totC + ' agora' : '') : '', p: nc ? Math.max(0, cp.jaC + cp.agora - cp.pend.length) / nc : 1, ok: !faltam.length, f: faltam };
       if (!faltam.length) estado = 'pronto';
       rot = cp.cartao.length ? 'Falta a autorização' : cp.pend.length ? 'Corrija ' + pecasTxt(cp.pend.length) + ' →' : (cp.semCompra.length === 1 ? 'Falta comprar 1 peça →' : 'Faltam comprar ' + cp.semCompra.length + ' peças →');
       if (cp.cartao.length) estado = 'neutro';
@@ -6734,7 +6804,7 @@ iniciar();
       var lstT = k === 'aut' ? escA : escC;
       if (misto && lstT && lstT.length) {
         var partK = {}; ps.forEach(function (p) { if (p.particular) partK[p.chave] = 1; });
-        var sg = 0, pt = 0; lstT.forEach(function (x) { if (partK[x.chave]) pt += +x.valor || 0; else sg += +x.valor || 0; });
+        var sg = 0, pt = 0; lstT.forEach(function (x) { var vq = (+x.valor || 0) * qtdChave(x.chave); if (partK[x.chave]) pt += vq; else sg += vq; });
         var vT = function (v) { return txt(fmtValor(v)).replace(/R\$\s/, 'R$\u00a0'); };
         ttH = '<div class="v2c-tt">' + (k === 'aut' ? 'Nesta autorização' : 'Comprando agora') + '</div>'
           + '<div class="kv"><span><span class="v2i v2i-shield" aria-hidden="true"></span>Seguradora</span><b>' + vT(sg) + '</b></div>'

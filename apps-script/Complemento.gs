@@ -131,8 +131,10 @@ function cp_comparar_(card, orc, excluirAnexo) {
   // 🚫 não comprar: mesmo código ou mesma descrição = o consultor já decidiu por essa peça, não entra de novo (09/10/2026)
   var naoComprar = {}; (conh.an.naoComprar || []).forEach(function (c) { cp_chaves_(c).forEach(function (k) { naoComprar[k] = 1; }); });
   // 15/10/2026 (API do Cilia, BCB8218): item FO que o orçamento novo AINDA traz como FO não foi revertido para a oficina — a peça
-  // da oficina parecida é outra ("FAIXA SUP DA PORTA" × "FAIXA DA COLUNA DA PORTA"). Só com as peças oficiais da API (orc.api).
-  var aindaFo = []; if (orc && orc.api) (orc.fo || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4) aindaFo.push(k); });
+  // da oficina parecida é outra ("FAIXA SUP DA PORTA" × "FAIXA DA COLUNA DA PORTA"). Primeiro só com as peças da API; desde
+  // 15/10/2026 à tarde (Weslley: "1 sim") vale também para o orçamento lido do PDF — FO cujo código o orçamento novo ainda traz
+  // como FO fica no FORNECIMENTO (se o OCR não leu o código, segue a regra de antes).
+  var aindaFo = []; if (orc) (orc.fo || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4) aindaFo.push(k); });
   var marcaAtualizar = function (i, p, codigoNovo) {
     var c = pecasCard[i], u = { chave: vd_chavePeca_(c), codigoAntigo: c.codigo || '' };
     var vOrc = vd_valorOrcTxt_(p.valorOrc), vCard = vd_valorOrcTxt_(c.valorOrc);

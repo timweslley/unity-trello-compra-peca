@@ -14,7 +14,7 @@ foreach ($k in $arquivos.Keys) {
   Invoke-WebRequest -Uri ($arquivos[$k] + '?t=' + [DateTime]::Now.Ticks) -OutFile (Join-Path $base $k) -UseBasicParsing
 }
 Set-Content -Path (Join-Path $base 'package.json') -Value '{ "type": "module" }' -Encoding ASCII
-New-Item -ItemType Directory -Force 'G:\Meu Drive\Arquivos de IA\Claude\Rotina Unity\Cilia' | Out-Null
+New-Item -ItemType Directory -Force ('G:\Meu Drive\Arquivos de IA\Claude\Rotina Unity\Or' + [char]0x00E7 + 'amentos\Cilia') | Out-Null   # 15/10/2026: pasta Orcamentos (Cilia, HDI, SOMA)
 
 # tarefa agendada: todo dia 00:15, com o usuário logado (o PC fica sempre ligado)
 $acao = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$base\rodar.ps1`""

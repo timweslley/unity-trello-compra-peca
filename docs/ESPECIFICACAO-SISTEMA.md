@@ -466,7 +466,7 @@ reconhecido como orçamento → "📄 Li o anexo «x» mas não reconheci um or�
 «x» é um orçamento da placa Y, não deste card" (uma vez por anexo).
 
 **Peças pela API oficial do Cilia (15/10/2026, `CiliaApi.gs` — LIGADO no principal com o OK do Weslley; `CL_LIGADO=NAO` desliga; testado antes no TESTE)**: a rodada
-diária da API (00h15, no PC do Weslley, `cilia/pc`) grava `CILIA-HOJE.json` e os PDFs oficiais na pasta `Rotina Unity/Cilia` do Drive
+diária da API (00h15, no PC do Weslley, `cilia/pc`) grava `CILIA-HOJE.json` e os PDFs oficiais na pasta `Rotina Unity/Orçamentos/Cilia` do Drive
 dele (compartilhada com sistema@). Para cada versão autorizada/supervisão baixada, o robô acha o card aberto da placa (RETORNO, AVISO e
 card fixo fora; vários cards → pelo nº do sinistro na descrição; sem como decidir → não anexa e registra) e anexa
 `Cilia - Orçamento <nº.versão> - <PLACA>.pdf`, sem repetir (nº da versão no nome de um anexo, ou orçamento anexado depois da autorização
@@ -480,11 +480,13 @@ revertida para a oficina" (BCB8218, 15/10/2026: "FAIXA SUP DA PORTA" casava pela
 
 **Orçamentos HDI e SOMA na mesma etapa (15/10/2026 — Weslley: "a rotina de orçamentos também contempla orçamentos fora do Cilia, que
 são HDI e SOMA, pra fazermos daí em uma etapa apenas os anexos e lançamentos")**: HDI e SOMA não têm API oficial; a rotina da madrugada
-lê o orçamento no portal (HDI Prestador por fetch na aba logada; Websoma) e grava na pasta `Rotina Unity/Portais` do Drive, **no mesmo
-formato do `CILIA-HOJE.json`**: `HDI-HOJE.json` + `PDF/HDI/<casa>/<PLACA> - HDI - laudo <v>.pdf` (o tradutor `portais/pc/hdi-base.mjs`
+lê o orçamento no portal (HDI Prestador por fetch na aba logada; Websoma) e grava na pasta `Rotina Unity/Orçamentos` do Drive (a antiga
+`Rotina Unity/Cilia` renomeada, já compartilhada com sistema@, com as subpastas `Cilia`, `HDI` e `SOMA` — Weslley 15/10: "colocar Cilia
+dentro da mesma pasta, vamos organizar melhor nossas pastas"), **no mesmo
+formato do `CILIA-HOJE.json`**: `HDI/HDI-HOJE.json` + `HDI/PDF/<casa>/<PLACA> - HDI - laudo <v>.pdf` (o tradutor `portais/pc/hdi-base.mjs`
 transforma o HTML salvo do portal em dados — casa pelo CNPJ do login, versão do laudo, status, peças "Fornecidas pela HDI" = FO e
 "pela Oficina", valor unitário líquido; laudo com as peças "em processo de cotação" na HDI não dispara) e, em preparação,
-`SOMA-HOJE.json`. O `CiliaApi.gs` trata as três bases do mesmo jeito (`CL_BASES`: mesma fila, mesmas regras, mesmo registro na aba
+`SOMA/SOMA-HOJE.json`. O `CiliaApi.gs` trata as três bases do mesmo jeito (`CL_BASES`: mesma fila, mesmas regras, mesmo registro na aba
 "CILIA API", com a versão "HDI laudo 1.0"); cada base liga sozinha — `CL_LIGADO` (Cilia), `CLH_LIGADO` (HDI), `CLS_LIGADO` (SOMA), **HDI e
 SOMA desligadas no principal** até o OK do Weslley. Anexo `HDI - Orçamento laudo <v> - <PLACA>.pdf`, sem repetir (o "…_laudo1.0.pdf"
 anexado pela rotina conta), peças com origem HDI (vale a regra do laudo HDI no complemento). Base que ainda não existe ou pasta não

@@ -3,7 +3,8 @@
  * o PDF da versão atual; o portal do Cilia fica só para o Status do Pedido (fornecedor/previsão das peças FO).
  *
  * De onde vem: o PC do Weslley roda todo dia às 00:15 a rodada da API (cilia/pc, uma listagem por casa + detalhe só do que
- * mudou, só autorizado/supervisão) e grava na pasta do Drive dele "Rotina Unity/Cilia" (compartilhada com sistema@):
+ * mudou, só autorizado/supervisão) e grava na pasta do Drive dele "Rotina Unity/Orçamentos/Cilia" (desde 15/10/2026; a pasta
+ * Orçamentos é a antiga "Rotina Unity/Cilia" renomeada, compartilhada com sistema@):
  *   CILIA-HOJE.json   — retrato de todos os orçamentos das 4 casas, com as PEÇAS oficiais da versão baixada
  *                       (código, nome, quem fornece, troca, quantidade, valor unitário líquido);
  *   PDF/<casa>/<PLACA> - <SEGURADORA> - Cilia <nº.versão>.pdf — o PDF oficial dessa versão.
@@ -27,9 +28,12 @@
  *
  * HDI e SOMA (15/10/2026 — Weslley: "a rotina de orçamentos também contempla orçamentos fora do Cilia, que são HDI e SOMA,
  * pra fazermos daí em uma etapa apenas os anexos e lançamentos"): sem API oficial, a rotina da madrugada lê o orçamento no
- * portal (HDI Prestador / Websoma) e grava na pasta "Rotina Unity/Portais" do Drive, NO MESMO FORMATO do CILIA-HOJE.json:
- *   HDI-HOJE.json  + PDF/HDI/<casa>/<PLACA> - HDI - laudo <v>.pdf   (portais/pc/hdi-base.mjs traduz o HTML do portal)
- *   SOMA-HOJE.json + PDF/SOMA/<casa>/…                              (em preparação)
+ * portal (HDI Prestador / Websoma) e grava no Drive, NO MESMO FORMATO do CILIA-HOJE.json. Pastas (Weslley 15/10: "colocar
+ * Cilia dentro da mesma pasta, vamos organizar melhor"): Rotina Unity/Orçamentos (a antiga "Cilia" renomeada, compartilhada
+ * com sistema@) com as subpastas
+ *   Cilia/ CILIA-HOJE.json + PDF/<casa>/…                            (rodada da API às 00:15)
+ *   HDI/   HDI-HOJE.json  + PDF/<casa>/<PLACA> - HDI - laudo <v>.pdf  (portais/pc/hdi-base.mjs traduz o HTML do portal)
+ *   SOMA/  SOMA-HOJE.json + PDF/<casa>/…                             (em preparação)
  * Este módulo trata as três bases do mesmo jeito (CL_BASES): mesma fila, mesmas regras, mesmo registro. Cada base liga
  * sozinha: CL_LIGADO (Cilia), CLH_LIGADO (HDI), CLS_LIGADO (SOMA) — HDI e SOMA nascem desligadas no principal.
  */
@@ -52,8 +56,8 @@ var CL = {
 /** Bases de orçamento que o robô lê — mesmo formato (CILIA-HOJE.json); pref = prefixo das propriedades de cada uma. */
 var CL_BASES = [
   { id: 'CILIA', rot: 'Cilia', arquivo: 'CILIA-HOJE.json', pasta: 'Cilia', pref: 'CL_', padrao: CL.LIGADO_PADRAO, org: 'CILIA', fonte: 'pela API do Cilia', obrigatoria: true },
-  { id: 'HDI', rot: 'HDI', arquivo: 'HDI-HOJE.json', pasta: 'Portais', pref: 'CLH_', padrao: 'NAO', org: 'HDI', fonte: 'pelo portal HDI' },
-  { id: 'SOMA', rot: 'SOMA', arquivo: 'SOMA-HOJE.json', pasta: 'Portais', pref: 'CLS_', padrao: 'NAO', org: 'WEBSOMA', fonte: 'pelo Websoma' }
+  { id: 'HDI', rot: 'HDI', arquivo: 'HDI-HOJE.json', pasta: 'HDI', pref: 'CLH_', padrao: 'NAO', org: 'HDI', fonte: 'pelo portal HDI' },
+  { id: 'SOMA', rot: 'SOMA', arquivo: 'SOMA-HOJE.json', pasta: 'SOMA', pref: 'CLS_', padrao: 'NAO', org: 'WEBSOMA', fonte: 'pelo Websoma' }
 ];
 var CL_MEM = { pastas: {}, cards: null, json: {}, arq: {}, ctx: null };
 
