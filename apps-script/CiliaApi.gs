@@ -35,7 +35,7 @@ var CL = {
   VELHO_DIAS: 20,                   // versão autorizada há mais de 20 dias e sem card aberto: não fica pendente
   MAX_FEITOS: 600,
   QUADRO_TESTE: 'ZX4gRmnX',
-  TESTE_V: '1',                     // muda a cada teste no TESTE (1 = 15/10/2026)
+  TESTE_V: '2',                     // muda a cada teste no TESTE (1 e 2 = 15/10/2026)
   MAX_TESTE: 5,
   ABA_LOG: 'CILIA API'
 };

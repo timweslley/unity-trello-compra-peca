@@ -130,6 +130,9 @@ function cp_comparar_(card, orc, excluirAnexo) {
   var porDesc = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.descricao); if (k.length >= 4 && !c.pneu) porDesc[k] = i; });
   // 🚫 não comprar: mesmo código ou mesma descrição = o consultor já decidiu por essa peça, não entra de novo (09/10/2026)
   var naoComprar = {}; (conh.an.naoComprar || []).forEach(function (c) { cp_chaves_(c).forEach(function (k) { naoComprar[k] = 1; }); });
+  // 15/10/2026 (API do Cilia, BCB8218): item FO que o orçamento novo AINDA traz como FO não foi revertido para a oficina — a peça
+  // da oficina parecida é outra ("FAIXA SUP DA PORTA" × "FAIXA DA COLUNA DA PORTA"). Só com as peças oficiais da API (orc.api).
+  var aindaFo = []; if (orc && orc.api) (orc.fo || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4) aindaFo.push(k); });
   var marcaAtualizar = function (i, p, codigoNovo) {
     var c = pecasCard[i], u = { chave: vd_chavePeca_(c), codigoAntigo: c.codigo || '' };
     var vOrc = vd_valorOrcTxt_(p.valorOrc), vCard = vd_valorOrcTxt_(c.valorOrc);
@@ -162,7 +165,7 @@ function cp_comparar_(card, orc, excluirAnexo) {
       // peça que ERA fornecida pela seguradora (checklist FORNECIMENTO, ainda não entregue) e o orçamento novo traz como
       // peça da OFICINA (Weslley, 06/10/2026, QPG1B84): entra na lista da oficina (complemento) e sai do checklist FO
       if (!ehFo && !p.pneu) {
-        var itFo = cp_foParaOficina_(conh, p);
+        var itFo = cp_foParaOficina_(conh, p, aindaFo);
         if (itFo) { out.paraOficina.push({ item: itFo, peca: p }); destino.push(p); return; }
       }
       if (cp_jaTem_(conh, p)) {
@@ -188,16 +191,17 @@ function cp_comparar_(card, orc, excluirAnexo) {
  * Item do checklist FORNECIMENTO que é a mesma peça de `p` — pelo código (mesmo já ✔) ou pela descrição parecida (só não entregue),
  * desde que a peça NÃO esteja na lista da oficina nem marcada 🚫 não comprar (aí o consultor já decidiu). null se não há.
  */
-function cp_foParaOficina_(conh, p) {
+function cp_foParaOficina_(conh, p, aindaFo) {
   var kc = cp_norm_(p.codigo || p.codigoOrc), desc = p.descricao || p.descricaoOrc || '';
+  var foItens = (conh.foItens || []).filter(function (i) { var n = cp_norm_(i.name); return !(aindaFo || []).some(function (k) { return n.indexOf(k) >= 0; }); });
   var naLista = (conh.an.pecas || []).concat(conh.an.naoComprar || []).some(function (c) {
     return (kc.length >= 4 && cp_norm_(c.codigo) === kc) || (!c.pneu && cp_similar_(desc, c.descricao) > 0);
   });
   if (naLista) return null;
-  var cands = (conh.foItens || []).filter(function (i) { return i.state !== 'complete'; });
+  var cands = foItens.filter(function (i) { return i.state !== 'complete'; });
   // pelo código vale também item já ✔ (14/10/2026, JDC7H45: a bandeja revertida para a oficina tinha sido marcada no
   // FORNECIMENTO porque usaram uma do estoque); pela descrição, só o que ainda não chegou
-  var porCod = kc.length >= 6 ? (conh.foItens || []).filter(function (i) { return cp_norm_(i.name).indexOf(kc) >= 0; })[0] :
+  var porCod = kc.length >= 6 ? foItens.filter(function (i) { return cp_norm_(i.name).indexOf(kc) >= 0; })[0] :
     kc.length >= 4 ? cands.filter(function (i) { return cp_norm_(i.name).indexOf(kc) >= 0; })[0] : null;
   if (porCod) return porCod;
   var melhor = null, nota = 0;
