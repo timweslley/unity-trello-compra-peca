@@ -465,7 +465,7 @@ complementar. Leitura que não serve não fica em silêncio (10/10/2026): PDF an
 reconhecido como orçamento → "📄 Li o anexo «x» mas não reconheci um orçamento…"; orçamento de **outra placa** → "📄 O anexo
 «x» é um orçamento da placa Y, não deste card" (uma vez por anexo).
 
-**Peças pela API oficial do Cilia (15/10/2026, `CiliaApi.gs` — DESLIGADO no principal, `CL_LIGADO=NAO`; testado no TESTE)**: a rodada
+**Peças pela API oficial do Cilia (15/10/2026, `CiliaApi.gs` — LIGADO no principal com o OK do Weslley; `CL_LIGADO=NAO` desliga; testado antes no TESTE)**: a rodada
 diária da API (00h15, no PC do Weslley, `cilia/pc`) grava `CILIA-HOJE.json` e os PDFs oficiais na pasta `Rotina Unity/Cilia` do Drive
 dele (compartilhada com sistema@). Para cada versão autorizada/supervisão baixada, o robô acha o card aberto da placa (RETORNO, AVISO e
 card fixo fora; vários cards → pelo nº do sinistro na descrição; sem como decidir → não anexa e registra) e anexa
@@ -474,7 +474,7 @@ dessa versão). As peças do anexo são as da API (só **troca**; serviço e có
 valor unitário líquido) guardadas em `CL_PEC_<anexo>` e usadas por `vd_lerAnexoTrello_` — o OCR do PDF só completa chassi, cor e a
 dica de tipo pelo código. Card com lista → complemento por `cp_doAnexo_` (mesmas regras: sinistro HDI e card de RETORNO não importam);
 card sem lista → o ciclo importa ao ler o anexo; ESPERA/NÃO AUTORIZADO → anexa e comenta para quem criou o card verificar (não move);
-card antigo → só anexa. Batizado do anexo guarda o nº da versão (`📄 ORÇ+ · PLACA · SEG · Cilia 1993730.2 · dd/MM`). Registro na aba
+card antigo → só anexa; card em ENTREGUES/ENCERRADO/PENDÊNCIA → anexa sem comentário; **sinistro HDI → não anexa** (vale o PDF do portal HDI). Todo arquivo novo lido gera a linha "li a base do Cilia" no registro (a rotina da madrugada usa para saber que o robô está ligado). Batizado do anexo guarda o nº da versão (`📄 ORÇ+ · PLACA · SEG · Cilia 1993730.2 · dd/MM`). Registro na aba
 "CILIA API" da planilha do robô. Com as peças da API, item FO que o orçamento novo **ainda traz como FO** não entra na regra da "FO
 revertida para a oficina" (BCB8218, 15/10/2026: "FAIXA SUP DA PORTA" casava pela descrição com "FAIXA DA COLUNA DA PORTA").
 

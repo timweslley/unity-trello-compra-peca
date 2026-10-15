@@ -28,7 +28,8 @@
 var CL = {
   ARQUIVO: 'CILIA-HOJE.json',
   PASTA: 'Cilia',
-  LIGADO_PADRAO: 'NAO',             // principal: só depois do OK do Weslley
+  LIGADO_PADRAO: 'SIM',             // principal: ligado com o OK do Weslley (15/10/2026, "podemos seguir com 1"); CL_LIGADO=NAO desliga
+  LISTAS_SILENCIO: /ENTREGUES|ENCERRADO|PEND[ÊE]NCIA/i,   // card já entregue/encerrado: anexa sem comentário (o PDF serve ao faturamento)
   INTERVALO_MS: 15 * 60 * 1000,     // confere se o arquivo mudou no máximo a cada 15 min (fila vazia)
   MAX_POR_RODADA: 6,                // versões tratadas por ciclo (cada uma: PDF do Drive + anexo no Trello + complemento)
   PEND_DIAS: 3,                     // versão sem card aberto: tenta de novo por até 3 dias (o card pode nascer depois)
@@ -211,6 +212,11 @@ function cl_executar_(opt) {
         if (!o || !o.dispara_compra || !o.pdf || !o.versao_baixada || !o.placa) return;
         var k = cl_chave_(casa, o);
         if (feitos[k] || naFila[k]) return;
+        // sinistro HDI: o PDF e as peças que valem são os do portal HDI (laudo) — o do Cilia não vai para o card
+        if (cl_seguradora_(o.seguradora) === 'HDI') {
+          if (opt.teste || String(o.detalhe_em || '') >= desde) { feitos[k] = 'HDI'; log.push([agora, board === CL.QUADRO_TESTE ? 'TESTE' : 'principal', casa, o.placa, o.versao_baixada, o.conclusao || '', '', 'não anexei: sinistro HDI (vale o PDF do portal HDI)', '']); }
+          return;
+        }
         if (!opt.teste && String(o.detalhe_em || '') < desde) return;
         escolhidas.push({ k: k, casa: casa, id: o.budget_id, placa: o.placa, nv: o.versao_baixada, desde: agora.toISOString(), n: 0, data: o.detalhe_em || '' });
       });
@@ -225,8 +231,9 @@ function cl_executar_(opt) {
     }
     fila = fila.concat(escolhidas);
     props.setProperty(kLido, atu);
+    if (!opt.teste) log.push([agora, board === CL.QUADRO_TESTE ? 'TESTE' : 'principal', '', '', '', '', '', 'li a base do Cilia', 'rodada de ' + cl_dataBr_(j.gerado_em) + ' ' + Utilities.formatDate(new Date(j.gerado_em), 'America/Sao_Paulo', 'HH:mm') + ' · ' + escolhidas.length + ' versão(ões) nova(s) na fila']);
   }
-  if (!fila.length) { props.setProperty(kFila, '[]'); return 0; }
+  if (!fila.length) { props.setProperty(kFila, '[]'); cl_log_(log); props.setProperty(kFeito, JSON.stringify(feitos)); return 0; }
 
   // 2) trata a fila (mais antigas primeiro), dentro do prazo do ciclo
   var j2 = cl_json_(), idx = {};
@@ -299,26 +306,29 @@ function cl_tratarVersao_(board, c, x, o, opt) {
     vd_comentar_(card, cabeca + ' Card em **ESPERA/NÃO AUTORIZADO**' + (quem ? ': @' + quem + ',' : ':') + ' verificar se a cotação deve seguir — o robô não move o card.');
     return { acao: 'anexei; card em ESPERA: comentei, não movi', det: lista, anexou: true, card: card };
   }
+  var silencio = CL.LISTAS_SILENCIO.test(lista);
   if (vd_legado_(card.id)) {
-    vd_comentar_(card, cabeca);
+    if (!silencio) vd_comentar_(card, cabeca);
     return { acao: 'anexei (card antigo: o robô não importa peças)', det: lista, anexou: true, card: card };
   }
   var an = vd_analisar_(card.desc || '', card.name), lp = vd_linhasPecas_(an.div.bloco);
   if (!lp.linhas.length && !lp.semOficina) return { acao: 'anexei; card sem lista de peças: o ciclo importa', det: lista + (comPecas ? '' : ' · peças pelo PDF (orçamento grande)'), anexou: true, card: card };
   var a = { id: at.id, name: at.name || nome, mimeType: at.mimeType || 'application/pdf', isUpload: true, bytes: at.bytes, url: at.url, date: at.date || new Date().toISOString() };
-  var antes = (card.desc || '').length, res = cp_doAnexo_({ id: card.id, name: card.name }, a, ctx);
+  var res = cp_doAnexo_({ id: card.id, name: card.name }, a, ctx);
+  // a leitura já guardou as peças da API no cache do anexo (VD_ANX3_): libera o espaço das propriedades
+  try { var pp = PropertiesService.getScriptProperties(); if (pp.getProperty('VD_ANX3_' + at.id)) pp.deleteProperty('CL_PEC_' + at.id); } catch (e) {}
   if (res === true) return { acao: 'anexei e importei o complemento', det: lista, anexou: true, card: card };
   if (res === 'erro') return { acao: 'anexei; leitura falhou (o ciclo tenta de novo)', det: lista, anexou: true, card: card };
   // nada novo: avisa que a versão chegou (sinistro HDI e card de RETORNO o próprio cp_doAnexo_ já comentou)
   var seg = vd_semAcento_(((an.dados && an.dados.seguradora) || '') + ' ' + (card.name || ''));
-  if (!/\bHDI\b/.test(seg)) vd_comentar_(card, cabeca + ' Nenhuma peça nova em relação ao que o card já tem.');
+  if (!/\bHDI\b/.test(seg) && !silencio) vd_comentar_(card, cabeca + ' Nenhuma peça nova em relação ao que o card já tem.');
   return { acao: /\bHDI\b/.test(seg) ? 'anexei; sinistro HDI: peças pelo laudo da HDI' : 'anexei; sem peça nova', det: lista, anexou: true, card: card };
 }
 
-/** CL_PEC_ com mais de 7 dias: a leitura do anexo já guardou as peças no cache (VD_ANX3_). */
+/** CL_PEC_ com mais de 3 dias (card antigo, em ESPERA ou sem lista que ninguém leu): sai das propriedades (limite de 500 KB). */
 function cl_limparPecas_() {
   try {
-    var props = PropertiesService.getScriptProperties(), tudo = props.getProperties(), lim = Date.now() - 7 * 864e5;
+    var props = PropertiesService.getScriptProperties(), tudo = props.getProperties(), lim = Date.now() - 3 * 864e5;
     Object.keys(tudo).forEach(function (k) {
       if (k.indexOf('CL_PEC_') !== 0) return;
       try { if ((JSON.parse(tudo[k]).em || 0) < lim) props.deleteProperty(k); } catch (e) { props.deleteProperty(k); }
