@@ -3188,6 +3188,7 @@ iniciar();
   /* ícones de traço (no lugar dos emojis, que mudam de cara no Windows) */
   .v2 .v2i { display:inline-block; width:16px; height:16px; flex:0 0 16px; background:currentColor; -webkit-mask:var(--i) center / contain no-repeat; mask:var(--i) center / contain no-repeat; vertical-align:-3px; margin-right:6px; }
   .v2 .v2-ler .ico .v2i { width:18px; height:18px; flex-basis:18px; margin:0; color:#626f86; }
+  .v2pc .quem-paga > .v2i-help { color:#7f5f01; margin-right:4px; }
   .v2 .v2-ler .ico { display:inline-flex; align-items:center; }
   .v2pc #v2ped-dir .v2hb .v2i { margin-right:5px; }
   .v2 :is(.chip, label.v2-btnarq) > .v2i { margin-right:0; }
@@ -4040,6 +4041,8 @@ iniciar();
     /* janela de 961 a ~1020 px com a coluna da direita: a tabela ainda cabe no cartão */
     .v2pc #comprador.v2c .v2c-tab { grid-template-columns:minmax(100px, 1fr) minmax(84px, 1fr) 92px 88px 124px; }
     .v2pc #comprador.v2c .v2c-tab.v2c-tabaut { grid-template-columns:minmax(120px, 1fr) minmax(84px, 1fr) 92px 88px 76px; }
+    .v2pc #comprador.v2c .v2c-tab .c-tipo .v2c-sep { display:none; }
+    .v2pc #comprador.v2c .v2c-tab .c-tipo :is(.v2c-tp, .v2c-mc) { display:block; }
   } }
   @container peca (max-width:780px) {
     .v2pc #comprador.v2c .cot.v2c-nova, .v2pc #comprador.v2c .cot.v2c-nova.v2c-pneu { grid-template-columns:minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) !important; }
@@ -4195,9 +4198,21 @@ iniciar();
     .v2pc :is(.v2-comorc :is(#itens, #itensPart), :is(#itens, #itensPart).v2-comorc, #itens, #itensPart) > .item:is([data-origem], [data-tipo], .item) > .item-topo { grid-row:5 !important; grid-column:2 / -1 !important; justify-content:flex-start !important; flex-wrap:wrap !important; }
     .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(.f-qtd), div:has(> .f-valor-orc)) { align-self:end; }
     .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(.f-qtd), div:has(> .f-valor-orc)) > label { display:block !important; margin:0 0 2px !important; font-size:12px !important; line-height:16px; white-space:normal; }
-    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) > label { font-size:0 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) > label { font-size:0 !important; line-height:0 !important; }
     .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) > label > span { display:none !important; }
-    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) > label::before { content:"Valor unitário (R$)"; font-size:12px; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) > label::before { content:"Valor unitário (R$)"; font-size:12px; display:block; line-height:16px; }
+  }
+  /* lista de 541 a 700 px (janela de ~1000 px, zoom de 175–200%): peça compacta em 2 linhas — [código | descrição] e
+     [quantidade | valor], com os nomes em cima da quantidade e do valor (8ª rodada: empilhar tudo dobrava a altura da lista) */
+  @container pecas (min-width: 541px) and (max-width: 700px) {
+    .v2pc #itens > .item, .v2pc #itensPart > .item { grid-template-columns:28px 168px minmax(0, 1fr) !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(> .f-codigo), div:has(.f-medida)) { grid-row:1 !important; grid-column:2 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc) { grid-row:1 !important; grid-column:3 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(.f-qtd) { grid-row:2 !important; grid-column:2 !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(.f-qtd) :is(.v2-qtd input, input.f-qtd) { width:72px !important; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > div:has(> .f-valor-orc) { grid-row:2 !important; grid-column:3 !important; max-width:140px; }
+    .v2pc :is(#itens, #itensPart) > .item > .grade > :is(.inteiro:has(.f-tipo), .inteiro:has(.f-marca)) { grid-row:3 !important; }
+    .v2pc :is(.v2-comorc :is(#itens, #itensPart), :is(#itens, #itensPart).v2-comorc, #itens, #itensPart) > .item:is([data-origem], [data-tipo], .item) > .item-topo { grid-row:4 !important; }
   }
   @media (min-width:641px) {
     html.v2.v2toque :is(#infoComprador, #infoComprador b, .anexos-orig > b, #ntExistentes, #dicaNotaUnica, .dica:not(.ruim), #v2passos .p:not(.atual)) { color:#44546f !important; }
@@ -4653,7 +4668,7 @@ iniciar();
       rot = nFaltam ? rot + ' →' : '';
       if (be.dataset.rot !== rot) {
         be.dataset.rot = rot;
-        var viv = g('v2vivo'); if (viv) viv.textContent = nFaltam ? rot.replace(/ →$/, '') : 'Pedido pronto para enviar';
+        vivoDepois(nFaltam ? rot.replace(/ →$/, '') : 'Pedido pronto para enviar');
       }
       be.setAttribute('aria-label', nFaltam ? rot.replace(/ →$/, '') + ' — ir para o primeiro item que falta' : 'Enviar pedido');
       if (nFaltam && (be.textContent === 'Enviar pedido' || be.textContent === be.dataset.rotPost) && be.textContent !== rot) { be.textContent = rot; be.dataset.rotPost = rot; }
@@ -4689,6 +4704,14 @@ iniciar();
     g('v2falta').classList.add('oculto');
   }
 
+  // aviso do leitor de tela que não atropela o anterior: se um aviso acabou de sair (ex.: "Peça nova incluída"), espera ele
+  function vivoDepois(msg) {
+    var viv = g('v2vivo'); if (!viv) return;
+    var espera = (window.V2_VIVO_ATE || 0) - Date.now();
+    clearTimeout(vivoDepois._t);
+    if (espera > 0) vivoDepois._t = setTimeout(function () { var v = g('v2vivo'); if (v) v.textContent = msg; }, espera);
+    else viv.textContent = msg;
+  }
   document.addEventListener('click', function (e) {
     var m = e.target && e.target.closest && e.target.closest('#v2etapas a[data-mais]'); if (!m) return;
     e.preventDefault(); window.V2_ET_TUDO = true; try { atualizarLado(); } catch (x) {}
@@ -4706,8 +4729,14 @@ iniciar();
     var antes = {}; $$('#itens > .item, #itensPart > .item').forEach(function (i) { antes[i.id] = 1; });
     setTimeout(function () {
       var it = $$('#itens > .item, #itensPart > .item').filter(function (i) { return !antes[i.id] && i.offsetParent !== null; }).pop(); if (!it) return;
-      var f = it.querySelector('.f-codigo, .f-medida'); if (f) { try { f.focus(); } catch (x) {} }
       var n = ((it.querySelector('.num') || {}).textContent || '').replace(/\D+/g, '');
+      var f = it.querySelector('.f-codigo, .f-medida');
+      if (f) {
+        if (f.classList.contains('f-codigo') && /Buscar no Cilia/i.test(f.placeholder)) { f.placeholder = 'Código da peça'; f.title = 'Consulte o código no Cilia'; }
+        f.setAttribute('aria-label', (f.classList.contains('f-medida') ? 'Medida do pneu' : 'Código') + ' da peça ' + n);
+        try { f.focus(); } catch (x) {}
+      }
+      window.V2_VIVO_ATE = Date.now() + 1500;
       var viv = g('v2vivo'); if (viv) viv.textContent = (it.dataset.tipo === 'pneu' ? 'Pneu novo incluído' : 'Peça nova incluída') + (n ? ', item ' + n : '');
     }, 0);
   }, true);
@@ -5397,7 +5426,7 @@ iniciar();
     info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>'
   };
   var EMO = { '📎': 'clip', '🚚': 'truck', '📁': 'folder', '🖼️': 'image', '🖼': 'image', '📥': 'down', '📖': 'book', '💾': 'save', '🔁': 'repeat', '🔄': 'refresh',
-    '🚫': 'ban', '➕': 'plus', '🆕': 'filePlus', '❔': 'help', '📄': 'file', '📸': 'camera', '📌': 'pin', '🔗': 'link', '🌎': 'globe', '⏳': 'clock', '👤': 'user' };
+    '🚫': 'ban', '➕': 'plus', '🆕': 'filePlus', '❔': 'help', '📄': 'file', '📸': 'camera', '📌': 'pin', '🔗': 'link', '🌎': 'globe', '⏳': 'clock', '👤': 'user', '❓': 'help' };
   if (PC) {
     var cssIco = Object.keys(ICO).map(function (k) {
       return '.v2 .v2i-' + k + '{--i:url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICO[k] + '</svg>') + '")}';
@@ -5967,6 +5996,11 @@ iniciar();
     pr.classList.add('prazo'); pz.remove();
   }
   function tituloSelos(cel) { $$('.selo', cel).forEach(function (x) { x.removeAttribute('title'); }); }
+  // tipo e marca em partes (o texto lido continua "TIPO · MARCA"); no cartão estreito cada um vai numa linha, sem o "·"
+  function tipoMarcaHtml(q) {
+    if (q.tipo && q.marca) return '<span class="v2c-tp">' + txt(q.tipo) + '</span><span class="v2c-sep"> · </span><span class="v2c-mc">' + txt(q.marca) + '</span>';
+    return txt([q.tipo, q.marca].filter(String).join(' · ') || '—');
+  }
   function linhaCotLida(it, linha) {
     if (linha.dataset.v2c) return;
     var lidas = []; try { lidas = JSON.parse(it.dataset.lidas || '[]'); } catch (e) {}
@@ -5976,7 +6010,7 @@ iniciar();
     linha.innerHTML = ''; linha.classList.add('v2c-lin');
     var c = function (cl, h) { var d = document.createElement('span'); d.className = cl; if (h != null) d.innerHTML = h; linha.appendChild(d); return d; };
     c('c-forn', '<b>' + txt(q.fornecedor) + '</b>');
-    c('c-tipo', txt([q.tipo, q.marca].filter(String).join(' · ') || '—'));
+    c('c-tipo', tipoMarcaHtml(q));
     var cv = c('c-valor', txt(fmtValor(q.valor)));
     c('c-prazo', txt(prazoTxt(q)));
     var s = c('c-selos'); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); if (link) { linkCurto(link, q); s.appendChild(link); } if (autz) s.appendChild(autz); selosCelula(cv); juntarSelos(s); tituloSelos(s);
@@ -6096,7 +6130,7 @@ iniciar();
     lab.innerHTML = '';
     var c = function (cl, h) { var d = document.createElement('span'); d.className = cl; d.innerHTML = h; lab.appendChild(d); return d; };
     var f = c('c-forn', ''); f.appendChild(r); f.insertAdjacentHTML('beforeend', '<b>' + txt(q.fornecedor) + '</b>');
-    var ct = c('c-tipo', txt([q.tipo, q.marca].filter(String).join(' · ') || '—')); idDe(ct, 'v2cat');
+    var ct = c('c-tipo', tipoMarcaHtml(q)); idDe(ct, 'v2cat');
     var cv = c('c-valor', txt(fmtValor(q.valor))); c('c-prazo', txt(prazoTxt(q)));
     var s = c('c-selos', ''); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); selosCelula(cv); juntarSelos(s); tituloSelos(s); idDe(s, 'v2cas'); idDe(cv, 'v2cav');
     var ca = c('c-acoes', ''); if (link) { linkCurto(link, q); ca.appendChild(link); }   // o link do anúncio vai na coluna da direita (vazia na autorização)
