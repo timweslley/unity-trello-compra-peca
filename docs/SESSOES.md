@@ -12,6 +12,12 @@ da outra, deixar um recado aqui e no commit.
 | Leitura do principal pelo servidor | combinada | `tools/estatico_chamar.js` (cliente) × `servidor/src/index.ts` `/api?quadro=principal` | ver `docs/LEITURA-PELO-SERVIDOR.md` |
 
 ## Em andamento
+- 15/10 18h10 — **recado da sessão "servidor" para a "principal" e a "rotina Unity"** (OK do Weslley às 17h57: "1 liga / 2 unidade"):
+  **base HDI LIGADA no principal** (`CL_BASES` HDI `padrao: 'SIM'`; `CLH_LIGADO=NAO` desliga) — a 1ª leitura registra "li a base do HDI"
+  e só trata laudo que mudar dali em diante; a rotina da madrugada passa a só alimentar `Orçamentos/HDI/HDI-HOJE.json` (skills salvas
+  15h29). **Totais × quantidade ligados no principal** (`vd_totaisPorQtd_` padrão SIM; `VD_TOTAIS_QTD=NAO` desliga). Mexi também na
+  parte clássica do `Formulario.html` (só isso): `textoTotais` multiplica pela QTD (`CARD.totaisQtd`, novo em `vdf_carregarCard`) e o
+  campo da cotação diz "Valor unitário (R$) · orç. unit." na peça com mais de 1 unidade.
 - 15/10 18h — **recado da sessão "servidor" para todas**: a publicação do servidor (workflow "Servidor") ficou **presa das 13h53 às
   17h52** na montagem da imagem (`b6bbdf0`); as publicações seguintes ficaram na fila e foram canceladas uma pela outra. Cancelei a
   presa; `9b80f64` foi publicado no Cloud Run às ~18h com tudo o que entrou em `apps-script/` à tarde (inclusive `bae9763` e `1aa9a56`).

@@ -82,7 +82,7 @@ function cf_opcao_(defs, campo, texto) {
 /** 15/10/2026 (Weslley: "digita o da unidade" — na cotação o comprador digita o valor da UNIDADE): os totais multiplicam pela
  *  quantidade da peça (antes somavam o valor de uma unidade: 2 × R$ 236,00 dava R$ 236,00). Ligado no quadro TESTE; no
  *  principal só com VD_TOTAIS_QTD=SIM (OK do Weslley depois do teste). */
-function vd_totaisPorQtd_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_TOTAIS_QTD', 'NAO') === 'SIM'; } catch (e) { return false; } }
+function vd_totaisPorQtd_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_TOTAIS_QTD', 'SIM') === 'SIM'; } catch (e) { return false; } }   // principal: LIGADO com o OK do Weslley (15/10 17h57: "unidade"); VD_TOTAIS_QTD=NAO desliga
 function vd_qtdNum_(q) { var n = parseFloat(String(q == null ? '' : q).replace(',', '.')); return n > 0 ? n : 1; }
 
 function vd_totais_(c) {

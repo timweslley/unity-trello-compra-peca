@@ -410,6 +410,7 @@ function vdf_montarCard_(c, lista, me) {
     diretoria: vdf_ehAutorizador_(me), podeComprar: vdf_podeComprar_(me), podeReceber: vdf_podeReceber_(me, c), ordemAut: vdf_temOrdemAut_(c), solicitante: criador || '',
     ordem: vdf_ordemDoCard_(c), unidadeId: vdf_unidadeDoCard_(c),
     totais: (function () { try { return vd_totais_(c); } catch (e) { return null; } })(),
+    totaisQtd: (function () { try { return vd_totaisPorQtd_(); } catch (e) { return false; } })(),   // valor da cotação é da UNIDADE: as somas da tela multiplicam pela quantidade (15/10/2026)
     pagas: (function () {
       try {
         var out = [];

@@ -874,9 +874,11 @@ function desenharTotais(c) {
 }
 /** Soma escolhas [{chave, valor}] por grupo -> texto "Seguradora · Particular · Total". */
 function textoTotais(escolhas) {
-  var part = {}; ((CARD && CARD.pecas) || []).forEach(function (p) { if (p.particular) part[p.chave] = 1; });
+  // 15/10/2026 (Weslley: na cotação "digita o da unidade"): o total multiplica pela quantidade da peça, como os totais do card
+  var porQtd = !(CARD && CARD.totaisQtd === false), part = {}, qtd = {};
+  ((CARD && CARD.pecas) || []).forEach(function (p) { if (p.particular) part[p.chave] = 1; var q = parseFloat(String(p.qtd || '1').replace(',', '.')); qtd[p.chave] = porQtd && q > 0 ? q : 1; });
   var s = 0, pt = 0;
-  escolhas.forEach(function (e) { if (part[e.chave]) pt += (+e.valor || 0); else s += (+e.valor || 0); });
+  escolhas.forEach(function (e) { var v = (+e.valor || 0) * (qtd[e.chave] || 1); if (part[e.chave]) pt += v; else s += v; });
   var temP = ((CARD && CARD.pecas) || []).some(function (p) { return p.particular; }), temS = ((CARD && CARD.pecas) || []).some(function (p) { return !p.particular; });
   var out = [];
   if (temS) out.push('🛡️ Seguradora <b>' + fmtValor(s) + '</b>');
@@ -1392,7 +1394,7 @@ function novaCot(item, pre) {
     + (pneu ? '<div><label>Marca do pneu</label><input type="text" class="q-marca maiusc" placeholder="PIRELLI"></div><input type="hidden" class="q-tipo" value="">'
             : '<div><label>Tipo</label><select class="q-tipo">' + tipos.map(function (t, i) { return '<option value="' + esc(t) + '"' + (tipos.length === 1 ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div>'
               + '<div><label>Marca (opcional)</label><input type="text" class="q-marca maiusc" placeholder="GM / DTS"></div>')
-    + '<div><label>Valor (R$)' + (peca.valorOrc ? ' <span style="font-size:12px">· orç. ' + esc(fmtValor(peca.valorOrc)) + '</span>' : '') + '</label><input type="text" class="q-valor" inputmode="decimal" placeholder="1.647,00" oninput="atualizarEco(this)"><div class="q-eco"></div></div>'
+    + '<div><label>' + (+String(peca.qtd || '1').replace(',', '.') > 1 ? 'Valor unitário (R$)' : 'Valor (R$)') + (peca.valorOrc ? ' <span style="font-size:12px">· orç. ' + (+String(peca.qtd || '1').replace(',', '.') > 1 ? 'unit. ' : '') + esc(fmtValor(peca.valorOrc)) + '</span>' : '') + '</label><input type="text" class="q-valor" inputmode="decimal" placeholder="1.647,00" oninput="atualizarEco(this)"><div class="q-eco"></div></div>'
     + '<div><label>Prazo (dias úteis)</label><input type="number" class="q-dias" min="0" placeholder="3"></div>'
     + '<div><button type="button" class="perigo" onclick="var it=this.closest(\'.item\');this.closest(\'.cot\').remove();atualizarPecaCot(it)">tirar</button></div>'
     + '<div class="q-link-caixa"><label>Link do anúncio (opcional — Mercado Livre, site do fornecedor)</label><input type="text" class="q-link" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://produto.mercadolivre.com.br/…" onchange="this.value=encurtarLink(this.value)"></div>';

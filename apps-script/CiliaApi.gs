@@ -35,7 +35,8 @@
  *   HDI/   HDI-HOJE.json  + PDF/<casa>/<PLACA> - HDI - laudo <v>.pdf  (portais/pc/hdi-base.mjs traduz o HTML do portal)
  *   SOMA/  SOMA-HOJE.json + PDF/<casa>/…                             (em preparação)
  * Este módulo trata as três bases do mesmo jeito (CL_BASES): mesma fila, mesmas regras, mesmo registro. Cada base liga
- * sozinha: CL_LIGADO (Cilia), CLH_LIGADO (HDI), CLS_LIGADO (SOMA) — HDI e SOMA nascem desligadas no principal.
+ * sozinha: CL_LIGADO (Cilia), CLH_LIGADO (HDI), CLS_LIGADO (SOMA) — Cilia e HDI ligadas no principal (HDI desde 15/10/2026 17h57,
+ * OK do Weslley; vale o laudo que mudar dali em diante); SOMA desligada.
  */
 var CL = {
   ARQUIVO: 'CILIA-HOJE.json',
@@ -56,7 +57,7 @@ var CL = {
 /** Bases de orçamento que o robô lê — mesmo formato (CILIA-HOJE.json); pref = prefixo das propriedades de cada uma. */
 var CL_BASES = [
   { id: 'CILIA', rot: 'Cilia', arquivo: 'CILIA-HOJE.json', pasta: 'Cilia', pref: 'CL_', padrao: CL.LIGADO_PADRAO, org: 'CILIA', fonte: 'pela API do Cilia', obrigatoria: true },
-  { id: 'HDI', rot: 'HDI', arquivo: 'HDI-HOJE.json', pasta: 'HDI', pref: 'CLH_', padrao: 'NAO', org: 'HDI', fonte: 'pelo portal HDI' },
+  { id: 'HDI', rot: 'HDI', arquivo: 'HDI-HOJE.json', pasta: 'HDI', pref: 'CLH_', padrao: 'SIM', org: 'HDI', fonte: 'pelo portal HDI' },   // LIGADA no principal: OK do Weslley 15/10 17h57 ("1 liga"); CLH_LIGADO=NAO desliga
   { id: 'SOMA', rot: 'SOMA', arquivo: 'SOMA-HOJE.json', pasta: 'SOMA', pref: 'CLS_', padrao: 'NAO', org: 'WEBSOMA', fonte: 'pelo Websoma' }
 ];
 var CL_MEM = { pastas: {}, cards: null, json: {}, arq: {}, ctx: null };

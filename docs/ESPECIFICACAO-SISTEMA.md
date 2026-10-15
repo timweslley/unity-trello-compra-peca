@@ -489,15 +489,17 @@ formato do `CILIA-HOJE.json`**: `HDI/HDI-HOJE.json` + `HDI/PDF/<casa>/<PLACA> - 
 transforma o HTML salvo do portal em dados — casa pelo CNPJ do login, versão do laudo, status, peças "Fornecidas pela HDI" = FO e
 "pela Oficina", valor unitário líquido; laudo com as peças "em processo de cotação" na HDI não dispara) e, em preparação,
 `SOMA/SOMA-HOJE.json`. O `CiliaApi.gs` trata as três bases do mesmo jeito (`CL_BASES`: mesma fila, mesmas regras, mesmo registro na aba
-"CILIA API", com a versão "HDI laudo 1.0"); cada base liga sozinha — `CL_LIGADO` (Cilia), `CLH_LIGADO` (HDI), `CLS_LIGADO` (SOMA), **HDI e
-SOMA desligadas no principal** até o OK do Weslley. Anexo `HDI - Orçamento laudo <v> - <PLACA>.pdf`, sem repetir (o "…_laudo1.0.pdf"
+"CILIA API", com a versão "HDI laudo 1.0"); cada base liga sozinha — `CL_LIGADO` (Cilia), `CLH_LIGADO` (HDI), `CLS_LIGADO` (SOMA) — **HDI
+ligada no principal desde 15/10 17h57; SOMA desligada** até o tradutor do Websoma e o OK do Weslley. Anexo `HDI - Orçamento laudo <v> - <PLACA>.pdf`, sem repetir (o "…_laudo1.0.pdf"
 anexado pela rotina conta), peças com origem HDI (vale a regra do laudo HDI no complemento). Base que ainda não existe ou pasta não
 compartilhada com sistema@: o robô procura de novo a cada 6 h, sem erro. Versão esperando o card nascer: nova tentativa a cada 15 min
 (antes era a cada ciclo de 1 min). Teste no TESTE (`CL.TESTE_V = '3'` e `'4'`, só HDI): rodou em 15/10 às 15h29 e 16h28 — PDF
 "HDI - Orçamento laudo <v> - <PLACA>.pdf" anexado em 10 cards do TESTE (cards antigos: só o anexo; card em ESPERA: comentário sem
 notificar); o teste registra na aba quando espera a base e quando termina. **Ao ligar uma base de portal** (HDI, SOMA), a 1ª leitura
 marca o início (`CLH_DESDE_`/`CLS_DESDE_` = agora): vale só o laudo que mudar daqui para frente — os que já estavam na base a rotina já
-anexou (no Cilia continua valendo a rodada do dia).
+anexou (no Cilia continua valendo a rodada do dia). **HDI LIGADA no principal em 15/10/2026 às 17h57** (OK do Weslley: "1 liga";
+`CLH_LIGADO=NAO` desliga): a 1ª leitura registra "li a base do HDI" e, a partir daí, a rotina da madrugada só alimenta a base e não
+anexa mais o PDF da HDI (o robô anexa e lança).
 
 Tipos de evento novos (10/10/2026): RETIRADA, COMPRA CANCELADA, DEVOLUÇÃO FO.
 
@@ -526,7 +528,10 @@ Sufixos de fornecedor nos itens FO ("- MEDIADORA - PRISMATEC / MARAJO") são rec
   móveis (Carnaval −48/−47, Sexta Santa −2, Corpus Christi +60 da Páscoa) e extras configuráveis.
 - **Atraso de recebimento** = d.u. entre previsão e chegada (negativo = antes).
 - **Economia sobre o orçamento** = (orç − cot)/orç: < 20 % ruim 🔴, 20–30 % médio 🟡, > 30 % bom 🟢.
-- **Totais do card**: por peça, valor comprado (se comprada) senão autorizado; separados seguradora/particular.
+- **Totais do card**: por peça, valor comprado (se comprada) senão autorizado; separados seguradora/particular. **Vezes a quantidade da
+  peça** (15/10/2026, OK do Weslley às 17h57: o valor da cotação é da unidade — "digita o da unidade"): menor cotação, autorizado e
+  comprado multiplicam pela QTD (`vd_totaisPorQtd_`; `VD_TOTAIS_QTD=NAO` desliga no principal); a tela clássica soma igual (`textoTotais`,
+  `CARD.totaisQtd`) e o campo da cotação diz "Valor unitário (R$) · orç. unit." quando a peça tem mais de 1 unidade.
 - **Painel** (30 dias): pedidos, cotados, autorizados, devoluções, peças e valor comprado, compras fora da
   autorização, % recebidas no prazo, travas desfeitas; por fornecedor: peças, valor, atraso médio, % no prazo;
   tempo mediano por etapa (pedido→cotação→autorização→compra→recebimento); últimas compras fora da autorização;
