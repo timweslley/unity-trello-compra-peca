@@ -4179,9 +4179,11 @@ iniciar();
     /* janela de 961 a ~1020 px com a coluna da direita: a tabela ainda cabe no cartão */
     .v2pc #comprador.v2c .v2c-tab { grid-template-columns:minmax(100px, 1fr) minmax(84px, 1fr) 92px 88px 124px; }
     .v2pc #comprador.v2c .v2c-tab.v2c-tabaut { grid-template-columns:minmax(120px, 1fr) minmax(84px, 1fr) 92px 88px 76px; }
-    .v2pc #comprador.v2c .v2c-tab .c-tipo .v2c-sep { display:none; }
-    .v2pc #comprador.v2c .v2c-tab .c-tipo :is(.v2c-tp, .v2c-mc) { display:block; }
   } }
+  /* tipo e marca: quando a marca não cabe na linha do tipo (cartão estreito, zoom), cada um numa linha, sem o "·" (a linha não
+     termina mais em "ORIGINAL ·"); quando cabe, continua "GENUÍNO · GM" numa linha só — quem decide é a medida (tipoMarcaLinhas) */
+  .v2pc #comprador.v2c .c-tipo.v2c-tm2 .v2c-sep { display:none; }
+  .v2pc #comprador.v2c .c-tipo.v2c-tm2 :is(.v2c-tp, .v2c-mc) { display:block; }
   @container peca (max-width:780px) {
     .v2pc #comprador.v2c .cot.v2c-nova, .v2pc #comprador.v2c .cot.v2c-nova.v2c-pneu { grid-template-columns:minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr) !important; }
     .v2pc #comprador.v2c .cot.v2c-nova > div:has(> button.perigo) { justify-self:start; }
@@ -7092,7 +7094,22 @@ iniciar();
     var fa = g('fornAtalho'); if (fa) fa.classList.toggle('v2c-forn-aba', k === 'forn');
     atualizarLadoComp();
     estadoComp();
+    tipoMarcaLinhas();
   }
+  // tipo e marca em linhas próprias só quando a marca não cabe na linha do tipo (mede depois de montar e a cada mudança de tamanho)
+  function tipoMarcaLinhas() {
+    if (!PC || !COMP) return;
+    var ts = $$('#comprador .c-tipo').filter(function (t) { return t.querySelector('.v2c-mc') && t.offsetParent !== null; });
+    ts.forEach(function (t) { t.classList.remove('v2c-tm2'); });
+    var dois = ts.filter(function (t) {
+      var a = t.querySelector('.v2c-tp').getClientRects(), b = t.querySelector('.v2c-mc').getClientRects();
+      return a.length && b.length && b[b.length - 1].bottom > a[0].bottom + 2;
+    });
+    dois.forEach(function (t) { t.classList.add('v2c-tm2'); });
+  }
+  var tmPend = 0;
+  window.addEventListener('resize', function () { if (tmPend) return; tmPend = requestAnimationFrame(function () { tmPend = 0; try { tipoMarcaLinhas(); } catch (e) {} }); });
+  try { document.fonts.ready.then(function () { try { tipoMarcaLinhas(); } catch (e) {} }); } catch (e) {}
   if (typeof window.removerCot === 'function') {   // "Remover" / "Desfazer" com o mesmo desenho dos outros botões da linha
     var removerCotOrig = window.removerCot;
     window.removerCot = function (btn) { var r = removerCotOrig.apply(this, arguments); try { if (PC && btn && btn.classList.contains('v2c-rem')) textoRemover(btn); } catch (e) {} return r; };
