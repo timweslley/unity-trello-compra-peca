@@ -48,7 +48,7 @@ var CL = {
   VELHO_DIAS: 20,                   // versão autorizada há mais de 20 dias e sem card aberto: não fica pendente
   MAX_FEITOS: 600,
   QUADRO_TESTE: 'ZX4gRmnX',
-  TESTE_V: '3',                     // muda a cada teste no TESTE (1 e 2 = Cilia 15/10/2026; 3 = HDI 15/10/2026)
+  TESTE_V: '4',                     // muda a cada teste no TESTE (1 e 2 = Cilia 15/10/2026; 3 e 4 = HDI 15/10/2026 — o 4 registra na aba a espera e o fim)
   TESTE_BASES: ['HDI'],             // bases que o teste da versão atual exercita
   MAX_TESTE: 5,
   ABA_LOG: 'CILIA API'
@@ -420,10 +420,16 @@ function cl_limparPecas_() {
 function cl_agendarTeste_() {
   var props = PropertiesService.getScriptProperties();
   if (props.getProperty('CL_TESTE_V') === CL.TESTE_V) return 0;
-  if (Date.now() - (+(props.getProperty('CL_TESTE_TENTOU') || 0)) < 3600 * 1000) return 0;
-  props.setProperty('CL_TESTE_TENTOU', String(Date.now()));
+  // versão nova do teste tenta logo; a mesma versão sem a base tenta de novo a cada hora
+  if (props.getProperty('CL_TESTE_TENTOU_V') === CL.TESTE_V && Date.now() - (+(props.getProperty('CL_TESTE_TENTOU') || 0)) < 3600 * 1000) return 0;
+  props.setProperty('CL_TESTE_TENTOU', String(Date.now())); props.setProperty('CL_TESTE_TENTOU_V', CL.TESTE_V);
   var faltam = (CL.TESTE_BASES || []).filter(function (id) { try { return !cl_arquivo_(cl_base_(id), true); } catch (e) { return true; } });
-  if (faltam.length) { console.log('cilia/teste: esperando a base ' + faltam.join(', ')); return 0; }
+  if (faltam.length) {
+    console.log('cilia/teste: esperando a base ' + faltam.join(', '));
+    // 15/10: uma linha na aba por versão do teste — para se ver no registro que o teste espera a base (antes só no log do Apps Script)
+    if (props.getProperty('CL_TESTE_AVISO') !== CL.TESTE_V) { props.setProperty('CL_TESTE_AVISO', CL.TESTE_V); cl_log_([[new Date(), 'TESTE', '', '', '', '', '', 'teste esperando a base ' + faltam.join(', '), 'não achei o arquivo da base na pasta compartilhada com a conta do robô — tento de novo a cada hora']]); }
+    return 0;
+  }
   props.setProperty('CL_TESTE_V', CL.TESTE_V);
   ScriptApp.newTrigger('cl_testeTESTE').timeBased().after(30 * 1000).create();
   return 1;
@@ -438,6 +444,8 @@ function cl_testeTESTE() {
     vd_cicloIniciar_(3 * 60 * 1000 + 15 * 1000);
     var n = cl_executar_({ quadro: CL.QUADRO_TESTE, teste: true, bases: CL.TESTE_BASES });
     console.log('cilia/teste: ' + n + ' anexo(s) no TESTE');
+    // 15/10: o fim do teste também vai para a aba (sem placa da base com card aberto no TESTE, antes não ficava nada registrado)
+    cl_log_([[new Date(), 'TESTE', '', '', '', '', '', 'fim do teste ' + (CL.TESTE_BASES || []).join('/') + ' (versão ' + CL.TESTE_V + ')', n + ' anexo(s) no TESTE' + (n ? '' : ' — nenhuma versão nova com card aberto da placa no TESTE')]]);
   } catch (e) {
     cl_log_([[new Date(), 'TESTE', '', '', '', '', '', 'erro no teste', String(e.message || e).slice(0, 300)]]);
   } finally { VD_BOARD_FORCA = ''; VD_SEM_MENCOES = false; }

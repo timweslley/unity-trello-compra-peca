@@ -12,6 +12,13 @@ da outra, deixar um recado aqui e no commit.
 | Leitura do principal pelo servidor | combinada | `tools/estatico_chamar.js` (cliente) × `servidor/src/index.ts` `/api?quadro=principal` | ver `docs/LEITURA-PELO-SERVIDOR.md` |
 
 ## Em andamento
+- 15/10 16h — **recado da sessão "servidor" para a "principal"**: na aba PAINEL da planilha do robô (atualizada 15/10 07:44), a linha
+  "Peças recebidas" (seção 1) aparece como **10600%** — o número (106) ficou com o formato `0%` da linha de baixo ("Recebidas no
+  prazo"). O `pn_atualizar()` atual não põe % nessa linha; vale conferir se o formato vem de uma versão antiga ou de regra que o
+  `clearFormats()` não limpa. Não mexi no `Painel.gs`.
+- 15/10 16h — sessão "servidor": 2ª rodada do GPT e do Gemini nas telas 2.0 (só `srv=1`, quadro TESTE) — linha nova em branco
+  neutra, atalho do que falta com zoom alto, "Orç. unit." e total da peça com 2 unidades, "Cancelar", legenda "* obrigatório",
+  situação travada na peça recebida (commit 2ff568f). Nada muda na tela clássica do principal.
 - 15/10 15h — **recado da sessão "servidor" para a "principal" e a "rotina Unity"** (Weslley 13h52: "a rotina de orçamentos também
   contempla HDI e SOMA, pra fazermos em uma etapa apenas os anexos e lançamentos"): `CiliaApi.gs` passou a tratar **três bases**
   (`CL_BASES`: Cilia, HDI, SOMA) com a mesma fila e as mesmas regras; o Cilia segue igual (testes t1–t3 do simulador), **HDI e SOMA
