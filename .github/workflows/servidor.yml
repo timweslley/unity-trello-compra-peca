@@ -50,6 +50,7 @@ jobs:
     needs: testar
     if: ${{ needs.testar.outputs.publicar == 'true' }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 30   # 15/10/2026: a montagem da imagem travou 4 h (b6bbdf0) e segurou a fila — sem limite, o GitHub espera 6 h
     permissions:
       contents: read
       id-token: write
@@ -65,6 +66,7 @@ jobs:
       - name: Copiar o código do robô (apps-script/) — o mesmo que passou nos testes
         run: npm ci && npm run extrair-leitores && npm run extrair-formulario
       - name: Montar e enviar a imagem
+        timeout-minutes: 15
         run: |
           IMAGEM="${REGIAO}-docker.pkg.dev/${GCP_PROJETO}/servidor/compra-peca"
           echo "IMAGEM=$IMAGEM" >> "$GITHUB_ENV"
