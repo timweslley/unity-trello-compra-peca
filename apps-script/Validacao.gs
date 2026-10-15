@@ -50,7 +50,9 @@ function vd_prop_(k, padrao) {
   var v = PropertiesService.getScriptProperties().getProperty(k);
   return (v === null || v === '') ? padrao : v;
 }
-function vd_board_() { return vd_prop_('VD_BOARD', VD.BOARD_PADRAO); }
+// 15/10/2026 (CiliaApi.gs): teste no quadro TESTE numa execução própria (gatilho único) — o quadro forçado vale só nela
+var VD_BOARD_FORCA = '';
+function vd_board_() { return VD_BOARD_FORCA || vd_prop_('VD_BOARD', VD.BOARD_PADRAO); }
 function vd_modo_() { return vd_prop_('VD_MODO', 'ATIVO'); }
 function vd_ligado_() { return vd_prop_('VD_LIGADO', 'SIM') !== 'NAO'; }
 
@@ -72,6 +74,7 @@ function vd_auth_(tokenUsuario) {
 }
 
 /** Chamada à API do Trello. opts: {method, query, payload, multipart}. tokenUsuario opcional. */
+var VD_SEM_MENCOES = false;   // 15/10/2026: execução de teste no quadro TESTE — comentários sem notificar ninguém
 function vd_api_(caminho, opts, tokenUsuario) {
   opts = opts || {};
   var url = 'https://api.trello.com/1' + caminho;
@@ -91,6 +94,7 @@ function vd_api_(caminho, opts, tokenUsuario) {
     if (params.method === 'post' && /\/actions\/comments/.test(caminho) && opts.payload.text) {
       try { opts.payload.text = es_filtrarMencoes_(opts.payload.text); } catch (e) {}
       try { opts.payload.text = tst_filtrarMencoes_(caminho, opts.payload.text); } catch (e) {}   // card do teste completo: ninguém é notificado
+      if (VD_SEM_MENCOES) opts.payload.text = String(opts.payload.text).replace(/(^|[^A-Za-z0-9_.])@([A-Za-z0-9_.\-]{3,})/g, '$1👤$2');   // teste (CiliaApi.gs): ninguém é notificado
     }
     params.contentType = 'application/json';
     params.payload = JSON.stringify(opts.payload);
@@ -731,9 +735,14 @@ function vd_lerAnexoTrello_(a, opt) {
     try {
       var resp = qt_fetch_(a.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
       if (resp.getResponseCode() >= 300) return null;
-      var texto = vd_ocr_(resp.getBlob(), a.name);
+      // 15/10/2026: anexo que o robô trouxe da API do Cilia (CiliaApi.gs) — as peças são as oficiais da API; o PDF (OCR) só
+      // completa chassi, cor e a dica de tipo pelo código. Sem OCR (Drive fora do ar), vale só a API.
+      var api = (typeof cl_pecasDoAnexo_ === 'function') ? cl_pecasDoAnexo_(a.id) : null;
+      var texto = '';
+      try { texto = vd_ocr_(resp.getBlob(), a.name); } catch (eo) { if (!api) throw eo; }
       r = vd_extrair_(texto);
       var orc = vd_lerOrcamento_(texto);
+      if (api) { orc = cl_juntarApi_(orc, api, r); r.api = api.nv; }
       r.cor = orc.cor; r.seguradora = orc.seguradora; r.sinistro = orc.sinistro; r.orcamento = orc.origem;
       if (!orc.origem) { try { var nfL = ax_dadosNf_(texto); if (nfL) r.nf = nfL; } catch (e) {} }   // nota fiscal: nome no padrão das rotinas (13/10/2026)
       // tipo do documento para o nome padronizado do anexo (05/10/2026): "Status do Pedido" do Cilia = fornecimento
@@ -1903,11 +1912,13 @@ function validarDadosPedido() {
       try { out = vd_executarNucleo_(); } finally { qt_parte_(''); }
       if (Date.now() - t0n > 1500) SD_TEMPOS.push('núcleo ' + ((Date.now() - t0n) / 1000).toFixed(1) + 's');
       cabe('complemento', cp_executar_);          // orçamento complementar anexado no card
+      if (typeof cl_executar_ === 'function') cabe('cilia (API)', cl_executar_);   // PDF e peças da API do Cilia (CiliaApi.gs; CL_LIGADO=SIM)
       cabe('antigo de volta à cotação', mg_voltaExecutar_);
       if (typeof mg_corrigirBDK2J49_ === 'function') sd_parte_('correção BDK2J49', mg_corrigirBDK2J49_);   // uma vez só (Migracao.gs)   // card antigo que volta para cotação vira fluxo novo (12/10/2026)
       if (new Date().getMinutes() % 5 === 0) cabe('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
       cabe('prazos por etapa', sla_executar_);
       cabe('anexos antigos (madrugada)', ax_madrugada_);   // 3h–5h59: lê e batiza anexo antigo nunca lido (13/10/2026)
+      if (typeof cl_agendarTeste_ === 'function') sd_parte_('cilia (teste no TESTE)', cl_agendarTeste_);   // uma vez por versão do teste
       sd_parte_('relatório', rel_instalarSeFaltar_);
       sd_parte_('links', function () { return vd_garantirLinks_(); });
       sd_parte_('alarme diário', sd_instalarSeFaltar_);

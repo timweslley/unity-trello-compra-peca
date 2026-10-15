@@ -102,7 +102,10 @@ function ax_batizarLido_(card, a, r, complementar, token) {
     var nome = '';
     if (r.doc === 'FO') nome = ax_nome_(AX.FO, placa, [r.docNome || 'Status do Pedido Cilia'], a.date);
     else if (r.orcamento && (r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) {
-      nome = ax_nome_(complementar ? AX.ORC_MAIS : AX.ORC, placa, [r.seguradora || '', ax_origem_(r.orcamento)], a.date);
+      // 15/10/2026: o nº da versão do Cilia ("Cilia - Orçamento 1993730.2 - …", da API ou da rotina) fica no nome — é por ele que
+      // o robô sabe que a versão já está no card e não anexa de novo
+      var nv = r.api || (typeof cl_ligado_ === 'function' && cl_ligado_() ? (String(a.name || '').match(/Cilia\s*(?:-\s*Or[çc]amento\s*)?(\d{3,}\.\d{1,3})(?!\d)/i) || [])[1] || '' : '');
+      nome = ax_nome_(complementar ? AX.ORC_MAIS : AX.ORC, placa, [r.seguradora || '', ax_origem_(r.orcamento) + (nv ? ' ' + nv : '')], a.date);
     }
     if (!nome) return '';
     var fim = ax_batizar_(card.id, a.id, nome, ax_anexos_(card.id, token), token, { nomeAtual: a.name });
