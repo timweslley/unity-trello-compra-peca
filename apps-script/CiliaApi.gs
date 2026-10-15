@@ -24,6 +24,14 @@
  *
  * Liga no quadro do robô com a propriedade CL_LIGADO=SIM (padrão: NAO). Teste no quadro TESTE: cl_testeTESTE roda uma vez
  * a cada CL.TESTE_V novo (gatilho único criado pelo ciclo), sempre no TESTE e sem notificar ninguém.
+ *
+ * HDI e SOMA (15/10/2026 — Weslley: "a rotina de orçamentos também contempla orçamentos fora do Cilia, que são HDI e SOMA,
+ * pra fazermos daí em uma etapa apenas os anexos e lançamentos"): sem API oficial, a rotina da madrugada lê o orçamento no
+ * portal (HDI Prestador / Websoma) e grava na pasta "Rotina Unity/Portais" do Drive, NO MESMO FORMATO do CILIA-HOJE.json:
+ *   HDI-HOJE.json  + PDF/HDI/<casa>/<PLACA> - HDI - laudo <v>.pdf   (portais/pc/hdi-base.mjs traduz o HTML do portal)
+ *   SOMA-HOJE.json + PDF/SOMA/<casa>/…                              (em preparação)
+ * Este módulo trata as três bases do mesmo jeito (CL_BASES): mesma fila, mesmas regras, mesmo registro. Cada base liga
+ * sozinha: CL_LIGADO (Cilia), CLH_LIGADO (HDI), CLS_LIGADO (SOMA) — HDI e SOMA nascem desligadas no principal.
  */
 var CL = {
   ARQUIVO: 'CILIA-HOJE.json',
@@ -36,40 +44,75 @@ var CL = {
   VELHO_DIAS: 20,                   // versão autorizada há mais de 20 dias e sem card aberto: não fica pendente
   MAX_FEITOS: 600,
   QUADRO_TESTE: 'ZX4gRmnX',
-  TESTE_V: '2',                     // muda a cada teste no TESTE (1 e 2 = 15/10/2026)
+  TESTE_V: '3',                     // muda a cada teste no TESTE (1 e 2 = Cilia 15/10/2026; 3 = HDI 15/10/2026)
+  TESTE_BASES: ['HDI'],             // bases que o teste da versão atual exercita
   MAX_TESTE: 5,
   ABA_LOG: 'CILIA API'
 };
-var CL_MEM = { pastas: {}, cards: null, json: null, arq: null, ctx: null };
+/** Bases de orçamento que o robô lê — mesmo formato (CILIA-HOJE.json); pref = prefixo das propriedades de cada uma. */
+var CL_BASES = [
+  { id: 'CILIA', rot: 'Cilia', arquivo: 'CILIA-HOJE.json', pasta: 'Cilia', pref: 'CL_', padrao: CL.LIGADO_PADRAO, org: 'CILIA', fonte: 'pela API do Cilia', obrigatoria: true },
+  { id: 'HDI', rot: 'HDI', arquivo: 'HDI-HOJE.json', pasta: 'Portais', pref: 'CLH_', padrao: 'NAO', org: 'HDI', fonte: 'pelo portal HDI' },
+  { id: 'SOMA', rot: 'SOMA', arquivo: 'SOMA-HOJE.json', pasta: 'Portais', pref: 'CLS_', padrao: 'NAO', org: 'WEBSOMA', fonte: 'pelo Websoma' }
+];
+var CL_MEM = { pastas: {}, cards: null, json: {}, arq: {}, ctx: null };
 
+function cl_base_(id) { for (var i = 0; i < CL_BASES.length; i++) if (CL_BASES[i].id === id) return CL_BASES[i]; return CL_BASES[0]; }
 function cl_ligado_() { return vd_prop_('CL_LIGADO', CL.LIGADO_PADRAO) === 'SIM'; }
-function cl_chave_(casa, o) { return casa + '|' + o.budget_id + '|' + (o.versao_baixada || o.numero_versao || ''); }
+function cl_ligadoBase_(B) { B = typeof B === 'string' ? cl_base_(B) : (B || CL_BASES[0]); return vd_prop_(B.pref + 'LIGADO', B.padrao) === 'SIM'; }
+/** Chave de uma versão tratada. Cilia: casa|orçamento|versão; HDI: a chave_versao muda também quando a HDI fecha as peças. */
+function cl_chave_(casa, o) { return casa + '|' + o.budget_id + '|' + (o.chave_versao || o.versao_baixada || o.numero_versao || ''); }
+/** Versão como aparece no nome e no registro: Cilia "1993730.2"; HDI "laudo 1.0"; SOMA o nº do orçamento. */
+function cl_rotVersao_(B, nv) { return B.id === 'HDI' ? 'laudo ' + nv : String(nv); }
+function cl_nomeAnexo_(B, nv, placa) {
+  if (B.id === 'HDI') return 'HDI - Orçamento laudo ' + nv + ' - ' + placa + '.pdf';
+  if (B.id === 'SOMA') return 'SOMA - Orçamento ' + nv + ' - ' + placa + '.pdf';
+  return 'Cilia - Orçamento ' + nv + ' - ' + placa + '.pdf';
+}
+/** Anexo que já é esta versão: Cilia pelo nº (como antes); HDI por "laudo 1.0"/"laudo1.0" (nome da rotina e do robô). */
+function cl_ehEstaVersao_(B, nv, nome) {
+  var e = String(nv).replace(/\./g, '\\.');
+  if (B.id === 'HDI') return new RegExp('laudo\\s*_?' + e + '(?![0-9])', 'i').test(nome);
+  var re = new RegExp('(^|[^0-9.])' + e + '($|[^0-9])');
+  return B.id === 'SOMA' ? /SOMA/i.test(nome) && re.test(nome) : re.test(nome);
+}
+function cl_quadroRot_(board) { return board === CL.QUADRO_TESTE ? 'TESTE' : 'principal'; }
 
-/* ---------- arquivo do Drive ---------- */
-function cl_arquivo_() {
-  if (CL_MEM.arq) return CL_MEM.arq;
-  var props = PropertiesService.getScriptProperties(), id = props.getProperty('CL_ARQ_ID');
-  if (id) { try { var f0 = DriveApp.getFileById(id); if (!f0.isTrashed()) return (CL_MEM.arq = f0); } catch (e) {} }
-  var it = DriveApp.searchFiles('title = "' + CL.ARQUIVO + '" and trashed = false'), melhor = null;
+/* ---------- arquivo do Drive (um por base) ---------- */
+/** Arquivo da base. Cilia: obrigatório (erro se sumir). HDI/SOMA: null enquanto a base não existe ou a pasta não está
+ *  compartilhada com a conta do robô — procura de novo no máximo a cada 6 h (forcar = procura já). */
+function cl_arquivo_(B, forcar) {
+  B = B || CL_BASES[0];
+  if (CL_MEM.arq[B.id]) return CL_MEM.arq[B.id];
+  var props = PropertiesService.getScriptProperties(), id = props.getProperty(B.pref + 'ARQ_ID');
+  if (id) { try { var f0 = DriveApp.getFileById(id); if (!f0.isTrashed()) return (CL_MEM.arq[B.id] = f0); } catch (e) {} }
+  if (!B.obrigatoria && !forcar) { var sem = +(props.getProperty(B.pref + 'SEM_ARQ') || 0); if (sem && Date.now() - sem < 6 * 3600 * 1000) return null; }
+  var it = DriveApp.searchFiles('title = "' + B.arquivo + '" and trashed = false'), melhor = null;
   while (it.hasNext()) {
     var f = it.next(), pais = f.getParents(), naPasta = false;
-    while (pais.hasNext()) { if (pais.next().getName() === CL.PASTA) naPasta = true; }
+    while (pais.hasNext()) { if (pais.next().getName() === B.pasta) naPasta = true; }
     if (!naPasta) continue;
     if (!melhor || f.getLastUpdated().getTime() > melhor.getLastUpdated().getTime()) melhor = f;
   }
-  if (!melhor) throw new Error('não achei ' + CL.ARQUIVO + ' na pasta "' + CL.PASTA + '" (compartilhada com a conta do robô?)');
-  props.setProperty('CL_ARQ_ID', melhor.getId());
-  return (CL_MEM.arq = melhor);
+  if (!melhor) {
+    if (!B.obrigatoria) { props.setProperty(B.pref + 'SEM_ARQ', String(Date.now())); return null; }
+    throw new Error('não achei ' + B.arquivo + ' na pasta "' + B.pasta + '" (compartilhada com a conta do robô?)');
+  }
+  props.deleteProperty(B.pref + 'SEM_ARQ');
+  props.setProperty(B.pref + 'ARQ_ID', melhor.getId());
+  return (CL_MEM.arq[B.id] = melhor);
 }
-function cl_json_() {
-  if (CL_MEM.json) return CL_MEM.json;
-  return (CL_MEM.json = JSON.parse(cl_arquivo_().getBlob().getDataAsString('UTF-8')));
+function cl_json_(B) {
+  B = B || CL_BASES[0];
+  if (CL_MEM.json[B.id]) return CL_MEM.json[B.id];
+  return (CL_MEM.json[B.id] = JSON.parse(cl_arquivo_(B).getBlob().getDataAsString('UTF-8')));
 }
-/** PDF da versão: caminho relativo à pasta do CILIA-HOJE.json ("PDF/Toledo/RHR9A41 - … - Cilia 1993730.2.pdf"). */
-function cl_pdf_(caminho) {
+/** PDF da versão: caminho relativo à pasta da base ("PDF/Toledo/RHR9A41 - … - Cilia 1993730.2.pdf", "PDF/HDI/Cascavel/…"). */
+function cl_pdf_(B, caminho) {
+  B = B || CL_BASES[0];
   var partes = String(caminho || '').split('/').filter(String), nome = partes.pop();
   if (!nome) return null;
-  var pasta = cl_arquivo_().getParents().next(), rota = '';
+  var pasta = cl_arquivo_(B).getParents().next(), rota = B.id;
   for (var i = 0; i < partes.length; i++) {
     rota += '/' + partes[i];
     if (!CL_MEM.pastas[rota]) { var it = pasta.getFoldersByName(partes[i]); if (!it.hasNext()) return null; CL_MEM.pastas[rota] = it.next(); }
@@ -111,9 +154,10 @@ function cl_seguradora_(nome) {
 }
 
 /* ---------- peças da API guardadas por anexo (lidas por vd_lerAnexoTrello_) ---------- */
-function cl_guardarPecas_(idAnexo, o) {
+function cl_guardarPecas_(idAnexo, o, B) {
+  B = B || CL_BASES[0];
   var orc = cl_pecasParaOrc_(o.pecas);
-  var js = JSON.stringify({ v: 1, nv: o.versao_baixada || o.numero_versao || '', placa: o.placa || '', seg: cl_seguradora_(o.seguradora), si: o.sinistro || '',
+  var js = JSON.stringify({ v: 1, nv: cl_rotVersao_(B, o.versao_baixada || o.numero_versao || ''), org: B.org, placa: o.placa || '', seg: cl_seguradora_(o.seguradora), si: o.sinistro || '',
     o: vd_orcCompacto_(orc.oficina), f: vd_orcCompacto_(orc.fo), em: Date.now() });
   if (js.length > 8500) return false;   // orçamento enorme: fica a leitura do PDF (OCR), como antes
   PropertiesService.getScriptProperties().setProperty('CL_PEC_' + idAnexo, js);
@@ -133,7 +177,7 @@ function cl_juntarApi_(orc, api, r) {
       return p;
     });
   };
-  var novo = { origem: 'CILIA', oficina: exp(api.o), fo: exp(api.f), seguradora: orc.seguradora || api.seg || '', cor: orc.cor || '', sinistro: orc.sinistro || api.si || '', api: api.nv };
+  var novo = { origem: api.org || 'CILIA', oficina: exp(api.o), fo: exp(api.f), seguradora: orc.seguradora || api.seg || '', cor: orc.cor || '', sinistro: orc.sinistro || api.si || '', api: api.nv };
   if (api.placa && r) {
     r.placas = r.placas || []; r.placasRot = r.placasRot || [];
     if (!r.placas.some(function (p) { return vd_mesmaPlaca_(p, api.placa); })) r.placas.unshift(api.placa);
@@ -181,28 +225,55 @@ function cl_dataBr_(iso) { var d = new Date(iso || ''); return isNaN(d.getTime()
 
 /* ---------- ciclo ---------- */
 /**
- * opt.quadro: quadro alvo (padrão: o do robô); opt.teste: escolhe sozinho até CL.MAX_TESTE placas que têm card no quadro.
+ * opt.quadro: quadro alvo (padrão: o do robô); opt.teste: escolhe sozinho até CL.MAX_TESTE placas que têm card no quadro;
+ * opt.bases: só estas bases (ids). Cada base ligada é tratada na sua vez, com o mesmo prazo do ciclo.
  * Devolve quantas versões foram anexadas.
  */
 function cl_executar_(opt) {
   opt = opt || {};
   var board = opt.quadro || vd_board_();
-  if (!opt.teste && !cl_ligado_()) return 0;
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
-  var props = PropertiesService.getScriptProperties();
-  var kFila = 'CL_FILA_' + board, kFeito = 'CL_FEITO_' + board, kLido = 'CL_LIDO_' + board, kDesde = 'CL_DESDE_' + board;
+  var prazo = vd_prazo_(opt.teste ? 4 * 60 * 1000 : 90 * 1000, 15 * 1000);
+  var n = 0, erroCilia = null;
+  CL_BASES.forEach(function (B) {
+    if (opt.bases && opt.bases.indexOf(B.id) < 0) return;
+    if (!opt.teste && !cl_ligadoBase_(B)) return;
+    if (Date.now() > prazo) return;
+    try { n += cl_executarBase_(B, board, opt, prazo); }
+    catch (e) {
+      if (B.obrigatoria) { erroCilia = e; return; }
+      // base do portal com erro: registra no máximo 1× a cada 6 h (o ciclo roda a cada minuto)
+      var props = PropertiesService.getScriptProperties(), msg = String(e.message || e).slice(0, 200), ant = (props.getProperty(B.pref + 'ERRO') || '').split('|');
+      if (ant[1] !== msg || Date.now() - (+ant[0] || 0) > 6 * 3600 * 1000) {
+        props.setProperty(B.pref + 'ERRO', Date.now() + '|' + msg);
+        cl_log_([[new Date(), cl_quadroRot_(board), '', '', '', '', '', 'erro na base ' + B.rot, msg]]);
+      }
+      console.log('base ' + B.id + ': ' + e);
+    }
+  });
+  if (erroCilia) throw erroCilia;
+  return n;
+}
+
+function cl_executarBase_(B, board, opt, prazo) {
+  var props = PropertiesService.getScriptProperties(), P = B.pref;
+  var kFila = P + 'FILA_' + board, kFeito = P + 'FEITO_' + board, kLido = P + 'LIDO_' + board, kDesde = P + 'DESDE_' + board;
   var fila = []; try { fila = JSON.parse(props.getProperty(kFila) || '[]'); } catch (e) {}
   var feitos = {}; try { feitos = JSON.parse(props.getProperty(kFeito) || '{}'); } catch (e) {}
-  var ult = +(props.getProperty('CL_ULT_' + board) || 0);
-  if (!opt.teste && !fila.length && Date.now() - ult < CL.INTERVALO_MS) return 0;
-  props.setProperty('CL_ULT_' + board, String(Date.now()));
-  var prazo = vd_prazo_(opt.teste ? 4 * 60 * 1000 : 90 * 1000, 15 * 1000);
-  var log = [], agora = new Date(), n = 0;
+  var ult = +(props.getProperty(P + 'ULT_' + board) || 0);
+  // fila só com versões esperando o card nascer (tentam de novo a cada 15 min): não gasta chamada no ciclo de 1 em 1 minuto
+  var pronta = fila.some(function (x) { return !x.prox || Date.now() >= x.prox; });
+  if (!opt.teste && !pronta && Date.now() - ult < CL.INTERVALO_MS) return 0;
+  props.setProperty(P + 'ULT_' + board, String(Date.now()));
+  var arq = cl_arquivo_(B, !!opt.teste);
+  if (!arq) return 0;   // base do portal ainda não existe (ou pasta não compartilhada): nada a fazer
+  var log = [], agora = new Date(), n = 0, qRot = cl_quadroRot_(board);
+  var vRot = function (o) { return B.id === 'CILIA' ? o.versao_baixada : B.rot + ' ' + cl_rotVersao_(B, o.versao_baixada); };
 
-  // 1) arquivo novo (ou teste): entra na fila o que foi baixado depois do início (CL_DESDE) e ainda não foi tratado
-  var arq = cl_arquivo_(), atu = arq.getLastUpdated().toISOString();
+  // 1) arquivo novo (ou teste): entra na fila o que foi baixado depois do início (DESDE) e ainda não foi tratado
+  var atu = arq.getLastUpdated().toISOString();
   if (opt.teste || props.getProperty(kLido) !== atu) {
-    var j = cl_json_();
+    var j = cl_json_(B);
     var desde = props.getProperty(kDesde);
     if (!desde) { desde = new Date(new Date(j.gerado_em).getTime() - 60 * 1000).toISOString(); props.setProperty(kDesde, desde); }
     var naFila = {}; fila.forEach(function (x) { naFila[x.k] = 1; });
@@ -212,9 +283,9 @@ function cl_executar_(opt) {
         if (!o || !o.dispara_compra || !o.pdf || !o.versao_baixada || !o.placa) return;
         var k = cl_chave_(casa, o);
         if (feitos[k] || naFila[k]) return;
-        // sinistro HDI: o PDF e as peças que valem são os do portal HDI (laudo) — o do Cilia não vai para o card
-        if (cl_seguradora_(o.seguradora) === 'HDI') {
-          if (opt.teste || String(o.detalhe_em || '') >= desde) { feitos[k] = 'HDI'; log.push([agora, board === CL.QUADRO_TESTE ? 'TESTE' : 'principal', casa, o.placa, o.versao_baixada, o.conclusao || '', '', 'não anexei: sinistro HDI (vale o PDF do portal HDI)', '']); }
+        // sinistro HDI na base do Cilia: o PDF e as peças que valem são os do portal HDI (laudo) — o do Cilia não vai para o card
+        if (B.id === 'CILIA' && cl_seguradora_(o.seguradora) === 'HDI') {
+          if (opt.teste || String(o.detalhe_em || '') >= desde) { feitos[k] = 'HDI'; log.push([agora, qRot, casa, o.placa, o.versao_baixada, o.conclusao || '', '', 'não anexei: sinistro HDI (vale o PDF do portal HDI)', '']); }
           return;
         }
         if (!opt.teste && String(o.detalhe_em || '') < desde) return;
@@ -231,32 +302,33 @@ function cl_executar_(opt) {
     }
     fila = fila.concat(escolhidas);
     props.setProperty(kLido, atu);
-    if (!opt.teste) log.push([agora, board === CL.QUADRO_TESTE ? 'TESTE' : 'principal', '', '', '', '', '', 'li a base do Cilia', 'rodada de ' + cl_dataBr_(j.gerado_em) + ' ' + Utilities.formatDate(new Date(j.gerado_em), 'America/Sao_Paulo', 'HH:mm') + ' · ' + escolhidas.length + ' versão(ões) nova(s) na fila']);
+    if (!opt.teste) log.push([agora, qRot, '', '', '', '', '', 'li a base do ' + B.rot, 'rodada de ' + cl_dataBr_(j.gerado_em) + ' ' + Utilities.formatDate(new Date(j.gerado_em), 'America/Sao_Paulo', 'HH:mm') + ' · ' + escolhidas.length + ' versão(ões) nova(s) na fila']);
   }
   if (!fila.length) { props.setProperty(kFila, '[]'); cl_log_(log); props.setProperty(kFeito, JSON.stringify(feitos)); return 0; }
 
   // 2) trata a fila (mais antigas primeiro), dentro do prazo do ciclo
-  var j2 = cl_json_(), idx = {};
+  var j2 = cl_json_(B), idx = {};
   Object.keys(j2.orcamentos || {}).forEach(function (casa) { (j2.orcamentos[casa] || []).forEach(function (o) { if (o && o.budget_id) idx[casa + '|' + o.budget_id] = o; }); });
   var resto = [], feitosAgora = 0;
   for (var i = 0; i < fila.length; i++) {
     var x = fila[i];
     if (Date.now() > prazo || feitosAgora >= (opt.teste ? CL.MAX_TESTE : CL.MAX_POR_RODADA)) { resto.push(x); continue; }
+    if (!opt.teste && x.prox && Date.now() < x.prox) { resto.push(x); continue; }   // esperando o card: ainda não é hora
     var o = idx[x.casa + '|' + x.id];
     if (!o || cl_chave_(x.casa, o) !== x.k) { feitos[x.k] = 'versão substituída'; continue; }   // veio versão mais nova: ela entra sozinha
     feitosAgora++;
-    var lin = function (card, acao, det) { log.push([agora, board === CL.QUADRO_TESTE ? 'TESTE' : 'principal', x.casa, o.placa, o.versao_baixada, (o.conclusao || '') + (o.conclusao_detalhe && o.conclusao_detalhe.data ? ' ' + cl_dataBr_(o.conclusao_detalhe.data) : ''), card ? card.shortUrl || card.name : '', acao, det || '']); };
+    var lin = function (card, acao, det) { log.push([agora, qRot, x.casa, o.placa, vRot(o), (o.conclusao || '') + (o.conclusao_detalhe && o.conclusao_detalhe.data ? ' ' + cl_dataBr_(o.conclusao_detalhe.data) : ''), card ? card.shortUrl || card.name : '', acao, det || '']); };
     try {
       var achou = cl_acharCard_(board, o);
       if (achou.varios) { feitos[x.k] = 'vários cards'; lin(null, 'não anexei: mais de um card aberto da placa', achou.varios.join(' | ')); continue; }
       if (achou.nenhum) {
         var velho = (Date.now() - new Date((o.conclusao_detalhe && o.conclusao_detalhe.data) || o.status_data || o.criado_em || 0).getTime()) / 864e5 > CL.VELHO_DIAS;
         var tentando = (Date.now() - new Date(x.desde).getTime()) / 864e5 <= CL.PEND_DIAS;
-        if (!velho && tentando && !opt.teste) { x.n++; resto.push(x); if (x.n === 1) lin(null, 'sem card aberto da placa: tento de novo nos próximos dias', ''); }
+        if (!velho && tentando && !opt.teste) { x.n++; x.prox = Date.now() + CL.INTERVALO_MS; resto.push(x); if (x.n === 1) lin(null, 'sem card aberto da placa: tento de novo nos próximos dias', ''); }
         else { feitos[x.k] = 'sem card'; lin(null, 'sem card aberto da placa', velho ? 'versão antiga' : 'desisti depois de ' + CL.PEND_DIAS + ' dias'); }
         continue;
       }
-      var r = cl_tratarVersao_(board, achou.card, x, o, opt);
+      var r = cl_tratarVersao_(board, achou.card, x, o, opt, B);
       feitos[x.k] = r.acao.slice(0, 40);
       if (r.anexou) n++;
       lin(r.card || achou.card, r.acao, r.det);
@@ -264,7 +336,7 @@ function cl_executar_(opt) {
       x.n++;
       if (x.n < 3) resto.push(x); else feitos[x.k] = 'erro';
       lin(null, 'erro', String(e.message || e).slice(0, 200));
-      console.log('cilia ' + x.k + ': ' + e);
+      console.log(B.id + ' ' + x.k + ': ' + e);
     }
   }
   // registros: guarda os mais recentes
@@ -278,28 +350,29 @@ function cl_executar_(opt) {
 }
 
 /** Uma versão no card: anexa (se ainda não tem) e leva as peças ao card. Devolve {acao, det, anexou}. */
-function cl_tratarVersao_(board, c, x, o, opt) {
+function cl_tratarVersao_(board, c, x, o, opt, B) {
+  B = B || CL_BASES[0];
   var card = vd_api_('/cards/' + c.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', attachments: 'true', attachment_fields: 'name,date,bytes,isUpload,mimeType,url', checklists: 'all', checkItem_fields: 'name' } });
-  var nv = String(o.versao_baixada), reNv = new RegExp('(^|[^0-9.])' + nv.replace(/\./g, '\\.') + '($|[^0-9])');
+  var nv = String(o.versao_baixada);
   var anexos = card.attachments || [];
-  if (anexos.some(function (a) { return reNv.test(String(a.name || '')); })) return { acao: 'já tinha o PDF desta versão', det: '' };
+  if (anexos.some(function (a) { return cl_ehEstaVersao_(B, nv, String(a.name || '')); })) return { acao: 'já tinha o PDF desta versão', det: '' };
   // orçamento anexado (pela rotina antiga ou à mão) depois da autorização desta versão: já é ela
   var autorizadoEm = new Date((o.conclusao_detalhe && o.conclusao_detalhe.data) || o.status_data || 0).getTime();
   var depois = anexos.filter(function (a) { return /pdf/i.test(a.mimeType || '') && String(a.name || '').indexOf(AX.ORC) === 0 && new Date(a.date).getTime() >= autorizadoEm; });
   if (autorizadoEm && depois.length) return { acao: 'já tinha orçamento anexado depois da autorização', det: depois.map(function (a) { return a.name; }).join(' | ') };
 
-  var pdf = cl_pdf_(o.pdf);
+  var pdf = cl_pdf_(B, o.pdf);
   if (!pdf) return { acao: 'não anexei: PDF não achado no Drive', det: o.pdf };
-  var nome = 'Cilia - Orçamento ' + nv + ' - ' + vd_normPlaca_(o.placa) + '.pdf';
+  var nome = cl_nomeAnexo_(B, nv, vd_normPlaca_(o.placa));
   var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: pdf.getBlob().setName(nome), name: nome } });
   if (!at || !at.id) throw new Error('o Trello não devolveu o anexo');
   try { cp_marcarVistos_([at.id]); } catch (e) {}   // o ciclo do complemento não trata de novo: quem trata é este módulo
-  var comPecas = cl_guardarPecas_(at.id, o);
+  var comPecas = cl_guardarPecas_(at.id, o, B);
   var conc = (o.conclusao || 'autorizado') + (o.conclusao_detalhe && o.conclusao_detalhe.data ? ' em ' + cl_dataBr_(o.conclusao_detalhe.data) : '');
   if (!CL_MEM.ctx) CL_MEM.ctx = vd_contexto_();
   var ctx = CL_MEM.ctx, lista = '';
   try { lista = vd_nomeColuna_(vdf_nomeLista_(ctx, card.idList)); } catch (e) {}
-  var cabeca = '📄 **Orçamento Cilia ' + nv + '** (' + conc + ', pela API do Cilia) anexado pelo robô.';
+  var cabeca = '📄 **Orçamento ' + B.rot + ' ' + cl_rotVersao_(B, nv) + '** (' + conc + ', ' + B.fonte + ') anexado pelo robô.';
 
   if (/ESPERA/i.test(lista)) {
     var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
@@ -319,10 +392,11 @@ function cl_tratarVersao_(board, c, x, o, opt) {
   try { var pp = PropertiesService.getScriptProperties(); if (pp.getProperty('VD_ANX3_' + at.id)) pp.deleteProperty('CL_PEC_' + at.id); } catch (e) {}
   if (res === true) return { acao: 'anexei e importei o complemento', det: lista, anexou: true, card: card };
   if (res === 'erro') return { acao: 'anexei; leitura falhou (o ciclo tenta de novo)', det: lista, anexou: true, card: card };
-  // nada novo: avisa que a versão chegou (sinistro HDI e card de RETORNO o próprio cp_doAnexo_ já comentou)
+  // nada novo: avisa que a versão chegou (PDF do Cilia em sinistro HDI e card de RETORNO o próprio cp_doAnexo_ já comentou)
   var seg = vd_semAcento_(((an.dados && an.dados.seguradora) || '') + ' ' + (card.name || ''));
-  if (!/\bHDI\b/.test(seg) && !silencio) vd_comentar_(card, cabeca + ' Nenhuma peça nova em relação ao que o card já tem.');
-  return { acao: /\bHDI\b/.test(seg) ? 'anexei; sinistro HDI: peças pelo laudo da HDI' : 'anexei; sem peça nova', det: lista, anexou: true, card: card };
+  var hdiNoCilia = B.id === 'CILIA' && /\bHDI\b/.test(seg);
+  if (!hdiNoCilia && !silencio) vd_comentar_(card, cabeca + ' Nenhuma peça nova em relação ao que o card já tem.');
+  return { acao: hdiNoCilia ? 'anexei; sinistro HDI: peças pelo laudo da HDI' : 'anexei; sem peça nova', det: lista, anexou: true, card: card };
 }
 
 /** CL_PEC_ com mais de 3 dias (card antigo, em ESPERA ou sem lista que ninguém leu): sai das propriedades (limite de 500 KB). */
@@ -337,9 +411,15 @@ function cl_limparPecas_() {
 }
 
 /* ---------- teste no quadro TESTE (uma vez por CL.TESTE_V) ---------- */
+/** Agenda o teste da versão nova quando as bases dele estão acessíveis (pasta compartilhada com a conta do robô);
+ *  senão tenta de novo a cada hora. */
 function cl_agendarTeste_() {
   var props = PropertiesService.getScriptProperties();
   if (props.getProperty('CL_TESTE_V') === CL.TESTE_V) return 0;
+  if (Date.now() - (+(props.getProperty('CL_TESTE_TENTOU') || 0)) < 3600 * 1000) return 0;
+  props.setProperty('CL_TESTE_TENTOU', String(Date.now()));
+  var faltam = (CL.TESTE_BASES || []).filter(function (id) { try { return !cl_arquivo_(cl_base_(id), true); } catch (e) { return true; } });
+  if (faltam.length) { console.log('cilia/teste: esperando a base ' + faltam.join(', ')); return 0; }
   props.setProperty('CL_TESTE_V', CL.TESTE_V);
   ScriptApp.newTrigger('cl_testeTESTE').timeBased().after(30 * 1000).create();
   return 1;
@@ -352,7 +432,7 @@ function cl_testeTESTE() {
   VD_BOARD_FORCA = CL.QUADRO_TESTE; VD_SEM_MENCOES = true;
   try {
     vd_cicloIniciar_(3 * 60 * 1000 + 15 * 1000);
-    var n = cl_executar_({ quadro: CL.QUADRO_TESTE, teste: true });
+    var n = cl_executar_({ quadro: CL.QUADRO_TESTE, teste: true, bases: CL.TESTE_BASES });
     console.log('cilia/teste: ' + n + ' anexo(s) no TESTE');
   } catch (e) {
     cl_log_([[new Date(), 'TESTE', '', '', '', '', '', 'erro no teste', String(e.message || e).slice(0, 300)]]);

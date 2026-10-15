@@ -105,6 +105,8 @@ function ax_batizarLido_(card, a, r, complementar, token) {
       // 15/10/2026: o nº da versão do Cilia ("Cilia - Orçamento 1993730.2 - …", da API ou da rotina) fica no nome — é por ele que
       // o robô sabe que a versão já está no card e não anexa de novo
       var nv = r.api || (typeof cl_ligado_ === 'function' && cl_ligado_() ? (String(a.name || '').match(/Cilia\s*(?:-\s*Or[çc]amento\s*)?(\d{3,}\.\d{1,3})(?!\d)/i) || [])[1] || '' : '');
+      // laudo HDI anexado pela rotina ("Orcamento_HDI_<PLACA>_sin…_laudo1.0.pdf"): a versão do laudo fica no nome (base HDI ligada)
+      if (!nv && r.orcamento === 'HDI' && typeof cl_ligadoBase_ === 'function' && cl_ligadoBase_('HDI')) { var lv = (String(a.name || '').match(/laudo\s*_?(\d+\.\d+)(?![0-9])/i) || [])[1]; if (lv) nv = 'laudo ' + lv; }
       nome = ax_nome_(complementar ? AX.ORC_MAIS : AX.ORC, placa, [r.seguradora || '', ax_origem_(r.orcamento) + (nv ? ' ' + nv : '')], a.date);
     }
     if (!nome) return '';

@@ -478,6 +478,19 @@ card antigo → só anexa; card em ENTREGUES/ENCERRADO/PENDÊNCIA → anexa sem 
 "CILIA API" da planilha do robô. Com as peças da API, item FO que o orçamento novo **ainda traz como FO** não entra na regra da "FO
 revertida para a oficina" (BCB8218, 15/10/2026: "FAIXA SUP DA PORTA" casava pela descrição com "FAIXA DA COLUNA DA PORTA").
 
+**Orçamentos HDI e SOMA na mesma etapa (15/10/2026 — Weslley: "a rotina de orçamentos também contempla orçamentos fora do Cilia, que
+são HDI e SOMA, pra fazermos daí em uma etapa apenas os anexos e lançamentos")**: HDI e SOMA não têm API oficial; a rotina da madrugada
+lê o orçamento no portal (HDI Prestador por fetch na aba logada; Websoma) e grava na pasta `Rotina Unity/Portais` do Drive, **no mesmo
+formato do `CILIA-HOJE.json`**: `HDI-HOJE.json` + `PDF/HDI/<casa>/<PLACA> - HDI - laudo <v>.pdf` (o tradutor `portais/pc/hdi-base.mjs`
+transforma o HTML salvo do portal em dados — casa pelo CNPJ do login, versão do laudo, status, peças "Fornecidas pela HDI" = FO e
+"pela Oficina", valor unitário líquido; laudo com as peças "em processo de cotação" na HDI não dispara) e, em preparação,
+`SOMA-HOJE.json`. O `CiliaApi.gs` trata as três bases do mesmo jeito (`CL_BASES`: mesma fila, mesmas regras, mesmo registro na aba
+"CILIA API", com a versão "HDI laudo 1.0"); cada base liga sozinha — `CL_LIGADO` (Cilia), `CLH_LIGADO` (HDI), `CLS_LIGADO` (SOMA), **HDI e
+SOMA desligadas no principal** até o OK do Weslley. Anexo `HDI - Orçamento laudo <v> - <PLACA>.pdf`, sem repetir (o "…_laudo1.0.pdf"
+anexado pela rotina conta), peças com origem HDI (vale a regra do laudo HDI no complemento). Base que ainda não existe ou pasta não
+compartilhada com sistema@: o robô procura de novo a cada 6 h, sem erro. Versão esperando o card nascer: nova tentativa a cada 15 min
+(antes era a cada ciclo de 1 min). Teste no TESTE (`CL.TESTE_V = '3'`, só HDI): roda sozinho quando a base HDI fica acessível.
+
 Tipos de evento novos (10/10/2026): RETIRADA, COMPRA CANCELADA, DEVOLUÇÃO FO.
 
 **Treino do leitor** (`Treino.gs`, 08/10/2026): o robô percorre os cards (quadro principal + sistema antigo + arquivados),
