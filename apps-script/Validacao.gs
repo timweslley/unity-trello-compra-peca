@@ -1914,6 +1914,7 @@ function validarDadosPedido() {
       cabe('complemento', cp_executar_);          // orçamento complementar anexado no card
       if (typeof cl_executar_ === 'function') cabe('cilia (API)', cl_executar_);   // PDF e peças das bases de orçamento: Cilia (API; CL_LIGADO), HDI (CLH_LIGADO) e SOMA (CLS_LIGADO) — CiliaApi.gs
       cabe('antigo de volta à cotação', mg_voltaExecutar_);
+      cabe('observação da peça na vitrine', vd_obsVitrine_);   // uma vez só, aos poucos (15/10/2026)
       if (typeof mg_corrigirBDK2J49_ === 'function') sd_parte_('correção BDK2J49', mg_corrigirBDK2J49_);   // uma vez só (Migracao.gs)   // card antigo que volta para cotação vira fluxo novo (12/10/2026)
       if (new Date().getMinutes() % 5 === 0) cabe('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
       cabe('prazos por etapa', sla_executar_);
@@ -2420,6 +2421,10 @@ function vd_vitrine_(desc, nome, pagas) {
     var cab = (i + 1) + '. **' + vd_md_(titulo) + '**' + (!p.pneu && p.codigo ? ' · ' + vd_md_(p.codigo) : '') + (p.qtd && +p.qtd > 1 ? ' · QTD ' + p.qtd : '') + (p.particular && d.tipo !== 'PARTICULAR' && !misto ? ' · 👤 PARTICULAR' : '') + (p.complemento && !p.particular ? ' · ➕ complemento' + (p.compData ? ' ' + p.compData : '') + vd_complTxt_(p) : '')
       + (vd_valorOrcTxt_(p.valorOrc) ? ' · 📄 orç. ' + vd_valorOrcTxt_(p.valorOrc) : '');
     var sub = [];
+    // 15/10/2026 (Weslley, BET7D44): observação escrita na peça no pedido ("Separado do estoque") aparece na descrição —
+    // antes ficava só na descrição completa guardada e não se via no card
+    var obsPeca = String(p.obs || '').replace(/\s*\n\s*/g, ' ').trim();
+    if (obsPeca) sub.push('📝 ' + vd_md_(obsPeca));
     // compra: checklist PAGAS ou linha COMPRADO
     var pg = (pagas || []).filter(function (it) { return k && vd_semAcento_(it.name).indexOf(k) >= 0; }).pop();
     var cp = pg ? null : compras.filter(function (c) {
@@ -2454,6 +2459,7 @@ function vd_vitrine_(desc, nome, pagas) {
     }
     if (!pg && !cp) {
       var vistos = {};
+      if (obsPeca) vistos[obsPeca] = 1;
       (cot.obs || []).forEach(function (o) {
         if (o.chave !== k) return;
         var ehDev = /^\(devolu[çc][ãa]o\)/i.test(o.texto);
@@ -2472,6 +2478,7 @@ function vd_vitrine_(desc, nome, pagas) {
   (an.naoComprar || []).forEach(function (p, j) {
     var tit = p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + ((p.marca || p.categoria) ? ' ' + (p.marca || p.categoria) : '') : String(p.descricao || '').toUpperCase();
     L.push((an.pecas.length + j + 1) + '. ~~' + vd_md_(tit) + '~~' + (!p.pneu && p.codigo ? ' · ' + vd_md_(p.codigo) : '') + ' · 🚫 não comprar' + (p.naoMotivo ? ' — _' + vd_md_(p.naoMotivo) + '_' : ''));
+    if (String(p.obs || '').trim()) L.push('    - 📝 ' + vd_md_(String(p.obs).replace(/\s*\n\s*/g, ' ').trim()));
   });
 
   var mFo = bloco.match(/FORNECIMENTO \(SEGURADORA\)\s*:?\s*(\d+)/i);
@@ -2502,6 +2509,29 @@ function vd_textoLegado_(desc) {
     out.push(linhas[i]);
   }
   return out.join('\n').trim();
+}
+
+/* 15/10/2026 (Weslley, BET7D44): a observação da peça passou a aparecer na vitrine. Esta rotina, uma vez só e aos poucos
+ * (no ciclo do robô, ~15 cards por volta), regrava a vitrine dos cards que já têm OBS em alguma peça — a descrição completa
+ * não muda. Progresso na propriedade VD_OBSVIT (linha da planilha onde parou; FEITO no fim). */
+function vd_obsVitrine_() {
+  var props = PropertiesService.getScriptProperties(), st = props.getProperty('VD_OBSVIT') || '2';
+  if (st === 'FEITO' || !vd_ligado_() || vd_modo_() !== 'ATIVO' || !vd_vitrineLigada_()) return 0;
+  var sh = tr_aba_(), n = sh.getLastRow(), lin = Math.max(2, parseInt(st, 10) || 2), feitos = 0;
+  if (lin > n) { props.setProperty('VD_OBSVIT', 'FEITO'); return 0; }
+  var fim = Math.min(n, lin + 399), vals = sh.getRange(lin, 1, fim - lin + 1, 5).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    if (feitos >= 15 || vd_restante_() < 40 * 1000) { props.setProperty('VD_OBSVIT', String(lin + i)); return feitos; }
+    var id = String(vals[i][0] || ''), cmp = String(vals[i][4] || '');
+    if (!id || !/\|\s*OBS\s*:/i.test(cmp)) continue;
+    var temObs = false;
+    try { temObs = vd_linhasPecas_(vd_dividir_(cmp).bloco).linhas.some(function (l) { return /\|\s*OBS\s*:/i.test(l); }); } catch (e) {}
+    if (!temObs) continue;
+    try { vd_gravarDesc_(id, cmp); feitos++; } catch (e) { console.log('obsVitrine ' + id + ': ' + e); }
+  }
+  props.setProperty('VD_OBSVIT', fim >= n ? 'FEITO' : String(fim + 1));
+  if (feitos) console.log('obsVitrine: ' + feitos + ' vitrine(s) regravada(s)');
+  return feitos;
 }
 
 /** Roda na mão (uma vez): converte para vitrine todos os cards do quadro que ainda não foram convertidos. */
