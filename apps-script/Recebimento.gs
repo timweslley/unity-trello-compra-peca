@@ -248,7 +248,7 @@ function vdf_salvarRecebimento(token, p) {
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
-  if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Em Toledo, o recebimento é registrado pelo setor de compras (ou pela diretoria) — sua conta: ' + me.username + '.'] };
+  if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Este card está com a Unidade TOLEDO — em Toledo, o recebimento é registrado pelo setor de compras (ou pela diretoria); sua conta: ' + me.username + '. Se o carro é de outra unidade, corrija o campo Unidade do card (ou peça ao consultor) e tente de novo.'] };
   var todos = vdf_itensRecebimento_(card), porId = {};
   todos.forEach(function (i) { porId[i.id] = i; });
   var itens = (p.itens || []).filter(function (x) { return porId[x.id]; });
