@@ -4329,6 +4329,12 @@ iniciar();
   /* lista de até 700 px (zoom de 175–400%, janela de ~1000 px): descrição na linha toda; quantidade e valor juntos, com o nome em
      cima (o cabeçalho das colunas some) */
   @container pecas (max-width: 700px) {
+    .v2pc #form :is(#itens, #itensPart) > .item > .item-topo .chip-nao::after, .v2pc #form :is(#itens, #itensPart) > .item > .item-topo .chip-nao.marcado::after { content:"Não comprar" !important; white-space:nowrap !important; }
+    /* pneu (sem descrição): medida, quantidade e valor, categoria/marca e botões sem linha vazia no meio — o aviso "quem paga?"
+       vem depois dos botões, na mesma ordem do Tab (9ª rodada, acessibilidade 2.4.3) */
+    .v2pc :is(#itens, #itensPart) > .item[data-tipo="pneu"] > .grade > :is(div:has(.f-qtd), div:has(> .f-valor-orc)) { grid-row:2 !important; }
+    .v2pc :is(#itens, #itensPart) > .item[data-tipo="pneu"] > .grade > :is(.inteiro:has(.f-tipo), .inteiro:has(.f-marca)) { grid-row:3 !important; }
+    .v2pc :is(.v2-comorc :is(#itens, #itensPart), :is(#itens, #itensPart).v2-comorc, #itens, #itensPart) > .item[data-tipo="pneu"]:is([data-origem], [data-tipo], .item) > .item-topo { grid-row:4 !important; }
     .v2pc #itens > .item, .v2pc #itensPart > .item { grid-template-columns:28px minmax(0, 1fr) minmax(0, 1fr) !important; gap:6px 8px !important; padding:10px 8px !important; }
     .v2pc :is(#itens, #itensPart) > .item > .grade > :is(div:has(> .f-codigo), div:has(.f-medida)) { grid-row:1 !important; grid-column:2 / -1 !important; }
     .v2pc :is(#itens, #itensPart) > .item > .grade > .inteiro:has(.f-desc) { grid-row:2 !important; grid-column:2 / -1 !important; }
@@ -4876,6 +4882,7 @@ iniciar();
         f.setAttribute('aria-label', (f.classList.contains('f-medida') ? 'Medida do pneu' : 'Código') + ' da peça ' + n);
         try { f.focus(); } catch (x) {}
       }
+      try { trocarEmojis(); } catch (x) {}
       window.V2_VIVO_ATE = Date.now() + 1500;
       var viv = g('v2vivo'); if (viv) viv.textContent = (it.dataset.tipo === 'pneu' ? 'Pneu novo incluído' : 'Peça nova incluída') + (n ? ', item ' + n : '');
     }, 0);
@@ -7097,19 +7104,28 @@ iniciar();
     tipoMarcaLinhas();
   }
   // tipo e marca em linhas próprias só quando a marca não cabe na linha do tipo (mede depois de montar e a cada mudança de tamanho)
-  function tipoMarcaLinhas() {
+  var TM_CTX = null;
+  function tipoMarcaLinhas(forcar) {
     if (!PC || !COMP) return;
     var ts = $$('#comprador .c-tipo').filter(function (t) { return t.querySelector('.v2c-mc') && t.offsetParent !== null; });
-    ts.forEach(function (t) { t.classList.remove('v2c-tm2'); });
-    var dois = ts.filter(function (t) {
-      var a = t.querySelector('.v2c-tp').getClientRects(), b = t.querySelector('.v2c-mc').getClientRects();
-      return a.length && b.length && b[b.length - 1].bottom > a[0].bottom + 2;
+    if (!ts.length) return;
+    try { TM_CTX = TM_CTX || document.createElement('canvas').getContext('2d'); } catch (e) { return; }
+    ts.forEach(function (t) {
+      var cs = getComputedStyle(t), txt = t.textContent.replace(/\s+/g, ' ').trim();
+      var util = t.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+      var chave = Math.round(util) + '|' + txt + '|' + cs.font + '|' + cs.letterSpacing + '|' + cs.wordSpacing;
+      if (!forcar && t.dataset.tm === chave) return;   // nada mudou: não mexe (nem lê de novo a página)
+      t.dataset.tm = chave;
+      TM_CTX.font = cs.font;
+      var ls = parseFloat(cs.letterSpacing) || 0, ws = parseFloat(cs.wordSpacing) || 0;
+      var larg = TM_CTX.measureText(txt).width + ls * txt.length + ws * (txt.split(' ').length - 1);
+      var dois = larg > util + 0.5;
+      if (t.classList.contains('v2c-tm2') !== dois) t.classList.toggle('v2c-tm2', dois);
     });
-    dois.forEach(function (t) { t.classList.add('v2c-tm2'); });
   }
   var tmPend = 0;
   window.addEventListener('resize', function () { if (tmPend) return; tmPend = requestAnimationFrame(function () { tmPend = 0; try { tipoMarcaLinhas(); } catch (e) {} }); });
-  try { document.fonts.ready.then(function () { try { tipoMarcaLinhas(); } catch (e) {} }); } catch (e) {}
+  try { document.fonts.ready.then(function () { try { tipoMarcaLinhas(true); } catch (e) {} }); } catch (e) {}   // a fonte da web muda as larguras
   if (typeof window.removerCot === 'function') {   // "Remover" / "Desfazer" com o mesmo desenho dos outros botões da linha
     var removerCotOrig = window.removerCot;
     window.removerCot = function (btn) { var r = removerCotOrig.apply(this, arguments); try { if (PC && btn && btn.classList.contains('v2c-rem')) textoRemover(btn); } catch (e) {} return r; };
