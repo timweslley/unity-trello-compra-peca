@@ -2263,7 +2263,8 @@ function aplicarLeitura(r, dica, sufixo) {
       var digitado = $('chassi').value.toUpperCase().replace(/[\s.\-]/g, '');
       var divergeChassi = r.chassi && digitado && digitado !== r.chassi;
       por('chassi', r.chassi, 'chassi'); por('modelo', r.modelo, 'modelo'); por('ano', r.ano, 'ano'); por('motor', r.motor, 'motor');
-      if (!normPlaca($('placa').value) && r.placasDoc.length === 1) { $('placa').value = r.placasDoc[0]; aoMudarPlaca(); preenchidos.push('placa'); }
+      var sugPlaca = r.placaSug || (r.placasDoc.length === 1 ? r.placasDoc[0] : '');
+      if (!normPlaca($('placa').value) && sugPlaca) { $('placa').value = sugPlaca; aoMudarPlaca(); preenchidos.push('placa'); }
       conferirChassi();
       var msg = preenchidos.length ? '✓ Preenchido pelo documento: ' + preenchidos.join(', ') + '. Confira os campos.' : 'Li o documento, mas não achei dados novos (ou os campos já estavam preenchidos).';
       if (r.chassiDivergente) msg += ' ⚠️ Achei mais de um chassi: ' + r.chassiDivergente.join(' / ') + ' — preencha à mão.';

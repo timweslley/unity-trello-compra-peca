@@ -572,9 +572,20 @@ function vdf_respostaLeitura_(r, orc, placa) {
   var placasDoc = (r.placas || []).slice(0, 5);
   var confere = !placa || placasDoc.some(function (p) { return vd_mesmaPlaca_(p, placa); });
   r.chassis = r.chassis || [];
+  // 15/10/2026 (Weslley, RHR9A41): Cilia "HILUX ... 4X4 AUT 2022" virava placa "AUT2022" e, com 2 placas, o formulário
+  // não preenchia nenhuma. Sugestão: a placa "com rótulo" (logo depois de PLACA) se for única; senão a única que não
+  // tem cara de ano (4 dígitos 19xx/20xx).
+  var rot = r.placasRot || [];
+  var placaSug = rot.length === 1 ? rot[0] : '';
+  if (!placaSug) {
+    var semAno = placasDoc.filter(function (p) { return !/^[A-Z]{3}(19[5-9]\d|20[0-4]\d)$/.test(p); });
+    if (placasDoc.length === 1) placaSug = placasDoc[0];
+    else if (semAno.length === 1) placaSug = semAno[0];
+  }
   return {
     confere: confere,
     placasDoc: placasDoc,
+    placaSug: placaSug,
     chassi: confere && r.chassis.length === 1 ? r.chassis[0] : '',
     chassiDivergente: r.chassis.length > 1 ? r.chassis : null,
     modelo: r.modelo || '', ano: r.ano || '', motor: r.motor || '',
