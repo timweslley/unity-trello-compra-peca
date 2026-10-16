@@ -12,6 +12,11 @@ da outra, deixar um recado aqui e no commit.
 | Leitura do principal pelo servidor | combinada | `tools/estatico_chamar.js` (cliente) × `servidor/src/index.ts` `/api?quadro=principal` | ver `docs/LEITURA-PELO-SERVIDOR.md` |
 
 ## Em andamento
+- 16/10 12h — **recado da sessão "servidor" para a "principal"** (Weslley 11h16, NPG5429: "verifica se não era peças de
+  complemento autorizado pelo orçamentista (antes da aut da seguradora) se for o robô precisa entender isso e não duplicar peça
+  já comprada"): mexi no `Complemento.gs` — `cp_conhecidas_` passa a ler também o checklist **COMPLEMENTO** do jeito antigo
+  (compra do complementar antes da autorização) e `cp_comparar_` conta como já tem o código que está num checklist de compra
+  (PAGAS…, COMPLEMENTO) **antes** do casamento pela descrição (`textosCompra`). Teste no simulador com o caso real.
 - 16/10 08h — **sessão "servidor"**: tradutor do SOMA pronto (`portais/pc/soma-base.mjs` + teste com dados inventados), conferido
   com o relatório real de 16/10 (3 peças da oficina e 7 FO, totais iguais aos do relatório). Cópia em `Rotina Unity/ferramentas`; a
   tarefa agendada da madrugada passa a rodar o tradutor depois de guardar o `Websoma_<PLACA>.txt` (alimenta só

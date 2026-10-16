@@ -461,7 +461,12 @@ Reler pelo formulário um orçamento **antigo** do card (existe outro PDF de or�
 Orçamento complementar (ORÇ+): compara com as peças existentes → ➕ oficina nova, 📦 FO nova, 🔁 já pedida,
 🔁 passou de FO para oficina (sai do checklist), 🔄 atualizada (código/descrição/valor). Peça da oficina marcada
 🚫 **não comprar** (mesmo código ou mesma descrição) conta como já conhecida e **não volta** como complemento — o
-consultor já decidiu por ela (09/10/2026, STG3I57: o robô repetiu dois alojamentos "não comprar"). O PDF de orçamento
+consultor já decidiu por ela (09/10/2026, STG3I57: o robô repetiu dois alojamentos "não comprar"). Também conta como já
+comprada a peça que está no checklist **COMPLEMENTO** do jeito antigo (peça do complementar comprada ANTES de a seguradora
+autorizar, liberada pela diretoria/orçamentista) — antes só PAGAS e FORNECIMENTO contavam; e código que já está num checklist
+de compra (PAGAS, PAGAS COMPLEMENTO, COMPLEMENTO) conta como comprado **antes** de casar pela descrição com outra peça do card
+(16/10/2026, NPG5429 — Weslley: "o robô precisa entender isso e não duplicar peça já comprada": o reservatório comprado em
+setembro voltou como peça nova e a grade ESQ comprada em setembro casou com a "GRADE DO PARACHOQUE DIANT"). O PDF de orçamento
 que o **formulário** leu e importou (`orc`/`orc+`) é marcado como já visto (`CP_VISTOS`) em todo salvamento, não só no
 complementar: antes, orçamento subido pelo formulário mais de 30 min depois do card criado era relido pelo robô como
 complementar. Leitura que não serve não fica em silêncio (10/10/2026): PDF anexado em card em FALTA DADOS que não é

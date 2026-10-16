@@ -1,7 +1,8 @@
 /* ============================ ORÇAMENTO COMPLEMENTAR ============================
  * Card que já está andando e recebe um orçamento novo (complemento da seguradora, com peças a mais):
- *  - compara o orçamento novo com o que o card já tem (lista de peças, checklists FORNECIMENTO/PAGAS
- *    e orçamentos anteriores já lidos) — por código e, sem código, por descrição; peça 🚫 não comprar da oficina
+ *  - compara o orçamento novo com o que o card já tem (lista de peças, checklists FORNECIMENTO/PAGAS — e o COMPLEMENTO do
+ *    jeito antigo, 16/10/2026 — e orçamentos anteriores já lidos) — por código e, sem código, por descrição; código que está
+ *    num checklist de compra conta como já comprado antes de casar pela descrição; peça 🚫 não comprar da oficina
  *    conta como conhecida (o consultor já decidiu por ela — 09/10/2026, STG3I57);
  *  - peças NOVAS da oficina entram na lista de peças marcadas "| COMPLEMENTO dd/mm"
  *    (depois das peças da seguradora, antes das particulares) — o consultor marca o tipo;
@@ -47,15 +48,21 @@ function cp_orcDoCache_(idAnexo) {
  * card precisa de desc (completa), checklists e attachments. excluirAnexo = id do anexo que está sendo comparado.
  */
 function cp_conhecidas_(card, excluirAnexo) {
-  var chaves = {}, textos = [];
+  var chaves = {}, textos = [], textosCompra = [];
   var an = vd_analisar_(card.desc || '', card.name || '');
   an.pecas.forEach(function (p) { cp_chaves_(p).forEach(function (k) { chaves[k] = 1; }); });   // 🚫 não comprar: ver cp_comparar_
   var foItens = [];
   (card.checklists || []).forEach(function (k) {
-    if (!/^(PAGAS|FORNECIMENTO)/i.test(String(k.name || '').trim())) return;
+    var nomeK = vd_semAcento_(String(k.name || '').trim());
+    // 16/10/2026 (NPG5429 — Weslley: "o robô precisa entender isso e não duplicar peça já comprada"): o checklist
+    // "COMPLEMENTO" do jeito antigo (peça do complementar comprada ANTES de a seguradora autorizar, liberada pela diretoria
+    // ou pelo orçamentista) também é compra — antes só PAGAS e FORNECIMENTO contavam e o reservatório voltou como peça nova
+    if (!/^(PAGAS|FORNECIMENTO|COMPLEMENTO|COMPRAD)/.test(nomeK)) return;
+    var ehFo = /^FORNECIMENTO/.test(nomeK);
     (k.checkItems || []).forEach(function (i) {
       textos.push(cp_norm_(i.name));
-      if (/^FORNECIMENTO/i.test(String(k.name || '').trim())) foItens.push({ id: i.id, idChecklist: k.id, name: i.name, state: i.state, lista: String(k.name).trim().toUpperCase() });
+      if (!ehFo) textosCompra.push(cp_norm_(i.name));
+      if (ehFo) foItens.push({ id: i.id, idChecklist: k.id, name: i.name, state: i.state, lista: String(k.name).trim().toUpperCase() });
     });
   });
   // orçamentos anteriores (só os que já estão no cache): peça que o consultor tirou de propósito não volta
@@ -65,7 +72,7 @@ function cp_conhecidas_(card, excluirAnexo) {
     if (!o) return;
     o.oficina.concat(o.fo).forEach(function (p) { cp_chaves_(p).forEach(function (k) { chaves[k] = 1; }); });
   });
-  return { chaves: chaves, textos: textos, an: an, foItens: foItens };
+  return { chaves: chaves, textos: textos, textosCompra: textosCompra, an: an, foItens: foItens };
 }
 
 function cp_jaTem_(conh, p) {
@@ -155,6 +162,10 @@ function cp_comparar_(card, orc, excluirAnexo) {
       if (!ehFo && !p.pneu) {
         // mesma peça da oficina pelo código: já tem (valor do orçamento pode ter mudado)
         if (kc.length >= 4 && porCodigo[kc] !== undefined) { out.jaTinha++; marcaAtualizar(porCodigo[kc], p, ''); return; }
+        // código num checklist de COMPRA (PAGAS, PAGAS COMPLEMENTO, COMPLEMENTO antigo): a peça já foi comprada com esse código —
+        // não casa pela descrição com outra peça do card (16/10/2026, NPG5429: "8148202130 GRADE ESQ DO PARACHOQUE DIANT",
+        // comprada em setembro, casava com "5311202200 GRADE DO PARACHOQUE DIANT" e trocava o código dela)
+        if (kc.length >= 4 && (conh.textosCompra || []).some(function (t) { return t.indexOf(kc) >= 0; })) { out.jaTinha++; return; }
         // mesma descrição (igual ou parecida) com código diferente: o código mudou no orçamento novo -> atualiza, não repete
         var i = kd.length >= 4 && porDesc[kd] !== undefined && !usadas[porDesc[kd]] ? porDesc[kd] : cp_maisParecida_(pecasCard, p, usadas);
         if (i >= 0) {
