@@ -4323,6 +4323,87 @@ iniciar();
   html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acjusta > .item-topo :is(.chip, button) { padding-left:7px !important; padding-right:7px !important; }
   html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acjusta > .item-topo button.perigo { margin-right:0 !important; min-width:68px !important; padding-left:9px !important; padding-right:9px !important; }
   html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acbaixo > .item-topo { grid-row:3 !important; grid-column:2 / -1 !important; justify-content:flex-end !important; flex-wrap:wrap !important; }
+
+  /* ===== 16/10/2026 — ALINHAMENTO DO CELULAR (Weslley: "siga com alinhamento celular"; achado A09 + avaliação do GPT) =====
+     Só no celular/tablet (html.v2toque). Mesma ideia do computador: a tarefa aparece logo, o resto fica a um toque. */
+  /* barra de cima numa linha só: placa · etapa/situação · ⋯ (Detalhes, Ajuda, Pedido novo, usuário) · Fechar */
+  html.v2toque header.v2-cabvazio { position:absolute !important; width:1px !important; height:1px !important; overflow:hidden !important; clip:rect(0 0 0 0) !important; padding:0 !important; margin:-1px !important; border:0 !important; }
+  html.v2toque #v2topo { flex-wrap:nowrap !important; gap:8px !important; padding:6px 8px 6px 12px !important; min-height:56px; }
+  html.v2toque #v2topo .placa { font-size:18px !important; letter-spacing:1px !important; padding:1px 6px !important; line-height:26px !important; flex:0 0 auto; }
+  html.v2toque #v2topo .etapa { flex:1 1 auto !important; min-width:0 !important; font-size:12.5px !important; line-height:16px !important; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
+  html.v2toque #v2topo .etapa b { font-size:14px !important; line-height:18px; }
+  html.v2toque #v2topo #v2menuBt { flex:0 0 44px; width:44px; min-width:44px; min-height:44px !important; height:44px; padding:0 !important; font-size:22px !important; line-height:1; background:#fff; border:1px solid #c7cdd6; border-radius:8px; color:#172b4d; }
+  html.v2toque #v2topo #v2menuBt[aria-expanded="true"] { background:#e9f2ff; border-color:#85b8ff; }
+  html.v2toque #v2topo #btnFechar { flex:0 0 auto; min-height:44px !important; padding:0 12px !important; font-size:15px !important; }
+  html.v2toque #v2menu { position:absolute; top:calc(100% + 4px); right:8px; z-index:30; min-width:220px; max-width:calc(100vw - 16px); background:#fff; border:1px solid #c7cdd6; border-radius:10px; box-shadow:0 8px 24px #091e4233; padding:6px; display:flex; flex-direction:column; gap:4px; }
+  html.v2toque #v2menu[hidden] { display:none !important; }
+  html.v2toque #v2menu > :is(button, .v2hb) { width:100% !important; justify-content:flex-start !important; text-align:left !important; min-height:44px !important; font-size:15px !important; margin:0 !important; display:flex !important; align-items:center; }
+  html.v2toque #v2menu #usuario { display:flex !important; align-items:center; gap:10px; justify-content:space-between; min-height:44px; padding:0 10px; font-size:14px !important; color:#44546f; border-top:1px solid #dcdfe4; margin-top:2px; }
+  html.v2toque #v2menu #usuario a { display:inline-flex; align-items:center; min-height:44px; padding:0 8px; }
+  html.v2toque #v2menu #seloTeste { align-self:flex-start; margin:2px 10px; }
+  /* aviso de edição: só os avisos de regra ficam à vista; o "Editando o card…" vai para Detalhes (igual ao computador) */
+  html.v2toque:not(.v2-detalhes) #modoEdicao .ed1, html.v2toque:not(.v2-detalhes) #modoEdicao .ed1 + br, html.v2toque:not(.v2-detalhes) #modoEdicao .ed1 + br + br { display:none; }
+  html.v2toque:not(.v2-detalhes) #form > #modoEdicao:has(> .ed1):not(:has(br)) { display:none !important; }
+  html.v2toque #modoEdicao { font-size:14px; line-height:20px; padding:8px 12px; }
+  /* "ou cole com Ctrl+V" não existe no celular */
+  html.v2toque .v2-semcel { display:none !important; }
+  /* tipo do pedido: 3 opções curtas lado a lado; a explicação da escolhida vem embaixo */
+  html.v2toque #form .chips.v2-tipocel { display:grid !important; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px !important; margin-bottom:6px !important; }
+  html.v2toque #form .chips.v2-tipocel > label.chip { font-size:0 !important; justify-content:center; text-align:center; padding:8px 4px !important; min-height:48px; display:flex; align-items:center; border-radius:10px; }
+  html.v2toque #form .chips.v2-tipocel > label.chip::after { content:attr(data-curto); font-size:15px; line-height:18px; font-weight:600; }
+  html.v2toque #form .chips.v2-tipocel > label.chip input { position:absolute; opacity:0; width:1px; height:1px; }
+  html.v2toque #form .chips.v2-tipocel > label.chip.marcado { background:#0c66e4 !important; border-color:#0c66e4 !important; color:#fff !important; }
+  html.v2toque #v2tipoexp { font-size:14px; line-height:20px; color:#44546f; margin:0 0 12px; }
+  /* placa na edição: só leitura com "alterar" (já está na barra de cima) */
+  html.v2toque .v2-placafixa > :is(label, input, .dica:empty) { display:none !important; }
+  html.v2toque .v2-placaler { display:none; }
+  html.v2toque .v2-placafixa > .v2-placaler { display:flex; align-items:center; gap:10px; min-height:44px; font-size:15px; }
+  html.v2toque .v2-placaler button { min-height:44px !important; padding:0 14px !important; font-size:15px !important; }
+  /* orçamentos anteriores recolhidos (como no computador) */
+  html.v2toque .v2-ler .v2-anteriores { border-top:1px solid #dcdfe4; }
+  html.v2toque .v2-ler .v2-anteriores > summary { cursor:pointer; min-height:44px; display:flex; align-items:center; font-size:15px; font-weight:600; color:#44546f; padding:0 4px; }
+  /* comprador: resumo do card só com o aviso que importa (cotação devolvida etc.); o resto em Detalhes */
+  html.v2toque:not(.v2-detalhes) #comprador #infoComprador { font-size:0 !important; padding:0 !important; background:none !important; border:0 !important; margin:0 0 8px !important; }
+  html.v2toque:not(.v2-detalhes) #comprador #infoComprador > :not(.aviso):not(.dica) { display:none !important; }
+  html.v2toque:not(.v2-detalhes) #comprador #infoComprador > :is(.aviso, .dica) { font-size:14px !important; line-height:20px !important; margin-top:0 !important; }
+  html.v2toque:not(.v2-detalhes) #comprador #infoComprador:not(:has(> :is(.aviso, .dica):not(.oculto):not(:empty))) { display:none !important; }
+  /* comprador: ferramentas de leitura de anexo recolhidas */
+  html.v2toque details.v2-ferr { margin:4px 0 10px; border:1px solid #c7cdd6; border-radius:10px; background:#fff; }
+  html.v2toque details.v2-ferr > summary { min-height:48px; display:flex; align-items:center; gap:8px; padding:0 12px; font-size:15px; font-weight:600; color:#0c66e4; cursor:pointer; }
+  html.v2toque details.v2-ferr[open] > summary { border-bottom:1px solid #dcdfe4; }
+  html.v2toque details.v2-ferr > :not(summary) { margin:8px 10px !important; }
+  html.v2toque details.v2-ferr #fornAtalho > strong { display:none !important; }
+  /* comprador: abas numa faixa que rola de lado (no lugar de "Outras etapas") */
+  html.v2toque #comprador > .abas { display:flex !important; flex-wrap:nowrap !important; overflow-x:auto; gap:6px; margin:0 -12px 10px !important; padding:2px 12px 6px !important; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  html.v2toque #comprador > .abas::-webkit-scrollbar { display:none; }
+  html.v2toque #comprador > .abas .aba:not(.oculto) { display:inline-flex !important; flex:0 0 auto; align-items:center; gap:6px; white-space:nowrap; min-height:44px !important; padding:0 14px !important; }
+  html.v2toque #comprador > .abas .aba .rotulo { display:inline !important; }
+  html.v2toque #comprador > .abas #v2outras { display:none !important; }
+  /* rodapé do comprador em uma linha (no máximo ~80 px) */
+  html.v2toque #comprador .rodape { flex-wrap:nowrap !important; gap:8px !important; padding:10px 12px calc(10px + env(safe-area-inset-bottom)) !important; }
+  html.v2toque #comprador .rodape > button { flex:1 1 0; min-width:0; padding:10px 8px !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  html.v2toque #comprador .rodape > button.v2-curto { flex:0 0 auto; }
+  html.v2toque #comprador button.v2-devolver { width:100%; margin:4px 0 12px; }
+  /* recebimento: campos da peça só depois de marcar "Chegou" (a previsão fica à vista) */
+  html.v2toque #recItens > .item:not(:has(.r-ok:checked)) > .grade > :not(:has(> div.dica:not(.r-arqs))) { display:none !important; }
+  /* autorizar: texto da cotação na linha toda; selos embaixo (antes ficavam espremidos ao lado e cortados) */
+  html.v2toque #autItens .opcao-aut { flex-wrap:wrap; align-items:flex-start !important; gap:4px 8px; padding:10px 12px !important; line-height:22px; }
+  html.v2toque #autItens .opcao-aut { position:relative; padding-left:44px !important; }
+  html.v2toque #autItens .opcao-aut > input { position:absolute; left:12px; top:11px; margin:0; }
+  html.v2toque #autItens .opcao-aut > :is(.selo, .selo-eco) { flex:0 0 auto; margin:0 !important; }
+  /* cotação: cada cotação já no card em 2 linhas — texto e selos; "editar" e "remover" lado a lado */
+  html.v2toque #cotItens .cot-lida { display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; font-size:13px; padding:10px 0; border-top:1px solid #dcdfe4; }
+  html.v2toque #cotItens .cot-lida > .cl-txt { flex:1 1 100%; font-size:15px; line-height:21px; }
+  html.v2toque #cotItens .cot-lida > :is(.selo, .selo-eco) { margin:0 !important; }
+  html.v2toque #cotItens .cot-lida > button.mini { flex:1 1 0; margin:0 !important; }
+  html.v2toque #recItens > .item:not(:has(.r-ok:checked)) > .grade { margin-top:2px !important; }
+  /* autorizar: primeiro as cotações; "Complemento" e "Não comprar" depois */
+  html.v2toque #autItens > .item { display:flex; flex-direction:column; }
+  html.v2toque #autItens > .item > .chips { order:2; }
+  html.v2toque #autItens > .item > .nao-motivo { order:3; }
+  /* selos legíveis e botões pequenos com área de toque */
+  html.v2toque #comprador :is(.selo, .selo-eco, .v2-tag) { font-size:12px !important; }
+  html.v2toque #comprador .item button { min-height:44px !important; }
 </style>
 <script>
 (function () {
@@ -5227,7 +5308,7 @@ iniciar();
           + (e.foto ? '' : PC && box.id !== 'anexosCard' ? '<button type="button" class="secundario" data-i="' + e.i + '" aria-label="Ler o fornecimento de ' + txt(e.nome) + '">' + (e.de ? 'Ler de novo' : 'Ler') + '</button>'   // 14/10/2026: no fornecimento o botão lê o Status do Pedido (não importa peças) — só no computador
             : '<button type="button" class="' + (e.orc && !jaLido && !antigo ? 'principal' : 'secundario') + '" data-i="' + e.i + '">' + (e.orc ? (e.de || jaLido ? '🔄 Importar de novo' : '📥 Importar peças') : (e.de ? '🔄 Ler de novo' : '📖 Ler')) + '</button>')
           + '</div>';
-        (e.foto ? fotos : (antigo && PC && box.id === 'anexosCard' ? antigos : docs)).push(h);
+        (e.foto ? fotos : (antigo && box.id === 'anexosCard' ? antigos : docs)).push(h);   // 16/10: celular também recolhe os anteriores
       });
       // 09/10/2026: documentos primeiro; fotos (às vezes 10+) agrupadas e recolhidas — antes enchiam a tela
       var htmlFotos = fotos.length > 2
@@ -5674,10 +5755,83 @@ iniciar();
       it.classList.remove('v2-acjusta'); it.classList.add('v2-acbaixo');
     });
   }
+  /* ===== 16/10/2026 — ALINHAMENTO DO CELULAR (Weslley: "siga com alinhamento celular"; achado A09 + avaliação do GPT) =====
+     Barra de cima numa linha só (placa, etapa e ⋯ com Detalhes/Ajuda/Pedido novo/usuário), sem "cole com Ctrl+V", tipo do pedido
+     curto, placa só leitura na edição, comprador com o resumo em Detalhes, leitura de anexo recolhida, abas numa faixa e rodapé
+     numa linha. Só reorganiza: os mesmos campos e botões continuam sendo lidos pelo formulário. CSS no bloco do mesmo dia. */
+  var CEL_CURTO = { SEGURADORA: 'Seguradora', PARTICULAR: 'Particular', RETORNO: 'Retorno' }, CEL_ABA = '';
+  function fecharMenuCel() { var m = g('v2menu'), b = g('v2menuBt'); if (m && !m.hidden) { m.hidden = true; if (b) b.setAttribute('aria-expanded', 'false'); } }
+  function celular() {
+    if (PC) return;
+    // 1. barra única
+    if (!g('v2menuBt')) {
+      var bt = document.createElement('button'); bt.type = 'button'; bt.id = 'v2menuBt'; bt.className = 'secundario'; bt.textContent = '⋯';
+      bt.setAttribute('aria-label', 'Menu: detalhes, ajuda e pedido novo'); bt.setAttribute('aria-expanded', 'false'); bt.setAttribute('aria-controls', 'v2menu');
+      var mn = document.createElement('div'); mn.id = 'v2menu'; mn.hidden = true;
+      var nv = document.createElement('button'); nv.type = 'button'; nv.className = 'secundario'; nv.id = 'v2novoCel'; nv.textContent = '🆕 Fazer pedido novo';
+      nv.onclick = function () { fecharMenuCel(); if (typeof modoNovo === 'function') modoNovo(); };
+      mn.appendChild(nv); topo.appendChild(bt); topo.appendChild(mn);
+      bt.onclick = function (e) {
+        e.stopPropagation(); var ab = mn.hidden; mn.hidden = !ab; bt.setAttribute('aria-expanded', ab ? 'true' : 'false');
+        if (ab) { var f = $$('button', mn).filter(function (x) { return x.offsetParent !== null; })[0]; if (f) f.focus(); }
+      };
+      mn.addEventListener('click', function (e) { if (e.target.closest('button, a')) setTimeout(fecharMenuCel, 0); });
+      document.addEventListener('click', function (e) { if (!e.target.closest('#v2menu, #v2menuBt')) fecharMenuCel(); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && g('v2menu') && !g('v2menu').hidden) { fecharMenuCel(); g('v2menuBt').focus(); } });
+    }
+    var mn2 = g('v2menu');
+    ['v2det', 'v2aj', 'seloTeste', 'usuario'].forEach(function (id) { var e = g(id); if (e && e.parentNode !== mn2) mn2.appendChild(e); });
+    var fe = g('btnFechar'); if (fe && fe.parentNode !== topo) topo.appendChild(fe);
+    if (g('v2novoCel')) g('v2novoCel').style.display = window.CARD_EDICAO && visivel(form) ? '' : 'none';
+    if (cab && !cab.classList.contains('v2-cabvazio')) cab.classList.add('v2-cabvazio');
+    // 2. "ou cole com Ctrl+V" não existe no celular
+    $$('span.dica').forEach(function (s) { if (!s.classList.contains('v2-semcel') && /cole com Ctrl\+V/.test(s.textContent)) s.classList.add('v2-semcel'); });
+    // 3. seções sem o número (o passo já diz onde está)
+    $$('#form h2').forEach(function (h) { var t = h.firstChild; if (t && t.nodeType === 3 && /^\s*\d+\.\s+/.test(t.textContent)) t.textContent = t.textContent.replace(/^\s*\d+\.\s+/, ''); });
+    // 4. tipo do pedido curto + a explicação da opção marcada
+    var chT = secoes[0] && secoes[0].querySelector('.chips');
+    if (chT && chT.querySelector('input[name=tipoPedido]')) {
+      chT.classList.add('v2-tipocel');
+      var marc = null;
+      $$('label.chip', chT).forEach(function (l) { var i = l.querySelector('input'); if (!i) return; if (l.dataset.curto !== CEL_CURTO[i.value]) l.dataset.curto = CEL_CURTO[i.value] || i.value; if (i.checked) marc = l; });
+      var ex = g('v2tipoexp'); if (!ex) { ex = document.createElement('div'); ex.id = 'v2tipoexp'; chT.insertAdjacentElement('afterend', ex); }
+      var tx = marc ? marc.textContent.replace(/^[\s🔁]+/u, '').trim() : ''; if (ex.textContent !== tx) ex.textContent = tx;
+    }
+    // 5. placa na edição: só leitura com "Alterar" (a placa já está na barra de cima)
+    var pl = g('placa'), wp = pl && pl.parentNode;
+    if (wp && wp.id !== 'v2ped-placa') {
+      var fixa = !!(window.CARD_EDICAO && pl.value && wp.dataset.v2alterar !== '1' && document.activeElement !== pl);
+      var le = wp.querySelector('.v2-placaler');
+      if (fixa && !le) {
+        le = document.createElement('div'); le.className = 'v2-placaler';
+        le.innerHTML = '<span>Placa <b></b></span><button type="button" class="secundario">Alterar</button>';
+        le.querySelector('button').onclick = function () { wp.dataset.v2alterar = '1'; wp.classList.remove('v2-placafixa'); pl.focus(); };
+        wp.appendChild(le);
+      }
+      if (le) { var pb = le.querySelector('b'); if (pb.textContent !== pl.value) pb.textContent = pl.value; }
+      wp.classList.toggle('v2-placafixa', fixa);
+    }
+    // 6. comprador: leitura de anexo (Status do Pedido / fornecimento) recolhida
+    var fa = g('fornAtalho');
+    if (fa && !fa.closest('details.v2-ferr')) {
+      var dt = document.createElement('details'); dt.className = 'v2-ferr';
+      dt.innerHTML = '<summary>📥 Ler Status do Pedido ou anexo do card</summary>';
+      fa.insertAdjacentElement('beforebegin', dt); dt.appendChild(fa);
+    }
+    var dtf = fa && fa.closest('details.v2-ferr'); if (dtf) dtf.style.display = fa.classList.contains('oculto') ? 'none' : '';
+    // 7. abas: a marcada fica à vista na faixa
+    var abs = document.querySelector('#comprador > .abas'), am = abs && abs.querySelector('.aba.marcada');
+    if (am && am.id !== CEL_ABA && abs.offsetParent !== null) { CEL_ABA = am.id; abs.scrollLeft = Math.max(0, am.offsetLeft - (abs.clientWidth - am.offsetWidth) / 2); }
+    // 8. rodapé numa linha: "Salvar parcial" curto; "Devolver para cotação" sai do rodapé (vai para o fim da autorização)
+    ['btnCotParcial', 'btnAutParcial'].forEach(function (id) { var b = g(id); if (b && !b.disabled && b.textContent !== '💾 Parcial') { b.setAttribute('aria-label', 'Salvar parcial'); b.title = 'Salvar parcial'; b.textContent = '💾 Parcial'; b.classList.add('v2-curto'); } });
+    var dv = g('btnDev'), rd = dv && dv.closest('.rodape');
+    if (rd) { dv.classList.add('v2-devolver'); rd.parentNode.insertBefore(dv, rd); }
+  }
   var acPend = 0;
   function agendarAcoes() { if (acPend) return; acPend = requestAnimationFrame(function () { acPend = 0; try { acoesCabem(); } catch (e) {} }); }
   window.addEventListener('resize', agendarAcoes);
   try { document.fonts.ready.then(function () { try { acoesCabem(true); } catch (e) {} }); } catch (e) {}   // a fonte da web muda as larguras
+  try { document.fonts.addEventListener('loadingdone', function () { try { acoesCabem(true); } catch (e) {} }); } catch (e) {}   // a Inter chega depois do "ready"
   /* trocar quem paga (Seguradora / Particular / Retorno) num card que já existe pede confirmação.
      14/10/2026 (QA/acessibilidade): pelo "change" (pega mouse, setas e Espaço — antes só o clique, e pelo teclado a confirmação era pulada) */
   var TIPO_NOME = { SEGURADORA: 'Seguradora', PARTICULAR: 'Particular (cliente paga)', RETORNO: 'Retorno (oficina paga)' }, tipoConfirmado = '', TIPO_ATUAL = null;
@@ -7294,6 +7448,7 @@ iniciar();
     try { marcasPecas(); nomesUnidade(); acessivelPC(); } catch (e) {}
     try { if (PC && visivel(form)) erroNaPeca(faltasDoForm()); estadoSalvar(); } catch (e) {}
     try { acoesCabem(); } catch (e) {}
+    try { celular(); } catch (e) {}
     try { atualizarLado(); } catch (e) {}
     try { atualizarCompPC(); } catch (e) {}
     try { if (PC) barraDoc(); } catch (e) {}
