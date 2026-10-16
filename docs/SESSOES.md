@@ -78,3 +78,11 @@ da outra, deixar um recado aqui e no commit.
 - 11/10 13h40 — rotina Unity: módulo `cilia/` (Cloud Run Job `cilia-sync`, imagem no repositório `servidor` do Artifact Registry). Aguarda o Weslley criar os segredos `CILIA_TOKEN_*` e o Drive compartilhado.
 - 08/10 23:20 — servidor (a pedido do Weslley): `powerup/config.js` LEITURA_SERVIDOR = 'todos' (leitura do principal pelo servidor para a equipe toda; interface sem mudança). Acompanhar 09/10 no /painel.
 - 08/10 — servidor: versão 2.0 passo 1 (retrato dos pedidos do TESTE no banco), painel `/painel`, mapa `docs/README.md`.
+
+## 16/10 19h20 — fotos do card no topo do formulário 2.0 (TESTE)
+- Weslley: "a capa no pedido, pode implementar no 2.0 … não só a capa, mas um carrossel que vai exibindo as fotos do card".
+- Topo (computador 104×60, celular 64×44), ao lado da placa: fotos anexadas ao card, capa primeiro (selo CAPA), troca sozinha a cada 4 s
+  (para com mouse/foco em cima e com "menos movimento"), setas no computador, contador 2/4. Clique abre a foto grande com miniaturas,
+  setas do teclado e "Usar como capa" (troca a capa do card no Trello na hora). Card sem foto: caixa "Sem foto" (abre o botão Capa do pedido).
+- Servidor: vdf_fotosCard (previews do Trello ≥300 px em data URL, cache 6 h, até 12 fotos), vdf_fotoCard (≥1000 px), vdf_definirCapa.
+- Só com srv=1 (quadro TESTE). Teste: /tmp/claude-0/t/fotos/teste.mjs (computador e celular).

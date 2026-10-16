@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -445,6 +445,75 @@ function vdf_partesTitulo_(nome, dados) {
   }
   r.carro = ps.join(' ') || vd_carroCurto_(dados.modelo || '');
   return r;
+}
+
+/* ---------- fotos do card no topo do formulário 2.0 (carrossel, Weslley 16/10/2026) ----------
+ * As fotos (anexos de imagem) vêm como miniaturas do próprio Trello (previews), em data URL — o navegador não abre
+ * o anexo direto (o Trello exige login). Capa primeiro. "Usar como capa" troca a capa do card na hora. */
+function vdf_fotosDoCard_(token, shortLink) {
+  vdf_usuario_(token);
+  var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
+  var c = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard,idAttachmentCover', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,url,previews,date,bytes' } });
+  if (c.idBoard !== board.id) throw new Error('Este card não é do quadro do formulário.');
+  var fotos = (c.attachments || []).filter(function (a) {
+    return a.isUpload && (/^image\//i.test(a.mimeType || '') || /\.(jpe?g|png|webp|gif)$/i.test(a.name || ''));
+  });
+  fotos.sort(function (a, b) { return (b.id === c.idAttachmentCover) - (a.id === c.idAttachmentCover) || String(b.date || '').localeCompare(String(a.date || '')); });
+  return { card: c, fotos: fotos };
+}
+/* menor preview com pelo menos `min` px de largura (sem preview: o próprio arquivo, se for pequeno) */
+function vdf_urlPreview_(a, min) {
+  var ps = (a.previews || []).filter(function (p) { return p && p.url && p.width; }).sort(function (x, y) { return x.width - y.width; });
+  var p = ps.filter(function (x) { return x.width >= min; })[0] || ps[ps.length - 1];
+  if (p) return p.url;
+  return (a.bytes || 0) <= 400000 ? a.url : '';
+}
+function vdf_baixarFotos_(lista, min, pref) {
+  var cache = CacheService.getScriptCache(), out = {}, falta = [];
+  lista.forEach(function (a) {
+    var v = null; try { v = cache.get(pref + a.id); } catch (e) {}
+    if (v) out[a.id] = v; else falta.push(a);
+  });
+  var reqs = [], quem = [];
+  falta.forEach(function (a) { var u = vdf_urlPreview_(a, min); if (u) { reqs.push({ url: u, method: 'get', muteHttpExceptions: true, headers: { Authorization: vd_auth_() } }); quem.push(a); } });
+  if (reqs.length) {
+    var rs = qt_fetchAll_(reqs);
+    rs.forEach(function (r, i) {
+      if (r.getResponseCode() >= 300) return;
+      var b = r.getBlob(), tipo = b.getContentType() || 'image/jpeg';
+      if (!/^image\//i.test(tipo)) return;
+      var src = 'data:' + tipo + ';base64,' + Utilities.base64Encode(b.getBytes());
+      out[quem[i].id] = src;
+      if (src.length < 95000) { try { cache.put(pref + quem[i].id, src, 21600); } catch (e) {} }
+    });
+  }
+  return out;
+}
+/** Miniaturas para o carrossel: {capa, fotos:[{id, nome, data, capa, src}], total}. Até 12 fotos. */
+function vdf_fotosCard(token, shortLink) {
+  var x = vdf_fotosDoCard_(token, shortLink), lista = x.fotos.slice(0, 12);
+  var srcs = vdf_baixarFotos_(lista, 300, 'vdf_mini_');
+  return {
+    capa: x.card.idAttachmentCover || '', total: x.fotos.length,
+    fotos: lista.filter(function (a) { return srcs[a.id]; }).map(function (a) {
+      return { id: a.id, nome: a.name || '', data: a.date ? vd_dataCurta_(a.date) : '', capa: a.id === x.card.idAttachmentCover, src: srcs[a.id] };
+    })
+  };
+}
+/** Uma foto maior (para ver ampliada). */
+function vdf_fotoCard(token, shortLink, idAnexo) {
+  var x = vdf_fotosDoCard_(token, shortLink);
+  var a = x.fotos.filter(function (f) { return f.id === idAnexo; })[0];
+  if (!a) throw new Error('Essa foto não está mais no card.');
+  var srcs = vdf_baixarFotos_([a], 1000, 'vdf_foto_');
+  return { id: a.id, src: srcs[a.id] || '' };
+}
+/** Troca a capa do card por uma foto que já está nele. */
+function vdf_definirCapa(token, shortLink, idAnexo) {
+  var x = vdf_fotosDoCard_(token, shortLink);
+  if (!x.fotos.some(function (f) { return f.id === idAnexo; })) throw new Error('Essa foto não está mais no card.');
+  vd_api_('/cards/' + x.card.id, { method: 'put', payload: { idAttachmentCover: idAnexo } }, token);
+  return { ok: true, capa: idAnexo };
 }
 
 /* ---------- anexos que já estão no card (evita subir o mesmo orçamento de novo) ---------- */
