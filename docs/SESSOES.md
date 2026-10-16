@@ -12,6 +12,10 @@ da outra, deixar um recado aqui e no commit.
 | Leitura do principal pelo servidor | combinada | `tools/estatico_chamar.js` (cliente) × `servidor/src/index.ts` `/api?quadro=principal` | ver `docs/LEITURA-PELO-SERVIDOR.md` |
 
 ## Em andamento
+- 16/10 17h — **sessão "servidor"** (Weslley 16h59, print do ARW5715 no TESTE: "botão excluir tá aparecendo assim"): no formulário
+  2.0 (só `srv=1`), a linha de ações da peça da diretoria (Excluir, Comp., Não comprar, Obs., p/ particular) passava por cima do "?"
+  e do fim dos tipos. Agora a 2.0 mede cada peça (`acoesCabem`): se não cabe, aperta como no zoom de 125%; se ainda não cabe, os
+  botões descem para a linha de baixo. Nada muda na tela clássica do principal.
 - 16/10 15h30 — **sessão "servidor"** (Weslley 15h21: "verifica e se for caso pode fazer", placas com 2 cards abertos): **TAN7H81**
   — o card "TAN7H81 CRONOS BRANCO BRADESCO" (25/05, sem O.S. e sem peça) era do mesmo carro e sinistro do card da O.S. 878
   (Mourão): orçamento do Cilia de 02/06, NF FIPAL 180216 e fotos copiados para o da O.S. 878, comentário nos dois e o de 25/05

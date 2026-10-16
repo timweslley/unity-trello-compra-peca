@@ -4311,6 +4311,18 @@ iniciar();
     .v2pc :is(#v2etapas, #v2cEtapas) .et .n { border:1px solid CanvasText; }
     .v2pc :is(#v2etapas, #v2cEtapas) .et:not(:last-child)::after { forced-color-adjust:none; }
   }
+  /* 16/10/2026 (Weslley, print do ARW5715: "botão excluir tá aparecendo assim"): quando a linha de ações da peça não cabe ao lado
+     dos tipos (diretoria: Excluir, Comp., Não comprar, Obs. e p/ particular), quem decide é a medida no JS (acoesCabem):
+     1º aperta tipos e botões como no zoom de 125%; 2º, se ainda não cabe, os botões descem para a linha de baixo, alinhados à
+     coluna do valor. Antes o "Excluir" passava por cima do "?" e do fim dos tipos. */
+  html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acjusta .grade .chips { gap:3px !important; }
+  html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acjusta .grade .chips .chip,
+  html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acjusta .grade .chips .chip:has(input.f-tipo) { padding-left:7px !important; padding-right:7px !important; }
+  html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acjusta .grade .chips .chip.marcado:has(input.f-tipo)::before { display:none !important; }
+  html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acjusta > .item-topo { gap:4px !important; }
+  html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acjusta > .item-topo :is(.chip, button) { padding-left:7px !important; padding-right:7px !important; }
+  html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acjusta > .item-topo button.perigo { margin-right:0 !important; min-width:68px !important; padding-left:9px !important; padding-right:9px !important; }
+  html.v2pc .v2-pecas :is(#itens, #itensPart) > .item.v2-acbaixo > .item-topo { grid-row:3 !important; grid-column:2 / -1 !important; justify-content:flex-end !important; flex-wrap:wrap !important; }
 </style>
 <script>
 (function () {
@@ -4939,6 +4951,7 @@ iniciar();
     new MutationObserver(function (ms) {
       ms.forEach(function (m) { Array.prototype.forEach.call(m.addedNodes, function (n) { if (n.classList && n.classList.contains('item')) { prepararItem(n); if (!n.querySelector('.f-desc,.f-medida') || !(n.querySelector('.f-desc,.f-medida') || {}).value) abrirItem(n, true); } }); });
       $$('.item', cx).forEach(pintarResumo);
+      agendarAcoes();   // peça nova: decide a linha dos botões antes de aparecer (sem esperar a varredura de 1 s)
     }).observe(cx, { childList: true });
     $$('.item', cx).forEach(prepararItem);
   });
@@ -5626,6 +5639,45 @@ iniciar();
     $$('.v2pc-cab').forEach(function (c) { var bx = c.nextElementSibling; c.classList.toggle('v2-cab-vazio', !(bx && bx.querySelector(':scope > .item'))); });
     $$('.v2pc-cab span').forEach(function (sp) { if (/^Valor/.test(sp.textContent)) { var tv = 'Valor unit. (R$)'; if (sp.textContent !== tv) { sp.textContent = tv; sp.title = comOrc ? 'Valor unitário líquido do orçamento' : 'Valor unitário (opcional)'; } } });
   }
+  /* 16/10/2026 (Weslley, print do ARW5715: "botão excluir tá aparecendo assim"): na diretoria a linha de ações da peça tem 5 botões
+     (Excluir, Comp., Não comprar, Obs., p/ particular) e, presa à coluna do valor, passava por cima do "?" e do fim dos tipos.
+     Cada peça é medida: se os botões não cabem ao lado dos tipos, primeiro aperta (v2-acjusta, como no zoom de 125%); se ainda
+     não cabe, os botões descem para a linha de baixo (v2-acbaixo). A medida é sempre feita no desenho normal (sem as duas classes),
+     então não fica trocando sozinha; com o "Excluir?" armado não mexe (o 2º clique tem de cair no mesmo lugar). */
+  var AC_FOLGA = 12;
+  function acoesCabem(forcar) {
+    if (!PC || !visivel(form)) return;
+    itensDoPedido().forEach(function (it) {
+      if (it.offsetParent === null) return;
+      var tp = it.querySelector(':scope > .item-topo'), lin = it.querySelector(':scope > .grade > .inteiro:has(.f-tipo), :scope > .grade > .inteiro:has(.f-marca)');
+      if (!tp || !lin || tp.querySelector('.v2-armado')) return;
+      var bts = Array.prototype.filter.call(tp.children, function (b) { return b.offsetWidth > 2 && b.offsetHeight > 2; });
+      var ch = lin.querySelector('.chips'), fo = it.querySelector('.f-obs');
+      var chave = it.clientWidth + '|' + bts.map(function (b) { return b.className + '=' + b.textContent; }).join(',') + '|'
+        + (ch ? ch.children.length + (ch.classList.contains('v2-falta') ? 'f' : '') : '') + '|' + (fo && fo.value ? 1 : 0);
+      if (!forcar && it.dataset.v2ac === chave) return;   // nada mudou: não mede de novo
+      it.dataset.v2ac = chave;
+      var folga = function () {
+        var esq = Infinity, cima = Infinity, baixo = -Infinity, dir = -Infinity;
+        bts.forEach(function (b) { var r = b.getBoundingClientRect(); if (r.width > 0) { esq = Math.min(esq, r.left); cima = Math.min(cima, r.top); baixo = Math.max(baixo, r.bottom); } });
+        if (esq === Infinity) return Infinity;
+        Array.prototype.forEach.call(lin.querySelectorAll('.chips > *, input.f-marca'), function (e) {
+          var r = e.getBoundingClientRect(); if (r.width > 0 && r.bottom > cima + 2 && r.top < baixo - 2) dir = Math.max(dir, r.right);
+        });
+        if (ch && ch.classList.contains('v2-falta')) { var rc = ch.getBoundingClientRect(); if (rc.bottom > cima + 2 && rc.top < baixo - 2) dir = Math.max(dir, rc.right + 3); }   // contorno vermelho de "falta tipo"
+        return dir === -Infinity ? Infinity : esq - dir;   // tipos em outra linha (tela estreita): nada a fazer
+      };
+      it.classList.remove('v2-acjusta', 'v2-acbaixo');
+      if (folga() >= AC_FOLGA) return;
+      it.classList.add('v2-acjusta');
+      if (folga() >= AC_FOLGA) return;
+      it.classList.remove('v2-acjusta'); it.classList.add('v2-acbaixo');
+    });
+  }
+  var acPend = 0;
+  function agendarAcoes() { if (acPend) return; acPend = requestAnimationFrame(function () { acPend = 0; try { acoesCabem(); } catch (e) {} }); }
+  window.addEventListener('resize', agendarAcoes);
+  try { document.fonts.ready.then(function () { try { acoesCabem(true); } catch (e) {} }); } catch (e) {}   // a fonte da web muda as larguras
   /* trocar quem paga (Seguradora / Particular / Retorno) num card que já existe pede confirmação.
      14/10/2026 (QA/acessibilidade): pelo "change" (pega mouse, setas e Espaço — antes só o clique, e pelo teclado a confirmação era pulada) */
   var TIPO_NOME = { SEGURADORA: 'Seguradora', PARTICULAR: 'Particular (cliente paga)', RETORNO: 'Retorno (oficina paga)' }, tipoConfirmado = '', TIPO_ATUAL = null;
@@ -7241,6 +7293,7 @@ iniciar();
     try { acessivelToque(); } catch (e) {}
     try { marcasPecas(); nomesUnidade(); acessivelPC(); } catch (e) {}
     try { if (PC && visivel(form)) erroNaPeca(faltasDoForm()); estadoSalvar(); } catch (e) {}
+    try { acoesCabem(); } catch (e) {}
     try { atualizarLado(); } catch (e) {}
     try { atualizarCompPC(); } catch (e) {}
     try { if (PC) barraDoc(); } catch (e) {}
