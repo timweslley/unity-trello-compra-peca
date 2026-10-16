@@ -11,7 +11,8 @@
  *
  * O que este módulo faz, para cada versão autorizada/supervisão baixada (uma vez por versão):
  *  1) acha o card aberto da placa (título começa com a placa; card de RETORNO, AVISO e o card fixo ficam de fora; mais de um
- *     card = decide pelo nº do sinistro na descrição; sem como decidir = não anexa e registra);
+ *     card = decide pelo nº do sinistro na descrição e, depois, pela seguradora no fim do título (16/10/2026); sem como
+ *     decidir = não anexa, registra e tenta de novo por até 3 dias);
  *  2) anexa o PDF oficial ("Cilia - Orçamento <nº.versão> - <PLACA>.pdf") — sem repetir: não anexa se o card já tem esse
  *     nº de versão no nome de um anexo, nem se já tem orçamento anexado depois da autorização dessa versão (a rotina antiga);
  *  3) as peças do anexo vêm da API, não do OCR do PDF: ficam em CL_PEC_<anexo> e a leitura do anexo (vd_lerAnexoTrello_)
@@ -199,7 +200,8 @@ function cl_cards_(board) {
   return lista;
 }
 function cl_ehRetorno_(c) { return /\bRETORNO\b/i.test(c.name || '') || /\bRETORNO\b/.test(vd_semAcento_(String(c.desc || '').slice(0, 600))); }
-/** Card aberto da placa: {card} | {nenhum:true} | {varios:[nomes]}. Sinistro na descrição decide entre vários. */
+/** Card aberto da placa: {card} | {nenhum:true} | {varios:[nomes]}. Entre vários decide o sinistro na descrição e, depois,
+ *  a seguradora no fim do título — só quando um único card bate. */
 function cl_acharCard_(board, o) {
   var cands = cl_cards_(board).filter(function (c) {
     if (vdf_cardProtegido_(c.name) || cl_ehRetorno_(c)) return false;
@@ -212,6 +214,13 @@ function cl_acharCard_(board, o) {
   if (sin.length >= 5) {
     var porSin = cands.filter(function (c) { return String(c.desc || '').replace(/[.\-\/\s]/g, '').indexOf(sin) >= 0; });
     if (porSin.length === 1) return { card: porSin[0] };
+  }
+  // seguradora do orçamento no fim do título ("PLACA MODELO COR SEGURADORA"), como o robô monta o título (16/10/2026, AYK0H85:
+  // "… FIESTA PRATA PARTICULAR" e "… FIESTA CINZA BRADESCO" abertos e orçamento da Bradesco). A cor no meio do título não conta.
+  var seg = cl_seguradora_(o.seguradora || '');
+  if (seg) {
+    var porSeg = cands.filter(function (c) { return vdf_partesTitulo_(c.name || '', {}).seguradora === seg; });
+    if (porSeg.length === 1) return { card: porSeg[0] };
   }
   return { varios: cands.map(function (c) { return c.name; }) };
 }
@@ -289,6 +298,7 @@ function cl_executarBase_(B, board, opt, prazo) {
       (j.orcamentos[casa] || []).forEach(function (o) {
         if (!o || !o.dispara_compra || !o.pdf || !o.versao_baixada || !o.placa) return;
         var k = cl_chave_(casa, o);
+        if (feitos[k] === 'vários cards') delete feitos[k];   // marca de antes de 16/10/2026 (desistia na hora): mais uma chance
         if (feitos[k] || naFila[k]) return;
         // sinistro HDI na base do Cilia: o PDF e as peças que valem são os do portal HDI (laudo) — o do Cilia não vai para o card
         if (B.id === 'CILIA' && cl_seguradora_(o.seguradora) === 'HDI') {
@@ -327,10 +337,18 @@ function cl_executarBase_(B, board, opt, prazo) {
     var lin = function (card, acao, det) { log.push([agora, qRot, x.casa, o.placa, vRot(o), (o.conclusao || '') + (o.conclusao_detalhe && o.conclusao_detalhe.data ? ' ' + cl_dataBr_(o.conclusao_detalhe.data) : ''), card ? card.shortUrl || card.name : '', acao, det || '']); };
     try {
       var achou = cl_acharCard_(board, o);
-      if (achou.varios) { feitos[x.k] = 'vários cards'; lin(null, 'não anexei: mais de um card aberto da placa', achou.varios.join(' | ')); continue; }
+      var velho = (Date.now() - new Date((o.conclusao_detalhe && o.conclusao_detalhe.data) || o.status_data || o.criado_em || 0).getTime()) / 864e5 > CL.VELHO_DIAS;
+      var tentando = (Date.now() - new Date(x.desde).getTime()) / 864e5 <= CL.PEND_DIAS;
+      if (achou.varios) {
+        // nada decide entre os cards: tenta de novo por até CL.PEND_DIAS dias (a equipe pode arquivar o card que sobrou ou
+        // acertar o título) — até 16/10/2026 desistia na hora; versão antiga não fica esperando
+        if (!velho && tentando && !opt.teste) {
+          x.vc = (x.vc || 0) + 1; x.prox = Date.now() + CL.INTERVALO_MS; resto.push(x);
+          if (x.vc === 1) lin(null, 'não anexei: mais de um card aberto da placa — tento de novo nos próximos dias', achou.varios.join(' | '));
+        } else { feitos[x.k] = 'vários cards — desisti'; lin(null, 'não anexei: mais de um card aberto da placa', achou.varios.join(' | ')); }
+        continue;
+      }
       if (achou.nenhum) {
-        var velho = (Date.now() - new Date((o.conclusao_detalhe && o.conclusao_detalhe.data) || o.status_data || o.criado_em || 0).getTime()) / 864e5 > CL.VELHO_DIAS;
-        var tentando = (Date.now() - new Date(x.desde).getTime()) / 864e5 <= CL.PEND_DIAS;
         if (!velho && tentando && !opt.teste) { x.n++; x.prox = Date.now() + CL.INTERVALO_MS; resto.push(x); if (x.n === 1) lin(null, 'sem card aberto da placa: tento de novo nos próximos dias', ''); }
         else { feitos[x.k] = 'sem card'; lin(null, 'sem card aberto da placa', velho ? 'versão antiga' : 'desisti depois de ' + CL.PEND_DIAS + ' dias'); }
         continue;

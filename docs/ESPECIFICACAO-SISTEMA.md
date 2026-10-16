@@ -476,7 +476,10 @@ reconhecido como orçamento → "📄 Li o anexo «x» mas não reconheci um or�
 **Peças pela API oficial do Cilia (15/10/2026, `CiliaApi.gs` — LIGADO no principal com o OK do Weslley; `CL_LIGADO=NAO` desliga; testado antes no TESTE)**: a rodada
 diária da API (00h15, no PC do Weslley, `cilia/pc`) grava `CILIA-HOJE.json` e os PDFs oficiais na pasta `Rotina Unity/Orçamentos/Cilia` do Drive
 dele (compartilhada com sistema@). Para cada versão autorizada/supervisão baixada, o robô acha o card aberto da placa (RETORNO, AVISO e
-card fixo fora; vários cards → pelo nº do sinistro na descrição; sem como decidir → não anexa e registra) e anexa
+card fixo fora; vários cards → pelo nº do sinistro na descrição e, depois, pela seguradora no fim do título — só quando um
+único card bate, a cor no meio do título não conta (16/10/2026, AYK0H85: "… PARTICULAR" e "… BRADESCO" abertos); sem como decidir →
+não anexa, registra e tenta de novo a cada 15 min por até 3 dias, para a equipe arquivar o card que sobrou — versão antiga, de mais de
+20 dias, desiste na hora; até 16/10 desistia sempre na hora e essas marcas antigas ganham mais uma chance na próxima leitura) e anexa
 `Cilia - Orçamento <nº.versão> - <PLACA>.pdf`, sem repetir (nº da versão no nome de um anexo, ou orçamento anexado depois da autorização
 dessa versão). As peças do anexo são as da API (só **troca**; serviço e código interno 000000x como no PDF; `fornece` SEGURADORA = FO;
 valor unitário líquido) guardadas em `CL_PEC_<anexo>` e usadas por `vd_lerAnexoTrello_` — o OCR do PDF só completa chassi, cor e a

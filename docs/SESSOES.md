@@ -12,6 +12,11 @@ da outra, deixar um recado aqui e no commit.
 | Leitura do principal pelo servidor | combinada | `tools/estatico_chamar.js` (cliente) × `servidor/src/index.ts` `/api?quadro=principal` | ver `docs/LEITURA-PELO-SERVIDOR.md` |
 
 ## Em andamento
+- 16/10 15h20 — **sessão "servidor"** (OK do Weslley às 15h16 no plano do AYK0H85: "pode seguir"): `CiliaApi.gs` — com 2+ cards
+  abertos da placa, desempata pela seguradora no fim do título (só se um card bater) e, sem desempate, tenta de novo por até 3 dias
+  (antes desistia na hora; marcas antigas "vários cards" voltam para a fila na próxima leitura da base). No quadro: o card
+  "AYK0H85 FIESTA PRATA PARTICULAR" (aberto por engano em 13/10) foi unificado no da O.S. 1891 (checklist PAGAS PARTICULAR +
+  comentário) e arquivado; o robô anexa o PDF final da Bradesco (1964521.3) no card da O.S. 1891 na próxima leitura.
 - 16/10 12h — **recado da sessão "servidor" para a "principal"** (Weslley 11h16, NPG5429: "verifica se não era peças de
   complemento autorizado pelo orçamentista (antes da aut da seguradora) se for o robô precisa entender isso e não duplicar peça
   já comprada"): mexi no `Complemento.gs` — `cp_conhecidas_` passa a ler também o checklist **COMPLEMENTO** do jeito antigo
