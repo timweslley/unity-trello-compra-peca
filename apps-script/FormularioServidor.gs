@@ -1372,6 +1372,24 @@ function vdf_autorizar(token, p) {
       aguarda.push('peças particulares — ' + (donos.length ? donos.map(function (u) { return '@' + u; }).join(' ') : 'consultor'));
     }
   }
+  // 16/10/2026 (Weslley, NPG5429): peça ainda sem cotação (complemento novo em EM COTAÇÃO) segura o card — antes o "Enviar
+  // autorização" sem escolha nova fechava as autorizações antigas e levava o card para AUTORIZADO COMPRA com a peça sem cotar
+  // peça já no checklist PAGAS (compra antiga, sem linha de cotação na descrição) não conta como "sem cotação"
+  var semCotAgora = [];
+  try {
+    var nomesSem = vd_pecasSemCotacao_({ desc: novaDesc, name: card.name });
+    if (nomesSem.length) {
+      var pagasN = vdf_itensPagas_(vd_api_('/cards/' + card.id, { query: { fields: 'name', checklists: 'all', checkItem_fields: 'name' } }));
+      semCotAgora = an.pecas.filter(function (x) {
+        var k = vd_chavePeca_(x);
+        return nomesSem.indexOf(vd_nomePeca_(x)) >= 0 && !(k && pagasN.some(function (nm) { return nm.indexOf(k) >= 0; }));
+      }).map(vd_nomePeca_);
+    }
+  } catch (e) { semCotAgora = []; }
+  if (semCotAgora.length) {
+    if (fechar) return { ok: false, faltas: ['Ainda há peça aguardando cotação do comprador: ' + semCotAgora.join('; ') + '. O card fica em ' + vdf_nomeLista_(ctx, card.idList) + ' até a cotação chegar — depois autorize essa peça. (As peças já autorizadas/compradas continuam valendo.)'] };
+    aguarda.push('cotação do comprador: ' + semCotAgora.join('; '));
+  }
   var movido = '';
   try { ev_registrar_('AUTORIZAÇÃO', card, me.username, evAut, { detalhe: (fechar ? 'enviada (fecha as parciais)' : '') + (aguarda.length ? ' aguardando: ' + aguarda.join('; ') : '') }); } catch (e) {}
   if (!aguarda.length) { try { movido = vdf_moverPara_(card, ctx, VDF_LISTA_AUTORIZADO, token, me.username); } catch (e) {} }
