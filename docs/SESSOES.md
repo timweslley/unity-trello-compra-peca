@@ -12,6 +12,11 @@ da outra, deixar um recado aqui e no commit.
 | Leitura do principal pelo servidor | combinada | `tools/estatico_chamar.js` (cliente) × `servidor/src/index.ts` `/api?quadro=principal` | ver `docs/LEITURA-PELO-SERVIDOR.md` |
 
 ## Em andamento
+- 16/10 18h40 — **sessão "servidor"** (Weslley 17h21: "siga com alinhamento celular… usar gpt e gemini"): formulário 2.0 no
+  **celular** (só `srv=1`, TESTE) alinhado ao computador — barra de cima numa linha com menu ⋯, avisos e resumo em Detalhes,
+  tipo do pedido curto, placa só leitura na edição, leitura de anexo recolhida, abas numa faixa, rodapé numa linha, recebimento
+  que abre ao marcar Chegou (commits `f9ce077` e `97b6859`; avaliação do GPT e do Gemini em 2 rodadas). Proposta do sistema
+  próprio no Google (sem Trello) escrita pelo Fable e publicada como documento para o Weslley decidir — nada construído.
 - 16/10 17h — **sessão "servidor"** (Weslley 16h59, print do ARW5715 no TESTE: "botão excluir tá aparecendo assim"): no formulário
   2.0 (só `srv=1`), a linha de ações da peça da diretoria (Excluir, Comp., Não comprar, Obs., p/ particular) passava por cima do "?"
   e do fim dos tipos. Agora a 2.0 mede cada peça (`acoesCabem`): se não cabe, aperta como no zoom de 125%; se ainda não cabe, os
