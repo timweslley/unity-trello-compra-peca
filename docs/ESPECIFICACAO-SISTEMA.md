@@ -488,10 +488,19 @@ lê o orçamento no portal (HDI Prestador por fetch na aba logada; Websoma) e gr
 dentro da mesma pasta, vamos organizar melhor nossas pastas"), **no mesmo
 formato do `CILIA-HOJE.json`**: `HDI/HDI-HOJE.json` + `HDI/PDF/<casa>/<PLACA> - HDI - laudo <v>.pdf` (o tradutor `portais/pc/hdi-base.mjs`
 transforma o HTML salvo do portal em dados — casa pelo CNPJ do login, versão do laudo, status, peças "Fornecidas pela HDI" = FO e
-"pela Oficina", valor unitário líquido; laudo com as peças "em processo de cotação" na HDI não dispara) e, em preparação,
-`SOMA/SOMA-HOJE.json`. O `CiliaApi.gs` trata as três bases do mesmo jeito (`CL_BASES`: mesma fila, mesmas regras, mesmo registro na aba
+"pela Oficina", valor unitário líquido; laudo com as peças "em processo de cotação" na HDI não dispara) e
+`SOMA/SOMA-HOJE.json` + `SOMA/PDF/<casa>/<PLACA> - <Marca> - SOMA <nº.versão>.pdf` (16/10/2026: o tradutor `portais/pc/soma-base.mjs`
+lê o texto do "ORÇAMENTO DETALHADO" que a rotina guarda do iframe do Websoma — `Websoma_<PLACA>.txt`, um pedaço por linha — mais o
+`relatorio<nº>.pdf` do "Imprimir": sinistro, placa, casa pelo CNPJ da oficina, nº do orçamento e versão (`versao_baixada` =
+`<nº>.<versão>`, como no Cilia), status (`LIBERADO` dispara) com a data de "REPARO LIBERADO … Por: … - dd/mm/aaaa hh:mm", peças de
+"PEÇAS - TROCA (COMPRA PELA OFICINA)" = OFICINA e "LISTA DAS PEÇAS FORNECIDAS PELA SEGURADORA" = FO, cada uma com o unitário líquido
+(o 2º "Vlr" do relatório é o TOTAL líquido da linha: confere com unitário × qtd), código Ford compactado como o leitor do PDF faz
+(`JB3Z/8311/D`); "STATUS DE ENTREGA", "RECUPERAR", "MONTAGEM", serviços e resumo não são peça; rodapé de página no meio da lista é
+pulado; marca pelo texto — Azul e Itaú faturam pelo CNPJ da Porto (REY5B95: faturamento "PORTO SEGURO CIA…", "Fale com: ChatAzul",
+card "… AZUL"), o nome do faturamento fica em `seguradora_faturamento`; sem nome, telefone, endereço, e-mail ou regulador na base.
+Conferido com o relatório real de 16/10 — 3 peças da oficina e 7 FO, totais iguais aos do relatório). O `CiliaApi.gs` trata as três bases do mesmo jeito (`CL_BASES`: mesma fila, mesmas regras, mesmo registro na aba
 "CILIA API", com a versão "HDI laudo 1.0"); cada base liga sozinha — `CL_LIGADO` (Cilia), `CLH_LIGADO` (HDI), `CLS_LIGADO` (SOMA) — **HDI
-ligada no principal desde 15/10 17h57; SOMA desligada** até o tradutor do Websoma e o OK do Weslley. Anexo `HDI - Orçamento laudo <v> - <PLACA>.pdf`, sem repetir (o "…_laudo1.0.pdf"
+ligada no principal desde 15/10 17h57; SOMA desligada** até a base juntar alguns orçamentos reais e o OK do Weslley. Anexo `HDI - Orçamento laudo <v> - <PLACA>.pdf`, sem repetir (o "…_laudo1.0.pdf"
 anexado pela rotina conta), peças com origem HDI (vale a regra do laudo HDI no complemento). Base que ainda não existe ou pasta não
 compartilhada com sistema@: o robô procura de novo a cada 6 h, sem erro. Versão esperando o card nascer: nova tentativa a cada 15 min
 (antes era a cada ciclo de 1 min). Teste no TESTE (`CL.TESTE_V = '3'` e `'4'`, só HDI): rodou em 15/10 às 15h29 e 16h28 — PDF
