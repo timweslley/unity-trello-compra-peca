@@ -4542,6 +4542,13 @@ iniciar();
   /* selos legíveis e botões pequenos com área de toque */
   html.v2toque #comprador :is(.selo, .selo-eco, .v2-tag) { font-size:12px !important; }
   html.v2toque #comprador .item button { min-height:44px !important; }
+  /* 2ª rodada (GPT e Gemini): − e + com 48 px, peça com pendência para abaixo da barra, motivo só quando adia, barra que cresce com fonte grande */
+  html.v2toque .v2-qtd button { width:52px !important; min-width:48px !important; min-height:48px !important; }
+  html.v2toque :is(#itens, #itensPart) > .item { scroll-margin-top:72px; }
+  html.v2toque #fornItens .item:not(.v2-adiou) .grade > div:has(> .f-motivo) { display:none !important; }
+  html.v2toque #v2topo { height:auto !important; }
+  html.v2toque #v2topo .etapa { -webkit-line-clamp:3; }
+  html.v2toque #comprador .rodape > button.v2-curto { flex:0 1 auto; }
 </style>
 <script>
 (function () {
@@ -4628,7 +4635,7 @@ iniciar();
     var dicaEd = compTopo ? (dicaAba ? ' <span class="v2q" tabindex="0" data-dica="' + txt(dicaAba) + '"></span>' : '') : pedTopo && window.CARD_EDICAO ? ' <span class="v2q" tabindex="0" data-dica="' + txt(DICA_EDITAR) + '"></span>' : '';
     var etH = '<b>' + txt(etapa) + dicaEd + '</b>' + (pedTopo
       ? (lista ? '<span class="v2sit" title="' + txt(lista + (PROXIMO[lista] ? ' · ' + PROXIMO[lista] : '')) + '">' + txt(lista) + '</span>' + (PROXIMO[lista] ? '<span class="v2sit-p">' + txt(PROXIMO[lista]) + '</span>' : '') : '')
-      : txt(lista ? lista + (PROXIMO[lista] ? ' · ' + PROXIMO[lista] : '') : ''));
+      : txt(lista ? lista + (PROXIMO[lista] && PC ? ' · ' + PROXIMO[lista] : '') : ''));   // 16/10: no celular só a situação (o resto ia cortado)
     if (g('v2etapa').dataset.h !== etH) { g('v2etapa').innerHTML = etH; g('v2etapa').dataset.h = etH; }
     var temDet = (visivel(g('form')) && g('modoEdicao') && !g('modoEdicao').classList.contains('oculto')) || visivel(g('comprador'));
     g('v2det').style.display = temDet ? '' : 'none';
@@ -4750,6 +4757,8 @@ iniciar();
         errPasso.innerHTML = '<b>Falta acertar:</b><ul>' + falta.map(function (f) { return '<li>' + txt(f) + '</li>'; }).join('') + '</ul>';
         errPasso.classList.remove('oculto'); window.scrollTo(0, 0);
         if (passo === 1) itensDoPedido().forEach(function (it) { if (/falta/.test(resumoDe(it).falta)) abrirItem(it, true); });
+        // 16/10/2026 (Gemini): no celular, depois de listar o que falta, leva até a 1ª peça com pendência (a lista continua no topo)
+        if (!PC && passo === 1) { var p1 = itensDoPedido().filter(function (x) { return x.classList.contains('v2-pend') && x.offsetParent !== null; })[0]; if (p1) setTimeout(function () { p1.scrollIntoView({ block: 'start' }); var c1 = p1.querySelector('.v2-falta, .f-codigo, .f-desc'); if (c1 && c1.focus) try { c1.focus({ preventScroll: true }); } catch (x) {} }, 60); }
         return;
       }
       mostrarPasso(passo + 1);
@@ -5961,7 +5970,21 @@ iniciar();
     var abs = document.querySelector('#comprador > .abas'), am = abs && abs.querySelector('.aba.marcada');
     if (am && am.id !== CEL_ABA && abs.offsetParent !== null) { CEL_ABA = am.id; abs.scrollLeft = Math.max(0, am.offsetLeft - (abs.clientWidth - am.offsetWidth) / 2); }
     // 8. rodapé numa linha: "Salvar parcial" curto; "Devolver para cotação" sai do rodapé (vai para o fim da autorização)
-    ['btnCotParcial', 'btnAutParcial'].forEach(function (id) { var b = g(id); if (b && !b.disabled && b.textContent !== '💾 Parcial') { b.setAttribute('aria-label', 'Salvar parcial'); b.title = 'Salvar parcial'; b.textContent = '💾 Parcial'; b.classList.add('v2-curto'); } });
+    ['btnCotParcial', 'btnAutParcial'].forEach(function (id) { var b = g(id); if (b && !b.disabled && b.textContent !== 'Salvar parcial') { b.textContent = 'Salvar parcial'; b.classList.add('v2-curto'); } });
+    // 9. acessibilidade (Gemini): o cartão da peça fechada é um botão; tipo do pedido é um grupo de rádio; "Alterar placa"
+    $$('#itens > .item > .v2-resumo, #itensPart > .item > .v2-resumo').forEach(function (r) {
+      if (!r.getAttribute('role')) { r.setAttribute('role', 'button'); r.tabIndex = 0; r.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); r.click(); } }); }
+      var ab = r.parentNode.classList.contains('v2-fechada') ? 'false' : 'true'; if (r.getAttribute('aria-expanded') !== ab) r.setAttribute('aria-expanded', ab);
+    });
+    if (chT && chT.classList.contains('v2-tipocel') && !chT.getAttribute('role')) { chT.setAttribute('role', 'radiogroup'); chT.setAttribute('aria-label', 'Tipo do pedido'); if (g('v2tipoexp')) chT.setAttribute('aria-describedby', 'v2tipoexp'); }
+    var lb = document.querySelector('.v2-placaler button'); if (lb && !lb.getAttribute('aria-label')) lb.setAttribute('aria-label', 'Alterar placa');
+    // 10. fornecimento (GPT): "Motivo da nova previsão" só aparece quando a previsão fica para depois
+    $$('#fornItens .item').forEach(function (it) {
+      var fp = it.querySelector('.f-prev'), fm = it.querySelector('.f-motivo'); if (!fp || !fm) return;
+      var adiou = false; try { adiou = typeof fornAdiou === 'function' && !!fornAdiou(it, fp.value); } catch (x) {}
+      it.classList.toggle('v2-adiou', adiou || !!fm.value);
+      if (!fp.dataset.v2cel) { fp.dataset.v2cel = '1'; fp.addEventListener('input', function () { try { it.classList.toggle('v2-adiou', !!fornAdiou(it, fp.value) || !!fm.value); } catch (x) {} }); }
+    });
     var dv = g('btnDev'), rd = dv && dv.closest('.rodape');
     if (rd) { dv.classList.add('v2-devolver'); rd.parentNode.insertBefore(dv, rd); }
   }
