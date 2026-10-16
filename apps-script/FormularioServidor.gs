@@ -522,7 +522,7 @@ function vdf_definirCapa(token, shortLink, idAnexo) {
 function vdf_anexosDoCard_(attachments) {
   var props = PropertiesService.getScriptProperties();
   return (attachments || []).filter(vd_anexoLegivel_).map(function (a) {
-    return { id: a.id, nome: a.name, arquivo: a.fileName || a.name, bytes: a.bytes || 0, pdf: /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || ''), lido: !!props.getProperty('VD_ANX3_' + a.id), url: a.url || '' };
+    return { id: a.id, nome: a.name, arquivo: a.fileName || a.name, bytes: a.bytes || 0, pdf: /pdf/i.test(a.mimeType || '') || /\.pdf$/i.test(a.name || ''), lido: vd_anxTem_(a.id), url: a.url || '' };
   });
 }
 /** TODOS os anexos do card para abrir o original sem voltar ao Trello (06/10/2026): uploads de qualquer tipo e links,

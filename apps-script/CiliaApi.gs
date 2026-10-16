@@ -414,7 +414,7 @@ function cl_tratarVersao_(board, c, x, o, opt, B) {
   var a = { id: at.id, name: at.name || nome, mimeType: at.mimeType || 'application/pdf', isUpload: true, bytes: at.bytes, url: at.url, date: at.date || new Date().toISOString() };
   var res = cp_doAnexo_({ id: card.id, name: card.name }, a, ctx);
   // a leitura já guardou as peças da API no cache do anexo (VD_ANX3_): libera o espaço das propriedades
-  try { var pp = PropertiesService.getScriptProperties(); if (pp.getProperty('VD_ANX3_' + at.id)) pp.deleteProperty('CL_PEC_' + at.id); } catch (e) {}
+  try { var pp = PropertiesService.getScriptProperties(); if (vd_anxTem_(at.id)) pp.deleteProperty('CL_PEC_' + at.id); } catch (e) {}
   if (res === true) return { acao: 'anexei e importei o complemento', det: lista, anexou: true, card: card };
   if (res === 'erro') return { acao: 'anexei; leitura falhou (o ciclo tenta de novo)', det: lista, anexou: true, card: card };
   // nada novo: avisa que a versão chegou (PDF do Cilia em sinistro HDI e card de RETORNO o próprio cp_doAnexo_ já comentou)

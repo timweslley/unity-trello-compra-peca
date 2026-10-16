@@ -219,7 +219,7 @@ function ax_padronizarCard_(card, token) {
         if (ax_renomear_(card.id, a.id, nf, token)) { a.name = nf; n++; }
         return;
       }
-      var js = props.getProperty('VD_ANX3_' + a.id);
+      var js = vd_anxGet_(a.id);
       if (!js) return;   // nunca lido: não gasta OCR aqui
       var r; try { r = JSON.parse(js); } catch (e) { return; }
       if (!r || r.erro) return;
@@ -360,7 +360,7 @@ function ax_madrugada_(teste) {
       var anexos = (card.attachments || []).filter(function (a) {
         var nomeVelhoNf = String(a.name || '').indexOf(AX.NF) === 0;   // "📦 NF 123 · PLACA · …" (recebimento antigo) vira o padrão das rotinas
         return a.isUpload && ((!ax_padronizado_(a.name) && !ax_ehNota_(a.name)) || nomeVelhoNf) && vd_anexoLegivel_(a) && !/^image\//i.test(a.mimeType || '') &&
-          !props.getProperty('VD_ANX3_' + a.id);
+          !vd_anxTem_(a.id);
       }).sort(function (a, b) { return String(a.date || '').localeCompare(String(b.date || '')); });
       for (var i = 0; i < anexos.length && Date.now() - ini < limite && (teste || st.lidos < AX_MAD_MAX_LEITURAS); i++) {
         var a = anexos[i], r = vd_lerAnexoTrello_(a);

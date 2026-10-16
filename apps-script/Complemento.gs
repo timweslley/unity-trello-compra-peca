@@ -35,7 +35,7 @@ function cp_chaves_(p) {
 /** Orçamento guardado no cache de leitura de um anexo (sem ler de novo). */
 function cp_orcDoCache_(idAnexo) {
   try {
-    var v = PropertiesService.getScriptProperties().getProperty('VD_ANX3_' + idAnexo);
+    var v = vd_anxGet_(idAnexo);
     if (!v) return null;
     var r = JSON.parse(v);
     if (!r.orc) return null;

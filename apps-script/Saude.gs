@@ -156,6 +156,25 @@ function sd_limparPropriedades_() {
     var mi = k.match(SD_PREF_ITEM);
     if (mi && !itens[mi[1]]) { p.deleteProperty(k); n++; }
   });
+  // aba ANEXOS (cache de leitura, 16/10/2026): sai a leitura de anexo que não está mais em card aberto (e não é recente)
+  try {
+    var shA = vd_anxAba_(), nA = shA.getLastRow();
+    if (nA > 1) {
+      var rowsA = shA.getRange(2, 1, nA - 1, 3).getValues(), vistosA = {}, ficam = [];
+      for (var iA = rowsA.length - 1; iA >= 0; iA--) {   // de baixo para cima: fica a leitura mais nova de cada anexo
+        var idA = String(rowsA[iA][0] || '');
+        if (!idA || vistosA[idA]) continue;
+        vistosA[idA] = 1;
+        if (anexos[idA] || parseInt(idA.slice(0, 8), 16) >= recente) ficam.unshift(rowsA[iA]);
+      }
+      if (ficam.length < rowsA.length) {
+        shA.getRange(2, 1, nA - 1, 3).clearContent();
+        if (ficam.length) shA.getRange(2, 1, ficam.length, 3).setValues(ficam);
+        VD_ANXS.ROW = null;
+        n += rowsA.length - ficam.length;
+      }
+    }
+  } catch (e) { console.log('anexos/limpeza: ' + e); }
   if (n) console.log('propriedades: ' + n + ' de cards fechados/anexos antigos apagadas');
   return n;
 }

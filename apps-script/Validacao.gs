@@ -697,6 +697,78 @@ function vd_anexoLegivel_(a) {
     (/pdf|image\/(jpe?g|png|webp|gif)/i.test(a.mimeType || '') || /\.(pdf|jpe?g|png)$/i.test(a.name || ''));
 }
 
+/* ---------- cache de leitura de anexos na planilha (16/10/2026) ----------
+ * O cache VD_ANX3_<anexo> nas Propriedades do script chegou a 181 KB (316 anexos; limite total ~500 KB — passar derruba
+ * o núcleo). Agora fica na aba ANEXOS da planilha de controle (id do anexo · quando · leitura JSON), com a memória da
+ * execução e o CacheService na frente. As VD_ANX3_ antigas continuam sendo lidas e vão para a planilha aos poucos
+ * (vd_anxMigrar_, no ciclo). Limpeza: sd_limparPropriedades_ tira as linhas de anexo que não está mais em card aberto. */
+var VD_ANXS = { ABA: 'ANEXOS', SH: null, ROW: null, MAX: 45000 };
+function vd_anxAba_() {
+  if (VD_ANXS.SH) return VD_ANXS.SH;
+  var ss = vd_planilhaBackup_().getParent(), sh = ss.getSheetByName(VD_ANXS.ABA);
+  if (!sh) { sh = ss.insertSheet(VD_ANXS.ABA); sh.appendRow(['Anexo id', 'Quando', 'Leitura (JSON)']); sh.setFrozenRows(1); }
+  return (VD_ANXS.SH = sh);
+}
+/** id do anexo -> linha da aba ANEXOS (lido uma vez por execução). */
+function vd_anxIdx_() {
+  if (VD_ANXS.ROW) return VD_ANXS.ROW;
+  var idx = {};
+  try {
+    var sh = vd_anxAba_(), n = sh.getLastRow();
+    if (n > 1) sh.getRange(2, 1, n - 1, 1).getValues().forEach(function (r, i) { if (r[0]) idx[String(r[0])] = i + 2; });
+  } catch (e) { console.log('anexos/índice: ' + e); }
+  return (VD_ANXS.ROW = idx);
+}
+/** Leitura guardada de um anexo (texto JSON) ou null. */
+function vd_anxGet_(id) {
+  if (!id) return null;
+  var c = null, k = 'vd_anx_' + id;
+  try { c = CacheService.getScriptCache(); var v = c.get(k); if (v) return v; } catch (e) {}
+  var js = null, lin = vd_anxIdx_()[id];
+  // confere o id da linha (a limpeza diária reescreve a aba; o índice de outra execução pode estar velho)
+  if (lin) { try { var lv = vd_anxAba_().getRange(lin, 1, 1, 3).getValues()[0]; if (String(lv[0]) === id) js = String(lv[2] || '') || null; } catch (e) { console.log('anexos/ler: ' + e); } }
+  if (!js) { try { js = PropertiesService.getScriptProperties().getProperty('VD_ANX3_' + id); } catch (e) {} }
+  if (js && c) { try { if (js.length < 90000) c.put(k, js, 21600); } catch (e) {} }
+  return js;
+}
+/** O robô já leu este anexo? (sem abrir a leitura) */
+function vd_anxTem_(id) {
+  if (!id) return false;
+  if (vd_anxIdx_()[id]) return true;
+  try { return !!PropertiesService.getScriptProperties().getProperty('VD_ANX3_' + id); } catch (e) { return false; }
+}
+/** Guarda a leitura de um anexo (texto JSON) na aba ANEXOS; tira a VD_ANX3_ antiga, se houver. */
+function vd_anxSet_(id, js) {
+  var sh = vd_anxAba_(), idx = vd_anxIdx_(), lin = idx[id];
+  if (lin && String(sh.getRange(lin, 1).getValue()) !== id) lin = 0;   // índice velho: não sobrescreve outro anexo
+  if (lin) sh.getRange(lin, 2, 1, 2).setValues([[new Date(), js]]);
+  else { sh.appendRow([id, new Date(), js]); idx[id] = sh.getLastRow(); }
+  try { if (js.length < 90000) CacheService.getScriptCache().put('vd_anx_' + id, js, 21600); } catch (e) {}
+  try { var pp = PropertiesService.getScriptProperties(); if (pp.getProperty('VD_ANX3_' + id) !== null) pp.deleteProperty('VD_ANX3_' + id); } catch (e) {}
+}
+/** Ciclo: leva as VD_ANX3_ antigas (e apaga as VD_ANX_/VD_ANX2_ de versões velhas, que ninguém lê) para a planilha. */
+function vd_anxMigrar_() {
+  var p = PropertiesService.getScriptProperties(), all = p.getProperties(), ks = Object.keys(all);
+  var velhas = ks.filter(function (k) { return /^VD_ANX2?_[0-9a-f]{24}$/.test(k); });
+  velhas.slice(0, 100).forEach(function (k) { p.deleteProperty(k); });
+  var mig = ks.filter(function (k) { return /^VD_ANX3_[0-9a-f]{24}$/.test(k); }).slice(0, 80);
+  if (!mig.length) return velhas.length;
+  var sh = vd_anxAba_(), idx = vd_anxIdx_(), agora = new Date(), novas = [];
+  mig.forEach(function (k) {
+    var id = k.slice(8);
+    novas.push([id, agora, all[k]]);   // linha repetida não atrapalha: o índice fica com a última
+  });
+  if (novas.length) {
+    var ini = sh.getLastRow() + 1;
+    sh.getRange(ini, 1, novas.length, 3).setValues(novas);
+    novas.forEach(function (r, i) { idx[r[0]] = ini + i; });
+  }
+  SpreadsheetApp.flush();
+  mig.forEach(function (k) { p.deleteProperty(k); });
+  console.log('anexos → planilha: ' + mig.length + ' leitura(s)' + (velhas.length ? ' · ' + Math.min(velhas.length, 100) + ' cache(s) velho(s) apagado(s)' : ''));
+  return mig.length;
+}
+
 /**
  * Lê UM anexo do Trello com cache (VD_ANX3_<id>) — usado pelo robô e pelo formulário.
  * opt.orcCompleto: quer as peças do orçamento mesmo quando o cache não as guardou (orçamento grande).
@@ -709,9 +781,7 @@ var VD_LEITOR_V = 2;   // versão do leitor de orçamento (2 = 14/10/2026, códi
 var VD_ANX_V = 3;   // 3 (06/10/2026): o cache do orçamento passou a guardar o valor líquido de cada peça
 function vd_lerAnexoTrello_(a, opt) {
   opt = opt || {};
-  var props = PropertiesService.getScriptProperties();
-  var chave = 'VD_ANX3_' + a.id;
-  var cache = props.getProperty(chave);
+  var cache = vd_anxGet_(a.id);   // aba ANEXOS (16/10/2026; antes VD_ANX3_ nas propriedades)
   var r = null;
   if (cache) {
     r = JSON.parse(cache);
@@ -763,9 +833,9 @@ function vd_lerAnexoTrello_(a, opt) {
     }
     r.v = VD_ANX_V; r.rl = VD_LEITOR_V;
     var js = JSON.stringify(r);
-    if (js.length > 8500 && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
-    // cache cheio (limite de 500 KB das propriedades) não pode derrubar a leitura: segue sem guardar (10/10/2026)
-    try { props.setProperty(chave, js.length > 8500 ? JSON.stringify({ v: VD_ANX_V, chassis: r.chassis, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor, orcamento: r.orcamento, orcGrande: !!r.orcamento, seguradora: r.seguradora, cor: r.cor, sinistro: r.sinistro, doc: r.doc, docNome: r.docNome, nf: r.nf }) : js); }
+    if (js.length > VD_ANXS.MAX && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
+    // falha ao guardar (planilha fora do ar) não pode derrubar a leitura: segue sem guardar (10/10/2026)
+    try { vd_anxSet_(a.id, js.length > VD_ANXS.MAX ? JSON.stringify({ v: VD_ANX_V, chassis: r.chassis, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor, orcamento: r.orcamento, orcGrande: !!r.orcamento, seguradora: r.seguradora, cor: r.cor, sinistro: r.sinistro, doc: r.doc, docNome: r.docNome, nf: r.nf }) : js); }
     catch (e) { console.log('cache do anexo ' + a.name + ': ' + e); }
     if (orcFull) r.orcFull = orcFull;
   }
@@ -1914,6 +1984,7 @@ function validarDadosPedido() {
       cabe('complemento', cp_executar_);          // orçamento complementar anexado no card
       if (typeof cl_executar_ === 'function') cabe('cilia (API)', cl_executar_);   // PDF e peças das bases de orçamento: Cilia (API; CL_LIGADO), HDI (CLH_LIGADO) e SOMA (CLS_LIGADO) — CiliaApi.gs
       cabe('antigo de volta à cotação', mg_voltaExecutar_);
+      cabe('anexos → planilha', vd_anxMigrar_);   // tira o cache de leitura de anexos das propriedades (16/10/2026)
       cabe('observação da peça na vitrine', vd_obsVitrine_);   // uma vez só, aos poucos (15/10/2026)
       if (typeof mg_corrigirBDK2J49_ === 'function') sd_parte_('correção BDK2J49', mg_corrigirBDK2J49_);   // uma vez só (Migracao.gs)   // card antigo que volta para cotação vira fluxo novo (12/10/2026)
       if (new Date().getMinutes() % 5 === 0) cabe('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
