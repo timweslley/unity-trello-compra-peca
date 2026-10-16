@@ -140,5 +140,20 @@ function vdf_consumo(token) {
   var p = PropertiesService.getScriptProperties(), falhas = {}, tempos = [];
   try { Object.keys(p.getProperties()).forEach(function (k) { if (/^FALHAS_(?!AV_|T_)/.test(k)) falhas[k.slice(7)] = +p.getProperty(k); }); } catch (e) {}
   try { tempos = JSON.parse(p.getProperty('SD_TEMPOS_LOG') || '[]').slice(-8); } catch (e) {}
-  return { ok: true, hoje: qt_doDia_(0), ontem: qt_doDia_(1), anteontem: qt_doDia_(2), resumo: [qt_resumo_(0), qt_resumo_(1), qt_resumo_(2)], pausadaAte: ate ? new Date(ate).toISOString() : '', limite: QT.LIMITE, falhas: falhas, tempos: tempos };
+  // 16/10/2026: uso das Propriedades do script por prefixo (alerta da conferência diária passou de 380 KB)
+  var props = null;
+  try {
+    var all = p.getProperties(), tot = 0, por = {}, qtd = {}, maiores = [];
+    Object.keys(all).forEach(function (k) {
+      var t = k.length + String(all[k]).length; tot += t;
+      var pre = (k.match(/^[A-Z]+_(?:[A-Z0-9]+_)?/) || [k])[0];
+      por[pre] = (por[pre] || 0) + t; qtd[pre] = (qtd[pre] || 0) + 1;
+      maiores.push([k, t]);
+    });
+    maiores.sort(function (a, b) { return b[1] - a[1]; });
+    props = { kb: Math.round(tot / 1024), chaves: Object.keys(all).length,
+      prefixos: Object.keys(por).sort(function (a, b) { return por[b] - por[a]; }).slice(0, 20).map(function (k) { return k + ' ' + Math.round(por[k] / 1024) + ' KB (' + qtd[k] + ')'; }),
+      maiores: maiores.slice(0, 10).map(function (x) { return x[0] + ' ' + Math.round(x[1] / 1024) + ' KB'; }) };
+  } catch (e) {}
+  return { ok: true, hoje: qt_doDia_(0), ontem: qt_doDia_(1), anteontem: qt_doDia_(2), resumo: [qt_resumo_(0), qt_resumo_(1), qt_resumo_(2)], pausadaAte: ate ? new Date(ate).toISOString() : '', limite: QT.LIMITE, falhas: falhas, tempos: tempos, props: props };
 }
