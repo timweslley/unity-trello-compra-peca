@@ -12,6 +12,11 @@ da outra, deixar um recado aqui e no commit.
 | Leitura do principal pelo servidor | combinada | `tools/estatico_chamar.js` (cliente) × `servidor/src/index.ts` `/api?quadro=principal` | ver `docs/LEITURA-PELO-SERVIDOR.md` |
 
 ## Em andamento
+- 16/10 15h30 — **sessão "servidor"** (Weslley 15h21: "verifica e se for caso pode fazer", placas com 2 cards abertos): **TAN7H81**
+  — o card "TAN7H81 CRONOS BRANCO BRADESCO" (25/05, sem O.S. e sem peça) era do mesmo carro e sinistro do card da O.S. 878
+  (Mourão): orçamento do Cilia de 02/06, NF FIPAL 180216 e fotos copiados para o da O.S. 878, comentário nos dois e o de 25/05
+  arquivado (só quadro; nada no código). **TLH0A28** — não unifiquei: são duas ordens diferentes (O.S. 472, manutenção de maio, e
+  O.S. 1001, sinistro SURA de julho); o desempate pela seguradora do `CiliaApi.gs` põe o PDF do Cilia no card SURA.
 - 16/10 15h20 — **sessão "servidor"** (OK do Weslley às 15h16 no plano do AYK0H85: "pode seguir"): `CiliaApi.gs` — com 2+ cards
   abertos da placa, desempata pela seguradora no fim do título (só se um card bater) e, sem desempate, tenta de novo por até 3 dias
   (antes desistia na hora; marcas antigas "vários cards" voltam para a fila na próxima leitura da base). No quadro: o card
