@@ -4549,6 +4549,22 @@ iniciar();
   html.v2toque header.v2-cabvazio { position:absolute !important; width:1px !important; height:1px !important; overflow:hidden !important; clip:rect(0 0 0 0) !important; padding:0 !important; margin:-1px !important; border:0 !important; }
   html.v2toque #v2topo { flex-wrap:nowrap !important; gap:8px !important; padding:6px 8px 6px 12px !important; min-height:56px; }
   html.v2toque #v2topo .placa { font-size:18px !important; letter-spacing:1px !important; padding:1px 6px !important; line-height:26px !important; flex:0 0 auto; }
+  /* 17/10/2026: placa com cara de placa no celular (como no computador, em tamanho menor) */
+  html.v2toque #v2topo .placa.v2plcel { display:inline-flex; flex-direction:column; align-items:stretch; width:118px; height:42px; padding:0 !important; box-sizing:border-box;
+    border:2px solid #1c2a3a; border-radius:6px; overflow:hidden; background:#fff; line-height:1 !important; letter-spacing:0 !important; }
+  html.v2toque #v2topo .placa.v2plcel .pl-faixa { position:relative; display:flex; align-items:center; justify-content:center; height:11px; flex:0 0 11px; background:#003399; color:#fff; }
+  html.v2toque #v2topo .placa.v2plcel .pl-faixa b { font:700 7px/11px 'Roboto Condensed', 'Arial Narrow', Arial, sans-serif; letter-spacing:3px; }
+  html.v2toque #v2topo .placa.v2plcel .pl-br { position:absolute; left:4px; font:700 6px/11px Arial, sans-serif; }
+  html.v2toque #v2topo .placa.v2plcel .pl-band { position:absolute; right:4px; top:2px; width:10px; height:7px; background:#009c3b; border-radius:1px; }
+  html.v2toque #v2topo .placa.v2plcel .pl-band::before { content:''; position:absolute; inset:1px; background:#ffdf00; clip-path:polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+  html.v2toque #v2topo .placa.v2plcel .pl-band::after { content:''; position:absolute; left:3.5px; top:2px; width:3px; height:3px; border-radius:50%; background:#002776; }
+  html.v2toque #v2topo .placa.v2plcel .pl-vis { flex:1; display:flex; align-items:center; justify-content:center; font:700 22px/1 'Roboto Condensed', 'Arial Narrow', Arial, sans-serif;
+    color:#1c2a3a; letter-spacing:1px; white-space:nowrap; transform:scaleY(1.15); }
+  html.v2toque #v2topo .placa.v2plcel.pl-antiga { background:linear-gradient(#d3d6d9, #b9bdc2); border-color:#24292e; box-shadow:inset 0 0 0 1px #c9ccd0; }
+  html.v2toque #v2topo .placa.v2plcel.pl-antiga .pl-vis { color:#16191c; text-shadow:0 1px 0 #f2f3f4; letter-spacing:0; font-size:19px; }
+  html.v2toque #v2topo .placa.v2plcel.pl-py .pl-band { background:linear-gradient(#d52b1e 33%, #fff 33% 66%, #0038a8 66%); }
+  html.v2toque #v2topo .placa.v2plcel.pl-ar .pl-band { background:linear-gradient(#74acdf 33%, #fff 33% 66%, #74acdf 66%); }
+  html.v2toque #v2topo .placa.v2plcel.pl-py .pl-band::before, html.v2toque #v2topo .placa.v2plcel.pl-py .pl-band::after, html.v2toque #v2topo .placa.v2plcel.pl-ar .pl-band::before { display:none; }
   html.v2toque #v2topo .etapa { flex:1 1 auto !important; min-width:0 !important; font-size:12.5px !important; line-height:16px !important; overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; }
   html.v2toque #v2topo .etapa b { font-size:14px !important; line-height:18px; }
   html.v2toque #v2topo #v2menuBt { flex:0 0 44px; width:44px; min-width:44px; min-height:44px !important; height:44px; padding:0 !important; font-size:22px !important; line-height:1; background:#fff; border:1px solid #c7cdd6; border-radius:8px; color:#172b4d; }
@@ -4703,7 +4719,20 @@ iniciar();
     try { ordemTopo(); } catch (e) {}
     var c = window.CARD || null;
     var placa = (g('placa') && g('placa').value) || (c && c.dados && c.dados.placa) || ((c && c.nome) || '').split(' ')[0] || '';
-    g('v2placa').textContent = placa ? placa.toUpperCase() : 'NOVO';
+    // 17/10/2026 (Weslley, print do BEL8A69 no celular): no celular a placa também com cara de placa (Mercosul, cinza antiga, PY/AR)
+    if (PC || !placa) { if (g('v2placa').dataset.pl) { g('v2placa').className = 'placa'; delete g('v2placa').dataset.pl; } g('v2placa').textContent = placa ? placa.toUpperCase() : 'NOVO'; }
+    else {
+      var vP = String(placa).toUpperCase().replace(/[^A-Z0-9]/g, ''), mercP = /^[A-Z]{3}\d[A-Z]\d{2}$/.test(vP), antP = /^[A-Z]{3}\d{4}$/.test(vP);
+      var paisP = (c && c.dados && c.dados.pais) || (window.V2_PAIS && window.V2_PAIS_PLACA === vP ? window.V2_PAIS : '');
+      var NOMEP = { PY: 'PARAGUAY', AR: 'ARGENTINA' }, chP = vP + '|' + paisP;
+      if (g('v2placa').dataset.pl !== chP) {
+        var elP = g('v2placa'); elP.dataset.pl = chP;
+        elP.className = 'placa v2plcel ' + (antP ? 'pl-antiga' : 'pl-merc' + (NOMEP[paisP] ? ' pl-' + paisP.toLowerCase() : ''));
+        elP.innerHTML = antP ? '<span class="pl-vis">' + vP.slice(0, 3) + '-' + vP.slice(3) + '</span>'
+          : '<span class="pl-faixa"><span class="pl-br">' + (NOMEP[paisP] ? paisP : 'BR') + '</span><b>' + (NOMEP[paisP] || 'BRASIL') + '</b><span class="pl-band" aria-hidden="true"></span></span><span class="pl-vis">' + vP + '</span>';
+        elP.setAttribute('aria-label', 'Placa ' + vP);
+      }
+    }
     var lista = (c && c.lista) || '';
     var etapa = '';
     if (visivel(g('comprador'))) { var a = document.querySelector('.aba.marcada .rotulo'); etapa = a ? a.textContent : ''; }
