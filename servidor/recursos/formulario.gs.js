@@ -4676,11 +4676,17 @@ function pv_lerStatusCilia_(texto, lista) {
   var comum = function (arr, campo) { var s = {}, melhor = '', n = 0; arr.forEach(function (x) { s[x[campo]] = (s[x[campo]] || 0) + 1; if (s[x[campo]] > n) { n = s[x[campo]]; melhor = x[campo]; } }); return n >= 2 && n >= arr.length * 0.6 ? melhor : (arr.length === 1 ? melhor : ''); };
   var fornUnico = comum(forns, 'nome'), prevUnica = comum(prevs, 'data');
   var out = {};
+  // 16/10/2026 (ZZT9B01): quando quase todas as peças trazem fornecedor no próprio bloco, a que não traz fornecedor NEM
+  // previsão no bloco ainda está em cotação — não herda o fornecedor/previsão das outras
+  var blocoDe = function (k) { var ini = pecas[k].i, fim = k + 1 < pecas.length ? pecas[k + 1].i : linhas.length; return function (x) { return x.i > ini && x.i < fim; }; };
+  var comFornNoBloco = pecas.filter(function (p, k) { return p.forn || forns.some(blocoDe(k)); }).length;
+  var porBloco = pecas.length >= 3 && comFornNoBloco >= pecas.length * 0.6 && forns.length !== pecas.length;
   pecas.forEach(function (p, k) {
     var ini = p.i, fim = k + 1 < pecas.length ? pecas[k + 1].i : linhas.length;
     var noBloco = function (arr) { return arr.filter(function (x) { return x.i > ini && x.i < fim; })[0] || null; };
-    var forn = p.forn || (noBloco(forns) || {}).nome || (forns.length === pecas.length ? forns[k].nome : fornUnico) || '';
-    var prev = p.prev || (noBloco(prevs) || {}).data || (prevs.length === pecas.length ? prevs[k].data : prevUnica) || '';
+    var emCot = porBloco && !p.forn && !p.prev && !noBloco(forns) && !noBloco(prevs);
+    var forn = p.forn || (noBloco(forns) || {}).nome || (forns.length === pecas.length ? forns[k].nome : emCot ? '' : fornUnico) || '';
+    var prev = p.prev || (noBloco(prevs) || {}).data || (prevs.length === pecas.length ? prevs[k].data : emCot ? '' : prevUnica) || '';
     var ent = noBloco(entregas) || (entregas.length === pecas.length ? entregas[k] : null);
     var d = prev ? pv_datas_(prev) : [];
     var dEnt = ent && ent.data ? pv_datas_(/\/\d{2,4}$/.test(ent.data) ? ent.data : ent.data.replace(/\/?$/, '/' + new Date().getFullYear())) : [];
@@ -4693,7 +4699,7 @@ function pv_lerStatusCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:488
+// Previsao.gs:494
 function pv_lerPareceresCilia_(texto) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   var reCab = /FLUXO:\s*\d+\s*\|.*?DATA DE CRIACAO:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/g;
@@ -4749,7 +4755,7 @@ function pv_lerPareceresCilia_(texto) {
   return out;
 }
 
-// Previsao.gs:544
+// Previsao.gs:550
 function pv_ultimaAtualizacaoCilia_(texto) {
   var m = vd_semAcento_(String(texto || '')).match(/ULTIMA ATUALIZACAO\s*\(?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/);
   if (!m) return null;
@@ -4758,7 +4764,7 @@ function pv_ultimaAtualizacaoCilia_(texto) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Previsao.gs:556
+// Previsao.gs:562
 function pv_aplicarPareceres_(achados, texto, alvos) {
   var pareceres = pv_lerPareceresCilia_(texto);
   if (!pareceres.length) return 0;
@@ -4801,7 +4807,7 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
   return n;
 }
 
-// Previsao.gs:609
+// Previsao.gs:615
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
@@ -4888,7 +4894,7 @@ function pv_lerHdiPecas_(texto, lista) {
   return pecas.length ? pecas : null;
 }
 
-// Previsao.gs:695
+// Previsao.gs:701
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
@@ -4981,7 +4987,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:788
+// Previsao.gs:794
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
@@ -4992,7 +4998,7 @@ function pv_enriquecerFo_(texto, fo) {
   return n;
 }
 
-// Previsao.gs:802
+// Previsao.gs:808
 function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   var me = vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state,due' } });
@@ -5006,7 +5012,7 @@ function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   return out;
 }
 
-// Previsao.gs:817
+// Previsao.gs:823
 function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
@@ -5030,7 +5036,7 @@ function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   return out;
 }
 
-// Previsao.gs:841
+// Previsao.gs:847
 function pv_docFornecimento_(texto) {
   var nt = vd_normTexto_(texto);
   if (/STATUS DO PEDIDO|PREVISAO DE ENTREGA|STATUS DAS PECAS/.test(nt)) return 'Status do Pedido Cilia';
@@ -5038,7 +5044,7 @@ function pv_docFornecimento_(texto) {
   return '';
 }
 
-// Previsao.gs:849
+// Previsao.gs:855
 function pv_lerFornecimentoTexto_(card, texto) {
   var itensFo = [];
   (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(i); }); });

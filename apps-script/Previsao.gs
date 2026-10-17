@@ -455,11 +455,17 @@ function pv_lerStatusCilia_(texto, lista) {
   var comum = function (arr, campo) { var s = {}, melhor = '', n = 0; arr.forEach(function (x) { s[x[campo]] = (s[x[campo]] || 0) + 1; if (s[x[campo]] > n) { n = s[x[campo]]; melhor = x[campo]; } }); return n >= 2 && n >= arr.length * 0.6 ? melhor : (arr.length === 1 ? melhor : ''); };
   var fornUnico = comum(forns, 'nome'), prevUnica = comum(prevs, 'data');
   var out = {};
+  // 16/10/2026 (ZZT9B01): quando quase todas as peças trazem fornecedor no próprio bloco, a que não traz fornecedor NEM
+  // previsão no bloco ainda está em cotação — não herda o fornecedor/previsão das outras
+  var blocoDe = function (k) { var ini = pecas[k].i, fim = k + 1 < pecas.length ? pecas[k + 1].i : linhas.length; return function (x) { return x.i > ini && x.i < fim; }; };
+  var comFornNoBloco = pecas.filter(function (p, k) { return p.forn || forns.some(blocoDe(k)); }).length;
+  var porBloco = pecas.length >= 3 && comFornNoBloco >= pecas.length * 0.6 && forns.length !== pecas.length;
   pecas.forEach(function (p, k) {
     var ini = p.i, fim = k + 1 < pecas.length ? pecas[k + 1].i : linhas.length;
     var noBloco = function (arr) { return arr.filter(function (x) { return x.i > ini && x.i < fim; })[0] || null; };
-    var forn = p.forn || (noBloco(forns) || {}).nome || (forns.length === pecas.length ? forns[k].nome : fornUnico) || '';
-    var prev = p.prev || (noBloco(prevs) || {}).data || (prevs.length === pecas.length ? prevs[k].data : prevUnica) || '';
+    var emCot = porBloco && !p.forn && !p.prev && !noBloco(forns) && !noBloco(prevs);
+    var forn = p.forn || (noBloco(forns) || {}).nome || (forns.length === pecas.length ? forns[k].nome : emCot ? '' : fornUnico) || '';
+    var prev = p.prev || (noBloco(prevs) || {}).data || (prevs.length === pecas.length ? prevs[k].data : emCot ? '' : prevUnica) || '';
     var ent = noBloco(entregas) || (entregas.length === pecas.length ? entregas[k] : null);
     var d = prev ? pv_datas_(prev) : [];
     var dEnt = ent && ent.data ? pv_datas_(/\/\d{2,4}$/.test(ent.data) ? ent.data : ent.data.replace(/\/?$/, '/' + new Date().getFullYear())) : [];
