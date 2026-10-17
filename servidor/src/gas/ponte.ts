@@ -226,6 +226,8 @@ async function abaDoPrincipal(nome: string, ex: Execucao | null): Promise<unknow
 }
 
 async function buscar(p: Pedido, ctx: Contexto) {
+  // 17/10/2026 — robô no servidor em OBSERVAR: nenhuma gravação sai; cada uma fica anotada (o que ele faria) e volta uma resposta falsa
+  if (ctx.observar && p.metodo !== 'GET' && /api\.trello\.com/.test(p.url)) return anotarEscrita(p, ctx);
   if (ctx.somenteLeitura && p.metodo !== 'GET') {
     return { status: 403, cab: { 'content-type': 'text/plain' }, corpo: new TextEncoder().encode('servidor: no quadro principal o servidor só lê') };
   }
@@ -370,6 +372,7 @@ async function abasReais(): Promise<string[]> {
 async function atenderRemoto(op: string, d: any, ctx: Contexto): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
   switch (op) {
     case 'cache.licenca': { const x = d as { k: string; v: string; seg: number }; ctx.licencas[x.k] = { v: x.v, seg: x.seg }; return null; }
+    case 'email': if (ctx.observar && ctx.atual) (ctx.atual.escritas ||= []).push({ m: 'EMAIL', c: String(d?.para || ''), b: String(d?.assunto || '').slice(0, 200) }); else if (!ctx.observar) console.warn('[robô] e-mail não enviado pelo servidor:', d?.assunto); return null;
     case 'props.gravar':
       for (const [k, v] of Object.entries(d as Record<string, string>)) { ctx.pend.set[k] = String(v); ctx.pend.del.delete(k); }
       return null;
@@ -452,6 +455,8 @@ async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   
 
 // ---------- registro das execuções (diagnóstico: o que demorou e onde) ----------
 export interface Execucao {
+  /** robô em OBSERVAR: as gravações que ele faria */
+  escritas?: Array<{ m: string; c: string; b: string }>;
   fn: string; rid?: string; quadro?: string; chegou: string; frio?: boolean; filaMs: number; ms?: number; ok?: boolean; erro?: string;
   /** por operação pedida pelo trabalhador: quantas vezes e quanto tempo (ms) */
   ops: Record<string, { n: number; ms: number }>;
@@ -542,7 +547,7 @@ class Contexto {
   tam: Record<string, number> = {};
   bufAbas: Record<string, { fixas: Record<string, unknown[]>; novas: Record<string, unknown[]> }> = {};
   licencas: Record<string, { v: string; seg: number }> = {};
-  constructor(readonly nome: 'teste' | 'principal' | 'retrato' | 'principalGrava' | 'testeRemoto', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false, readonly remoto = false) {}
+  constructor(readonly nome: 'teste' | 'principal' | 'retrato' | 'principalGrava' | 'testeRemoto' | 'robo', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false, readonly remoto = false, public observar = false) {}
 
   private fixas(): Record<string, string> {
     return {
@@ -608,7 +613,8 @@ class Contexto {
         const id = ++this.seq;
         let r: unknown;
         try { r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg, ...extra }); }); }
-        finally { if (this.remoto) { await this.gravarAbas(ex); await this.enviarLicencas(ex); this.devolverProps(ex); if (this.quadro === QUADRO_PRINCIPAL_SL) marcarGravacaoPrincipal(); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
+        finally { if (this.remoto && this.observar) { ex.ops['observar'] = { n: Object.keys(this.pend.set).length + this.pend.del.size, ms: Object.keys(this.bufAbas).length }; this.bufAbas = {}; this.licencas = {}; }
+          else if (this.remoto) { await this.gravarAbas(ex); await this.enviarLicencas(ex); this.devolverProps(ex); if (this.quadro === QUADRO_PRINCIPAL_SL) marcarGravacaoPrincipal(); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
         return r;
@@ -710,6 +716,38 @@ const PRINCIPAL = new Contexto('principal', true, QUADRO_PRINCIPAL_SL, true);
 /** Retrato dos pedidos do TESTE no banco (versão 2.0, passo 1): lê o card como o formulário lê, sem gravar nada. */
 const RETRATO = new Contexto('retrato', true, CFG.trello.quadro);
 /** 17/10/2026 — gravações do principal pelo servidor (propriedades e planilha reais do robô do Google). */
+/** 17/10/2026 — o robô inteiro (ciclo de 1 min e rotinas diárias) no servidor, no quadro principal. Começa em OBSERVAR. */
+const ROBO = new Contexto('robo', false, QUADRO_PRINCIPAL_SL, true, true, true);
+const obsRobo: Array<Record<string, unknown>> = [];
+let roboRodando = false, roboUltimo = 0;
+/** Roda uma função do robô no servidor (gatilho do agendador). Uma por vez; no máximo 1 a cada 40 s. */
+export async function rodarRobo(fn: string): Promise<Record<string, unknown>> {
+  if (!/^(validarDadosPedido|verificarAlteracoesDescricao|rotinaDiaria|relatorioDiario|sd_diario|es_sincronizar|axPadronizarQuadro)$/.test(fn)) return { ok: false, erro: 'função não permitida' };
+  if (roboRodando) return { ok: false, erro: 'já rodando' };
+  if (fn === 'validarDadosPedido' && Date.now() - roboUltimo < 40_000) return { ok: false, erro: 'rodou há menos de 40 s' };
+  roboRodando = true; if (fn === 'validarDadosPedido') roboUltimo = Date.now();
+  const t0 = Date.now();
+  let erro = '';
+  try { await ROBO.chamar(fn, []); } catch (e) { erro = (e as Error).message.slice(0, 300); }
+  finally { roboRodando = false; }
+  const ex = execucoes.filter((e) => e.quadro === 'robo').pop();
+  const reg = { em: new Date(t0).toISOString(), fn, ms: Date.now() - t0, modo: ROBO.observar ? 'OBSERVAR' : 'ATIVO', erro: erro || undefined,
+    escritas: ex?.escritas || [], props: ex?.ops?.observar?.n, abas: ex?.ops?.observar?.ms, rede: ex?.rede };
+  obsRobo.push(reg); if (obsRobo.length > 120) obsRobo.shift();
+  if ((reg.escritas as unknown[]).length) consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`,
+    ['robo_obs_' + t0, JSON.stringify(reg)]).catch(() => null);
+  return { ok: !erro, ...reg };
+}
+export function observacoesRobo(): unknown[] { return obsRobo.slice(-60).reverse(); }
+function anotarEscrita(p: Pedido, ctx: Contexto): Resposta {
+  let c = p.url; try { c = new URL(p.url).pathname.replace(/^\/1/, ''); } catch { /* */ }
+  const b = p.corpo.tipo === 'texto' ? p.corpo.texto : p.corpo.tipo === 'multipart' ? '[arquivo]' : '';
+  if (ctx.atual) (ctx.atual.escritas ||= []).push({ m: p.metodo, c, b: b.replace(/(key|token)=[^&]+/gi, '$1=…').slice(0, 300) });
+  const id = 'obs' + Math.random().toString(16).slice(2, 14).padEnd(21, '0');
+  const corpo = /\/checklists$/.test(c) ? { id, name: '', checkItems: [] } : { id };
+  return { status: 200, cab: { 'content-type': 'application/json' }, corpo: new TextEncoder().encode(JSON.stringify(corpo)) };
+}
+
 const PRINCIPAL_GRAVA = new Contexto('principalGrava', false, QUADRO_PRINCIPAL_SL, true, true);
 /** O mesmo modo no TESTE, para conferir antes de ligar no principal (?quadro=testeremoto). */
 const TESTE_REMOTO = new Contexto('testeRemoto', false, CFG.trello.quadro, true, true);

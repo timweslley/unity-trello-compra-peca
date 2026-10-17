@@ -53,6 +53,66 @@ var CL_BASES = [
   { id: 'SOMA', rot: 'SOMA', arquivo: 'SOMA-HOJE.json', pasta: 'SOMA', pref: 'CLS_', padrao: 'NAO', org: 'WEBSOMA', fonte: 'pelo Websoma' }
 ];
 
+// CiliaApi.gs:64
+var CL_MEM = { pastas: {}, cards: null, json: {}, arq: {}, ctx: null };
+
+// Código.gs:12
+var BOARD_ID = 'oH4TbTqb';
+
+// Código.gs:13
+var JANELA_MINUTOS = 60;
+
+// Código.gs:14
+var MAX_LINHAS = 12;
+
+// Código.gs:15
+var MAX_CHARS_LINHA = 160;
+
+// Código.gs:16
+var AGRUPAR_MINUTOS = 10;
+
+// Código.gs:18
+var ATRASO_SEGUNDOS = 180;
+
+// Código.gs:61
+var LOG_ATE_MS = 0;
+
+// Código.gs:306
+var LISTAS_PARADO = ['PENDÊNCIA DE FATURAMENTO', 'PENDÊNCIA TRATADA - FATURAR'];
+
+// Código.gs:307
+var DIAS_PARADO = 7;
+
+// Código.gs:308
+var LISTA_ENTREGUES = 'ENTREGUES';
+
+// Código.gs:309
+var DIAS_ENTREGUES = 5;
+
+// Código.gs:310
+var LISTA_FALTA_CHEGAR = 'FALTA CHEGAR';
+
+// Código.gs:311
+var LISTA_ENCERRADO = 'ENCERRADO COMPRAS/FORNEC.';
+
+// Código.gs:312
+var DIAS_ENCERRADO = 15;
+
+// Código.gs:313
+var LBL_PARADO = 'PARADO';
+
+// Código.gs:314
+var LBL_CONFERIR = 'CONFERIR FATURAMENTO';
+
+// Código.gs:315
+var MENCAO = '@financeirounity @christianfarias23';
+
+// Código.gs:470
+var EMAIL_ALERTA = 'weslley.santos@unitycs.com.br';
+
+// Código.gs:471
+var LIMITE_FALHAS = 2;
+
 // Complemento.gs:16
 var CP = {
   FO: 'FORNECIMENTO COMPLEMENTO',
@@ -72,6 +132,43 @@ var CP_EIXO = { D: 1, E: 1, F: 2, T: 2, S: 3, I: 3 };
 
 // Complemento.gs:127
 var CP_NAO_PECA = /\b(REFATURAMENTO|REFATURAR|REEMBOLSO|RESSARCIMENTO|ESTORNO|DIFERENCA DE VALOR|COMPLEMENTO DE VALOR|AJUSTE DE VALOR)\b/;
+
+// Corretivo.gs:12
+var CR = {
+  CHAVE: 'CR_20261011',
+  DIA: '2026-10-11',
+  // ordem de execução; cada card registra quando terminou (CR_20261011_OK) — continua no ciclo seguinte se o tempo acabar
+  CARDS: [
+    { sl: 'Tz8Yl1Ct', placa: 'FOB8723', coluna: 'AUTORIZADO COMPRA',
+      motivo: 'a linha «I REFATURAMENTO VALOR DA LANTERNA TRAS DIR» do laudo HDI é ajuste de valor (refaturamento), não peça — saiu da lista' },
+    { sl: 'cfPMK7s6', placa: 'BBV0H58', coluna: 'PENDENTE AUTORIZAR', retorno: true,
+      motivo: 'card de RETORNO: o PDF do Cilia trouxe as peças do sinistro todo, que já foram compradas no card original — desfeito o complemento e o checklist FORNECIMENTO COMPLEMENTO' },
+    { sl: 'PikLFvQH', placa: 'BAT9F19', coluna: 'PENDENTE AUTORIZAR', retorno: true,
+      motivo: 'card de RETORNO: o PDF do Cilia trouxe as peças do sinistro todo, que já foram compradas no card original — desfeito o complemento e o checklist FORNECIMENTO COMPLEMENTO' },
+    { sl: 's4KyKU83', placa: 'BXZ4J84', hdi: true,
+      // laudo HDI / portal HDI (fornecimento) de 11/10: 4 FO da CAR HOUSE (prev. 15/10) + 4 FO novas da própria HDI; da oficina só o aditivo
+      foVolta: [
+        { codigo: '5382602250', descricao: 'ACABAMENTO DO PARALAMA DIANT ESQ' },
+        { codigo: '4806902360', descricao: 'BRACO OSCILANTE DIANT ESQ' },
+        { codigo: '5380202320', descricao: 'PARALAMA DIANT ESQ' },
+        { codigo: '8954312110', descricao: 'SENSOR DO ABS DA RODA DIANT ESQ' }
+      ],
+      foVoltaFornecedor: 'CAR HOUSE', foVoltaPrev: '2026-10-15T15:00:00.000Z',
+      foNova: [
+        { codigo: '8117002U90', descricao: 'FAROL ESQUERDO', fornecedor: 'HDI SEGUROS S/A' },
+        { codigo: '7585202911', descricao: 'MOLDURA PRIMER DA SOLEIRA ESQ', fornecedor: 'HDI SEGUROS S/A' },
+        { codigo: '52119F2931', descricao: 'PARACHOQUE DIANTEIRO SEM FURO PARA SENSOR', fornecedor: 'HDI SEGUROS S/A' },
+        { codigo: '887181E150', descricao: 'TRAVA DO TUBO COMPRESSOR', fornecedor: 'HDI SEGUROS S/A' }
+      ],
+      oficina: [{ codigo: '', descricao: 'ADITIVO DE RADIADOR', qtd: '4', valorOrc: 50 }],
+      motivo: 'sinistro HDI: o PDF do Cilia traz tudo como peça da oficina, mas quem diz o que a HDI fornece é o laudo/portal HDI' },
+    { sl: 'aX6Qgx1G', placa: 'SDX5I55', hdi: true,
+      oficina: [{ codigo: '', descricao: 'ADITIVO DO RADIADOR', qtd: '1', valorOrc: 40 }],
+      motivo: 'sinistro HDI: o PDF do Cilia (v4 de 08/10) traz tudo como peça da oficina, mas pelo laudo HDI 2.0 a HDI fornece FAROL ESQUERDO, GRADE DO PARACHOQUE DIANT, GRADE DO RADIADOR, PARACHOQUE DIANTEIRO, GUIA ESQ DO PARACHOQUE DIANT, MOLDURA DO FAROL DE MILHA ESQ e DEFLETOR DO RADIADOR',
+      extra: '📦 Pelo laudo HDI 2.0 (02/10) a HDI fornece 7 peças e o card não tem checklist FORNECIMENTO: verificar prazo do item 52138594 FAROL ESQUERDO, 100255820 GRADE DO PARACHOQUE DIANT, 100274271 GRADE DO RADIADOR, 100249454 PARACHOQUE DIANTEIRO, 52045820 GUIA ESQ DO PARACHOQUE DIANT, 100255433 MOLDURA DO FAROL DE MILHA ESQ, 52245037 DEFLETOR DO RADIADOR.\n' +
+        '🔎 O Cilia v4 (08/10) troca/inclui peças que ainda não estão em laudo HDI (52138593 FAROL ESQUERDO SEM LED, 100248119 GRADE DO PARACHOQUE PRETO ONIX, 100274160 FRISO INF ESQ DA GRADE): quando a HDI emitir o laudo do complemento, anexar o PDF da HDI no card.' }
+  ]
+};
 
 // Cota.gs:14
 var QT = { LIMITE: 100000, ALERTA: 60000, PAUSA_MS: 10 * 60000, AVISO_MS: 12 * 3600 * 1000, GUARDAR_DIAS: 7 };
@@ -107,6 +204,12 @@ var EV = {
         'Fornecedor', 'Valor', 'Prazo (dias úteis)', 'Previsão', 'Usuário', 'Detalhe', 'Quadro']
 };
 
+// Faturamento.gs:17
+var FAT = { LISTAS: ['ENCERRADO COMPRAS/FORNEC.', 'ENTREGUES', 'PENDÊNCIA DE FATURAMENTO', 'PENDÊNCIA TRATADA - FATURAR'], MARCA: '🧾' };
+
+// Faturamento.gs:35
+var FAT_CONF = 'FATURAD[OA]S?', FAT_NEG = '(?:NAO|FALTA|FALTAM|PENDENTE|AGUARDANDO|AGUARDA|SEM|NUNCA)';
+
 // Fluxo.gs:14
 var ST = {
   TRAVADAS: {
@@ -120,6 +223,9 @@ var ST = {
   PREFIXO_OK: 'st_ok_',
   LIMITE_MS: 30 * 1000
 };
+
+// Fluxo.gs:135
+var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, REPETIR_FATURAR_DU: 5, LIMITE_MS: 40 * 1000, RESUMO_MAX: 120 };
 
 // FormularioServidor.gs:26
 var VDF_API = ['vdf_servidorProps', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
@@ -269,6 +375,19 @@ var FO_SEMENTE = [
   ["ZACARIAS TOLEDO", "ZACARIAS – TOLEDO", "38", "79.138.608/0008-03", "ZACARIAS VEICULOS"]
 ];
 
+// Migracao.gs:105
+var MG_FORN = null;
+
+// Migracao.gs:349
+var MG_VOLTA = {
+  COTACAO: ['FALTA DADOS PARA COTAR', 'EM COTAÇÃO'],
+  INICIAL: ['Ubqjp2V0'],   // BDK2J49 STRADA BRADESCO — voltou em 11/10 (complemento Bradesco, O.S. 2174)
+  MAX_TENTATIVAS: 3
+};
+
+// Migracao.gs:478
+var MG_FIX = { SL: 'Ubqjp2V0', TIRAR: ['100193183', '51766536', '51914848', '735371638', '100208180', '100208792', '185/60'] };
+
 // Orcamento.gs:9
 var VD_SEGURADORAS = [
   ['HDI', /\bHDI\b/], ['PORTO', /PORTO SEGURO/], ['AZUL', /\bAZUL\b/], ['ITAU', /\bITAU\b/],
@@ -281,6 +400,9 @@ var VD_SEGURADORAS = [
 
 // Orcamento.gs:27
 var VD_PALAVRAS_PECA = 'SENSOR|SILENCIOSO|PARACHOQUE|PARABARRO|PARALAMA|PARABRISA|FAROL|FAROLETE|LANTERNA|GRADE|MOLDURA|SUPORTE|EMBLEMA|FRISO|GUIA|PORTA|CAPO|TAMPA|ESPELHO|RETROVISOR|PAINEL|ABSORVEDOR|ALMA|REFORCO|BORRACHA|ACABAMENTO|APLIQUE|DEFLETOR|COBERTURA|CAPA|TRAVA|FECHADURA|MACANETA|VIDRO|RADIADOR|CONDENSADOR|ELETROVENTILADOR|PROTETOR|COXIM|BRACO|AMORTECEDOR|BANDEJA|PNEU|RODA|CALOTA|LONGARINA|COLUNA|SOLEIRA|CAIXA|TUBO|MANGUEIRA|RESERVATORIO|PALHETA|BOCAL|TRILHO|DOBRADICA|BATENTE|PARAFUSO|PORCA|GRAMPO|ETIQUETA|ADESIVO|SPOILER|ESTRIBO|CHICOTE|LAMPADA|INTERCOOLER|VIGA|TRAVESSA|ESTRUTURA|LATERAL|CARCACA|ALOJAMENTO|FORRO|REVESTIMENTO|BAGAGEIRO|ANTENA|BUZINA|MODULO|CENTRAL|CONJUNTO|JOGO|KIT|CJ';
+
+// Painel.gs:8
+var PN = { ABA: 'PAINEL', DIAS: 30, AZUL: '#0c66e4', CINZA: '#f1f2f4' };
 
 // Previsao.gs:10
 var PV = { EM_COTACAO: 'EM COTAÇÃO, AINDA SEM PRAZO', BO: 'B.O. NO PORTAL' };
@@ -300,6 +422,18 @@ var RC_RE_MARCA = /\s*·\s*(📍|✋|↩️?)\s*([^·]*?)\s*(?=\s*·\s*(?:📍|�
 // Saude.gs:12
 var SD = { EMAIL: 'weslley.santos@unitycs.com.br', FALHAS: 5, REPETE_MS: 6 * 3600 * 1000, BACKUPS: 8, PASTA: 'Backups' };
 
+// Saude.gs:14
+var SD_TEMPOS = [];
+
+// Saude.gs:133
+var SD_PREF_CARD = /^(?:VD_PK2_|VD_AT_|VD_SIG_|VD_NOVAS_|VD_DESC_AV_|PZ_AT_|PZ_COL_|PZ_SEMPREV_|PZ_FOAV_|ST_ESP_|FO_REV_)([0-9a-f]{24})$|^SLA_([0-9a-f]{24})_/;
+
+// Saude.gs:137
+var SD_PREF_ANEXO = /^VD_ANX3_([0-9a-f]{24})$/, SD_PREF_ITEM = /^SLA_I_([0-9a-f]{24})_\d{4}-\d{2}-\d{2}/;
+
+// Saude.gs:139
+var SD_PREF_LEGADO_USA = /^(?:SLA_|PZ_COL_)/;
+
 // Seguranca.gs:9
 var SG = { LOCK_MS: 25000 };
 
@@ -311,6 +445,15 @@ var SG_CHAVE = '';
 
 // Teste.gs:431
 var TST_RE_PLACA = /\bZZT\d[A-Z0-9]\d\d\b/;
+
+// TravaChecklist.gs:9
+var CK = {
+  TIPOS: 'createCheckItem,updateCheckItem,updateCheckItemStateOnCard,deleteCheckItem,addChecklistToCard,removeChecklistFromCard,updateChecklist',
+  ANTES_MS: 15 * 1000,     // ação até 15 s depois da licença...
+  DEPOIS_MS: 120 * 1000,   // ...ou até 2 min antes dela = oficial (licença gravada antes e depois da escrita)
+  ABA: 'CHECKLISTS',
+  ESPERA_MS: 90 * 1000     // 17/10/2026: ação mais nova que isso espera o próximo ciclo (licença do servidor a caminho)
+};
 
 // Treino.gs:10
 var TRN = {
@@ -354,6 +497,9 @@ var VD_V2_PRINCIPAL = true;
 
 // Validacao.gs:81
 var VD_SEM_MENCOES = false;
+
+// Validacao.gs:167
+var VD_ACOES = null;
 
 // Validacao.gs:259
 var VD_ROT = {
@@ -412,8 +558,35 @@ var VD_LINK = {
   RX_COMPRA: /Cota[çc][ãa]o \/ Compra|COTA[ÇC][ÃA]O\/COMPRA/i
 };
 
+// Validacao.gs:2124
+var PZ = {
+  LISTAS_FORA: ['ESPERA/NÃO AUTORIZADO'],   // estacionamento: não ganha prazo
+  /* 07/10/2026 (Weslley): card nessas colunas está concluído — o prazo fica marcado como concluído; se o card volta, desmarca */
+  /* 08/10/2026 (Weslley): as colunas de pendência pós-entrega (ordem de serviço/comercial e fiscal) também contam como concluídas */
+  LISTAS_CONCLUIDAS: ['ENCERRADO COMPRAS/FORNEC.', 'ENTREGUES', 'PENDÊNCIA DE FATURAMENTO', 'PENDÊNCIA TRATADA - FATURAR', 'PENDÊNCIA ORDEM DE SERVIÇO/COMERCIAL', 'PENDENCIA FISCAL'],
+  DIAS_SEM_PREVISAO: 2,   // card sem previsão de peça: prazo = entrada na coluna + N dias úteis
+  LBL_ATRASADO: 'ATRASADO',
+  COR_ATRASADO: 'orange',
+  LIMITE_MS: 40 * 1000
+};
+
+// Validacao.gs:2292
+var REL = {
+  EMAILS: 'weslley.santos@unitycs.com.br,christian.farias@unitycs.com.br',
+  DIAS_FALTA_DADOS: 1,
+  DIAS_PAGAS: 10,
+  DIAS_ENTREGUES: 5,
+  LISTA_FALTA: 'FALTA DADOS PARA COTAR',
+  LISTA_ENTREGUES: 'ENTREGUES',
+  LISTAS_ENCERRADAS: ['ENTREGUES', 'ENCERRADO COMPRAS/FORNEC.', 'ESPERA/NÃO AUTORIZADO'],
+  UNIDADES: [['TOLEDO', /\bTOL\b|TOLEDO/i], ['MARECHAL RONDON', /\bMCR\b|RONDON/i], ['CASCAVEL', /\bCVEL\b|CASCAVEL/i], ['CAMPO MOURÃO', /\bCMO?\b|MOUR/i]]
+};
+
 // Validacao.gs:2424
 var VD_CMP_MEM = null;
+
+// Anexos.gs:18
+function ax_semLeituraRobo_(nome) { return ax_ehNota_(nome) || /^((📦 NF( \d+)?|🛒 COMPRA) · |📸 )/.test(String(nome || '')); }
 
 // Anexos.gs:22
 function ax_ehNota_(nome) { return /^(📦 NF( \d+)? · |NF(S-e|-e|e)?\s*(\d+\s*)?[-–](?!\S)|NF(S-e|-e|e)? (FORNECIMENTO|ML\b|\d+|[A-Z0-9][^·]*? - \d+ - \d{2}-\d{2}))/i.test(String(nome || '')); }
@@ -594,6 +767,26 @@ function ax_padronizarCard_(card, token) {
     });
     return n;
   } catch (e) { console.log('ax_padronizarCard_: ' + e); return 0; }
+}
+
+// Anexos.gs:235
+function axPadronizarQuadro() {
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('AX_PASSO')) return;   // nada agendado
+  var cards = vd_api_('/boards/' + vd_board_() + '/cards', { query: { fields: 'name,shortLink', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } }) || [];
+  var pos = +(String(props.getProperty('AX_PASSO')).split('|')[0] || 0), feitos = +(String(props.getProperty('AX_PASSO')).split('|')[1] || 0);
+  var ini = Date.now();
+  for (; pos < cards.length && Date.now() - ini < 4.5 * 60 * 1000; pos++) {
+    try { feitos += ax_padronizarCard_(cards[pos], null); } catch (e) {}
+  }
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'axPadronizarQuadro') ScriptApp.deleteTrigger(t); });
+  if (pos >= cards.length) {
+    props.deleteProperty('AX_PASSO');
+    console.log('padronização dos anexos concluída: ' + feitos + ' anexo(s) em ' + cards.length + ' card(s)');
+  } else {
+    props.setProperty('AX_PASSO', pos + '|' + feitos);
+    ScriptApp.newTrigger('axPadronizarQuadro').timeBased().after(2 * 60 * 1000).create();
+  }
 }
 
 // Anexos.gs:255
@@ -929,6 +1122,116 @@ function cl_ligado_() { return vd_prop_('CL_LIGADO', CL.LIGADO_PADRAO) === 'SIM'
 // CiliaApi.gs:68
 function cl_ligadoBase_(B) { B = typeof B === 'string' ? cl_base_(B) : (B || CL_BASES[0]); return vd_prop_(B.pref + 'LIGADO', B.padrao) === 'SIM'; }
 
+// CiliaApi.gs:70
+function cl_chave_(casa, o) { return casa + '|' + o.budget_id + '|' + (o.chave_versao || o.versao_baixada || o.numero_versao || ''); }
+
+// CiliaApi.gs:72
+function cl_rotVersao_(B, nv) { return B.id === 'HDI' ? 'laudo ' + nv : String(nv); }
+
+// CiliaApi.gs:73
+function cl_nomeAnexo_(B, nv, placa) {
+  if (B.id === 'HDI') return 'HDI - Orçamento laudo ' + nv + ' - ' + placa + '.pdf';
+  if (B.id === 'SOMA') return 'SOMA - Orçamento ' + nv + ' - ' + placa + '.pdf';
+  return 'Cilia - Orçamento ' + nv + ' - ' + placa + '.pdf';
+}
+
+// CiliaApi.gs:79
+function cl_ehEstaVersao_(B, nv, nome) {
+  var e = String(nv).replace(/\./g, '\\.');
+  if (B.id === 'HDI') return new RegExp('laudo\\s*_?' + e + '(?![0-9])', 'i').test(nome);
+  var re = new RegExp('(^|[^0-9.])' + e + '($|[^0-9])');
+  return B.id === 'SOMA' ? /SOMA/i.test(nome) && re.test(nome) : re.test(nome);
+}
+
+// CiliaApi.gs:85
+function cl_quadroRot_(board) { return board === CL.QUADRO_TESTE ? 'TESTE' : 'principal'; }
+
+// CiliaApi.gs:90
+function cl_arquivo_(B, forcar) {
+  B = B || CL_BASES[0];
+  if (CL_MEM.arq[B.id]) return CL_MEM.arq[B.id];
+  var props = PropertiesService.getScriptProperties(), id = props.getProperty(B.pref + 'ARQ_ID');
+  if (id) { try { var f0 = DriveApp.getFileById(id); if (!f0.isTrashed()) return (CL_MEM.arq[B.id] = f0); } catch (e) {} }
+  if (!B.obrigatoria && !forcar) { var sem = +(props.getProperty(B.pref + 'SEM_ARQ') || 0); if (sem && Date.now() - sem < 6 * 3600 * 1000) return null; }
+  var it = DriveApp.searchFiles('title = "' + B.arquivo + '" and trashed = false'), melhor = null;
+  while (it.hasNext()) {
+    var f = it.next(), pais = f.getParents(), naPasta = false;
+    while (pais.hasNext()) { if (pais.next().getName() === B.pasta) naPasta = true; }
+    if (!naPasta) continue;
+    if (!melhor || f.getLastUpdated().getTime() > melhor.getLastUpdated().getTime()) melhor = f;
+  }
+  if (!melhor) {
+    if (!B.obrigatoria) { props.setProperty(B.pref + 'SEM_ARQ', String(Date.now())); return null; }
+    throw new Error('não achei ' + B.arquivo + ' na pasta "' + B.pasta + '" (compartilhada com a conta do robô?)');
+  }
+  props.deleteProperty(B.pref + 'SEM_ARQ');
+  props.setProperty(B.pref + 'ARQ_ID', melhor.getId());
+  return (CL_MEM.arq[B.id] = melhor);
+}
+
+// CiliaApi.gs:111
+function cl_json_(B) {
+  B = B || CL_BASES[0];
+  if (CL_MEM.json[B.id]) return CL_MEM.json[B.id];
+  return (CL_MEM.json[B.id] = JSON.parse(cl_arquivo_(B).getBlob().getDataAsString('UTF-8')));
+}
+
+// CiliaApi.gs:117
+function cl_pdf_(B, caminho) {
+  B = B || CL_BASES[0];
+  var partes = String(caminho || '').split('/').filter(String), nome = partes.pop();
+  if (!nome) return null;
+  var pasta = cl_arquivo_(B).getParents().next(), rota = B.id;
+  for (var i = 0; i < partes.length; i++) {
+    rota += '/' + partes[i];
+    if (!CL_MEM.pastas[rota]) { var it = pasta.getFoldersByName(partes[i]); if (!it.hasNext()) return null; CL_MEM.pastas[rota] = it.next(); }
+    pasta = CL_MEM.pastas[rota];
+  }
+  var fs = pasta.getFilesByName(nome);
+  return fs.hasNext() ? fs.next() : null;
+}
+
+// CiliaApi.gs:134
+function cl_pecasParaOrc_(pecas) {
+  var r = { oficina: [], fo: [] };
+  (pecas || []).forEach(function (p) {
+    if (!p || p.troca !== true) return;
+    var codigo = String(p.codigo || '').replace(/\s+/g, '').toUpperCase();
+    var desc = vd_limparDescricao_(vd_normTexto_(p.nome || '').trim());
+    if (!desc || vd_ehServico_(desc)) return;
+    if (vd_codigoInterno_(codigo)) codigo = '';
+    var pneu = vd_pneuDaDescricao_(desc);
+    var item = pneu ? pneu : { pneu: false, codigo: codigo, descricao: desc, tipos: [] };
+    var q = Number(p.qtd);
+    item.qtd = String(q > 0 ? q : 1);
+    item.dica = '';
+    item.descricaoOrc = desc;
+    item.codigoOrc = codigo;
+    var v = Number(p.valor_unit);
+    if (v > 0) item.valorOrc = Math.round(v * 100) / 100;
+    (p.fornece === 'SEGURADORA' ? r.fo : r.oficina).push(item);
+  });
+  return r;
+}
+
+// CiliaApi.gs:156
+function cl_seguradora_(nome) {
+  var U = vd_normTexto_(nome);
+  for (var s = 0; s < VD_SEGURADORAS.length; s++) { if (new RegExp('\\b' + VD_SEGURADORAS[s][0] + '\\b').test(U) || VD_SEGURADORAS[s][1].test(U)) return VD_SEGURADORAS[s][0]; }
+  return '';
+}
+
+// CiliaApi.gs:163
+function cl_guardarPecas_(idAnexo, o, B) {
+  B = B || CL_BASES[0];
+  var orc = cl_pecasParaOrc_(o.pecas);
+  var js = JSON.stringify({ v: 1, nv: cl_rotVersao_(B, o.versao_baixada || o.numero_versao || ''), org: B.org, placa: o.placa || '', seg: cl_seguradora_(o.seguradora), si: o.sinistro || '',
+    o: vd_orcCompacto_(orc.oficina), f: vd_orcCompacto_(orc.fo), em: Date.now() });
+  if (js.length > 8500) return false;   // orçamento enorme: fica a leitura do PDF (OCR), como antes
+  PropertiesService.getScriptProperties().setProperty('CL_PEC_' + idAnexo, js);
+  return true;
+}
+
 // CiliaApi.gs:172
 function cl_pecasDoAnexo_(idAnexo) {
   try { var v = PropertiesService.getScriptProperties().getProperty('CL_PEC_' + idAnexo); return v ? JSON.parse(v) : null; } catch (e) { return null; }
@@ -951,6 +1254,695 @@ function cl_juntarApi_(orc, api, r) {
     if (!r.placasRot.some(function (p) { return vd_mesmaPlaca_(p, api.placa); })) r.placasRot.unshift(api.placa);
   }
   return novo;
+}
+
+// CiliaApi.gs:196
+function cl_cards_(board) {
+  if (CL_MEM.cards && CL_MEM.cards.board === board) return CL_MEM.cards.lista;
+  var lista = vd_api_('/boards/' + board + '/cards/open', { query: { fields: 'name,idList,shortLink,shortUrl,desc' } }) || [];
+  CL_MEM.cards = { board: board, lista: lista };
+  return lista;
+}
+
+// CiliaApi.gs:202
+function cl_ehRetorno_(c) { return /\bRETORNO\b/i.test(c.name || '') || /\bRETORNO\b/.test(vd_semAcento_(String(c.desc || '').slice(0, 600))); }
+
+// CiliaApi.gs:205
+function cl_acharCard_(board, o) {
+  var cands = cl_cards_(board).filter(function (c) {
+    if (vdf_cardProtegido_(c.name) || cl_ehRetorno_(c)) return false;
+    var p = ax_placa_(c);
+    return p && vd_mesmaPlaca_(p, o.placa);
+  });
+  if (!cands.length) return { nenhum: true };
+  if (cands.length === 1) return { card: cands[0] };
+  var sin = String(o.sinistro || '').replace(/\D/g, '');
+  if (sin.length >= 5) {
+    var porSin = cands.filter(function (c) { return String(c.desc || '').replace(/[.\-\/\s]/g, '').indexOf(sin) >= 0; });
+    if (porSin.length === 1) return { card: porSin[0] };
+  }
+  // seguradora do orçamento no fim do título ("PLACA MODELO COR SEGURADORA"), como o robô monta o título (16/10/2026, AYK0H85:
+  // "… FIESTA PRATA PARTICULAR" e "… FIESTA CINZA BRADESCO" abertos e orçamento da Bradesco). A cor no meio do título não conta.
+  var seg = cl_seguradora_(o.seguradora || '');
+  if (seg) {
+    var porSeg = cands.filter(function (c) { return vdf_partesTitulo_(c.name || '', {}).seguradora === seg; });
+    if (porSeg.length === 1) return { card: porSeg[0] };
+  }
+  return { varios: cands.map(function (c) { return c.name; }) };
+}
+
+// CiliaApi.gs:229
+function cl_log_(linhas) {
+  if (!linhas.length) return;
+  try {
+    var ss = SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('VD_PLANILHA_BACKUP') || vd_planilhaBackup_().getParent().getId());
+    var sh = ss.getSheetByName(CL.ABA_LOG);
+    if (!sh) { sh = ss.insertSheet(CL.ABA_LOG); sh.appendRow(['Quando', 'Quadro', 'Casa', 'Placa', 'Versão', 'Conclusão', 'Card', 'O que o robô fez', 'Detalhe']); sh.setFrozenRows(1); }
+    sh.getRange(sh.getLastRow() + 1, 1, linhas.length, linhas[0].length).setValues(linhas);
+  } catch (e) { console.log('cilia/log: ' + e); }
+}
+
+// CiliaApi.gs:238
+function cl_dataBr_(iso) { var d = new Date(iso || ''); return isNaN(d.getTime()) ? '' : Utilities.formatDate(d, 'America/Sao_Paulo', 'dd/MM'); }
+
+// CiliaApi.gs:246
+function cl_executar_(opt) {
+  opt = opt || {};
+  var board = opt.quadro || vd_board_();
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var prazo = vd_prazo_(opt.teste ? 4 * 60 * 1000 : 90 * 1000, 15 * 1000);
+  var n = 0, erroCilia = null;
+  CL_BASES.forEach(function (B) {
+    if (opt.bases && opt.bases.indexOf(B.id) < 0) return;
+    if (!opt.teste && !cl_ligadoBase_(B)) return;
+    if (Date.now() > prazo) return;
+    try { n += cl_executarBase_(B, board, opt, prazo); }
+    catch (e) {
+      if (B.obrigatoria) { erroCilia = e; return; }
+      // base do portal com erro: registra no máximo 1× a cada 6 h (o ciclo roda a cada minuto)
+      var props = PropertiesService.getScriptProperties(), msg = String(e.message || e).slice(0, 200), ant = (props.getProperty(B.pref + 'ERRO') || '').split('|');
+      if (ant[1] !== msg || Date.now() - (+ant[0] || 0) > 6 * 3600 * 1000) {
+        props.setProperty(B.pref + 'ERRO', Date.now() + '|' + msg);
+        cl_log_([[new Date(), cl_quadroRot_(board), '', '', '', '', '', 'erro na base ' + B.rot, msg]]);
+      }
+      console.log('base ' + B.id + ': ' + e);
+    }
+  });
+  if (erroCilia) throw erroCilia;
+  return n;
+}
+
+// CiliaApi.gs:272
+function cl_executarBase_(B, board, opt, prazo) {
+  var props = PropertiesService.getScriptProperties(), P = B.pref;
+  var kFila = P + 'FILA_' + board, kFeito = P + 'FEITO_' + board, kLido = P + 'LIDO_' + board, kDesde = P + 'DESDE_' + board;
+  var fila = []; try { fila = JSON.parse(props.getProperty(kFila) || '[]'); } catch (e) {}
+  var feitos = {}; try { feitos = JSON.parse(props.getProperty(kFeito) || '{}'); } catch (e) {}
+  var ult = +(props.getProperty(P + 'ULT_' + board) || 0);
+  // fila só com versões esperando o card nascer (tentam de novo a cada 15 min): não gasta chamada no ciclo de 1 em 1 minuto
+  var pronta = fila.some(function (x) { return !x.prox || Date.now() >= x.prox; });
+  if (!opt.teste && !pronta && Date.now() - ult < CL.INTERVALO_MS) return 0;
+  props.setProperty(P + 'ULT_' + board, String(Date.now()));
+  var arq = cl_arquivo_(B, !!opt.teste);
+  if (!arq) return 0;   // base do portal ainda não existe (ou pasta não compartilhada): nada a fazer
+  var log = [], agora = new Date(), n = 0, qRot = cl_quadroRot_(board);
+  var vRot = function (o) { return B.id === 'CILIA' ? o.versao_baixada : B.rot + ' ' + cl_rotVersao_(B, o.versao_baixada); };
+
+  // 1) arquivo novo (ou teste): entra na fila o que foi baixado depois do início (DESDE) e ainda não foi tratado
+  var atu = arq.getLastUpdated().toISOString();
+  if (opt.teste || props.getProperty(kLido) !== atu) {
+    var j = cl_json_(B);
+    var desde = props.getProperty(kDesde);
+    // 1ª leitura: Cilia vale a rodada do dia; base de portal (HDI, SOMA) vale daqui para frente — ao ligar, os laudos que já
+    // estavam na base (a rotina já anexou) não voltam para os cards (15/10/2026)
+    if (!desde) { desde = B.obrigatoria ? new Date(new Date(j.gerado_em).getTime() - 60 * 1000).toISOString() : agora.toISOString(); props.setProperty(kDesde, desde); }
+    var naFila = {}; fila.forEach(function (x) { naFila[x.k] = 1; });
+    var escolhidas = [];
+    Object.keys(j.orcamentos || {}).forEach(function (casa) {
+      (j.orcamentos[casa] || []).forEach(function (o) {
+        if (!o || !o.dispara_compra || !o.pdf || !o.versao_baixada || !o.placa) return;
+        var k = cl_chave_(casa, o);
+        if (feitos[k] === 'vários cards') delete feitos[k];   // marca de antes de 16/10/2026 (desistia na hora): mais uma chance
+        if (feitos[k] || naFila[k]) return;
+        // sinistro HDI na base do Cilia: o PDF e as peças que valem são os do portal HDI (laudo) — o do Cilia não vai para o card
+        if (B.id === 'CILIA' && cl_seguradora_(o.seguradora) === 'HDI') {
+          if (opt.teste || String(o.detalhe_em || '') >= desde) { feitos[k] = 'HDI'; log.push([agora, qRot, casa, o.placa, o.versao_baixada, o.conclusao || '', '', 'não anexei: sinistro HDI (vale o PDF do portal HDI)', '']); }
+          return;
+        }
+        if (!opt.teste && String(o.detalhe_em || '') < desde) return;
+        escolhidas.push({ k: k, casa: casa, id: o.budget_id, placa: o.placa, nv: o.versao_baixada, desde: agora.toISOString(), n: 0, data: o.detalhe_em || '' });
+      });
+    });
+    if (opt.teste) {   // teste: só placas que têm UM card aberto (não RETORNO) no quadro de teste, a versão mais recente de cada
+      var porPlaca = {};
+      escolhidas.forEach(function (x) { var a = porPlaca[x.placa]; if (!a || String(x.data) > String(a.data)) porPlaca[x.placa] = x; });
+      escolhidas = Object.keys(porPlaca).map(function (p) { return porPlaca[p]; })
+        .filter(function (x) { return !!cl_acharCard_(board, { placa: x.placa }).card; })
+        .sort(function (a, b) { return String(b.data).localeCompare(String(a.data)); })
+        .slice(0, CL.MAX_TESTE);
+    }
+    fila = fila.concat(escolhidas);
+    props.setProperty(kLido, atu);
+    if (!opt.teste) log.push([agora, qRot, '', '', '', '', '', 'li a base do ' + B.rot, 'rodada de ' + cl_dataBr_(j.gerado_em) + ' ' + Utilities.formatDate(new Date(j.gerado_em), 'America/Sao_Paulo', 'HH:mm') + ' · ' + escolhidas.length + ' versão(ões) nova(s) na fila']);
+  }
+  if (!fila.length) { props.setProperty(kFila, '[]'); cl_log_(log); props.setProperty(kFeito, JSON.stringify(feitos)); return 0; }
+
+  // 2) trata a fila (mais antigas primeiro), dentro do prazo do ciclo
+  var j2 = cl_json_(B), idx = {};
+  Object.keys(j2.orcamentos || {}).forEach(function (casa) { (j2.orcamentos[casa] || []).forEach(function (o) { if (o && o.budget_id) idx[casa + '|' + o.budget_id] = o; }); });
+  var resto = [], feitosAgora = 0;
+  for (var i = 0; i < fila.length; i++) {
+    var x = fila[i];
+    if (Date.now() > prazo || feitosAgora >= (opt.teste ? CL.MAX_TESTE : CL.MAX_POR_RODADA)) { resto.push(x); continue; }
+    if (!opt.teste && x.prox && Date.now() < x.prox) { resto.push(x); continue; }   // esperando o card: ainda não é hora
+    var o = idx[x.casa + '|' + x.id];
+    if (!o || cl_chave_(x.casa, o) !== x.k) { feitos[x.k] = 'versão substituída'; continue; }   // veio versão mais nova: ela entra sozinha
+    feitosAgora++;
+    var lin = function (card, acao, det) { log.push([agora, qRot, x.casa, o.placa, vRot(o), (o.conclusao || '') + (o.conclusao_detalhe && o.conclusao_detalhe.data ? ' ' + cl_dataBr_(o.conclusao_detalhe.data) : ''), card ? card.shortUrl || card.name : '', acao, det || '']); };
+    try {
+      var achou = cl_acharCard_(board, o);
+      var velho = (Date.now() - new Date((o.conclusao_detalhe && o.conclusao_detalhe.data) || o.status_data || o.criado_em || 0).getTime()) / 864e5 > CL.VELHO_DIAS;
+      var tentando = (Date.now() - new Date(x.desde).getTime()) / 864e5 <= CL.PEND_DIAS;
+      if (achou.varios) {
+        // nada decide entre os cards: tenta de novo por até CL.PEND_DIAS dias (a equipe pode arquivar o card que sobrou ou
+        // acertar o título) — até 16/10/2026 desistia na hora; versão antiga não fica esperando
+        if (!velho && tentando && !opt.teste) {
+          x.vc = (x.vc || 0) + 1; x.prox = Date.now() + CL.INTERVALO_MS; resto.push(x);
+          if (x.vc === 1) lin(null, 'não anexei: mais de um card aberto da placa — tento de novo nos próximos dias', achou.varios.join(' | '));
+        } else { feitos[x.k] = 'vários cards — desisti'; lin(null, 'não anexei: mais de um card aberto da placa', achou.varios.join(' | ')); }
+        continue;
+      }
+      if (achou.nenhum) {
+        if (!velho && tentando && !opt.teste) { x.n++; x.prox = Date.now() + CL.INTERVALO_MS; resto.push(x); if (x.n === 1) lin(null, 'sem card aberto da placa: tento de novo nos próximos dias', ''); }
+        else { feitos[x.k] = 'sem card'; lin(null, 'sem card aberto da placa', velho ? 'versão antiga' : 'desisti depois de ' + CL.PEND_DIAS + ' dias'); }
+        continue;
+      }
+      var r = cl_tratarVersao_(board, achou.card, x, o, opt, B);
+      feitos[x.k] = r.acao.slice(0, 40);
+      if (r.anexou) n++;
+      lin(r.card || achou.card, r.acao, r.det);
+    } catch (e) {
+      x.n++;
+      if (x.n < 3) resto.push(x); else feitos[x.k] = 'erro';
+      lin(null, 'erro', String(e.message || e).slice(0, 200));
+      console.log(B.id + ' ' + x.k + ': ' + e);
+    }
+  }
+  // registros: guarda os mais recentes
+  var ks = Object.keys(feitos);
+  if (ks.length > CL.MAX_FEITOS) { var novo = {}; ks.slice(-CL.MAX_FEITOS).forEach(function (k) { novo[k] = feitos[k]; }); feitos = novo; }
+  props.setProperty(kFeito, JSON.stringify(feitos));
+  props.setProperty(kFila, JSON.stringify(resto));
+  cl_limparPecas_();
+  cl_log_(log);
+  return n;
+}
+
+// CiliaApi.gs:378
+function cl_tratarVersao_(board, c, x, o, opt, B) {
+  B = B || CL_BASES[0];
+  var card = vd_api_('/cards/' + c.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', attachments: 'true', attachment_fields: 'name,date,bytes,isUpload,mimeType,url', checklists: 'all', checkItem_fields: 'name' } });
+  var nv = String(o.versao_baixada);
+  var anexos = card.attachments || [];
+  if (anexos.some(function (a) { return cl_ehEstaVersao_(B, nv, String(a.name || '')); })) return { acao: 'já tinha o PDF desta versão', det: '' };
+  // orçamento anexado (pela rotina antiga ou à mão) depois da autorização desta versão: já é ela
+  var autorizadoEm = new Date((o.conclusao_detalhe && o.conclusao_detalhe.data) || o.status_data || 0).getTime();
+  var depois = anexos.filter(function (a) { return /pdf/i.test(a.mimeType || '') && String(a.name || '').indexOf(AX.ORC) === 0 && new Date(a.date).getTime() >= autorizadoEm; });
+  if (autorizadoEm && depois.length) return { acao: 'já tinha orçamento anexado depois da autorização', det: depois.map(function (a) { return a.name; }).join(' | ') };
+
+  var pdf = cl_pdf_(B, o.pdf);
+  if (!pdf) return { acao: 'não anexei: PDF não achado no Drive', det: o.pdf };
+  var nome = cl_nomeAnexo_(B, nv, vd_normPlaca_(o.placa));
+  var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: pdf.getBlob().setName(nome), name: nome } });
+  if (!at || !at.id) throw new Error('o Trello não devolveu o anexo');
+  try { cp_marcarVistos_([at.id]); } catch (e) {}   // o ciclo do complemento não trata de novo: quem trata é este módulo
+  var comPecas = cl_guardarPecas_(at.id, o, B);
+  var conc = (o.conclusao || 'autorizado') + (o.conclusao_detalhe && o.conclusao_detalhe.data ? ' em ' + cl_dataBr_(o.conclusao_detalhe.data) : '');
+  if (!CL_MEM.ctx) CL_MEM.ctx = vd_contexto_();
+  var ctx = CL_MEM.ctx, lista = '';
+  try { lista = vd_nomeColuna_(vdf_nomeLista_(ctx, card.idList)); } catch (e) {}
+  var cabeca = '📄 **Orçamento ' + B.rot + ' ' + cl_rotVersao_(B, nv) + '** (' + conc + ', ' + B.fonte + ') anexado pelo robô.';
+
+  if (/ESPERA/i.test(lista)) {
+    var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
+    vd_comentar_(card, cabeca + ' Card em **ESPERA/NÃO AUTORIZADO**' + (quem ? ': @' + quem + ',' : ':') + ' verificar se a cotação deve seguir — o robô não move o card.');
+    return { acao: 'anexei; card em ESPERA: comentei, não movi', det: lista, anexou: true, card: card };
+  }
+  var silencio = CL.LISTAS_SILENCIO.test(lista);
+  if (vd_legado_(card.id)) {
+    if (!silencio) vd_comentar_(card, cabeca);
+    return { acao: 'anexei (card antigo: o robô não importa peças)', det: lista, anexou: true, card: card };
+  }
+  var an = vd_analisar_(card.desc || '', card.name), lp = vd_linhasPecas_(an.div.bloco);
+  if (!lp.linhas.length && !lp.semOficina) return { acao: 'anexei; card sem lista de peças: o ciclo importa', det: lista + (comPecas ? '' : ' · peças pelo PDF (orçamento grande)'), anexou: true, card: card };
+  var a = { id: at.id, name: at.name || nome, mimeType: at.mimeType || 'application/pdf', isUpload: true, bytes: at.bytes, url: at.url, date: at.date || new Date().toISOString() };
+  var res = cp_doAnexo_({ id: card.id, name: card.name }, a, ctx);
+  // a leitura já guardou as peças da API no cache do anexo (VD_ANX3_): libera o espaço das propriedades
+  try { var pp = PropertiesService.getScriptProperties(); if (vd_anxTem_(at.id)) pp.deleteProperty('CL_PEC_' + at.id); } catch (e) {}
+  if (res === true) return { acao: 'anexei e importei o complemento', det: lista, anexou: true, card: card };
+  if (res === 'erro') return { acao: 'anexei; leitura falhou (o ciclo tenta de novo)', det: lista, anexou: true, card: card };
+  // nada novo: avisa que a versão chegou (PDF do Cilia em sinistro HDI e card de RETORNO o próprio cp_doAnexo_ já comentou)
+  var seg = vd_semAcento_(((an.dados && an.dados.seguradora) || '') + ' ' + (card.name || ''));
+  var hdiNoCilia = B.id === 'CILIA' && /\bHDI\b/.test(seg);
+  if (!hdiNoCilia && !silencio) vd_comentar_(card, cabeca + ' Nenhuma peça nova em relação ao que o card já tem.');
+  return { acao: hdiNoCilia ? 'anexei; sinistro HDI: peças pelo laudo da HDI' : 'anexei; sem peça nova', det: lista, anexou: true, card: card };
+}
+
+// CiliaApi.gs:428
+function cl_limparPecas_() {
+  try {
+    var props = PropertiesService.getScriptProperties(), tudo = props.getProperties(), lim = Date.now() - 3 * 864e5;
+    Object.keys(tudo).forEach(function (k) {
+      if (k.indexOf('CL_PEC_') !== 0) return;
+      try { if ((JSON.parse(tudo[k]).em || 0) < lim) props.deleteProperty(k); } catch (e) { props.deleteProperty(k); }
+    });
+  } catch (e) {}
+}
+
+// CiliaApi.gs:441
+function cl_agendarTeste_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('CL_TESTE_V') === CL.TESTE_V) return 0;
+  // versão nova do teste tenta logo; a mesma versão sem a base tenta de novo a cada hora
+  if (props.getProperty('CL_TESTE_TENTOU_V') === CL.TESTE_V && Date.now() - (+(props.getProperty('CL_TESTE_TENTOU') || 0)) < 3600 * 1000) return 0;
+  props.setProperty('CL_TESTE_TENTOU', String(Date.now())); props.setProperty('CL_TESTE_TENTOU_V', CL.TESTE_V);
+  var faltam = (CL.TESTE_BASES || []).filter(function (id) { try { return !cl_arquivo_(cl_base_(id), true); } catch (e) { return true; } });
+  if (faltam.length) {
+    console.log('cilia/teste: esperando a base ' + faltam.join(', '));
+    // 15/10: uma linha na aba por versão do teste — para se ver no registro que o teste espera a base (antes só no log do Apps Script)
+    if (props.getProperty('CL_TESTE_AVISO') !== CL.TESTE_V) { props.setProperty('CL_TESTE_AVISO', CL.TESTE_V); cl_log_([[new Date(), 'TESTE', '', '', '', '', '', 'teste esperando a base ' + faltam.join(', '), 'não achei o arquivo da base na pasta compartilhada com a conta do robô — tento de novo a cada hora']]); }
+    return 0;
+  }
+  props.setProperty('CL_TESTE_V', CL.TESTE_V);
+  ScriptApp.newTrigger('cl_testeTESTE').timeBased().after(30 * 1000).create();
+  return 1;
+}
+
+// Código.gs:23
+function props_() {
+  return PropertiesService.getScriptProperties();
+}
+
+// Código.gs:27
+function cred_() {
+  var p = props_();
+  var key = p.getProperty('TRELLO_KEY');
+  var token = p.getProperty('TRELLO_TOKEN');
+  if (!key || !token) {
+    throw new Error('Faltam TRELLO_KEY / TRELLO_TOKEN nas propriedades do script.');
+  }
+  return { key: key, token: token };
+}
+
+// Código.gs:37
+function api_(caminho, params, metodo, payload) {
+  var c = cred_();
+  params = params || {};
+  params.key = c.key;
+  params.token = c.token;
+  var qs = Object.keys(params)
+    .map(function (k) { return k + '=' + encodeURIComponent(params[k]); })
+    .join('&');
+  var url = 'https://api.trello.com/1' + caminho + '?' + qs;
+  var opt = {
+    method: metodo || 'get',
+    muteHttpExceptions: true,
+    contentType: 'application/json'
+  };
+  if (payload) opt.payload = JSON.stringify(payload);
+  var r = qt_fetch_(url, opt);
+  var code = r.getResponseCode();
+  if (code < 200 || code >= 300) {
+    throw new Error('Trello ' + code + ': ' + r.getContentText().slice(0, 300));
+  }
+  var txt = r.getContentText();
+  return txt ? JSON.parse(txt) : null;
+}
+
+// Código.gs:84
+function verificarAlteracoesDescricaoNucleo_() {
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(30000)) return;
+
+  try {
+    var p = props_();
+    var rec = +(p.getProperty('LOG_RECUPERANDO') || 0);
+    if (!LOG_ATE_MS && rec && Date.now() - rec < 10 * 60000) return;   // recuperação rodando
+    var desde = p.getProperty('ULTIMA_VERIFICACAO');
+    if (!desde) {
+      desde = new Date(Date.now() - JANELA_MINUTOS * 60000).toISOString();
+    }
+    // edições dos últimos 3 min ficam para a próxima rodada (ver ATRASO_SEGUNDOS)
+    var limite = LOG_ATE_MS || (Date.now() - ATRASO_SEGUNDOS * 1000);
+    if (new Date(desde).getTime() >= limite) return;
+    var agora = new Date(limite).toISOString();
+
+    var acoes = api_('/boards/' + BOARD_ID + '/actions', {
+      filter: 'updateCard:desc',
+      since: desde,
+      limit: 100,
+      memberCreator_fields: 'fullName,username'
+    });
+
+    if (!acoes || !acoes.length) {
+      p.setProperty('ULTIMA_VERIFICACAO', agora);
+      return;
+    }
+
+    acoes = acoes.filter(function (a) { return new Date(a.date).getTime() < limite; });
+    acoes.reverse();
+
+    var grupos = [], ignoradas = 0;
+    acoes.forEach(function (a) {
+      if (!a.data || !a.data.card) return;
+      var cardId = a.data.card.id;
+      // gravação do formulário/robô (vitrine, trava) não é edição de pessoa: não entra no log
+      // e fecha os grupos abertos desse card, para não misturar antes/depois da gravação
+      if (ehGravacaoDoRobo_(cardId, a.data.card.desc)) {
+        ignoradas++;
+        var sigRobo = sigTexto_(a.data.card.desc);
+        grupos.forEach(function (x) {
+          if (x.cardId !== cardId || x.fechado) return;
+          x.fechado = true;
+          // o robô voltou o texto ao que era antes da edição = a trava desfez (ela já avisou no card)
+          if (sigTexto_(x.antigo) === sigRobo) x.desfeita = true;
+        });
+        return;
+      }
+      var autor = (a.memberCreator && a.memberCreator.fullName) || 'Alguem';
+      var t = new Date(a.date).getTime();
+
+      var g = grupos.filter(function (x) {
+        return x.cardId === cardId && x.autor === autor && !x.fechado &&
+               (t - x.fim) <= AGRUPAR_MINUTOS * 60000;
+      })[0];
+
+      if (g) {
+        g.fim = t;
+        g.novo = a.data.card.desc || '';
+        g.dataFim = a.date;
+      } else {
+        grupos.push({
+          cardId: cardId,
+          cardNome: a.data.card.name || '',
+          autor: autor,
+          antigo: (a.data.old && typeof a.data.old.desc === 'string') ? a.data.old.desc : '',
+          novo: a.data.card.desc || '',
+          fim: t,
+          dataFim: a.date
+        });
+      }
+    });
+
+    // quadro principal (oH4TbTqb): o log de descrição SEMPRE comenta (lá não há trava de descrição).
+    // Só um quadro com trava (o de TESTE do formulário) dispensa o comentário — e este log não vigia ele.
+    grupos.forEach(function (g) {
+      if (g.desfeita || sigTexto_(g.antigo) === sigTexto_(g.novo)) return;
+      // 10/10/2026 (teste completo): card do fluxo novo tem trava de descrição — ela desfaz a edição e já avisa no card;
+      // o log comentava a mesma edição de novo (a restauração caía fora da janela de 3 min). Log só para card antigo.
+      try { if (vd_prop_('VD_TRAVA_DESC', 'SIM') !== 'NAO' && !vd_legado_(g.cardId)) return; } catch (e) {}
+      var texto = montarComentario_(g);
+      if (!texto) return;
+      try {
+        api_('/cards/' + g.cardId + '/actions/comments', { text: texto }, 'post');
+      } catch (e) {
+        console.error('Falha ao comentar no card ' + g.cardNome + ': ' + e.message);
+      }
+    });
+
+    if (ignoradas) console.log('log: ' + ignoradas + ' gravação(ões) do formulário/robô ignorada(s)');
+    p.setProperty('ULTIMA_VERIFICACAO', agora);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Código.gs:182
+function ehGravacaoDoRobo_(cardId, desc) {
+  if (typeof desc !== 'string') return false;
+  try { return typeof tr_ehOficial_ === 'function' && tr_ehOficial_(cardId, desc); } catch (e) { return false; }
+}
+
+// Código.gs:187
+function normalizar_(s) {
+  return (s || '').replace(/\r/g, '').replace(/[ \t]+$/gm, '').trim();
+}
+
+// Código.gs:193
+function sigLinha_(l) {
+  l = (l || '').replace(/[\u200B-\u200D\uFEFF\u2060\u00A0]/g, ' ');
+  if (/^[\s\-=_*~+.\u2013\u2014\u2022]*$/.test(l)) return '';
+  return l
+    .replace(/[*_~`#>|]/g, '')
+    .replace(/^\s*(?:[-\u2013\u2014+\u2022]\s+|\d+[.)]\s+)/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+// Código.gs:204
+function sigTexto_(s) {
+  return normalizar_(s).split('\n').map(sigLinha_)
+    .filter(function (x) { return x; }).join('\n');
+}
+
+// Código.gs:209
+function montarComentario_(g) {
+  var antigas = normalizar_(g.antigo).split('\n');
+  var novas = normalizar_(g.novo).split('\n');
+
+  var contaAntigas = {}, contaNovas = {};
+  antigas.forEach(function (l) {
+    var s = sigLinha_(l); if (!s) return;
+    contaAntigas[s] = (contaAntigas[s] || 0) + 1;
+  });
+  novas.forEach(function (l) {
+    var s = sigLinha_(l); if (!s) return;
+    contaNovas[s] = (contaNovas[s] || 0) + 1;
+  });
+
+  var restaNovas = JSON.parse(JSON.stringify(contaNovas));
+  var removidas = antigas.filter(function (l) {
+    var s = sigLinha_(l); if (!s) return false;
+    if (restaNovas[s]) { restaNovas[s]--; return false; }
+    return true;
+  });
+
+  var restaAntigas = JSON.parse(JSON.stringify(contaAntigas));
+  var adicionadas = novas.filter(function (l) {
+    var s = sigLinha_(l); if (!s) return false;
+    if (restaAntigas[s]) { restaAntigas[s]--; return false; }
+    return true;
+  });
+
+  if (!removidas.length && !adicionadas.length) return null;
+
+  var quando = Utilities.formatDate(
+    new Date(g.dataFim), 'America/Sao_Paulo', "dd/MM/yyyy 'às' HH:mm"
+  );
+
+  var txt = '✏️ **' + g.autor + '** alterou a descrição em ' + quando + '\n';
+  if (!sigTexto_(g.antigo)) txt += '\n_(descrição estava vazia)_\n';
+
+  txt += bloco_('❌ Removido', removidas);
+  txt += bloco_('✅ Adicionado', adicionadas);
+
+  return txt.slice(0, 4000);
+}
+
+// Código.gs:252
+function seguro_(l) {
+  l = (l || '').replace(/[\u200B-\u200D\uFEFF\u2060]/g, '');
+  if (/^\s*([-=_*~+.]\s*){3,}$/.test(l)) return '───';
+  return l;
+}
+
+// Código.gs:258
+function bloco_(titulo, linhas) {
+  var uteis = linhas.map(seguro_).filter(function (l) { return l.trim(); });
+  if (!uteis.length) return '';
+  var mostradas = uteis.slice(0, MAX_LINHAS).map(function (l) {
+    l = l.length > MAX_CHARS_LINHA ? l.slice(0, MAX_CHARS_LINHA) + '…' : l;
+    return '> ' + l;
+  });
+  var extra = uteis.length > MAX_LINHAS
+    ? '\n> _(+ ' + (uteis.length - MAX_LINHAS) + ' linha(s))_'
+    : '';
+  return '\n**' + titulo + ':**\n' + mostradas.join('\n') + extra + '\n';
+}
+
+// Código.gs:274
+function instalarAcionador() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'verificarAlteracoesDescricao') {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger('verificarAlteracoesDescricao')
+    .timeBased().everyMinutes(1).create();
+  console.log('Acionador criado: a cada 1 minuto.');
+}
+
+// Código.gs:316
+function mencaoFat_() { try { return fat_usuarios_().filter(function (u) { return u !== 'timweslley' || vd_board_() === VD.BOARD_PADRAO; }).map(function (u) { return '@' + u; }).join(' ') || MENCAO; } catch (e) { return MENCAO; } }
+
+// Código.gs:318
+function rotinaDiariaNucleo_() {
+  var listas = api_('/boards/' + BOARD_ID + '/lists', { fields: 'name' });
+  var porNome = {}; listas.forEach(function (l) { porNome[l.name] = l.id; });
+  var labels = api_('/boards/' + BOARD_ID + '/labels', { fields: 'name,color', limit: 100 });
+  function labelId(nome, cor) {
+    var l = labels.filter(function (x) { return x.name === nome; })[0];
+    if (l) return l.id;
+    var criado = api_('/boards/' + BOARD_ID + '/labels', { name: nome, color: cor }, 'post');
+    labels.push(criado); return criado.id;
+  }
+  var idParado = labelId(LBL_PARADO, 'red');
+  var idConferir = labelId(LBL_CONFERIR, 'yellow');
+
+  var cards = api_('/boards/' + BOARD_ID + '/cards', { fields: 'name,idList,dateLastActivity,idLabels,due' });
+  // 10/10/2026: card com a etiqueta SEM COBRANÇA FATURAMENTO (rotinas de NF) não ganha CONFERIR FATURAMENTO (e perde, se tiver)
+  var idsSemCob = labels.filter(function (l) { return fat_semCobranca_([l]); }).map(function (l) { return l.id; });
+  function semCob(c) { return (c.idLabels || []).some(function (id) { return idsSemCob.indexOf(id) > -1; }); }
+  var agora = Date.now();
+  var alvo1 = LISTAS_PARADO.map(function (n) { return porNome[n]; });
+  var idEnt = porNome[LISTA_ENTREGUES];
+  var nParado = 0, nConf = 0, nLimpa = 0;
+
+  cards.forEach(function (c) {
+    var dias = (agora - new Date(c.dateLastActivity).getTime()) / 864e5;
+    var temParado = c.idLabels.indexOf(idParado) > -1;
+    var temConferir = c.idLabels.indexOf(idConferir) > -1;
+
+    if (alvo1.indexOf(c.idList) > -1) {
+      if (dias > DIAS_PARADO && !temParado) {
+        api_('/cards/' + c.id + '/idLabels', { value: idParado }, 'post');
+        api_('/cards/' + c.id + '/actions/comments', { text: '🔴 ' + mencaoFat_() + ' card parado há mais de ' + DIAS_PARADO + ' dias nesta coluna — verificar faturamento.' }, 'post');
+        nParado++;
+      }
+    } else if (temParado) {
+      api_('/cards/' + c.id + '/idLabels/' + idParado, {}, 'delete'); nLimpa++;
+    }
+
+    // 10/10/2026 (revisão): só a etiqueta CONFERIR FATURAMENTO; o comentário de cobrança saía em dobro com o SLA de
+    // ENTREGUES (Fluxo.gs), que agora tem o resumo diário — este bloco não comenta mais
+    if (c.idList === idEnt && !semCob(c)) {
+      if (dias > DIAS_ENTREGUES && !temConferir) {
+        api_('/cards/' + c.id + '/idLabels', { value: idConferir }, 'post');
+        nConf++;
+      }
+    } else if (temConferir) {
+      api_('/cards/' + c.id + '/idLabels/' + idConferir, {}, 'delete'); nLimpa++;
+    }
+  });
+
+  // 10/10/2026: o prazo do card é do pz_executar_ (Validacao.gs); esta rotina antiga calculava com outra regra (lia datas de
+  // comentários) e brigava com ela — desligada (ligar de novo: propriedade ROT_PRAZOS_ANTIGOS = SIM)
+  var nPrazo = vd_prop_('ROT_PRAZOS_ANTIGOS', 'NAO') === 'SIM' ? atualizarPrazos_(porNome[LISTA_FALTA_CHEGAR]) : 0;
+  var nMov = moverEncerrados_(porNome[LISTA_ENCERRADO], idEnt, porNome[LISTA_FALTA_CHEGAR]);
+  console.log('parado: ' + nParado + ' | conferir faturamento: ' + nConf + ' | etiquetas removidas: ' + nLimpa + ' | prazos definidos: ' + nPrazo + ' | movidos de encerrado: ' + nMov);
+}
+
+// Código.gs:377
+function atualizarPrazos_(idLista) {
+  if (!idLista) return 0;
+  var cards = api_('/lists/' + idLista + '/cards', { fields: 'name,desc,due', checklists: 'all', checkItem_fields: 'state,due' });
+  var n = 0;
+  cards.forEach(function (c) {
+    var melhor = null;
+    var todosItens = [];
+    (c.checklists || []).forEach(function (ck) {
+      (ck.checkItems || []).forEach(function (it) { if (it.due) todosItens.push(it); });
+    });
+    // 1) maior previsão entre as peças que AINDA NÃO chegaram
+    todosItens.forEach(function (it) {
+      if (it.state === 'complete') return;
+      var dt = new Date(it.due);
+      if (!melhor || dt > melhor) melhor = dt;
+    });
+    // 2) se todas chegaram (ou nenhuma pendente tem data), maior previsão geral
+    if (!melhor) todosItens.forEach(function (it) {
+      var dt = new Date(it.due);
+      if (!melhor || dt > melhor) melhor = dt;
+    });
+    // 3) reserva: previsão citada em texto
+    if (!melhor) {
+      var acs = api_('/cards/' + c.id + '/actions', { filter: 'commentCard', limit: 20 });
+      var texto = (c.desc || '') + '\n' + acs.map(function (a) { return (a.data && a.data.text) || ''; }).join('\n');
+      var rx = /(previs|prazo|chega|entreg)[^\n]{0,40}?([0-3]?\d)\/([01]?\d)(?:\/(\d{2,4}))?/gi;
+      var mm;
+      while ((mm = rx.exec(texto)) !== null) {
+        var d = +mm[2], mes = +mm[3], ano = mm[4] ? +mm[4] : new Date().getFullYear();
+        if (ano < 100) ano += 2000;
+        var dt2 = new Date(ano, mes - 1, d, 12, 0, 0);
+        if (isNaN(dt2.getTime())) continue;
+        if (dt2.getTime() < new Date(2026, 0, 1).getTime()) continue;
+        if (dt2.getTime() > Date.now() + 120 * 864e5) continue;
+        if (!melhor || dt2 > melhor) melhor = dt2;
+      }
+    }
+    if (melhor) {
+      var atual = c.due ? new Date(c.due).getTime() : 0;
+      if (Math.abs(atual - melhor.getTime()) > 43200000) {
+        api_('/cards/' + c.id, { due: melhor.toISOString() }, 'put');
+        n++;
+      }
+    }
+  });
+  return n;
+}
+
+// Código.gs:437
+function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
+  if (!idEnc || !idEntregues || !idFaltaChegar) return 0;
+  var cards = api_('/lists/' + idEnc + '/cards', { fields: 'name', checklists: 'all', checkItem_fields: 'state' });
+  var n = 0;
+  cards.forEach(function (c) {
+    var acs = api_('/cards/' + c.id + '/actions', { filter: 'updateCard:idList', limit: 50 });
+    var entrada = null;
+    for (var i = 0; i < acs.length; i++) {
+      var a = acs[i];
+      if (a.data && a.data.listAfter && a.data.listAfter.id === idEnc) { entrada = new Date(a.date).getTime(); break; }
+    }
+    if (!entrada) entrada = 1000 * parseInt(c.id.substring(0, 8), 16);
+    var dias = (Date.now() - entrada) / 864e5;
+    if (dias <= DIAS_ENCERRADO) return;
+    var pendentes = 0;
+    (c.checklists || []).forEach(function (ck) {
+      (ck.checkItems || []).forEach(function (it) { if (it.state !== 'complete') pendentes++; });
+    });
+    if (pendentes > 0) {
+      try { if (typeof st_permitir_ === 'function') st_permitir_(c.id, idFaltaChegar); } catch (e) {}
+      api_('/cards/' + c.id, { idList: idFaltaChegar, pos: 'top' }, 'put');
+      api_('/cards/' + c.id + '/actions/comments', { text: 'Movido automaticamente para FALTA CHEGAR: mais de ' + DIAS_ENCERRADO + ' dias em ENCERRADO com ' + pendentes + ' item(ns) de checklist pendente(s).' }, 'post');
+    } else {
+      try { if (typeof st_permitir_ === 'function') st_permitir_(c.id, idEntregues); } catch (e) {}
+      api_('/cards/' + c.id, { idList: idEntregues, pos: 'top' }, 'put');
+    }
+    n++;
+  });
+  return n;
+}
+
+// Código.gs:473
+function comAlarme_(nome, fn) {
+  var p = props_();
+  var chave = 'FALHAS_' + nome;
+  if (nome !== 'validarDadosPedido' && qt_pausada_()) { console.log(nome + ' pulado: ' + qt_resumoPausa_()); return; }   // cota estourada
+  try {
+    qt_parte_(nome);
+    fn();
+    if (p.getProperty(chave)) { p.deleteProperty(chave); p.deleteProperty('FALHAS_T_' + nome); }
+  } catch (e) {
+    if (qt_ehErroDeCota_(e)) { console.log(nome + ': ' + String((e && e.message) || e).slice(0, 120)); return; }   // o aviso de cota já cobre
+    var n = Number(p.getProperty(chave) || 0) + 1;
+    p.setProperty(chave, String(n));
+    p.setProperty('FALHAS_T_' + nome, String(Date.now()));   // quando foi a última falha (o relatório diário só cita as das últimas 24 h)
+    // 1 e-mail na 2ª falha seguida (no máximo um a cada 6 h por rotina) e de novo a cada 200
+    var kAv = 'FALHAS_AV_' + nome, av = +(p.getProperty(kAv) || 0);
+    var avisar = (n >= LIMITE_FALHAS && Date.now() - av > 6 * 3600 * 1000) || n % 200 === 0;
+    if (avisar) {
+      p.setProperty(kAv, String(Date.now()));
+      MailApp.sendEmail(EMAIL_ALERTA,
+        'ALERTA: automação do Trello com falha (' + nome + ')',
+        'A rotina "' + nome + '" do projeto Log de Descricao Trello falhou ' + n +
+        ' vez(es) seguida(s) e pode ter parado de funcionar.\n\n' +
+        'Último erro:\n' + (e && e.message ? e.message : e) + '\n\n' +
+        'Causas comuns: token do Trello revogado, chave removida das propriedades, ou instabilidade do Trello.\n' +
+        'Ver execuções: https://script.google.com/home/projects/1sV_VMM5fUPxBmaExaWHAYdaw4Xda9-ebtKr2BD2iwabG4hxLodE50W6c/executions');
+    }
+    throw e;
+  } finally { qt_parte_(''); try { qt_registrar_(nome); } catch (x) {} }
+}
+
+// Código.gs:503
+function verificarAlteracoesDescricao() {
+  comAlarme_('log de descrição', verificarAlteracoesDescricaoNucleo_);
+}
+
+// Código.gs:507
+function rotinaDiaria() {
+  comAlarme_('rotina diária', rotinaDiariaNucleo_);
 }
 
 // Complemento.gs:23
@@ -1194,6 +2186,69 @@ function cp_contarChecklist_(cardId, nome, token) {
   return n;
 }
 
+// Complemento.gs:275
+function cp_inserirNoBloco_(bloco, novas, nFo) {
+  var linhas = String(bloco || '').split('\n');
+  var ini = -1;
+  for (var i = 0; i < linhas.length; i++) if (/^\s*PE[ÇC]AS\s*:?\s*$/i.test(vd_limpar_(linhas[i]))) { ini = i; break; }
+  var data = cp_hoje_();
+  var novasTxt = novas.map(function (p) {
+    var q = { pneu: !!p.pneu, codigo: String(p.codigo || '').replace(/\s+/g, '').toUpperCase(), descricao: String(p.descricao || '').toUpperCase(), tipos: p.tipos || [],
+      medida: p.medida || '', categoria: p.categoria || '', marca: p.marca || '', qtd: p.qtd || '', complemento: true, compData: p.compData || data, valorOrc: p.valorOrc || '' };
+    return vd_linhaPeca_(q, 0).replace(/^\d+\.\s*/, '');
+  });
+  var idxPecas = [], semOf = -1, fim = -1;
+  if (ini >= 0) {
+    for (var j = ini + 1; j < linhas.length; j++) {
+      var l = vd_limpar_(linhas[j]).trim();
+      if (!l) { if (idxPecas.length || semOf >= 0) break; continue; }
+      if (/^(OBS|OBSERVA[ÇC][ÃA]O|PEDIDO ENVIADO|↳|FORNECIMENTO|FO\b|DADOS DO CARRO|-{3,}|={3,})/i.test(l)) break;
+      if (/^NENHUMA PE[ÇC]A/i.test(l)) { semOf = j; break; }
+      idxPecas.push(j);
+    }
+  }
+  if (novasTxt.length) {
+    if (ini < 0) {
+      linhas.push('', '**PEÇAS:**');
+      novasTxt.forEach(function (t) { linhas.push(t); });
+      ini = linhas.length - novasTxt.length - 1;
+      idxPecas = novasTxt.map(function (t, k) { return ini + 1 + k; });
+    } else if (semOf >= 0) {
+      linhas.splice.apply(linhas, [semOf, 1].concat(novasTxt));
+      idxPecas = novasTxt.map(function (t, k) { return semOf + k; });
+    } else {
+      // depois da última peça que não é particular
+      var primeiro = idxPecas.length ? idxPecas[0] : ini + 1;
+      var depois = primeiro - 1;
+      idxPecas.forEach(function (ix) { if (!vd_analisarPeca_(vd_limpar_(linhas[ix]).replace(/^\s*(?:\d+\s*[.)\-]|[-•*])\s*/, ''), 1).particular) depois = ix; });
+      linhas.splice.apply(linhas, [depois + 1, 0].concat(novasTxt));
+      var total = idxPecas.length + novasTxt.length;
+      idxPecas = []; for (var t = 0; t < total; t++) idxPecas.push(primeiro + t);
+    }
+    idxPecas.forEach(function (ix, k) { linhas[ix] = (k + 1) + '. ' + linhas[ix].replace(/^\s*(?:\d+\s*[.)\-]|[-•*])\s*/, ''); });
+  }
+  if (nFo) {
+    var achou = false;
+    for (var a = 0; a < linhas.length; a++) {
+      if (/^FORNECIMENTO COMPLEMENTO/i.test(vd_limpar_(linhas[a]).trim())) { linhas[a] = cp_linhaFo_(nFo); achou = true; break; }
+    }
+    if (!achou) {
+      var pos = -1;
+      for (var b = 0; b < linhas.length; b++) if (/^FORNECIMENTO \(SEGURADORA\)/i.test(vd_limpar_(linhas[b]).trim())) pos = b;
+      if (pos < 0) {
+        // logo depois da lista de peças
+        pos = ini;
+        for (var c2 = ini + 1; ini >= 0 && c2 < linhas.length; c2++) { var lc = vd_limpar_(linhas[c2]).trim(); if (!lc) break; pos = c2; }
+        if (pos < 0) pos = linhas.length - 1;
+        linhas.splice(pos + 1, 0, '', cp_linhaFo_(nFo));
+      } else {
+        linhas.splice(pos + 1, 0, cp_linhaFo_(nFo));
+      }
+    }
+  }
+  return linhas.join('\n');
+}
+
 // Complemento.gs:338
 function cp_nome_(p) {
   return p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + (p.marca ? ' ' + p.marca : '')
@@ -1289,6 +2344,150 @@ function cp_marcarVistos_(ids) {
     ids.forEach(function (id) { if (l.indexOf(id) < 0) l.push(id); });
     props.setProperty('CP_VISTOS', JSON.stringify(l.slice(-CP.MAX_VISTOS)));
   });
+}
+
+// Complemento.gs:438
+function cp_ligado_() { return vd_prop_('CP_LIGADO', 'SIM') !== 'NAO'; }
+
+// Complemento.gs:441
+function cp_criadoEm_(id) { return parseInt(String(id).slice(0, 8), 16) * 1000; }
+
+// Complemento.gs:443
+function cp_executar_() {
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || !cp_ligado_()) return 0;
+  var props = PropertiesService.getScriptProperties();
+  // histórico do quadro: só os anexos novos desde a última rodada (antes baixava os anexos de todos os cards)
+  var desde = vd_marca_('CP_ACT');
+  if (!desde) {
+    var antigo = +(vd_marca_('CP_DESDE') || 0);   // marcador antigo (ms) continua valendo na troca
+    desde = new Date(antigo || Date.now()).toISOString();
+    vd_marcaSet_('CP_ACT', desde);
+    if (!antigo) return 0;
+  }
+  var vistos = []; try { vistos = JSON.parse(props.getProperty('CP_VISTOS') || '[]'); } catch (e) {}
+  var prazo = vd_prazo_(60 * 1000);   // não passa do fim do ciclo (10/10/2026)
+  var ctx = vd_contexto_();
+  // anexos cuja leitura falhou (OCR do Google fora do ar na hora): tenta de novo nos ciclos seguintes, até 3 vezes (07/10/2026)
+  var retry = []; try { retry = JSON.parse(props.getProperty('CP_RETRY') || '[]'); } catch (e) {}
+  var retryNovo = [], n = 0, mudou = false;
+  retry.forEach(function (x) {
+    if (Date.now() > prazo) { retryNovo.push(x); return; }
+    var a; try { a = vd_api_('/cards/' + x.c + '/attachments/' + x.a, { cru: true, query: { fields: 'name,mimeType,isUpload,bytes,url,date' } }); } catch (e) { return; }
+    var res = false; try { res = cp_doAnexo_({ id: x.c, name: x.nome || '' }, a, ctx); } catch (e) { console.log('complemento (retry) ' + x.nome + ': ' + e); }
+    if (res === 'erro' && x.n < 3) retryNovo.push({ c: x.c, a: x.a, nome: x.nome, n: x.n + 1 });
+    else if (res === true) n++;
+  });
+  if (retry.length !== retryNovo.length || retry.length) props.setProperty('CP_RETRY', JSON.stringify(retryNovo.slice(-20)));
+  var acts = vd_acoesQuadro_(ctx.board, { filter: 'addAttachmentToCard', since: desde, limit: 100, fields: 'data,date', memberCreator: 'true', memberCreator_fields: 'username' });
+  if (!acts.length) return n;
+  acts.reverse();   // mais antigo primeiro
+  var ultima = desde;
+  for (var k = 0; k < acts.length; k++) {
+    if (Date.now() > prazo) break;
+    var ac = acts[k], d = ac.data || {}, c = d.card || {}, at = d.attachment || {};
+    ultima = new Date(new Date(ac.date).getTime() + 1).toISOString();
+    if (!c.id || !at.id || vistos.indexOf(at.id) >= 0) continue;
+    if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) continue;
+    if (vd_legado_(c.id)) continue;
+    var a;
+    try { a = vd_api_('/cards/' + c.id + '/attachments/' + at.id, { cru: true, query: { fields: 'name,mimeType,isUpload,bytes,url,date' } }); } catch (e) { continue; }
+    // mesmo arquivo subido de novo à mão (conteúdo igual, conferido por hash): apaga o repetido e comenta (06/10/2026)
+    if (a.isUpload && ax_removerRepetido_(c.id, a, ac.memberCreator ? ac.memberCreator.username : '')) { vistos.push(a.id); mudou = true; continue; }
+    if (ax_semLeituraRobo_(a.name)) { vistos.push(a.id); mudou = true; continue; }   // nota/foto/comprovante já batizado pelo sistema: não é orçamento
+    if (!vd_anexoLegivel_(a)) continue;
+    if (new Date(a.date).getTime() - cp_criadoEm_(c.id) <= CP.ESPERA_CRIACAO_MS) continue;   // orçamento original do card
+    vistos.push(a.id); mudou = true;
+    try {
+      var res2 = cp_doAnexo_(c, a, ctx);
+      if (res2 === true) n++;
+      else if (res2 === 'erro') { retryNovo.push({ c: c.id, a: a.id, nome: c.name || '', n: 1 }); props.setProperty('CP_RETRY', JSON.stringify(retryNovo.slice(-20))); }
+    } catch (e) { console.log('complemento ' + c.name + ': ' + e); }
+  }
+  vd_marcaSet_('CP_ACT', ultima);
+  if (mudou) props.setProperty('CP_VISTOS', JSON.stringify(vistos.slice(-CP.MAX_VISTOS)));
+  return n;
+}
+
+// Complemento.gs:500
+function cp_doAnexo_(c, a, ctx) {
+  var r = vd_lerAnexoTrello_(a, { orcCompleto: true });
+  if (!r || r.erro) return r && r.erro ? 'erro' : false;
+  var card = vd_api_('/cards/' + c.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name', attachments: 'true', attachment_fields: 'name' } });
+  var an = vd_analisar_(card.desc || '', card.name);
+  var lp = vd_linhasPecas_(an.div.bloco);
+  // nome padronizado para o anexo subido à mão (05/10/2026): orçamento (complementar se o card já tem peças) ou Status do Pedido
+  ax_batizarLido_(card, a, r, !!(lp.linhas.length || (card.attachments || []).some(function (x) { return String(x.name || '').indexOf(AX.ORC + AX.SEP) === 0; })));
+  var placa = an.dados.placa;
+  // 10/10/2026 (revisão): leitura que não serve não fica mais em silêncio — PDF em card que espera orçamento e não foi
+  // reconhecido, ou orçamento de OUTRA placa, ganham um comentário (uma vez por anexo; o anexo é marcado visto)
+  var listaNome = ''; try { listaNome = vd_nomeColuna_(vdf_nomeLista_(ctx, card.idList)); } catch (e) {}
+  if (!r.orcamento) {
+    // laudo HDI ainda sem peças ("Peças em processo de cotação"): não é erro de leitura — a HDI ainda não fechou as peças (11/10/2026, BXZ4J84)
+    if (r.doc === 'LAUDO_HDI') {
+      if (/FALTA DADOS/i.test(listaNome)) { try { vd_comentar_(card, '📄 «' + a.name + '» é o laudo da HDI, mas as peças ainda estão em cotação na HDI (o laudo não lista peças). Quando a HDI fechar as peças, anexar o laudo novo.'); } catch (e) {} }
+      return false;
+    }
+    if (!r.doc && /pdf/i.test(a.mimeType || '') && /FALTA DADOS/i.test(listaNome)) {   // Status do Pedido / Peças HDI são anexos legítimos (r.doc)
+      try { vd_comentar_(card, '📄 Li o anexo «' + a.name + '» mas não reconheci um orçamento de seguradora (Cilia, HDI ou Websoma/Porto)' + (r.doc ? ' — parece ' + (r.docNome || 'outro documento') : '') + '. Se for o orçamento, anexe o PDF original do sistema da seguradora (ou um print legível da lista de peças).'); } catch (e) {}
+    }
+    return false;
+  }
+  if (!lp.linhas.length && !lp.semOficina) return false;   // card sem lista: a importação normal cuida
+  if (!placa || !(r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) {
+    if (placa && (r.placas || []).length) { try { vd_comentar_(card, '📄 O anexo «' + a.name + '» é um orçamento (' + r.orcamento + ') da placa **' + r.placas.join(' / ') + '**, não deste card (' + placa + ') — não importei. Se for outro carro, anexe no card certo.'); } catch (e) {} }
+    return false;
+  }
+  // 11/10/2026 (Weslley, "corrigir tudo"): dois casos em que o PDF anexado NÃO é complemento e o robô não importa —
+  //  1) PDF do Cilia em sinistro HDI: o Cilia traz tudo como peça da oficina; o que a HDI fornece (FO) e o que a oficina compra
+  //     quem diz é o laudo HDI (BXZ4J84/SDX5I55: FO virou "peça nova" e saiu do checklist FORNECIMENTO);
+  //  2) card de RETORNO: o orçamento traz as peças do sinistro todo, já compradas no card original (BBV0H58/BAT9F19).
+  var segCard = vd_semAcento_(((an.dados && an.dados.seguradora) || '') + ' ' + (card.name || ''));
+  if (r.orcamento === 'CILIA' && /\bHDI\b/.test(segCard)) {
+    try { vd_comentar_(card, '📄 «' + a.name + '» é o orçamento do **Cilia**; neste sinistro **HDI** quem diz o que a HDI fornece (FO) e o que a oficina compra é o laudo da HDI — não importei. Para complemento, anexe o PDF do laudo HDI.'); } catch (e) {}
+    return false;
+  }
+  if (/\bRETORNO\b/.test(segCard)) {
+    try { vd_comentar_(card, '📄 Card de **RETORNO**: o orçamento «' + a.name + '» traz as peças do sinistro todo (as do card original já foram compradas) — não importei. Peça nova do retorno entra pelo ✏️ EDITAR/INCLUIR PEÇA.'); } catch (e) {}
+    return false;
+  }
+  var orc = r.orcFull || (r.orc ? { oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : null);
+  if (!orc) return false;
+  orc = vd_orcCss_(orc, card.name);   // CSS (Zacarias): tudo é FO (08/10/2026)
+  var cmp = cp_comparar_(card, orc, a.id);
+  if (!cmp.oficina.length && !cmp.fo.length && !(cmp.atualizar || []).length) return false;
+  cp_aplicar_(card, cmp, { origem: r.orcamento, anexo: a.name, quem: 'robô', token: null, ctx: ctx });
+  return true;
+}
+
+// Complemento.gs:551
+function cp_aplicar_(card, cmp, o) {
+  var nFoTotal = 0;
+  if (cmp.fo.length) {
+    vdf_checklistFornecimento_(card.id, cmp.fo, o.token, CP.FO);
+    nFoTotal = cp_contarChecklist_(card.id, CP.FO, o.token);
+  }
+  var div = vd_dividir_(card.desc);
+  var blocoAtu = cp_atualizarNoBloco_(div.bloco, cmp.atualizar);
+  var resto = cp_trocarCodigos_(div.resto, cmp.atualizar);   // cotações/autorizações/compras abaixo da linha seguem o código novo
+  // código trocado não é peça nova: a base de assinaturas passa a ser a lista atualizada (as peças novas de verdade ficam fora dela)
+  if ((cmp.atualizar || []).some(function (u) { return u.codigo; })) { try { vd_pkSet_(card.id, vd_linhasConsultor_(blocoAtu).map(vd_sigItem_)); } catch (e) {} }
+  var bloco = cp_inserirNoBloco_(blocoAtu, cmp.oficina, nFoTotal);
+  vd_backup_(card, 'orçamento complementar (' + (o.origem || '') + ')');
+  // peça que passou de FO para oficina: sai do checklist FORNECIMENTO (a linha da oficina já entrou acima)
+  (cmp.paraOficina || []).forEach(function (x) {
+    try { vd_api_('/cards/' + card.id + '/checkItem/' + x.item.id, { method: 'delete' }, o.token); } catch (e) { console.log('complemento/FO→oficina: ' + e); }
+  });
+  try { cp_revGuardar_(card.id, (cmp.paraOficina || []).map(function (x) { return x.item.name; }), o.quem || 'robô'); } catch (e) {}
+  vd_gravarDesc_(card.id, bloco + (div.temMarcador ? '\n\n' + resto : '\n\n' + VD.MARCADOR), o.token);
+  var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
+  var url = o.ctx && o.ctx.urlForm ? o.ctx.urlForm + '?card=' + card.shortLink + '&so=tipos' : '';
+  if (!o.semComentario) try { vd_comentar_(card, (quem && cmp.oficina.length ? '@' + quem + ' ' : '') + cp_textoComentario_('', o.origem, o.anexo, cmp.oficina, cmp.fo, cmp.jaTinha, url, cmp.pareadas, cmp.atualizar, cmp.paraOficina)); } catch (e) {}
+  try {
+    ev_registrar_('COMPLEMENTO', card, o.quem || 'robô', cmp.oficina.map(ev_peca_).concat(cmp.fo.map(function (p) { var e = ev_peca_(p); e.fornecedor = 'SEGURADORA (FO)'; return e; })),
+      { detalhe: cmp.oficina.length + ' oficina · ' + cmp.fo.length + ' FO · ' + (o.origem || '') });
+  } catch (e) {}
+  // só FO nova num card já encerrado: volta para FALTA CHEGAR (peça da oficina nova o robô devolve para cotação)
+  if (cmp.fo.length && !cmp.oficina.length) { try { rc_reavaliarColuna_(card.id, o.token, o.quem || 'robô'); } catch (e) { console.log('complemento/coluna: ' + e); } }
 }
 
 // Complemento.gs:587
@@ -1390,6 +2589,140 @@ function vdf_foRevertidaDevolvida(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, peca: achou.nome, acao: acao };
 }
 
+// Corretivo.gs:48
+function cr_executar_() {
+  var props = PropertiesService.getScriptProperties();
+  try { cr_executarB_(); } catch (e) { console.log('correção 11/10 (B): ' + e); }
+  if (props.getProperty(CR.CHAVE) === 'FEITO') return 0;
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var ok = []; try { ok = JSON.parse(props.getProperty(CR.CHAVE + '_OK') || '[]'); } catch (e) {}
+  var tent = {}; try { tent = JSON.parse(props.getProperty(CR.CHAVE + '_TENT') || '{}'); } catch (e) {}
+  var ctx = vd_contexto_(), backups = null, n = 0;
+  for (var i = 0; i < CR.CARDS.length; i++) {
+    var c = CR.CARDS[i];
+    if (ok.indexOf(c.sl) >= 0) continue;
+    if (vd_restante_() < 25 * 1000) break;   // continua no próximo ciclo
+    if ((tent[c.sl] || 0) >= 3) { ok.push(c.sl); console.log('correção 11/10 ' + c.placa + ': desisti depois de 3 tentativas'); continue; }
+    tent[c.sl] = (tent[c.sl] || 0) + 1;
+    props.setProperty(CR.CHAVE + '_TENT', JSON.stringify(tent));
+    try {
+      if (!backups) backups = cr_backups_();
+      var r = cr_corrigir_(c, ctx, backups[c.sl]);
+      console.log('correção 11/10 ' + c.placa + ': ' + r);
+      ok.push(c.sl); n++;
+    } catch (e) { console.log('correção 11/10 ' + c.placa + ' (tentativa ' + tent[c.sl] + '): ' + e); }
+    props.setProperty(CR.CHAVE + '_OK', JSON.stringify(ok));
+  }
+  if (CR.CARDS.every(function (c) { return ok.indexOf(c.sl) >= 0; })) props.setProperty(CR.CHAVE, 'FEITO');
+  return n;
+}
+
+// Corretivo.gs:76
+function cr_backups_() {
+  var out = {}, v = vd_planilhaBackup_().getDataRange().getValues();
+  var sls = CR.CARDS.map(function (c) { return c.sl; });
+  for (var i = 1; i < v.length; i++) {
+    var d = v[i][0];
+    if (!(d instanceof Date) || Utilities.formatDate(d, 'America/Sao_Paulo', 'yyyy-MM-dd') !== CR.DIA) continue;
+    if (!/^or[çc]amento complementar/i.test(String(v[i][4] || ''))) continue;
+    var link = String(v[i][3] || '');
+    sls.forEach(function (sl) { if (out[sl] === undefined && link.indexOf(sl) >= 0) out[sl] = String(v[i][5] || ''); });
+  }
+  return out;
+}
+
+// Corretivo.gs:89
+function cr_corrigir_(c, ctx, descAntes) {
+  if (!descAntes) throw new Error('sem cópia de antes do complemento na planilha de backup');
+  var q = { fields: 'name,desc,idList,idBoard,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state' };
+  var card = vd_api_('/cards/' + c.sl, { query: q });
+  var idQuadro = ctx.board;
+  if (!/^[0-9a-f]{24}$/.test(idQuadro)) { try { idQuadro = vd_api_('/boards/' + ctx.board, { query: { fields: 'id' } }).id; } catch (e) {} }
+  if (card.idBoard !== idQuadro) throw new Error('card fora do quadro do robô');
+  var divAtual = vd_dividir_(card.desc || '');
+  if (!/complemento 11\/10|COMPLEMENTO 11\/10/i.test(vd_limpar_(divAtual.bloco))) return 'já estava sem o complemento de 11/10 — nada a fazer';
+  var divAntes = vd_dividir_(descAntes);
+  var feito = [];
+
+  // 1) descrição: bloco do consultor de antes do complemento + cotações/compras de agora (abaixo do marcador)
+  vd_backup_(card, 'correção 11/10 (antes de desfazer o complemento)');
+  var nova = divAntes.bloco + (divAtual.temMarcador ? '\n\n' + divAtual.resto : (divAntes.temMarcador ? '\n\n' + divAntes.resto : '\n\n' + VD.MARCADOR));
+  vd_gravarDesc_(card.id, nova);
+  feito.push('descrição voltou ao que era antes do complemento');
+  var props = PropertiesService.getScriptProperties();
+  vd_pkSet_(card.id, vd_linhasConsultor_(divAntes.bloco).map(vd_sigItem_));   // base de peças = as de antes (nada é "peça nova")
+  props.deleteProperty('VD_SIG_' + card.id);
+  if (c.oficina && c.oficina.length) props.setProperty('VD_NOVAS_' + card.id, JSON.stringify(vd_linhasPecas_(divAntes.bloco).linhas.map(vd_sigItem_)));
+  else props.deleteProperty('VD_NOVAS_' + card.id);
+
+  // 2) checklist FORNECIMENTO COMPLEMENTO criado hoje pelo complemento errado (cards de retorno)
+  if (c.retorno) {
+    var hoje0 = new Date(CR.DIA + 'T03:00:00Z').getTime(), apagados = 0;
+    (card.checklists || []).forEach(function (k) {
+      if (String(k.name || '').trim().toUpperCase() !== CP.FO) return;
+      var itens = k.checkItems || [], deHoje = itens.filter(function (it) { return cp_criadoEm_(it.id) >= hoje0; });
+      if (cp_criadoEm_(k.id) >= hoje0 && deHoje.length === itens.length) {
+        vd_api_('/checklists/' + k.id, { method: 'delete' }); apagados += itens.length;
+      } else {
+        deHoje.forEach(function (it) { vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'delete' }); apagados++; });
+      }
+    });
+    if (apagados) feito.push('saíram ' + apagados + ' item(ns) do checklist ' + CP.FO);
+  }
+
+  // 3) FO que tinha saído do FORNECIMENTO por engano volta (com fornecedor e previsão)
+  if (c.foVolta && c.foVolta.length) {
+    var fo = c.foVolta.map(function (p) { return { codigo: p.codigo, descricao: p.descricao, fornecedor: c.foVoltaFornecedor || '', previsao: c.foVoltaPrev || '' }; });
+    vdf_checklistFornecimento_(card.id, fo, null, 'FORNECIMENTO');
+    feito.push('voltaram para o checklist FORNECIMENTO: ' + c.foVolta.map(function (p) { return p.codigo + ' ' + p.descricao; }).join('; ') +
+      (c.foVoltaFornecedor ? ' (' + c.foVoltaFornecedor + (c.foVoltaPrev ? ', prev. ' + Utilities.formatDate(new Date(c.foVoltaPrev), 'America/Sao_Paulo', 'dd/MM') : '') + ')' : ''));
+  }
+
+  // 4) o complemento certo (pelo laudo HDI): peça nova da oficina na lista + FO nova no FORNECIMENTO COMPLEMENTO
+  var oficina = (c.oficina || []).map(function (p) { return { codigo: p.codigo, descricao: p.descricao, qtd: p.qtd, valorOrc: p.valorOrc, tipos: [], compData: '11/10' }; });
+  var foNova = (c.foNova || []).map(function (p) { return { codigo: p.codigo, descricao: p.descricao, fornecedor: p.fornecedor || '' }; });
+  if (oficina.length || foNova.length) {
+    var card2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name' } });
+    cp_aplicar_(card2, { oficina: oficina, fo: foNova, jaTinha: 0, pareadas: [], atualizar: [], paraOficina: [] },
+      { origem: 'HDI — correção', anexo: '', quem: 'robô (correção 11/10)', token: null, ctx: ctx, semComentario: true });
+    if (oficina.length) feito.push('peça nova da oficina (laudo HDI): ' + oficina.map(cp_nome_).join('; '));
+    if (foNova.length) feito.push('FO nova da HDI no checklist ' + CP.FO + ': ' + foNova.map(cp_nome_).join('; '));
+  }
+
+  // 5) coluna de antes do engano
+  var movido = '';
+  if (c.coluna) {
+    var card3 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList' } });
+    movido = vdf_moverPara_(card3, ctx, c.coluna, null, 'robô (correção 11/10)');
+    if (movido) feito.push('card voltou para **' + movido + '**');
+  }
+
+  // 6) comentário
+  var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
+  var txt = (quem ? '@' + quem + ' ' : '') + '🛠️ **CORREÇÃO DO ROBÔ** (11/10) — ' + c.motivo + '. Os avisos de 🆕 PEÇA NOVA / FALTA DADOS de hoje vieram desse engano.\n' +
+    feito.map(function (f) { return '- ' + f; }).join('\n') +
+    (c.foNova && c.foNova.length ? '\n- verificar prazo do item ' + c.foNova.map(function (p) { return p.codigo + ' ' + p.descricao; }).join(', ') : '') +
+    (oficina.length ? '\n- verificar compra do item ' + oficina.map(function (p) { return p.descricao; }).join(', ') + ' (marcar código e tipo no ✏️ EDITAR/INCLUIR PEÇA)' : '') +
+    (c.extra ? '\n' + c.extra : '');
+  vd_comentar_(card, txt);
+  return feito.join(' · ');
+}
+
+// Corretivo.gs:167
+function cr_executarB_() {
+  var props = PropertiesService.getScriptProperties(), k = CR.CHAVE + 'B';
+  if (props.getProperty(k) === 'FEITO') return 0;
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var n = +(props.getProperty(k + '_TENT') || 0);
+  if (n >= 3) { props.setProperty(k, 'FEITO'); return 0; }
+  props.setProperty(k + '_TENT', String(n + 1));
+  var card = vd_api_('/cards/aX6Qgx1G', { query: { fields: 'name,idList,shortLink' } });
+  vdf_checklistFornecimento_(card.id, [{ codigo: '52245037', descricao: 'DEFLETOR DO RADIADOR', fornecedor: 'FLORENCA', previsao: '2026-10-19T15:00:00.000Z' }], null, 'FORNECIMENTO');
+  vd_comentar_(card, '🛠️ **CORREÇÃO DO ROBÔ** (11/10, complemento) — voltou para o checklist FORNECIMENTO: 52245037 DEFLETOR DO RADIADOR (FO da HDI, FLORENCA, prev. 19/10), que tinha saído por engano. Verificar prazo do item 52245037 DEFLETOR DO RADIADOR.');
+  props.setProperty(k, 'FEITO');
+  return 1;
+}
+
 // Cota.gs:19
 function qt_parte_(nome) { QT_PARTE_ATUAL = nome || ''; }
 
@@ -1418,6 +2751,9 @@ function qt_fetchAll_(reqs) {
 
 // Cota.gs:40
 function qt_ehEstouro_(e) { return /too many times.*urlfetch/i.test(String((e && e.message) || e)); }
+
+// Cota.gs:42
+function qt_ehErroDeCota_(e) { var s = String((e && e.message) || e); return /^COTA:/.test(s) || qt_ehEstouro_(e); }
 
 // Cota.gs:44
 function qt_pausadaAte_() {
@@ -1494,6 +2830,20 @@ function qt_resumo_(menos) {
   return dia + ': ' + d.total.toLocaleString('pt-BR') + ' chamadas em ' + (d.exec || 0).toLocaleString('pt-BR') + ' execuções' + (partes.length ? ' — ' + partes.join(' · ') : '');
 }
 
+// Cota.gs:119
+function qt_resumoPausa_() { var ate = qt_pausadaAte_(); return 'cota estourada, pausado até ' + (ate ? Utilities.formatDate(new Date(ate), 'America/Sao_Paulo', 'HH:mm') : '?'); }
+
+// Cota.gs:125
+function qt_retomarSePreciso_() {
+  var p = PropertiesService.getScriptProperties(), desde = p.getProperty('QT_PAUSA_DESDE');
+  if (!desde || qt_pausada_()) return false;
+  var agora = new Date().toISOString();
+  ['TR_ACT', 'CK_DESDE', 'ST_ULTIMA'].forEach(function (m) { try { vd_marcaSet_(m, agora); } catch (e) {} });
+  p.deleteProperty('QT_PAUSA_DESDE');
+  console.log('cota liberou: travas retomam a partir de agora; o que foi feito à mão desde ' + new Date(+desde).toLocaleString('pt-BR') + ' fica como está');
+  return true;
+}
+
 // Cota.gs:136
 function vdf_consumo(token) {
   var me = vdf_usuario_(token);
@@ -1523,12 +2873,237 @@ function vdf_consumo(token) {
 // Espelho.gs:29
 function es_ligado_() { return vd_prop_('ES_LIGADO', 'NAO') === 'SIM' && vd_board_() === ES.DESTINO; }
 
+// Espelho.gs:32
+function es_guarda_() {
+  if (vd_board_() !== ES.DESTINO) throw new Error('Espelho só roda com o sistema no quadro TESTE.');
+  if (ES.ORIGEM === ES.DESTINO) throw new Error('origem = destino');
+}
+
 // Espelho.gs:38
 function es_filtrarMencoes_(txt) {
   if (!es_ligado_()) return txt;
   return String(txt).replace(/(^|[^A-Za-z0-9_.])@([A-Za-z0-9_]{3,})/g, function (m, pre, u) {
     return ES.MENCOES_OK.indexOf(u.toLowerCase()) >= 0 ? m : pre + '👤' + u;
   });
+}
+
+// Espelho.gs:46
+function es_marcarAutor_(idTeste, nome) { try { CacheService.getScriptCache().put('es_autor_' + idTeste, String(nome || '').slice(0, 60), 900); } catch (e) {} }
+
+// Espelho.gs:47
+function es_autor_(idTeste) {
+  try { var n = CacheService.getScriptCache().get('es_autor_' + idTeste); return n ? ' _(no principal: ' + n + ')_' : ''; } catch (e) { return ''; }
+}
+
+// Espelho.gs:52
+function es_aba_() {
+  var ss = vd_planilhaBackup_().getParent(), sh = ss.getSheetByName(ES.ABA);
+  if (!sh) { sh = ss.insertSheet(ES.ABA); sh.appendRow(['Card principal (id)', 'Card TESTE (id)', 'Link TESTE', 'Nome', 'Copiado em']); sh.setFrozenRows(1); }
+  return sh;
+}
+
+// Espelho.gs:57
+function es_mapa_() {
+  var sh = es_aba_(), n = sh.getLastRow(), m = {};
+  if (n < 2) return m;
+  sh.getRange(2, 1, n - 1, 2).getValues().forEach(function (r) { if (r[0] && r[1]) m[r[0]] = r[1]; });
+  return m;
+}
+
+// Espelho.gs:65
+function es_api_(caminho, opts) { opts = opts || {}; opts.semLicenca = true; return vd_api_(caminho, opts); }
+
+// Espelho.gs:67
+function es_listasDestino_() { return vd_listas_(ES.DESTINO); }
+
+// Espelho.gs:68
+function es_nomeListaOrigem_() {
+  var m = {};
+  vd_api_('/boards/' + ES.ORIGEM + '/lists', { cru: true, query: { fields: 'name' } }).forEach(function (l) { m[l.id] = vd_nomeColuna_(l.name); });
+  return m;
+}
+
+// Espelho.gs:75
+function es_copiar_(cardOrigem, nomeLista, listasDest, mapa) {
+  var idL = listasDest[nomeLista];
+  if (!idL) return null;
+  var novo = vd_api_('/cards', { method: 'post', query: {
+    idList: idL, idCardSource: cardOrigem.id, keepFromSource: 'attachments,checklists,due,start,labels,stickers', pos: 'bottom' } });
+  try { ck_licenca_('/cards/' + novo.id + '/checklists'); } catch (e) {}   // a cópia não é "mão" — a trava não desfaz
+  mapa[cardOrigem.id] = novo.id;
+  es_aba_().appendRow([cardOrigem.id, novo.id, novo.shortUrl || '', cardOrigem.name || '', new Date()]);
+  return novo;
+}
+
+// Espelho.gs:117
+function es_sincronizar() {
+  if (!es_ligado_()) return;   // (fora do TESTE: não roda e não dá erro a cada 10 min)
+  es_guarda_();
+  var p = PropertiesService.getScriptProperties();
+  var rodando = +(p.getProperty('ES_RODANDO') || 0);
+  if (Date.now() - rodando < 7 * 60000) return;            // outra rodada ainda em andamento
+  p.setProperty('ES_RODANDO', String(Date.now()));
+  try {
+    var fim = Date.now() + ES.LIMITE_MS, mapa = es_mapa_(), dest = es_listasDestino_(), origemNome = es_nomeListaOrigem_();
+    var r = { copiados: 0, aplicados: 0, erros: 0 };
+    // cópia inicial (em partes, se precisar)
+    if (p.getProperty('ES_COPIA_INICIAL') === 'PENDENTE') {
+      var cards = vd_api_('/boards/' + ES.ORIGEM + '/cards', { cru: true, query: { fields: 'name,idList,pos' } });
+      var ordem = {}; ES.FLUXO.forEach(function (n, i) { ordem[n] = i; });
+      cards = cards.filter(function (c) { return ordem[origemNome[c.idList]] !== undefined && !mapa[c.id] && !/NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || ''); })
+        .sort(function (a, b) { return (ordem[origemNome[a.idList]] - ordem[origemNome[b.idList]]) || (a.pos - b.pos); });
+      for (var i = 0; i < cards.length && Date.now() < fim; i++) {
+        try { if (es_copiar_(cards[i], origemNome[cards[i].idList], dest, mapa)) r.copiados++; } catch (e) { r.erros++; console.log('copiar ' + cards[i].name + ': ' + e); }
+      }
+      if (i >= cards.length) p.setProperty('ES_COPIA_INICIAL', 'FEITA');
+    }
+    // mudanças do principal
+    if (Date.now() < fim) {
+      var desde = p.getProperty('ES_DESDE');
+      var acts = vd_api_('/boards/' + ES.ORIGEM + '/actions', { cru: true, query: { filter: ES.TIPOS, since: desde, limit: 500, memberCreator_fields: 'username,fullName' } }) || [];
+      var feitos = {}, ultimo = desde;
+      acts.reverse().some(function (a) {
+        if (Date.now() > fim) return true;
+        try { if (es_aplicar_(a, mapa, dest, origemNome, feitos)) r.aplicados++; } catch (e) { r.erros++; console.log('espelho ' + a.type + ': ' + e); }
+        ultimo = a.id;
+        return false;
+      });
+      if (ultimo) p.setProperty('ES_DESDE', ultimo);
+    }
+    p.setProperty('ES_ULTIMA', new Date().toISOString());
+    Logger.log('espelho: ' + r.copiados + ' card(s) copiado(s), ' + r.aplicados + ' mudança(s) aplicada(s), ' + r.erros + ' erro(s)');
+    return r;
+  } finally { p.deleteProperty('ES_RODANDO'); }
+}
+
+// Espelho.gs:158
+function es_aplicar_(a, mapa, dest, origemNome, feitos) {
+  var d = a.data || {}, cardO = d.card || {};
+  if (!cardO.id) return false;
+  if (feitos[cardO.id]) return false;                       // copiado nesta rodada: já veio com o estado atual
+  var autor = a.memberCreator ? (a.memberCreator.fullName || a.memberCreator.username) : '';
+  var idT = mapa[cardO.id];
+
+  // card ainda não espelhado: copia se ele está (agora) no fluxo
+  if (!idT) {
+    var criou = /^(createCard|copyCard|moveCardToBoard|convertToCardFromCheckItem|emailCard)$/.test(a.type);
+    var entrou = a.type === 'updateCard' && d.listAfter && ES.FLUXO.indexOf(vd_nomeColuna_(d.listAfter.name)) >= 0;
+    if (!criou && !entrou) return false;
+    var atual; try { atual = vd_api_('/cards/' + cardO.id, { cru: true, query: { fields: 'name,idList,closed' } }); } catch (e) { return false; }
+    var nl = origemNome[atual.idList];
+    if (atual.closed || ES.FLUXO.indexOf(nl) < 0) return false;
+    if (/NOVO PEDIDO DE PE[ÇC]A/i.test(atual.name || '')) return false;
+    es_copiar_(atual, nl, dest, mapa);
+    feitos[cardO.id] = true;
+    return true;
+  }
+  es_marcarAutor_(idT, autor);
+
+  switch (a.type) {
+    case 'updateCard':
+      var old = d.old || {}, put = {};
+      if (d.listAfter) {
+        var nomeL = vd_nomeColuna_(d.listAfter.name), alvo = dest[ES.FLUXO.indexOf(nomeL) >= 0 ? nomeL : ES.FORA];
+        if (alvo) put.idList = alvo;
+      }
+      if (Object.prototype.hasOwnProperty.call(old, 'desc')) put.desc = cardO.desc || '';
+      if (Object.prototype.hasOwnProperty.call(old, 'name')) put.name = cardO.name || '';
+      if (Object.prototype.hasOwnProperty.call(old, 'due')) put.due = cardO.due || null;
+      if (Object.prototype.hasOwnProperty.call(old, 'dueComplete')) put.dueComplete = !!cardO.dueComplete;
+      if (Object.prototype.hasOwnProperty.call(old, 'closed')) put.closed = !!cardO.closed;
+      if (!Object.keys(put).length) return false;
+      es_api_('/cards/' + idT, { method: 'put', payload: put });
+      return true;
+    case 'commentCard':
+      es_api_('/cards/' + idT + '/actions/comments', { method: 'post', payload: { text: '💬 **' + autor + '** _(principal)_: ' + String(d.text || '') } });
+      return true;
+    case 'addAttachmentToCard':
+      return es_copiarAnexo_(d.attachment || {}, cardO.id, idT);
+    case 'deleteAttachmentFromCard':
+      var ans = vd_api_('/cards/' + idT + '/attachments', { query: { fields: 'name' } });
+      var alvoA = ans.filter(function (x) { return x.name === (d.attachment || {}).name; })[0];
+      if (!alvoA) return false;
+      es_api_('/cards/' + idT + '/attachments/' + alvoA.id, { method: 'delete' });
+      return true;
+    case 'addLabelToCard':
+    case 'removeLabelFromCard':
+      var et = es_etiqueta_((d.label || {}).name, (d.label || {}).color);
+      if (!et) return false;
+      if (a.type === 'addLabelToCard') { try { es_api_('/cards/' + idT + '/idLabels', { method: 'post', payload: { value: et } }); } catch (e) { if (e.codigo !== 400) throw e; } }
+      else { try { es_api_('/cards/' + idT + '/idLabels/' + et, { method: 'delete' }); } catch (e) { if (e.codigo !== 404) throw e; } }
+      return true;
+    default:
+      return es_checklist_(a, idT);
+  }
+}
+
+// Espelho.gs:218
+function es_etiqueta_(nome, cor) {
+  if (!nome) return '';
+  var c = CacheService.getScriptCache(), k = 'es_etq_' + ES.DESTINO, js = c.get(k), ls;
+  if (js) ls = JSON.parse(js); else { ls = vd_api_('/boards/' + ES.DESTINO + '/labels', { query: { fields: 'name,color', limit: 200 } }); c.put(k, JSON.stringify(ls), 3600); }
+  var l = ls.filter(function (x) { return (x.name || '').trim().toUpperCase() === String(nome).trim().toUpperCase(); })[0];
+  if (l) return l.id;
+  var novo = vd_api_('/boards/' + ES.DESTINO + '/labels', { method: 'post', payload: { name: nome, color: cor || null } });
+  c.remove(k);
+  return novo.id;
+}
+
+// Espelho.gs:230
+function es_copiarAnexo_(at, idO, idT) {
+  if (!at.id) return false;
+  var info = vd_api_('/cards/' + idO + '/attachments/' + at.id, { cru: true, query: { fields: 'name,url,isUpload,mimeType' } });
+  if (!info.isUpload) { es_api_('/cards/' + idT + '/attachments', { method: 'post', payload: { url: info.url, name: info.name } }); return true; }
+  var r = qt_fetch_(info.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
+  if (r.getResponseCode() >= 300) throw new Error('download do anexo ' + info.name + ': ' + r.getResponseCode());
+  var blob = r.getBlob().setName(info.name);
+  es_api_('/cards/' + idT + '/attachments', { method: 'post', multipart: { file: blob, name: info.name } });
+  return true;
+}
+
+// Espelho.gs:242
+function es_checklist_(a, idT) {
+  var d = a.data || {}, nomeCl = (d.checklist || {}).name, it = d.checkItem || {};
+  var cls = vd_api_('/cards/' + idT + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name,state,due', fields: 'name' } });
+  var cl = cls.filter(function (k) { return k.name === nomeCl; })[0];
+  var item = cl && it.name ? (cl.checkItems || []).filter(function (i) { return i.name === it.name || (d.old && i.name === d.old.name); })[0] : null;
+  switch (a.type) {
+    case 'addChecklistToCard':
+      if (cl) return false;
+      es_api_('/checklists', { method: 'post', payload: { idCard: idT, idChecklistSource: (d.checklist || {}).id } });
+      return true;
+    case 'removeChecklistFromCard':
+      if (!cl) return false;
+      es_api_('/checklists/' + cl.id, { method: 'delete' });
+      return true;
+    case 'updateChecklist':
+      var antigo = d.old && d.old.name;
+      var cl2 = cls.filter(function (k) { return k.name === antigo; })[0];
+      if (!cl2) return false;
+      es_api_('/checklists/' + cl2.id, { method: 'put', payload: { name: nomeCl } });
+      return true;
+    case 'createCheckItem':
+      if (!cl || item) return false;
+      es_api_('/checklists/' + cl.id + '/checkItems', { method: 'post', payload: { name: it.name, pos: 'bottom' } });
+      return true;
+    case 'deleteCheckItem':
+      if (!item) return false;
+      es_api_('/cards/' + idT + '/checkItem/' + item.id, { method: 'delete' });
+      return true;
+    case 'updateCheckItemStateOnCard':
+      if (!item || item.state === it.state) return false;
+      es_api_('/cards/' + idT + '/checkItem/' + item.id, { method: 'put', payload: { state: it.state } });
+      return true;
+    case 'updateCheckItem':
+      if (!item) return false;
+      var put = {};
+      if (d.old && d.old.name !== undefined) put.name = it.name;
+      if (d.old && d.old.due !== undefined) put.due = it.due || null;
+      if (!Object.keys(put).length) return false;
+      es_api_('/cards/' + idT + '/checkItem/' + item.id, { method: 'put', payload: put });
+      return true;
+  }
+  return false;
 }
 
 // Eventos.gs:14
@@ -1604,14 +3179,427 @@ function ev_peca_(p) {
   return { peca: p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + (p.marca ? ' ' + p.marca : '') : vd_nomePeca_(p), particular: !!p.particular };
 }
 
+// Faturamento.gs:23
+function fat_semCobranca_(labels) {
+  return (labels || []).some(function (l) { return /SEM COBRAN[ÇC]A/i.test(typeof l === 'string' ? l : String((l && l.name) || '')); });
+}
+
+// Faturamento.gs:27
+function fat_usuarios_() {
+  var us = String(vd_prop_('FAT_USUARIOS', 'financeirounity,christianfarias23')).toLowerCase().split(/[,;\s]+/).filter(String);
+  if (vd_board_() === VD.BOARD_PADRAO && us.indexOf('timweslley') < 0) us.push('timweslley');   // TESTE: dá para testar com a conta do script
+  return us;
+}
+
+// Faturamento.gs:36
+function fat_ehConfirmacao_(txt) {
+  var t = vd_semAcento_(txt || '').replace(/[^A-Z0-9?.]+/g, ' ').trim();
+  if (/\?/.test(t)) return false;
+  // "fechado/fechada" só vale perto de O.S./ordem ("OK fechada", "O.S. fechada", "ordem fechada") — "porta fechada" não é faturamento;
+  // e com qualquer negação no texto não vale
+  var fechado = /\b(?:O\.?S\.?|ORDEM|OK)\b[^A-Z0-9]{0,3}(?:\S+ ){0,2}FECHAD[OA]S?\b|\bFECHAD[OA]S?\b (?:\S+ ){0,2}(?:O\.?S\.?|ORDEM)\b|^FECHAD[OA]S?$/.test(t);
+  if (fechado && !new RegExp('\\b' + FAT_NEG + '\\b').test(t)) return true;
+  if (!new RegExp('\\b' + FAT_CONF + '\\b').test(t)) return false;
+  if (new RegExp('\\b' + FAT_NEG + '\\b(?: \\S+){0,2} ' + FAT_CONF + '\\b').test(t)) return false;        // "não faturado", "ainda não foi faturado"
+  if (new RegExp('\\b' + FAT_CONF + ' NAO\\b').test(t)) return false;                                        // "faturado não"
+  return true;
+}
+
+// Faturamento.gs:49
+function fat_executar_() {
+  if (vd_prop_('FAT_LIGADO', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var desde = vd_marca_('FAT_ULTIMA');
+  if (!desde) { vd_marcaSet_('FAT_ULTIMA', new Date().toISOString()); return 0; }   // 1ª vez: só daqui para frente
+  var board = vd_board_();
+  var acoes = vd_acoesQuadro_(board, { filter: 'commentCard,updateCard:closed', since: desde, limit: 100, memberCreator_fields: 'username,fullName' });
+  if (!acoes.length) return 0;
+  vd_marcaSet_('FAT_ULTIMA', new Date(new Date(acoes[0].date).getTime() + 1).toISOString());   // a 1ª é a mais nova
+  var ls = vd_listas_(board), nomeL = {};
+  Object.keys(ls).forEach(function (k) { nomeL[ls[k]] = k; });
+  var us = fat_usuarios_(), n = 0, vistos = {};
+  var usTxt = us.filter(function (u) { return u !== 'timweslley' || vd_board_() === VD.BOARD_PADRAO; }).map(function (u) { return '@' + u; }).join(' / ');
+  acoes.reverse().forEach(function (a) {
+    var cardId = a.data && a.data.card && a.data.card.id;
+    if (!cardId || vistos[cardId]) return;
+    var quem = a.memberCreator ? String(a.memberCreator.username || '').toLowerCase() : '';
+    var arquivou = a.type === 'updateCard';
+    if (arquivou) {
+      // arquivamento à mão: só interessa o de quem confirma faturamento (arquivar = "faturado")
+      if (!(a.data.card && a.data.card.closed) || !quem || us.indexOf(quem) < 0) return;
+      if (quem === 'timweslley' && vd_board_() !== VD.BOARD_PADRAO) return;   // no quadro real o Weslley arquiva por outros motivos
+    } else {
+      var txt = (a.data && a.data.text) || '';
+      if (txt.indexOf(FAT.MARCA) >= 0 || txt.indexOf('⏰') >= 0) return;   // comentário do próprio robô
+      if (!fat_ehConfirmacao_(txt)) return;   // negação perto da palavra ou pergunta: não é confirmação
+    }
+    var c;
+    try { c = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name,idList,closed,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state' } }); } catch (e) { return; }
+    if (!c || vdf_cardProtegido_(c.name || '')) return;
+    if (c.closed !== arquivou) return;   // comentário em card já arquivado (o arquivamento trata) / arquivamento já desfeito
+    vistos[cardId] = 1;
+    var lista = nomeL[c.idList] || '';
+    try {
+      if (us.indexOf(quem) < 0) {
+        vd_comentar_(c, '@' + quem + ' ' + FAT.MARCA + ' O faturamento é confirmado por ' + usTxt + ' — o card não foi arquivado.');
+        return;
+      }
+      if (FAT.LISTAS.indexOf(lista) < 0) {
+        if (arquivou) return;   // arquivou em outra coluna: não é faturamento, não mexe
+        vd_comentar_(c, '@' + quem + ' ' + FAT.MARCA + ' Card em **' + (lista || '?') + '** — só é arquivado como faturado em ' + FAT.LISTAS.join(' ou ') + '. O card continua no quadro.');
+        return;
+      }
+      // card antigo (anterior à virada) arquivado à mão: o robô não mantém o checklist dele — só registra o evento
+      if (arquivou && vd_legado_(c.id)) { ev_registrar_('FATURADO', c, quem, null, { detalhe: lista + ' — arquivado à mão (card antigo)' }); n++; return; }
+      var reabrir = function (motivo) {
+        if (arquivou) { try { vd_api_('/cards/' + c.id, { method: 'put', payload: { closed: 'false' } }); } catch (e) {} }
+        vd_comentar_(c, '@' + quem + ' ' + FAT.MARCA + ' ' + (arquivou ? 'Desarquivei o card: ' : 'Não arquivei: ') + motivo);
+      };
+      // 09/10/2026 (Weslley): complementar comprado antes da autorização e ainda sem confirmação da seguradora não fatura
+      var cpP = [];
+      try { var cD = vd_api_('/cards/' + c.id, { query: { fields: 'name,desc' } }); cpP = vd_complPendentes_(vd_analisar_(cD.desc, cD.name)); } catch (e) {}   // desc completa (o card acima veio cru)
+      if (cpP.length) {
+        reabrir('complementar comprado **antes da autorização** e ainda sem confirmação da seguradora — verificar autorização e importação no Databox do item ' + vd_complPendTxt_(cpP) + '. Depois de marcar na aba Compra do formulário, comente «faturado» de novo.');
+        return;
+      }
+      var falta = [];
+      (c.checklists || []).forEach(function (k) { (k.checkItems || []).forEach(function (i) { if (i.state !== 'complete') falta.push(String(i.name).split(/\s+-\s+/)[0] + ' (' + k.name + ')'); }); });
+      if (falta.length) {
+        reabrir('ainda há ' + falta.length + ' item(ns) sem ✔ — ' + falta.slice(0, 8).join(', ') + (falta.length > 8 ? '…' : '') + '. Depois de conferir, comente «faturado» de novo.');
+        return;
+      }
+      ev_registrar_('FATURADO', c, quem, null, { detalhe: lista + (arquivou ? ' — arquivado à mão' : ' — arquivado') });
+      if (!arquivou) vd_api_('/cards/' + c.id, { method: 'put', payload: { closed: 'true' } });
+      n++;
+    } catch (e) { console.log('faturamento: ' + e); }
+  });
+  if (n) console.log('faturamento: ' + n + ' card(s) faturado(s)');
+  return n;
+}
+
+// Fluxo.gs:27
+function st_ligado_() { return vd_prop_('ST_TRAVA', 'SIM') !== 'NAO'; }
+
 // Fluxo.gs:30
 function st_permitir_(cardId, idLista) {
   if (!cardId || !idLista) return;
   try { CacheService.getScriptCache().put(ST.PREFIXO_OK + cardId + '_' + idLista, '1', 240); } catch (e) {}   // 4 min: o ciclo é de 1 min
 }
 
+// Fluxo.gs:34
+function st_temLicenca_(cardId, idLista) {
+  try { return CacheService.getScriptCache().get(ST.PREFIXO_OK + cardId + '_' + idLista) === '1'; } catch (e) { return false; }
+}
+
+// Fluxo.gs:39
+function st_executar_() {
+  if (!st_ligado_() || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var props = PropertiesService.getScriptProperties();
+  var agora = new Date().toISOString();
+  var desde = vd_marca_('ST_ULTIMA');
+  if (!desde) { vd_marcaSet_('ST_ULTIMA', agora); return 0; }   // 1ª vez: não olha para trás
+  var board = vd_board_();
+  var acoes = vd_acoesQuadro_(board, { filter: 'updateCard:idList', since: desde, limit: 100, memberCreator_fields: 'username,fullName' });
+  // 17/10/2026: só julga movimento com mais de 90 s (licença de gravação feita pelo servidor chega logo depois) — o marcador
+  // para no limite, e o movimento mais novo é visto no próximo ciclo
+  agora = new Date(Date.now() - 90 * 1000).toISOString();
+  if (desde >= agora) return 0;
+  acoes = acoes.filter(function (a) { return !a.date || a.date <= agora; });
+  if (!acoes.length) { vd_marcaSet_('ST_ULTIMA', agora); return 0; }
+  var ultimaFeita = desde;   // o marcador só avança sobre o que foi processado de verdade
+  var ls = vd_listas_(board), nome = {};
+  Object.keys(ls).forEach(function (k) { nome[ls[k]] = k; });
+  var inicio = ST.INICIO.map(function (n) { return ls[n]; }).filter(String);
+  var fim = vd_prazo_(ST.LIMITE_MS), desfeitos = 0, vistos = {};
+  var parou = false;
+  acoes.reverse().forEach(function (a) {
+    if (parou || Date.now() > fim) { parou = true; return; }
+    if (a.date) ultimaFeita = new Date(new Date(a.date).getTime() + 1).toISOString();   // +1 ms: não reprocessa a mesma ação
+    if (!a.data || !a.data.card || !a.data.listAfter || !a.data.listBefore) return;
+    var cardId = a.data.card.id, para = a.data.listAfter.id, de = a.data.listBefore.id;
+    if (vd_legado_(cardId)) return;   // card antigo: segue o jeito antigo
+    var nPara = nome[para] || vd_nomeColuna_(a.data.listAfter.name);
+    var nDe = nome[de] || vd_nomeColuna_(a.data.listBefore.name);
+    var motivo = '', ESP = 'ESPERA/NÃO AUTORIZADO', kEsp = 'ST_ESP_' + cardId;
+    // 10/10/2026 (revisão): a marca "veio de X para a ESPERA" só era gravada e nunca apagada — card que saía da ESPERA
+    // por licença (devolver para cotação) ou por outra coluna carregava a marca velha e era devolvido indevidamente na
+    // passagem seguinte. Agora: saiu da ESPERA por qualquer caminho aceito = marca apagada; entrou na ESPERA vindo de
+    // coluna livre = marca apagada.
+    var tiraMarca = function () { try { props.deleteProperty(kEsp); } catch (e) {} };
+    if (st_temLicenca_(cardId, para)) { try { CacheService.getScriptCache().remove(ST.PREFIXO_OK + cardId + '_' + para); } catch (e) {} if (nDe === ESP) tiraMarca(); return; }
+    if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
+    // card estacionado em ESPERA: guarda de onde veio; pode voltar só para lá
+    if (nPara === ESP) { if (ST.TRAVADAS[nDe]) props.setProperty(kEsp, nDe); else tiraMarca(); return; }
+    // Butler "todos os checklists completos em FALTA CHEGAR -> ENCERRADO": é a mesma regra do sistema, aceita
+    if (nDe === 'FALTA CHEGAR' && nPara === 'ENCERRADO COMPRAS/FORNEC.') {
+      try {
+        var cE = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name', checklists: 'all', checkItem_fields: 'name,state' } });
+        var itE = vdf_itensRecebimento_(cE);
+        if (itE.length && itE.every(function (i) { return i.ok; })) return;
+      } catch (e) {}
+    }
+    if (nDe === ESP && ST.TRAVADAS[nPara] && props.getProperty(kEsp) === nPara) { props.deleteProperty(kEsp); return; }
+    if (nDe === ESP && inicio.indexOf(para) >= 0 && props.getProperty(kEsp)) {
+      motivo = 'Card que já passou da cotação não volta pela ESPERA para **' + nPara + '**: devolva para **' + props.getProperty(kEsp) + '**, ou use **↩️ Devolver para cotação** / **✏️ EDITAR/INCLUIR PEÇA**.';
+    }
+    else if (ST.TRAVADAS[nPara]) motivo = 'O card não pode ser movido à mão para **' + nPara + '**: ele vai sozinho ' + ST.TRAVADAS[nPara] + '.';
+    else if (inicio.indexOf(para) >= 0 && ST.TRAVADAS[nDe]) motivo = 'Card que já passou da cotação não volta à mão para **' + nPara + '**: para refazer a cotação use **↩️ Devolver para cotação** (aba ✅ Autorizar); para pedir peça nova, **✏️ Editar peças** — o card volta sozinho.';
+    if (!motivo) { if (nDe === ESP) tiraMarca(); return; }   // saiu da ESPERA para coluna livre: aceito, marca apagada
+    if (vistos[cardId]) return;   // vários movimentos seguidos: trata uma vez, devolvendo para a origem do primeiro
+    vistos[cardId] = 1;
+    var c;
+    try { c = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name,desc,idList,shortLink,shortUrl,labels' } }); } catch (e) { return; }
+    if (c.idList !== para) return;   // já saiu de lá
+    // volta à mão para EM COTAÇÃO com peça da oficina ainda sem cotação (ex.: peça que deixou de ser "não comprar" ou passou
+    // de FO para oficina — QPG1B84, 06/10/2026): o movimento está certo, fica
+    if (inicio.indexOf(para) >= 0 && ST.TRAVADAS[nDe]) {
+      var semCot = [];
+      // sem "cru": precisa da descrição completa (a vitrine não tem o bloco PEÇAS)
+      try { semCot = vd_pecasSemCotacao_(vd_api_('/cards/' + cardId, { query: { fields: 'name,desc' } })); } catch (e) {}
+      if (semCot.length) {
+        var quemM = a.memberCreator ? a.memberCreator.username : '';
+        try { vd_comentar_(c, '✔ Card em **' + nPara + '**' + (quemM ? ' (movido por @' + quemM + ')' : '') + ' — peça(s) aguardando cotação: ' + semCot.join('; ')); } catch (e) {}
+        try { PropertiesService.getScriptProperties().deleteProperty('VD_NOVAS_' + cardId); } catch (e) {}
+        return;
+      }
+    }
+    try {
+      st_permitir_(cardId, de);
+      vd_api_('/cards/' + cardId, { method: 'put', payload: { idList: de, pos: 'top' } });
+      vd_fixarTopo_(de);
+      desfeitos++;
+      var quem = a.memberCreator ? a.memberCreator.username : '';
+      var orig = ''; try { orig = es_autor_(cardId); } catch (e) {}
+      vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 ' + motivo + orig + '\nO card voltou para **' + nDe + '**.');
+      ev_registrar_('MOVIMENTO DESFEITO', c, quem || '?', null, { detalhe: nDe + ' → ' + nPara + ' (à mão) — voltou para ' + nDe });
+    } catch (e) { console.log('trava de colunas: ' + e); }
+  });
+  vd_marcaSet_('ST_ULTIMA', parou ? ultimaFeita : agora);
+  if (desfeitos) console.log('trava de colunas: ' + desfeitos + ' movimento(s) desfeito(s)');
+  return desfeitos;
+}
+
+// Fluxo.gs:142
+function sla_dia_(d) { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); }
+
+// Fluxo.gs:143
+function sla_mais_(d, n) { d = sla_dia_(d); var g = 0; while (n > 0 && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) n--; } return d; }
+
 // Fluxo.gs:145
 function sla_users_(prop, padrao) { if (vd_board_() === VD.BOARD_PADRAO) padrao = 'timweslley'; return String(vd_prop_(prop, padrao)).split(/[,;\s]+/).filter(String); }
+
+// Fluxo.gs:146
+function sla_mencao_(us) { return us.filter(function (u, i) { return u && us.indexOf(u) === i; }).map(function (u) { return '@' + u; }).join(' '); }
+
+// Fluxo.gs:152
+function sla_podeAvisar_(props, chave, hoje) {
+  var ult = props.getProperty(chave);
+  if (!ult) return true;
+  var rep = +vd_prop_('SLA_REPETIR_DU', 0);
+  return rep > 0 && sla_mais_(new Date(ult), rep) <= hoje;
+}
+
+// Fluxo.gs:160
+function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
+  if (vd_prop_('FAT_RESUMO', 'SIM') === 'NAO' || !itens.length) return false;
+  var kDia = 'FAT_RESUMO_DIA', dia = Utilities.formatDate(hoje, 'America/Sao_Paulo', 'yyyy-MM-dd');
+  if (props.getProperty(kDia) === dia) return false;
+  var g = String(props.getProperty('VD_FIXO') || '').split('|');
+  if (!g[0]) { console.log('resumo de faturamento: sem card fixo'); return false; }
+  itens.sort(function (a, b) { return b.dias - a.dias; });
+  var mostra = itens.slice(0, SLA.RESUMO_MAX);
+  var usF = fat_usuarios_();
+  if (vd_board_() !== VD.BOARD_PADRAO) usF = usF.filter(function (u) { return u !== 'timweslley'; });
+  var mencao = sla_mencao_(vd_board_() === VD.BOARD_PADRAO ? ['timweslley'] : usF);
+  var txt = mencao + ' 🧾 **Faturamento pendente — ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM') + '**: ' + itens.length +
+    ' card(s) em ENTREGUES há mais de ' + diasPrazo + ' dia(s) útil(eis), do mais antigo para o mais novo. _Lista atualizada todo dia útil neste mesmo comentário._ Depois de faturar, comente «faturado» no card (ou arquive) — ele sai da lista.\n' +
+    mostra.map(function (x) { return '- ' + x.dias + ' d.u. · [' + x.nome + '](' + x.url + ')' + (x.compl ? ' ⚠️ complementar antecipado sem confirmação' : ''); }).join('\n') +
+    (itens.length > mostra.length ? '\n- … e mais ' + (itens.length - mostra.length) + ' card(s)' : '');
+  // 10/10/2026: UM comentário só, atualizado no lugar todo dia útil (editar não notifica de novo) — quem fatura é avisado de cada
+  // card uma vez pelo lembrete no próprio card; o resumo é a lista viva. Comentário apagado/sumido: cria outro.
+  try {
+    var idAnt = props.getProperty('FAT_RESUMO_ID'), ok = false;
+    if (idAnt) { try { vd_api_('/actions/' + idAnt, { method: 'put', payload: { text: txt.slice(0, 16000) } }); ok = true; } catch (e1) { ok = false; } }
+    if (!ok) { var nv = vd_api_('/cards/' + g[0] + '/actions/comments', { method: 'post', payload: { text: txt.slice(0, 16000) } }); if (nv && nv.id) props.setProperty('FAT_RESUMO_ID', nv.id); }
+    props.setProperty(kDia, dia);
+    return !ok;
+  } catch (e) { console.log('resumo de faturamento: ' + e); return false; }
+}
+
+// Fluxo.gs:186
+function sla_executar_(forcar) {
+  if (vd_prop_('SLA_LIGADO', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var props = PropertiesService.getScriptProperties();
+  var agora = new Date(), hoje = sla_dia_(agora);
+  var hora = +Utilities.formatDate(agora, 'America/Sao_Paulo', 'H');
+  // zerar (uma vez por quadro, ou de novo apagando SLA_ZERADO_<quadro>): o que já está atrasado hoje fica
+  // marcado para nunca avisar, sem comentar — só pendência nova (nova entrada na etapa / nova previsão) avisa
+  var kZ = 'SLA_ZERADO_' + vd_board_(), silencioso = props.getProperty(kZ) !== 'SIM';
+  if (silencioso) forcar = true;
+  if (!forcar) {
+    if (!du_ehUtil_(hoje) || hora < 8 || hora >= 18) return 0;
+    if (Date.now() - (+props.getProperty('SLA_ULTIMA') || 0) < SLA.INTERVALO_MS) return 0;
+  }
+  props.setProperty('SLA_ULTIMA', String(Date.now()));
+  var fim = vd_prazo_(SLA.LIMITE_MS), n = 0, resumoFat = [], fatCompleto = true;
+  var board = vd_board_(), ls = vd_listas_(board);
+  var etapas = [
+    { lista: 'EM COTAÇÃO', dias: +vd_prop_('SLA_DIAS_COTAR', 2), quem: 'cotar' },
+    { lista: 'PENDENTE AUTORIZAR', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' },
+    { lista: 'COTAÇÃO FINALIZADA', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' },
+    { lista: 'ENTREGUES', dias: +vd_prop_('SLA_DIAS_FATURAR', 7), quem: 'faturar' }   // vale também para card antigo
+  ];
+  // 1) tempo parado na etapa
+  etapas.forEach(function (et) {
+    var idL = ls[et.lista];
+    if (!idL || Date.now() > fim) return;
+    vd_api_('/lists/' + idL + '/cards', { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels' } }).forEach(function (c) {
+      if (Date.now() > fim) { if (et.quem === 'faturar') fatCompleto = false; return; }
+      if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '')) return;
+      if (et.quem === 'faturar' && fat_semCobranca_(c.labels)) return;   // card das rotinas de NF (10/10/2026)
+      if (et.quem !== 'faturar' && vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo (menos a cobrança do faturamento)
+      // entrada na coluna: cache PZ_COL_ (1 chamada ao histórico só na 1ª vez por coluna — 10/10/2026; antes era 1 por card por hora)
+      var ent = pz_entradaColuna_(c, props);
+      var limite = sla_mais_(ent, et.dias);
+      if (hoje < limite) return;
+      var dias = 0, d = sla_dia_(ent), g = 0;
+      while (d < hoje && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) dias++; }
+      var cpP = [];
+      if (et.quem === 'faturar') {
+        try { cpP = vd_complPendentes_(vd_analisar_(c.desc, c.name)); } catch (e) {}
+        resumoFat.push({ nome: c.name, url: c.shortUrl, dias: dias, compl: cpP.length > 0 });
+      }
+      var chave = 'SLA_' + c.id + '_' + idL + '_' + ent.slice(0, 16);
+      if (!sla_podeAvisar_(props, chave, hoje)) return;
+      var mencao, txt;
+      if (et.quem === 'faturar') {
+        var usF = fat_usuarios_();
+        if (vd_board_() !== VD.BOARD_PADRAO) usF = usF.filter(function (u) { return u !== 'timweslley'; });
+        mencao = sla_mencao_(vd_board_() === VD.BOARD_PADRAO ? ['timweslley'] : usF);
+        txt = '⏰ Card em **ENTREGUES** há ' + dias + ' dia(s) útil(eis) sem confirmação de faturamento (prazo: ' + et.dias + '). Depois de faturar, comente a palavra faturado no card (ou arquive) — ele é arquivado.';
+        // 09/10/2026 (Weslley): complementar comprado antes da autorização e ainda sem confirmação da seguradora entra no lembrete
+        if (cpP.length) txt += '\n⚠️ Complementar comprado **antes da autorização** e ainda sem confirmação da seguradora — verificar autorização e importação no Databox do item ' + vd_complPendTxt_(cpP) + ' (marcar na aba Compra do formulário).';
+      } else if (et.quem === 'cotar') {
+        mencao = sla_mencao_(sla_users_('SLA_COTAR', 'comprasunity'));
+        txt = '⏰ Card em **EM COTAÇÃO** há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + '). Lançar a cotação pelo anexo **💰 Cotação / Compra**.';
+      } else {
+        var an = vd_analisar_(c.desc, c.name), criador = '';
+        try { criador = vd_criador_(c.id); } catch (e) {}
+        var auts = []; try { auts = vd_autorizacoesDaDescricao_(c.desc, an.pecas); } catch (e) {}
+        var falta = an.pecas.filter(function (p) { return !auts.some(function (x) { return x.chave === vd_chavePeca_(p); }); });
+        var seg = falta.filter(function (p) { return !vdf_pecaParticular_(p, c, an); }), part = falta.filter(function (p) { return vdf_pecaParticular_(p, c, an); });
+        var us = [];
+        if (seg.length) us = us.concat(sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity'));
+        part.forEach(function (p) { us = us.concat(vdf_donosPart_(c, p, criador)); });   // equipe da unidade (14/10/2026)
+        if (!us.length) return;
+        mencao = sla_mencao_(us);
+        txt = '⏰ Cotação aguardando autorização há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + ')' +
+          (seg.length && part.length ? ' — peças da seguradora: diretoria; peças particulares: consultor' : '') + '. Autorizar pelo anexo **💰 Cotação / Compra** → aba ✅ Autorizar.';
+      }
+      try {
+        if (silencioso) { props.setProperty(chave, '2999-01-01T12:00:00.000Z'); return; }   // pendência antiga: não avisa mais
+        vd_comentar_(c, mencao + ' ' + txt);
+        ev_registrar_('ALERTA PRAZO', c, 'robô', null, { detalhe: et.lista + ' há ' + dias + ' d.u. — ' + mencao });
+        props.setProperty(chave, hoje.toISOString()); n++;
+      } catch (e) { console.log('sla: ' + e); }
+    });
+  });
+  // resumo diário do faturamento (só quando a coluna inteira foi vista — senão a lista sairia pela metade)
+  if (!silencioso && fatCompleto && resumoFat.length) { try { if (sla_resumoFaturamento_(props, resumoFat, hoje, +vd_prop_('SLA_DIAS_FATURAR', 7))) n++; } catch (e) { console.log('resumo faturamento: ' + e); } }
+  // 2) peça comprada / FO sem recebimento 1 d.u. depois da previsão
+  var folga = +vd_prop_('SLA_DIAS_RECEBER', 1);
+  var cards = vd_api_('/boards/' + board + '/cards', { cru: true, query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checklist_fields: 'name', checkItem_fields: 'name,state,due' } });
+  cards.forEach(function (c) {
+    if (Date.now() > fim) return;
+    if (vd_legado_(c.id)) return;   // card antigo: sem avisos de prazo
+    var atrasados = { PAGAS: [], FO: [] }, chaves = [];
+    (c.checklists || []).forEach(function (k) {
+      // FO atrasada já tem o aviso "⏰ Fornecimento atrasado" (pz_executar_) — aqui só peça comprada (10/10/2026: era aviso em dobro)
+      var tipo = /^PAGAS/i.test(String(k.name || '').trim()) ? 'PAGAS' : '';
+      if (!tipo) return;
+      (k.checkItems || []).forEach(function (it) {
+        if (it.state === 'complete' || !it.due) return;
+        if (hoje <= sla_mais_(it.due, folga)) return;
+        var ch = 'SLA_I_' + it.id + '_' + String(it.due).slice(0, 10);
+        if (!sla_podeAvisar_(props, ch, hoje)) return;
+        atrasados[tipo].push(it.name.split(/\s+-\s+/)[0] + ' (previsão ' + vd_dataCurta_(it.due) + ')');
+        chaves.push(ch);
+      });
+    });
+    if (!chaves.length) return;
+    var partes = [];
+    if (atrasados.PAGAS.length) partes.push('verificar compra do item ' + atrasados.PAGAS.join(', '));
+    if (atrasados.FO.length) partes.push('verificar prazo do item ' + atrasados.FO.join(', '));
+    var mencao = sla_mencao_(sla_users_('SLA_RECEBER', 'comprasunity'));
+    try {
+      if (silencioso) { chaves.forEach(function (ch) { props.setProperty(ch, '2999-01-01T12:00:00.000Z'); }); return; }
+      vd_comentar_(c, mencao + ' ⏰ Peça sem recebimento informado depois da previsão — ' + partes.join('; ') + '. Se já chegou, registrar na aba **📦 Recebimento**.');
+      ev_registrar_('ALERTA PRAZO', c, 'robô', null, { detalhe: 'recebimento: ' + partes.join('; ') });
+      chaves.forEach(function (ch) { props.setProperty(ch, hoje.toISOString()); }); n++;
+    } catch (e) { console.log('sla/receb: ' + e); }
+  });
+  if (silencioso) { props.setProperty(kZ, 'SIM'); console.log('prazos por etapa: histórico zerado (sem avisos)'); return 0; }
+  if (n) console.log('prazos por etapa: ' + n + ' aviso(s)');
+  return n;
+}
+
+// Fluxo.gs:313
+function exc_executar_() {
+  if (vd_prop_('EXC_PROTEGER', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var props = PropertiesService.getScriptProperties();
+  var agora = new Date().toISOString(), desde = vd_marca_('EXC_ULTIMA');
+  vd_marcaSet_('EXC_ULTIMA', agora);
+  if (!desde) return 0;
+  var board = vd_board_();
+  var acoes = vd_acoesQuadro_(board, { filter: 'deleteCard', since: desde, limit: 50, memberCreator_fields: 'username,fullName' });
+  if (!acoes.length) return 0;
+  var admins = null, kAdm = 'exc_admins_' + board;
+  try { admins = JSON.parse(CacheService.getScriptCache().get(kAdm) || 'null'); } catch (e) {}
+  if (!admins) {
+    admins = (vd_api_('/boards/' + board + '/memberships', { cru: true, query: { member: 'false' } }) || [])
+      .filter(function (m) { return m.memberType === 'admin'; }).map(function (m) { return m.idMember; });
+    try { CacheService.getScriptCache().put(kAdm, JSON.stringify(admins), 3600); } catch (e) {}
+  }
+  var n = 0;
+  acoes.forEach(function (a) {
+    if (!a.data || !a.data.card || !a.data.list) return;
+    var quemId = a.idMemberCreator || (a.memberCreator && a.memberCreator.id) || '';
+    var quem = a.memberCreator ? a.memberCreator.username : '?';
+    if (!quemId || admins.indexOf(quemId) >= 0) return;   // administrador pode excluir; sem autor identificado, não recria (nunca recriar por falta de dado)
+    if (vd_prop_('EXC_LIVRES', 'timweslley').split(/[,\s]+/).filter(String).indexOf(quem) >= 0) return;   // usuários liberados por nome (propriedade EXC_LIVRES; Weslley sempre pode excluir)
+    var velho = a.data.card;
+    try {
+      var desc = vd_completa_(velho.id) || tr_ler_(velho.id) || '';
+      var nome = String(velho.name || '').trim() || ('CARD RECUPERADO ' + (velho.idShort || ''));
+      var novo = vd_api_('/cards', { method: 'post', payload: { idList: a.data.list.id, name: nome, pos: 'top' } });
+      if (desc) vd_gravarDesc_(novo.id, desc);
+      var compras = exc_comprasDoCard_(velho.shortLink);
+      vd_comentar_(novo, '@' + quem + ' ♻️ **Card recuperado**: ele foi excluído em ' + Utilities.formatDate(new Date(a.date), 'America/Sao_Paulo', 'dd/MM HH:mm') +
+        ' e só administrador pode excluir — para tirar um card do quadro, use **Arquivar**.\nA descrição voltou; checklists e anexos não voltam com a exclusão.' +
+        (compras.length ? '\n\n🛒 Compras registradas antes da exclusão (planilha de eventos):\n' + compras.map(function (c) { return '- ' + c; }).join('\n') : ''));
+      ev_registrar_('CARD EXCLUÍDO E RECRIADO', { name: nome, shortLink: novo.shortLink, shortUrl: novo.shortUrl }, quem, null, { detalhe: 'card antigo ' + (velho.shortLink || velho.id) });
+      try {
+        MailApp.sendEmail(vd_prop_('EXC_EMAIL', 'weslley.santos@unitycs.com.br'), 'Trello: card excluído e recriado — ' + nome,
+          quem + ' excluiu o card "' + nome + '" (' + vd_board_() + ') em ' + a.date + '.\nO robô recriou o card: ' + novo.shortUrl +
+          '\nChecklists e anexos não voltam com a exclusão — conferir no card.\n\nCompras registradas:\n' + (compras.join('\n') || '(nenhuma)'));
+      } catch (e) {}
+      n++;
+    } catch (e) { console.log('exclusão: ' + e); }
+  });
+  return n;
+}
+
+// Fluxo.gs:359
+function exc_comprasDoCard_(shortLink) {
+  if (!shortLink) return [];
+  try {
+    var sh = ev_aba_(), n = sh.getLastRow();
+    if (n < 2) return [];
+    var v = sh.getRange(2, 1, n - 1, 13).getValues();
+    return v.filter(function (r) { return r[1] === 'COMPRA' && String(r[3]).indexOf(shortLink) >= 0; }).map(function (r) {
+      return [r[7], r[9], r[10] !== '' ? vd_valorBR_(r[10]) : '', r[12] ? 'previsão ' + Utilities.formatDate(new Date(r[12]), 'America/Sao_Paulo', 'dd/MM') : ''].filter(String).join(' - ');
+    });
+  } catch (e) { return []; }
+}
 
 // FormularioServidor.gs:29
 function doPost(e) {
@@ -3969,6 +5957,339 @@ function fo_paraFormulario_() {
   } catch (e) { console.log('fornecedores/form: ' + e); return []; }
 }
 
+// Migracao.gs:60
+function mg_item_(txt) {
+  var s = vd_limpar_(String(txt || '')).trim();
+  s = s.replace(/^\s*(?:\d{1,3}\s*[.)]|[-•*✔✓☐☑])\s*/, '').trim();   // numeração/bullet (não um código numérico seguido de " - ")
+  var partes = s.split(/\s+-\s+|\s+[–—]\s+/);
+  if (partes.length > 1 && /R\$|\d+[.,]\d{2}\b|\bDIAS?\b|PREVIS/i.test(partes.slice(1).join(' '))) s = partes[0].trim();
+  var qtd = '';
+  var mq = s.match(/\b(?:QTD\.?\s*:?\s*(\d+)|(\d+)\s*(?:X|UN|PÇ|PC)S?\.?)\s*$/i);
+  if (mq) { qtd = mq[1] || mq[2]; s = s.slice(0, mq.index).trim(); }
+  var pneu = s.match(/\bPNEUS?\b.*?(\d{3}\/\d{2}\s*Z?R\s*\d{2}(?:[.,]5)?)/i) || s.match(/^(\d{3}\/\d{2}\s*Z?R\s*\d{2})/i);
+  if (pneu) {
+    var medida = pneu[1].replace(/\s+/g, '').toUpperCase();
+    var marca = s.replace(/\bPNEUS?\b/i, '').replace(pneu[1], '').replace(/^\s*[A-Z0-9]*\d[A-Z0-9]*\s+/i, '').replace(/\s+/g, ' ').trim();   // tira só um código numérico na frente
+    return { pneu: true, medida: medida, categoria: vd_categPneu_(marca), marca: vd_categPneu_(marca) ? '' : marca, qtd: qtd };
+  }
+  var toks = s.split(/\s+/), codigo = '', descricao = s;
+  var ehCod = function (t) { t = String(t || '').replace(/[^A-Z0-9\-.\/]/gi, ''); return /\d/.test(t) && t.replace(/[^A-Z0-9]/gi, '').length >= 4 && !/^\d{1,3}$/.test(t) && !/^\d{2,4}\/\d{2,4}$/.test(t); };
+  if (toks.length > 1 && ehCod(toks[0])) { codigo = toks[0].replace(/[^A-Z0-9\-.\/]/gi, '').toUpperCase(); descricao = toks.slice(1).join(' '); }
+  else if (toks.length > 1 && ehCod(toks[toks.length - 1]) && toks[toks.length - 1].replace(/[^A-Z0-9]/gi, '').length >= 6) { codigo = toks[toks.length - 1].replace(/[^A-Z0-9\-.\/]/gi, '').toUpperCase(); descricao = toks.slice(0, -1).join(' '); }
+  descricao = descricao.replace(/^[\s:\-–]+/, '').trim().toUpperCase();
+  return { pneu: false, codigo: codigo, descricao: descricao, tipos: [], qtd: qtd };
+}
+
+// Migracao.gs:84
+function mg_itemPagas_(nome) {
+  var s = vd_limpar_(String(nome || '')).trim(), valor = '';
+  if (/^(NOTA FISCAL|NF\b|NFE?\b|FRETE|BOLETO)/i.test(s)) return null;   // não é peça
+  var mv = s.match(/\s*-?\s*R\$\s*([\d.]+(?:,\d{1,2})?)\s*$/i);
+  if (mv) { valor = mv[1]; s = s.slice(0, mv.index).trim(); }
+  var partes = s.split(/\s*-\s*/).map(function (x) { return x.trim(); }).filter(String), fornecedor = '', resto = s;
+  if (partes.length >= 2) {
+    var ehCodigoOuPeca = function (t) { return /\d{4,}/.test(t.split(/\s+/)[0]) || /\d{4,}/.test(t.split(/\s+/).pop()); };
+    if (ehCodigoOuPeca(partes[0]) && !ehCodigoOuPeca(partes[partes.length - 1])) { fornecedor = partes[partes.length - 1]; resto = partes.slice(0, -1).join(' - '); }   // formato novo
+    else { fornecedor = partes[0]; resto = partes.slice(1).join(' - '); }   // formato antigo
+    if (/^\d/.test(fornecedor) && !mg_ehFornecedor_(fornecedor)) { fornecedor = ''; resto = s; }
+  }
+  var it = mg_item_(resto);
+  it.fornecedor = fornecedor.toUpperCase();
+  it.valor = valor;
+  var cab = it.pneu ? 'PNEU ' + it.medida + (it.marca || it.categoria ? ' ' + (it.marca || it.categoria) : '') : ((it.codigo ? it.codigo + ' ' : '') + it.descricao);
+  it.nomeNovo = cab + (it.fornecedor ? ' - ' + it.fornecedor : '') + (valor ? ' - ' + vd_valorBR_(valor) : '');
+  return it;
+}
+
+// Migracao.gs:106
+function mg_ehFornecedor_(l) {
+  if (MG_FORN === null) { MG_FORN = {}; try { fo_lista_().forEach(function (f) { MG_FORN[fo_norm_(f.nome)] = 1; (f.apelidos || []).forEach(function (a) { MG_FORN[fo_norm_(a)] = 1; }); }); } catch (e) {} }
+  var n = fo_norm_(l).replace(/\s+(NT|ND|PE|LINK|GENUINO|USADA|USADO)$/, '').trim();
+  return !!MG_FORN[n] || /^(MERCADO LIVRE|ML|SHOPEE|AMAZON)\b/i.test(n);
+}
+
+// Migracao.gs:112
+function mg_ehConsulta_(l) { return mg_ehFornecedor_(l) || /(\s-?\s*(NT|ND|N\/T|N[ÃA]O TEM)|\s[-–])\s*$/i.test(l); }
+
+// Migracao.gs:113
+function mg_ehItem_(l) {
+  if (!l || l.length > 90 || /:/.test(l) || !/[A-Za-zÀ-ú]{3,}/.test(l)) return false;
+  if (l.split(/\s+/).length > 12 || /\b(PRECISO|GENTILEZA|CONSIDERAR|PODE SER|SE N[ÃA]O|FAVOR|OBRIGAD|APRESENTAR|SOMENTE|APENAS)\b/i.test(l)) return false;
+  if (/^[A-Z]{3}[\s-]?\d[A-Z0-9]\d{2}\b/.test(l) || /\b[A-HJ-NPR-Z0-9]{17}\b/.test(l)) return false;   // placa / chassi
+  if (mg_ehConsulta_(l)) return false;
+  if (/R\$|\d+[.,]\d{2}\b|\b(DIAS?|PRAZO|PREVIS|ENTREG|CHEG|PAGO|PAGA|NOTA|NF|ORÇAMENTO|FATUR)\b/i.test(l)) return false;
+  if (/^(FOTOS?|SEGUE|EM ANEXO|OBS|AGUARD|CONFORME|VERIFICAR|FOI |SER[ÁA] |COMPRAR|COTAR|PE[ÇC]AS|PEDIDO|N[ÃA]O |JA |J[ÁA] |CLIENTE|LIBERADO|AUTORIZAD)/i.test(l)) return false;
+  return true;
+}
+
+// Migracao.gs:122
+function mg_ehRotulo_(l) { return /^\s*(MODELO|VE[IÍ]CULO|ANO|MOTOR|CHASSI|PLACA|COR|SEGURADORA|SINISTRO|TIPO|OBS|OBSERVA[ÇC][ÃA]O|UNIDADE|CONSULTOR)\b/i.test(l) || /^\s*COMPRAR\b.*\d{1,2}\/\d{1,2}/i.test(l); }
+
+// Migracao.gs:123
+function mg_ehSeparador_(l) { return /^[\\\-=_ .~]{3,}$/.test(l); }
+
+// Migracao.gs:126
+function mg_pecasDoTexto_(desc, modeloLinha) {
+  modeloLinha = String(modeloLinha || '').trim();
+  var linhas = vd_limpar_(desc).split('\n').map(function (l) { return l.trim(); }), ini = -1, i;
+  for (i = 0; i < linhas.length; i++) {
+    if (/^(PE[ÇC]AS|COTAR|PEDIDO|COMPRAR|ITENS)\s*(PE[ÇC]AS)?\s*:?\s*$/i.test(linhas[i]) || /^(PE[ÇC]AS|COTAR)\s*:\s*\S/i.test(linhas[i])) { ini = i; break; }
+  }
+  var out = [], vazias = 0, comecou = false;
+  if (ini >= 0) {
+    var primeiro = linhas[ini].replace(/^(PE[ÇC]AS|COTAR|PEDIDO|COMPRAR|ITENS)\s*(PE[ÇC]AS)?\s*:?\s*/i, '').trim();
+    if (primeiro) { out.push(primeiro); comecou = true; }
+    for (i = ini + 1; i < linhas.length; i++) {
+      var l = linhas[i];
+      if (!l) { if (comecou && ++vazias > 1) break; continue; }
+      if (mg_ehSeparador_(l) || /^(FORNECIMENTO|FO\b)/i.test(l)) break;
+      if (/R\$\s*\d|\d{2,}[.,]\d{1,2}\s*$/.test(l) && comecou) break;
+      if (mg_ehConsulta_(l) || (!mg_ehItem_(l) && !/^\d/.test(l) && !/\s-\s/.test(l))) { if (comecou) break; else continue; }
+      out.push(l); comecou = true; vazias = 0;
+    }
+    return out;
+  }
+  // sem cabeçalho: primeiro bloco de linhas que parecem itens (depois dos rótulos MODELO/CHASSI/PLACA)
+  for (i = 0; i < linhas.length; i++) {
+    var l2 = linhas[i];
+    if (!l2) { if (comecou && ++vazias > 1) break; continue; }
+    if (mg_ehRotulo_(l2) || mg_ehSeparador_(l2)) { if (comecou) break; else continue; }
+    if (!comecou && (/\b(19[89]\d|20[0-4]\d)(\s*\/\s*(19[89]\d|20[0-4]\d))?\s*$/.test(l2) || l2 === modeloLinha)) continue;   // linha do modelo
+    if (/R\$\s*\d|\d{2,}[.,]\d{1,2}\s*$/.test(l2) || mg_ehConsulta_(l2)) { if (comecou) break; else continue; }
+    var item = mg_ehItem_(l2) || (/^[A-Z0-9][A-Z0-9\-.\/]{3,}\s*[-–:]\s*\S/i.test(l2) && !/R\$/.test(l2));
+    if (item) { out.push(l2); comecou = true; vazias = 0; }
+    else if (comecou) break;
+  }
+  return out.filter(function (l) { return l.length > 2; });
+}
+
+// Migracao.gs:161
+function mg_modeloDoTexto_(desc) {
+  var linhas = vd_limpar_(desc).split('\n');
+  for (var i = 0; i < Math.min(linhas.length, 6); i++) {
+    var l = linhas[i].trim();
+    if (!l || /:/.test(l) || /R\$|COTAR|PE[ÇC]AS|FOTO/i.test(l)) continue;
+    if (l.length < 8 || l.length > 90 || !/[A-Z]{3,}/.test(l) || l !== l.toUpperCase()) continue;
+    var carro = /\b(19[89]\d|20[0-4]\d)\b/.test(l) || /\b(FIAT|VW|VOLKS|CHEVROLET|GM|FORD|HONDA|TOYOTA|HYUNDAI|RENAULT|NISSAN|JEEP|BMW|AUDI|MERCEDES|PEUGEOT|CITRO|KIA|MITSUBISHI|BYD|GWM|CAOA|CHERY|RAM|DODGE|VOLVO|LAND ROVER|JAC|SUZUKI|YAMAHA|IVECO|SCANIA|PORSCHE|MINI|LEXUS|SUBARU|TROLLER|HAVAL|OMODA|JAECOO)\b/.test(l);
+    if (carro) return l;
+  }
+  return '';
+}
+
+// Migracao.gs:174
+function mg_ordemDosComentarios_(comentarios) {
+  var ns = {};
+  (comentarios || []).forEach(function (t) {
+    var re = /\b(?:O\.?\s*S\.?|ORDEM(?:\s+DE\s+SERVI[ÇC]O)?)\s*(?:N[ºo°.]*\s*)?:?\s*(\d{3,6})\b/gi, m;
+    while ((m = re.exec(String(t || '')))) ns[m[1]] = (ns[m[1]] || 0) + 1;
+  });
+  var melhor = '', q = 0;
+  Object.keys(ns).forEach(function (k) { if (ns[k] > q) { q = ns[k]; melhor = k; } });
+  return melhor;
+}
+
+// Migracao.gs:185
+function mg_neutralizar_(txt) { return String(txt || '').replace(/(^|[^A-Za-z0-9_.])@(?=[A-Za-z0-9_]{3,})/g, '$1👤'); }
+
+// Migracao.gs:191
+function mg_converter_(card, comentarios, opt) {
+  opt = opt || {};
+  var desc = String(card.desc || ''), limpo = vd_limpar_(desc);
+  var nome = card.name || '';
+  var placa = vd_normPlaca_((vd_campo_(limpo, VD_ROT.placa).split(/[\s(]/)[0]) || '') || vd_placaDoTexto_(nome) || '';
+  var d = {
+    modelo: vd_campo_(limpo, VD_ROT.modelo) || mg_modeloDoTexto_(desc),
+    ano: vd_campo_(limpo, VD_ROT.ano),
+    motor: vd_campo_(limpo, VD_ROT.motor),
+    chassi: vd_normChassi_(vd_campo_(limpo, VD_ROT.chassi).split(/[\s(]/)[0]),
+    placa: placa
+  };
+  if (!d.ano && d.modelo) { var am = d.modelo.match(/\b(19[89]\d|20[0-4]\d)\b/g); if (am) { d.ano = am.slice(0, 2).join('/'); d.modelo = d.modelo.replace(/\s*\b(19[89]\d|20[0-4]\d)(\s*\/\s*(19[89]\d|20[0-4]\d))?\b\s*$/, '').trim(); } }
+  var t = vdf_partesTitulo_(nome, { modelo: d.modelo });
+  var tipo = vd_tipoNormPedido_(vd_campo_(limpo, VD_ROT_EXTRA.tipo)) || (/\bPARTICULAR\b/i.test(nome) || /PARTICULAR/i.test((card.labels || []).map(function (l) { return l.name; }).join(' ')) ? 'PARTICULAR' : /\bRETORNO\b/i.test(nome) ? 'RETORNO' : 'SEGURADORA');
+  var seguradora = vd_campo_(limpo, VD_ROT_EXTRA.seguradora) || (vd_semSeguradora_(tipo) ? '' : t.seguradora);
+  var sinistro = vd_campo_(limpo, VD_ROT_EXTRA.sinistro);
+
+  // peças da oficina: checklist PAGAS* > bloco no texto
+  var fonte = 'nenhuma', pecas = [], fo = [], renomear = [], compras = 0;
+  (card.checklists || []).forEach(function (k) {
+    var n = String(k.name || '').trim();
+    if (/^PAGAS/i.test(n)) (k.checkItems || []).forEach(function (i) {
+      var it = mg_itemPagas_(i.name); if (!it) return;
+      pecas.push(it); if (it.fornecedor || it.valor) compras++;
+      if (it.nomeNovo && it.nomeNovo !== String(i.name).trim()) renomear.push({ de: String(i.name).trim(), para: it.nomeNovo });
+    });
+    else if (/^FORNECIMENTO/i.test(n)) (k.checkItems || []).forEach(function (i) { fo.push(mg_item_(i.name)); });
+  });
+  if (pecas.length) fonte = 'checklist PAGAS';
+  else {
+    var lp = mg_pecasDoTexto_(desc, vd_campo_(limpo, VD_ROT.modelo) ? '' : mg_modeloDoTexto_(desc));
+    if (lp.length) { pecas = lp.map(mg_item_); fonte = 'texto da descrição'; }
+    else if (fo.length) fonte = 'só fornecimento (checklist FORNECIMENTO)';
+  }
+  pecas = pecas.filter(function (p) { return p.pneu ? p.medida : p.descricao; });
+  if (tipo === 'PARTICULAR') pecas.forEach(function (p) { p.particular = false; });   // pedido particular: o TIPO: PARTICULAR já marca tudo
+
+  var hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+  var extra = { tipo: tipo, cor: t.cor, seguradora: seguradora, sinistro: sinistro, fo: fo };
+  var bloco = vd_montarBloco_(d, opt.semPecas ? [] : pecas, '', opt.rodape || ('Convertido do fluxo antigo pelo robô em ' + hoje + ' — tipo de peça e cotações antigas: ver o texto original abaixo'), extra);
+  var original = mg_neutralizar_(desc).trim();
+  var descNova = bloco + '\n\n' + VD.MARCADOR + (original ? '\n_(texto que estava no card antes da conversão)_\n' + original : '');
+  var an = vd_analisar_(descNova, nome);
+  return {
+    desc: descNova, renomear: renomear, pecasAntigas: pecas,
+    info: { fonte: fonte, pecas: pecas.length, fo: fo.length, compras: compras, modelo: d.modelo, ano: d.ano, chassi: d.chassi, tipo: tipo,
+            ordem: mg_ordemDosComentarios_(comentarios), avisos: an.faltas.slice(0, 6).join(' | ') + (an.faltas.length > 6 ? ' (+' + (an.faltas.length - 6) + ')' : '') }
+  };
+}
+
+// Migracao.gs:355
+function mg_voltaExecutar_() {
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || vd_prop_('MG_VOLTA_LIGADO', 'SIM') === 'NAO') return 0;
+  var ctx = vd_contexto_(), n = 0, prazo = vd_prazo_(60 * 1000);
+  var desde = vd_marca_('MG_VOLTA_ACT');
+  if (!desde) {
+    vd_marcaSet_('MG_VOLTA_ACT', new Date().toISOString());
+    MG_VOLTA.INICIAL.forEach(function (sl) {
+      try { if (mg_voltaConverter_(sl, '', ctx)) n++; } catch (e) { console.log('volta p/ cotação (inicial) ' + sl + ': ' + e); }
+    });
+    return n;
+  }
+  var acts = vd_acoesQuadro_(ctx.board, { filter: 'updateCard:idList', since: desde, limit: 1000, fields: 'data,date' }) || [];
+  acts.reverse();   // mais antigo primeiro
+  var ultima = desde, feitos = {}, props = PropertiesService.getScriptProperties();
+  for (var k = 0; k < acts.length; k++) {
+    if (Date.now() > prazo) break;
+    var a = acts[k], d = a.data || {}, c = d.card || {};
+    var proxima = new Date(Date.parse(a.date) + 1).toISOString();
+    if (!c.id || !d.listAfter || !d.listBefore || feitos[c.id]) { ultima = proxima; continue; }
+    var para = vd_nomeColuna_(d.listAfter.name), de = vd_nomeColuna_(d.listBefore.name);
+    if (MG_VOLTA.COTACAO.indexOf(para) < 0 || MG_VOLTA.COTACAO.indexOf(de) >= 0) { ultima = proxima; continue; }
+    if (vdf_cardProtegido_(c.name || '') || /^\s*AVISO\b/i.test(c.name || '') || !vd_legado_(c.id)) { ultima = proxima; continue; }
+    feitos[c.id] = 1;
+    try { if (mg_voltaConverter_(c.id, de, ctx)) n++; }
+    catch (e) {
+      // erro (Trello/planilha fora do ar): tenta de novo no ciclo seguinte, até 3 vezes; depois segue em frente
+      var kErr = 'MG_VOLTA_ERR_' + c.id, t = +(props.getProperty(kErr) || 0) + 1;
+      console.log('volta p/ cotação ' + (c.name || c.id) + ' (tentativa ' + t + '): ' + e);
+      if (t < MG_VOLTA.MAX_TENTATIVAS) { props.setProperty(kErr, String(t)); break; }
+      props.deleteProperty(kErr);
+    }
+    ultima = proxima;
+  }
+  vd_marcaSet_('MG_VOLTA_ACT', ultima);
+  return n;
+}
+
+// Migracao.gs:394
+function mg_mesmaBase_(a, b) {
+  var pa = cp_palavras_(a), pb = cp_palavras_(b), fa = cp_fortes_(pa), fb = cp_fortes_(pb);
+  // a peça-base de um aparece entre as palavras do outro: "ESPELHO RETROVISOR ESQ" x "RETROVISOR LE" (12/10/2026, BDK2J49)
+  if (!fa.length || !fb.length || (fb.indexOf(fa[0]) < 0 && fa.indexOf(fb[0]) < 0)) return false;
+  var xa = cp_posicoes_(pa), xb = cp_posicoes_(pb);
+  return !Object.keys(xa).some(function (e) { return xb[e] && xb[e] !== xa[e]; });
+}
+
+// Migracao.gs:403
+function mg_voltaConverter_(idOuShortLink, de, ctx) {
+  var card = vd_api_('/cards/' + idOuShortLink, { cru: true, query: { fields: 'name,desc,idList,shortLink,shortUrl,labels,closed', checklists: 'all', checkItem_fields: 'name,state', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
+  if (!card || card.closed) return false;
+  var col = vd_nomeColuna_(vdf_nomeLista_(ctx, card.idList));
+  if (MG_VOLTA.COTACAO.indexOf(col) < 0) return false;   // já saiu da cotação
+  if (!vd_legado_(card.id)) return false;                 // já foi salvo pelo formulário
+  var comentarios = [];
+  try { comentarios = (vd_api_('/cards/' + card.id + '/actions', { cru: true, query: { filter: 'commentCard', limit: 50, fields: 'data' } }) || []).map(function (a) { return a.data && a.data.text; }); } catch (e) {}
+  var comPecas = mg_converter_(card, comentarios);   // pedido antigo como peças: base para saber o que já foi pedido
+  var placa = vd_analisar_(comPecas.desc, card.name).dados.placa;
+  var seg = vd_semAcento_(card.name || '') + ' ' + vd_semAcento_(vd_campo_(vd_limpar_(comPecas.desc), VD_ROT_EXTRA.seguradora) || '');
+  var avisar = function (txt) { try { vd_comentar_(card, txt); } catch (e) {} };
+  var cab = '🔄 **Card antigo voltou para cotação**' + (de ? ' (veio de ' + de + ')' : '') + ': ';
+
+  if (/\bRETORNO\b/.test(seg)) { avisar(cab + 'card de RETORNO — para passar para o sistema novo, incluir as peças do retorno pelo ✏️ EDITAR/INCLUIR PEÇA e salvar.'); return false; }
+
+  // orçamento mais recente anexado, da mesma placa
+  var anexos = (card.attachments || []).filter(vd_anexoLegivel_).sort(function (x, y) { return Date.parse(y.date) - Date.parse(x.date); });
+  var orc = null, anexo = null, origem = '';
+  for (var i = 0; i < anexos.length && i < 5 && !orc; i++) {
+    var r = null; try { r = vd_lerAnexoTrello_(anexos[i], { orcCompleto: true }); } catch (e) { console.log('volta/anexo: ' + e); }
+    if (!r || r.erro || !r.orcamento) continue;
+    if (!placa || !(r.placas || []).some(function (p) { return vd_mesmaPlaca_(p, placa); })) continue;
+    if (r.orcamento === 'CILIA' && /\bHDI\b/.test(seg)) continue;   // sinistro HDI: quem manda é o laudo HDI (11/10/2026)
+    orc = r.orcFull || (r.orc ? { oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : null);
+    anexo = anexos[i]; origem = r.orcamento;
+  }
+  if (!orc) { avisar(cab + 'não achei orçamento legível desta placa anexado. Para passar para o sistema novo, incluir as peças novas pelo ✏️ EDITAR/INCLUIR PEÇA e salvar.'); return false; }
+  orc = vd_orcCss_(orc, card.name);
+
+  var cmp = cp_comparar_({ name: card.name, desc: comPecas.desc, checklists: card.checklists, attachments: card.attachments }, orc, anexo.id);
+  // o que sobrou e é a mesma peça-base de uma peça do pedido antigo (texto livre): conta como já pedida
+  var antigas = (comPecas.pecasAntigas || []).filter(function (p) { return !p.pneu && p.descricao; }), usadas = {}, doAntigo = [];
+  cmp.oficina = cmp.oficina.filter(function (p) {
+    if (p.pneu) return true;
+    for (var j = 0; j < antigas.length; j++) {
+      if (!usadas[j] && mg_mesmaBase_(p.descricao || p.descricaoOrc || '', antigas[j].descricao)) { usadas[j] = 1; doAntigo.push(cp_nome_(p) + ' ≈ ' + antigas[j].descricao); cmp.jaTinha++; return false; }
+    }
+    return true;
+  });
+  // a Rotina (Cilia) já comparou as versões do orçamento e comentou o que é complemento ("O.S. 2174 recebeu complemento
+  // Bradesco (Cilia 1978341.2): verificar compra do item A, B, C."): o orçamento novo traz o sinistro inteiro, então só
+  // entram as peças que ela listou (12/10/2026, BDK2J49 — sem isso entraram farol, lanterna, pneu… do orçamento .1)
+  var lista = mg_listaDaRotina_(comentarios), foraDaRotina = [];
+  if (lista.length) cmp.oficina = cmp.oficina.filter(function (p) {
+    var d = p.pneu ? 'PNEU ' + (p.medida || '') : (p.descricao || p.descricaoOrc || '');
+    if (lista.some(function (x) { return cp_similar_(d, x) > 0 || mg_mesmaBase_(d, x); })) return true;
+    foraDaRotina.push(cp_nome_(p)); return false;
+  });
+  cmp.atualizar = [];   // as peças antigas não ficam na lista nova: nada a atualizar nelas
+  if (!cmp.oficina.length && !cmp.fo.length) { avisar(cab + 'o orçamento «' + anexo.name + '» não trouxe peça nova em relação ao pedido antigo. Se há peça nova, incluir pelo ✏️ EDITAR/INCLUIR PEÇA e salvar.'); return false; }
+
+  var hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+  var semPecas = mg_converter_(card, comentarios, { semPecas: true, rodape: 'Card antigo convertido para o sistema novo pelo robô em ' + hoje + ' ao voltar para cotação — pedido antigo (já comprado): ver o texto original abaixo' });
+  avisar(cab + 'passou para o sistema novo. Em PEÇAS ficaram só as peças novas do orçamento «' + anexo.name + '»; o pedido antigo (já comprado) ficou no texto original, abaixo da linha.' +
+    (doAntigo.length ? '\nConsiderei do pedido antigo (não entraram de novo): ' + doAntigo.join('; ') + '. Se alguma for peça nova, incluir pelo ✏️ EDITAR/INCLUIR PEÇA.' : '') +
+    (foraDaRotina.length ? '\nNo orçamento, mas fora do complemento comentado pela rotina (não entraram): ' + foraDaRotina.join('; ') + '. Se alguma precisar, incluir pelo ✏️ EDITAR/INCLUIR PEÇA.' : ''));
+  cp_aplicar_({ id: card.id, name: card.name, desc: semPecas.desc, shortLink: card.shortLink, shortUrl: card.shortUrl, idList: card.idList, labels: card.labels },
+    cmp, { origem: origem, anexo: anexo.name, quem: 'robô', token: null, ctx: ctx });
+  try { ev_registrar_('CONVERSAO', card, 'robô', [], { detalhe: 'card antigo voltou para cotação' + (de ? ' (de ' + de + ')' : '') + ' — ' + cmp.oficina.length + ' oficina · ' + cmp.fo.length + ' FO' }); } catch (e) {}
+  return true;
+}
+
+// Migracao.gs:467
+function mg_listaDaRotina_(comentarios) {
+  for (var i = 0; i < (comentarios || []).length; i++) {   // mais novo primeiro
+    var m = String(comentarios[i] || '').match(/recebeu complemento[^:]*:\s*verificar compra d[oa]s? ite(?:m|ns)\s+([\s\S]+?)\.?\s*$/i);
+    if (m) return m[1].split(/\s*[,;]\s*|\s+e\s+(?=[A-ZÀ-Ú])/).map(function (x) { return x.trim(); }).filter(function (x) { return x.length > 2; });
+  }
+  return [];
+}
+
+// Migracao.gs:479
+function mg_corrigirBDK2J49_() {
+  var props = PropertiesService.getScriptProperties();
+  if (props.getProperty('MG_FIX_BDK2J49') || vd_board_() !== 'oH4TbTqb' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var card = vd_api_('/cards/' + MG_FIX.SL, { cru: true, query: { fields: 'name,desc,idList,shortLink,shortUrl,labels,closed' } });
+  var cmp = vd_completa_(card.id);
+  if (!cmp || card.closed) { props.setProperty('MG_FIX_BDK2J49', 'NADA'); return 0; }
+  var div = vd_dividir_(cmp), lp = vd_linhasPecas_(div.bloco), linhas = div.bloco.split('\n'), tirar = {}, tiradas = [];
+  lp.linhas.forEach(function (l, k) {
+    var norm = l.replace(/\s+/g, '');
+    if (MG_FIX.TIRAR.some(function (c) { return norm.indexOf(c.replace(/\s+/g, '')) >= 0; })) { tirar[lp.idx[k]] = 1; tiradas.push(l.split('|')[0].trim()); }
+  });
+  if (!tiradas.length) { props.setProperty('MG_FIX_BDK2J49', 'NADA'); return 0; }
+  var n = 0, novas = [];
+  linhas.forEach(function (l, i) {
+    if (tirar[i]) return;
+    if (lp.idx.indexOf(i) >= 0) { n++; l = l.replace(/^(\s*[*_]*\s*)\d+\s*[.)\-]\s*/, '$1' + n + '. '); }
+    novas.push(l);
+  });
+  vd_backup_({ name: card.name, shortUrl: card.shortUrl, desc: cmp }, 'correção 12/10 — peças fora do complemento');
+  vd_gravarDesc_(card.id, novas.join('\n') + (div.temMarcador ? '\n\n' + div.resto : ''));
+  vd_comentar_(card, '🛠️ **Correção do robô (12/10):** na conversão entraram peças do orçamento .2 que não são do complemento comentado pela rotina (o PDF traz o sinistro inteiro) — saíram da lista: ' + tiradas.join('; ') + '. Ficaram as ' + n + ' peças do complemento. Se alguma das retiradas precisar ser comprada, incluir pelo ✏️ EDITAR/INCLUIR PEÇA.');
+  try { ev_registrar_('CORRECAO', card, 'robô', tiradas.map(function (t) { return { peca: t, detalhe: 'fora do complemento — retirada da lista' }; }), { detalhe: 'correção 12/10 da conversão' }); } catch (e) {}
+  props.setProperty('MG_FIX_BDK2J49', 'FEITO');
+  return tiradas.length;
+}
+
 // Orcamento.gs:18
 function vd_normTexto_(texto) {
   return vd_semAcento_(String(texto || '').replace(/\r/g, '')).replace(/[\s ]+/g, ' ');
@@ -4299,6 +6620,137 @@ function vd_lerOrcamento_(texto) {
     return r;
   }
   return r;
+}
+
+// Painel.gs:10
+function pn_atualizar() {
+  var ss = vd_planilhaBackup_().getParent(), ev = ss.getSheetByName(EV.ABA);
+  var linhas = ev && ev.getLastRow() > 1 ? ev.getRange(2, 1, ev.getLastRow() - 1, EV.CAB.length).getValues() : [];
+  var quadro = vd_board_(), desde = Date.now() - PN.DIAS * 864e5;
+  // colunas: 0 data,1 evento,2 card,3 link,4 placa,5 unidade,6 tipo,7 peça,8 particular,9 fornecedor,10 valor,11 dias,12 previsão,13 usuário,14 detalhe,15 quadro
+  var L = linhas.filter(function (r) { return r[0] instanceof Date && (!r[15] || r[15] === quadro); });
+  var rec30 = L.filter(function (r) { return r[0].getTime() >= desde; });
+  var conta = function (arr, ev) { return arr.filter(function (r) { return r[1] === ev; }).length; };
+  var cards = function (arr, ev) { var s = {}; arr.forEach(function (r) { if (r[1] === ev) s[r[3] || r[2]] = 1; }); return Object.keys(s).length; };
+  var soma = function (arr, f) { return arr.reduce(function (t, r) { return t + (f(r) ? (+r[10] || 0) : 0); }, 0); };
+
+  var out = [];   // [texto/valores, estilo]
+  var titulo = function (t) { out.push({ v: [t], t: 'tit' }); };
+  var cab = function (a) { out.push({ v: a, t: 'cab' }); };
+  var lin = function (a, fmt) { out.push({ v: a, t: 'lin', f: fmt }); };
+  var vazio = function () { out.push({ v: [''], t: '' }); };
+
+  out.push({ v: ['📊 PAINEL — COMPRA DE PEÇA (' + (quadro === VD.BOARD_PADRAO ? 'quadro TESTE' : 'quadro principal') + ')'], t: 'top' });
+  out.push({ v: ['Atualizado em ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm') + ' · fonte: aba EVENTOS · ' + L.length + ' evento(s)'], t: 'sub' });
+  vazio();
+
+  // 1. resumo 30 dias
+  titulo('1. ÚLTIMOS ' + PN.DIAS + ' DIAS');
+  cab(['Indicador', 'Valor']);
+  var compras30 = rec30.filter(function (r) { return r[1] === 'COMPRA'; });
+  var receb30 = rec30.filter(function (r) { return r[1] === 'RECEBIMENTO' && r[11] !== ''; });
+  var noPrazo30 = receb30.filter(function (r) { return +r[11] <= 0; }).length;
+  lin(['Pedidos novos (cards)', cards(rec30, 'PEDIDO')]);
+  lin(['Cards cotados', cards(rec30, 'COTAÇÃO')]);
+  lin(['Cards autorizados', cards(rec30, 'AUTORIZAÇÃO')]);
+  lin(['Devoluções para cotação', conta(rec30, 'DEVOLUÇÃO')]);
+  lin(['Peças compradas', compras30.length]);
+  lin(['Valor comprado — seguradora', soma(compras30, function (r) { return r[6] !== 'PARTICULAR' && r[6] !== 'RETORNO' && r[8] !== 'SIM'; })], 'R$ #,##0.00');
+  lin(['Valor comprado — particular', soma(compras30, function (r) { return r[6] === 'PARTICULAR' || r[8] === 'SIM'; })], 'R$ #,##0.00');
+  lin(['Valor comprado — retorno (oficina paga)', soma(compras30, function (r) { return r[6] === 'RETORNO' && r[8] !== 'SIM'; })], 'R$ #,##0.00');
+  lin(['Compras fora da autorização', compras30.filter(function (r) { return /FORA DA AUTORIZA/.test(r[14]); }).length]);
+  lin(['Peças recebidas', conta(rec30, 'RECEBIMENTO')]);
+  lin(['Recebidas no prazo', receb30.length ? noPrazo30 / receb30.length : ''], '0%');
+  lin(['Alterações à mão desfeitas (travas)', conta(rec30, 'MOVIMENTO DESFEITO') + conta(rec30, 'CHECKLIST DESFEITO')]);
+  vazio();
+
+  // 2. fornecedores
+  titulo('2. FORNECEDORES — PRAZO PROMETIDO x REAL (todo o período)');
+  cab(['Fornecedor', 'Peças compradas', 'Valor comprado', 'Peças recebidas', 'Atraso médio (d.u.)', 'No prazo', 'Pior atraso (d.u.)']);
+  var F = {};
+  L.forEach(function (r) {
+    var f = String(r[9] || '').trim().toUpperCase();
+    if (!f || (r[1] !== 'COMPRA' && r[1] !== 'RECEBIMENTO')) return;
+    var x = F[f] || (F[f] = { comp: 0, valor: 0, rec: 0, atrasos: [] });
+    if (r[1] === 'COMPRA') { x.comp++; x.valor += +r[10] || 0; }
+    if (r[1] === 'RECEBIMENTO') { x.rec++; if (r[11] !== '' && !isNaN(+r[11])) x.atrasos.push(+r[11]); }
+  });
+  var fs = Object.keys(F).sort(function (a, b) { return (F[b].comp + F[b].rec) - (F[a].comp + F[a].rec); });
+  if (!fs.length) lin(['(sem compras registradas ainda)']);
+  fs.forEach(function (f) {
+    var x = F[f], n = x.atrasos.length;
+    lin([f, x.comp, x.valor, x.rec, n ? x.atrasos.reduce(function (t, v) { return t + v; }, 0) / n : '', n ? x.atrasos.filter(function (v) { return v <= 0; }).length / n : '', n ? Math.max.apply(null, x.atrasos) : ''],
+      [null, '0', 'R$ #,##0.00', '0', '0.0', '0%', '0']);
+  });
+  vazio();
+
+  // 3. tempo por etapa
+  titulo('3. TEMPO POR ETAPA (mediana em dias corridos, cards com as duas pontas)');
+  cab(['Etapa', 'Mediana (dias)', 'Cards medidos']);
+  var C = {};
+  L.forEach(function (r) {
+    var k = r[3] || r[2]; if (!k) return;
+    var c = C[k] || (C[k] = {}), t = r[0].getTime(), e = r[1];
+    if (['PEDIDO', 'COTAÇÃO', 'AUTORIZAÇÃO', 'COMPRA'].indexOf(e) >= 0 && !c[e]) c[e] = t;
+    if (e === 'RECEBIMENTO') c.REC = t;
+  });
+  var etapa = function (nome, a, b) {
+    var ds = Object.keys(C).map(function (k) { var c = C[k]; return c[a] && c[b] && c[b] >= c[a] ? (c[b] - c[a]) / 864e5 : null; }).filter(function (v) { return v !== null; }).sort(function (x, y) { return x - y; });
+    var med = ds.length ? (ds.length % 2 ? ds[(ds.length - 1) / 2] : (ds[ds.length / 2 - 1] + ds[ds.length / 2]) / 2) : '';
+    lin([nome, med, ds.length], [null, '0.0', '0']);
+  };
+  etapa('Pedido → cotação', 'PEDIDO', 'COTAÇÃO');
+  etapa('Cotação → autorização', 'COTAÇÃO', 'AUTORIZAÇÃO');
+  etapa('Autorização → compra', 'AUTORIZAÇÃO', 'COMPRA');
+  etapa('Compra → última peça recebida', 'COMPRA', 'REC');
+  etapa('Pedido → última peça recebida (total)', 'PEDIDO', 'REC');
+  vazio();
+
+  // 4. fora da autorização
+  titulo('4. COMPRAS FORA DA AUTORIZAÇÃO (últimas 20)');
+  cab(['Data', 'Card', 'Peça', 'Fornecedor', 'Valor', 'Comprador', 'Motivo']);
+  var fora = L.filter(function (r) { return r[1] === 'COMPRA' && /FORA DA AUTORIZA/.test(r[14]); }).slice(-20).reverse();
+  if (!fora.length) lin(['(nenhuma)']);
+  fora.forEach(function (r) {
+    var motivo = String(r[14]).split(' — ').slice(1).join(' — ') || String(r[14]).replace(/^FORA DA AUTORIZAÇÃO:\s*/, '');
+    lin([r[0], r[2], r[7], r[9], r[10], r[13], motivo], ['dd/MM/yyyy', null, null, null, 'R$ #,##0.00', null, null]);
+  });
+  vazio();
+
+  // 5. travas por usuário
+  titulo('5. ALTERAÇÕES À MÃO DESFEITAS POR USUÁRIO (últimos ' + PN.DIAS + ' dias) — onde reforçar o treinamento');
+  cab(['Usuário', 'Movimentos de coluna', 'Checklists', 'Total']);
+  var U = {};
+  rec30.forEach(function (r) {
+    if (r[1] !== 'MOVIMENTO DESFEITO' && r[1] !== 'CHECKLIST DESFEITO') return;
+    var u = r[13] || '?', x = U[u] || (U[u] = { mov: 0, ck: 0 });
+    if (r[1] === 'MOVIMENTO DESFEITO') x.mov++; else x.ck++;
+  });
+  var us = Object.keys(U).sort(function (a, b) { return (U[b].mov + U[b].ck) - (U[a].mov + U[a].ck); });
+  if (!us.length) lin(['(nenhuma)']);
+  us.forEach(function (u) { lin([u, U[u].mov, U[u].ck, U[u].mov + U[u].ck]); });
+
+  // escreve
+  var sh = ss.getSheetByName(PN.ABA) || ss.insertSheet(PN.ABA, 0);
+  sh.clear(); sh.clearFormats();
+  var larg = 7;
+  out.forEach(function (o, i) {
+    var row = i + 1, v = o.v.slice(); while (v.length < larg) v.push('');
+    var rg = sh.getRange(row, 1, 1, larg);
+    rg.setValues([v]);
+    if (o.t === 'top') rg.setFontSize(15).setFontWeight('bold').setFontColor(PN.AZUL);
+    else if (o.t === 'sub') rg.setFontColor('#626f86').setFontStyle('italic');
+    else if (o.t === 'tit') rg.setFontWeight('bold').setFontSize(11).setBackground(PN.AZUL).setFontColor('#ffffff');
+    else if (o.t === 'cab') rg.setFontWeight('bold').setBackground(PN.CINZA);
+    else if (o.t === 'lin' && o.f) {
+      if (typeof o.f === 'string') sh.getRange(row, 2).setNumberFormat(o.f);
+      else o.f.forEach(function (f, j) { if (f) sh.getRange(row, j + 1).setNumberFormat(f); });
+    }
+  });
+  sh.setColumnWidth(1, 300); for (var c = 2; c <= larg; c++) sh.setColumnWidth(c, 140);
+  sh.setFrozenRows(2);
+  Logger.log('painel: ' + out.length + ' linhas · ' + ss.getUrl() + '#gid=' + sh.getSheetId());
+  return ss.getUrl() + '#gid=' + sh.getSheetId();
 }
 
 // Previsao.gs:13
@@ -5203,6 +7655,42 @@ function rc_cancelarCompra_(card, it, motivo, modo, token, me) {
   return (modo === 'devolvida' ? '↩️ ' : '❌ ') + partes[0] + (partes[1] ? ' (' + partes[1] + ')' : '') + ' — ' + (modo === 'devolvida' ? 'devolvida ao fornecedor' : 'compra cancelada') + (motivo ? ': ' + motivo : '') + ' · verificar compra do item';
 }
 
+// Recebimento.gs:78
+function ck_aceitarManual_(cardId, m) {
+  var card = vd_api_('/cards/' + cardId, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  if (vdf_cardProtegido_(card.name)) return [];
+  var me = { username: String(m.quem || '').toLowerCase(), fullName: m.nome || m.quem };
+  if (!vdf_podeReceber_(me, card)) return [];
+  var todos = vdf_itensRecebimento_(card), porId = {};
+  todos.forEach(function (i) { porId[i.id] = i; });
+  var hoje = rc_data_(''), linhas = [], evs = [], aceitos = [];
+  (m.itens || []).forEach(function (ci) {
+    var it = porId[ci.id];
+    if (!it || !it.ok) return;   // já desmarcado de novo / item sumiu
+    aceitos.push(it.id);
+    if (it.devolvida) { try { rc_gravarMarcas_(card.id, it, { devolvida: '' }, null); } catch (e) {} }
+    var atr = rc_atraso_(it.due, hoje);
+    var atrTxt = atr === null ? '' : (atr > 0 ? ' · **' + atr + ' d.u. de atraso**' : (atr < 0 ? ' · ' + (-atr) + ' d.u. antes' : ' · no prazo'));
+    linhas.push('✔ ' + it.base.split(/\s+-\s+/)[0] + ' — ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM') + atrTxt);
+    var partes = it.base.split(/\s+-\s+/), ehPg = /^PAGAS/.test(it.lista);
+    evs.push({ peca: partes[0], particular: it.lista === 'PAGAS PARTICULAR', fornecedor: ehPg && partes.length >= 2 ? partes[1] : (/^FORNECIMENTO/.test(it.lista) ? 'SEGURADORA (FO)' : ''),
+      valor: ehPg ? vd_valorNum_(((partes[2] || '').match(/[\d.]+(?:,\d{1,2})?/) || [''])[0]) : '', previsao: it.due || '', dias: atr === null ? '' : atr,
+      detalhe: 'chegou ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM/yyyy') + (atr === null ? '' : ' · atraso ' + atr + ' d.u.') + ' · ✔ marcado no Trello · ' + it.lista });
+  });
+  if (!aceitos.length) return [];
+  var pend = todos.filter(function (i) { return !i.ok; });
+  var movido = ''; try { movido = rc_reavaliarColuna_(card.id, null, m.quem); } catch (e) { console.log('✔ manual/coluna: ' + e); }
+  try {
+    vd_comentar_(card, '📦 **RECEBIMENTO** — ' + (m.nome || m.quem) + ' (✔ marcado no Trello)' + (movido ? ' → **' + movido + '**' : '') + '\n' + linhas.join('\n') +
+      '\n_Dica: pela aba 📦 Recebimento dá para informar a data certa, onde guardou (📍) e anexar a nota._' +
+      (pend.length ? '\n⏳ Falta chegar: ' + pend.map(function (i) { return i.base.split(/\s+-\s+/)[0]; }).join(', ') : '\n✅ Tudo recebido.'));
+  } catch (e) {}
+  try { ev_registrar_('RECEBIMENTO', card, m.quem, evs, { detalhe: '✔ marcado no Trello' }); } catch (e) {}
+  try { vd_redesenhar_(card.id); } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return aceitos;
+}
+
 // Recebimento.gs:117
 function rc_quemLista_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('RC_QUEM') || '[]'); } catch (e) { return []; } }
 
@@ -5548,6 +8036,168 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   return movido;
 }
 
+// Saude.gs:15
+function sd_parte_(nome, fn) {
+  var p = PropertiesService.getScriptProperties(), k = 'SD_F_' + nome, t0 = Date.now();
+  qt_parte_(nome);
+  try {
+    var r = fn();
+    if (p.getProperty(k)) p.deleteProperty(k);
+    return r;
+  } catch (e) {
+    if (qt_ehErroDeCota_(e)) { console.log(nome + ': ' + String((e && e.message) || e).slice(0, 120)); return; }   // cota: não é falha do módulo
+    var est = {}; try { est = JSON.parse(p.getProperty(k) || '{}'); } catch (x) {}
+    est.n = (est.n || 0) + 1; est.erro = String((e && e.message) || e).slice(0, 300);
+    if (est.n >= SD.FALHAS && Date.now() - (est.avisado || 0) > SD.REPETE_MS) {
+      try {
+        MailApp.sendEmail(SD.EMAIL, 'ALERTA Trello: "' + nome + '" falhando',
+          'A parte "' + nome + '" do robô do Trello falhou ' + est.n + ' vez(es) seguida(s).\n\nÚltimo erro:\n' + est.erro +
+          '\n\nO resto do robô continua rodando. Execuções: https://script.google.com/home/projects/' + ScriptApp.getScriptId() + '/executions');
+        est.avisado = Date.now();
+      } catch (x) {}
+    }
+    p.setProperty(k, JSON.stringify(est));
+    console.log(nome + ': ' + est.erro);
+  } finally {
+    var dt = Date.now() - t0;
+    if (dt > 1500) SD_TEMPOS.push(nome + ' ' + (dt / 1000).toFixed(1) + 's');
+    qt_parte_('');
+  }
+}
+
+// Saude.gs:44
+function sd_batida_() { PropertiesService.getScriptProperties().setProperty('SD_ULTIMO_CICLO', String(Date.now())); }
+
+// Saude.gs:46
+function sd_instalarSeFaltar_() {
+  var p = PropertiesService.getScriptProperties();
+  if (p.getProperty('SD_DIARIO_OK') === 'SIM') return;
+  var tem = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'sd_diario'; });
+  if (!tem) ScriptApp.newTrigger('sd_diario').timeBased().everyDays(1).atHour(7).nearMinute(50).inTimezone('America/Sao_Paulo').create();
+  p.setProperty('SD_DIARIO_OK', 'SIM');
+}
+
+// Saude.gs:54
+function sd_diario() {
+  var p = PropertiesService.getScriptProperties(), prob = [];
+  var acs = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
+  ['validarDadosPedido', 'verificarAlteracoesDescricao'].forEach(function (f) { if (acs.indexOf(f) < 0) prob.push('acionador "' + f + '" sumiu'); });
+  var ciclo = +(p.getProperty('SD_ULTIMO_CICLO') || 0);
+  if (qt_pausada_()) prob.push('robô PAUSADO pela cota diária de chamadas do Google (estourou ' + new Date(+p.getProperty('QT_ESTOURO')).toLocaleString('pt-BR') + ')');
+  else if (Date.now() - ciclo > 30 * 60000) prob.push('o ciclo de 1 min do quadro não roda desde ' + (ciclo ? new Date(ciclo).toLocaleString('pt-BR') : 'nunca'));
+  var ontem = qt_doDia_(1);
+  if ((ontem.total || 0) > QT.ALERTA) prob.push('consumo de chamadas externas ontem perto do limite: ' + qt_resumo_(1));
+  var ult = p.getProperty('ULTIMA_VERIFICACAO');
+  if (!ult || Date.now() - new Date(ult).getTime() > 30 * 60000) prob.push('o log de descrição do QUADRO PRINCIPAL está parado desde ' + ult);
+  if (p.getProperty('LOG_RECUPERANDO')) prob.push('LOG_RECUPERANDO ficou marcado (log do quadro principal travado)');
+  try { vd_api_('/members/me', { query: { fields: 'username' } }); } catch (e) { prob.push('token do Trello do robô não responde: ' + e.message); }
+  Object.keys(p.getProperties()).filter(function (k) { return k.indexOf('SD_F_') === 0; }).forEach(function (k) {
+    try { var est = JSON.parse(p.getProperty(k)); if (est.n >= SD.FALHAS) prob.push('"' + k.slice(5) + '" falhando (' + est.n + 'x): ' + est.erro); } catch (e) {}
+  });
+  // só falhas das últimas 24 h (06/10/2026: o contador de ontem aparecia no relatório de hoje mesmo com a rotina já normal)
+  var props = p.getProperties();
+  Object.keys(props).filter(function (k) { return /^FALHAS_(?!AV_|T_)/.test(k); }).forEach(function (k) {
+    var nome = k.slice(7), t = +(props['FALHAS_T_' + nome] || 0);
+    if (t && Date.now() - t > 24 * 3600000) return;
+    prob.push('"' + nome + '" com ' + props[k] + ' falha(s) seguida(s)' + (t ? ' (última ' + new Date(t).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) + ')' : ''));
+  });
+  try { sd_backupSemanal_(); } catch (e) { prob.push('backup semanal da planilha falhou: ' + e.message); }
+  try { pn_atualizar(); } catch (e) { prob.push('painel de indicadores não atualizou: ' + e.message); }
+  try { sd_limparPropriedades_(); } catch (e) { prob.push('limpeza das propriedades falhou: ' + e.message); }
+  try { var tamP = sd_propriedades(); if (tamP > 380 * 1024) prob.push('Propriedades do script em ' + Math.round(tamP / 1024) + ' KB (limite ~500 KB)'); } catch (e) {}
+  Logger.log(prob.length ? prob.join('\n') : 'tudo ok');
+  if (prob.length) MailApp.sendEmail(SD.EMAIL, 'ALERTA Trello: conferência diária achou ' + prob.length + ' problema(s)', prob.map(function (x) { return '- ' + x; }).join('\n') +
+    '\n\nChamadas externas (limite ~' + QT.LIMITE.toLocaleString('pt-BR') + '/dia):\n' + qt_resumo_(1) + '\n' + qt_resumo_(2) +
+    '\n\nExecuções: https://script.google.com/home/projects/' + ScriptApp.getScriptId() + '/executions');
+  try { qt_registrar_('conferência diária'); } catch (e) {}
+  return prob;
+}
+
+// Saude.gs:90
+function sd_backupSemanal_() {
+  var p = PropertiesService.getScriptProperties();
+  var hoje = new Date(), semana = Utilities.formatDate(hoje, 'America/Sao_Paulo', 'YYYY-ww');
+  if (Utilities.formatDate(hoje, 'America/Sao_Paulo', 'u') !== '1' && p.getProperty('SD_BACKUP_SEMANA')) return '';   // só segunda (o 1º roda já)
+  if (p.getProperty('SD_BACKUP_SEMANA') === semana) return '';
+  var nome = sd_backupAgora();
+  p.setProperty('SD_BACKUP_SEMANA', semana);
+  return nome;
+}
+
+// Saude.gs:100
+function sd_backupAgora() {
+  var ss = vd_planilhaBackup_().getParent();
+  var arq = DriveApp.getFileById(ss.getId());
+  var pai = arq.getParents().hasNext() ? arq.getParents().next() : DriveApp.getRootFolder();
+  var it = pai.getFoldersByName(SD.PASTA), pasta = it.hasNext() ? it.next() : pai.createFolder(SD.PASTA);
+  var nome = ss.getName() + ' — backup ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
+  arq.makeCopy(nome, pasta);
+  // guarda só as últimas
+  var copias = [], fs = pasta.getFiles();
+  while (fs.hasNext()) { var f = fs.next(); if (f.getName().indexOf(ss.getName() + ' — backup ') === 0) copias.push(f); }
+  copias.sort(function (a, b) { return b.getDateCreated() - a.getDateCreated(); });
+  copias.slice(SD.BACKUPS).forEach(function (f) { f.setTrashed(true); });
+  Logger.log('backup: ' + nome + ' (pasta ' + pasta.getName() + ', ' + Math.min(copias.length, SD.BACKUPS) + ' guardado(s))');
+  return nome;
+}
+
+// Saude.gs:117
+function sd_propriedades() {
+  var all = PropertiesService.getScriptProperties().getProperties(), tot = 0, por = {}, maior = ['', 0];
+  Object.keys(all).forEach(function (k) {
+    var t = k.length + String(all[k]).length; tot += t;
+    var pre = (k.match(/^[A-Z]+_[A-Z0-9]*_?/) || [k])[0];
+    por[pre] = (por[pre] || 0) + t;
+    if (t > maior[1]) maior = [k, t];
+  });
+  var top = Object.keys(por).sort(function (a, b) { return por[b] - por[a]; }).slice(0, 12).map(function (k) { return k + ' ' + Math.round(por[k] / 1024) + ' KB'; });
+  Logger.log('propriedades: ' + Object.keys(all).length + ' chaves · ' + Math.round(tot / 1024) + ' KB de ~500 KB · maior: ' + maior[0] + ' (' + Math.round(maior[1] / 1024) + ' KB)\n' + top.join('\n'));
+  return tot;
+}
+
+// Saude.gs:140
+function sd_limparPropriedades_() {
+  var p = PropertiesService.getScriptProperties(), all = p.getProperties(), abertos = {}, anexos = {}, itens = {};
+  vd_api_('/boards/' + vd_board_() + '/cards', { cru: true, query: { fields: 'id', attachments: 'true', attachment_fields: 'id', checklists: 'all', checkItem_fields: 'id' } }).forEach(function (c) {
+    abertos[c.id] = 1;
+    (c.attachments || []).forEach(function (a) { anexos[a.id] = 1; });
+    (c.checklists || []).forEach(function (k) { (k.checkItems || []).forEach(function (i) { itens[i.id] = 1; }); });
+  });
+  if (Object.keys(abertos).length < 5) return 0;   // leitura estranha: não apaga nada
+  var n = 0;
+  var recente = Date.now() / 1000 - 2 * 86400;   // anexo subido nas últimas 48 h fica (card pode ainda não estar na lista)
+  Object.keys(all).forEach(function (k) {
+    var m = k.match(SD_PREF_CARD), id = m && (m[1] || m[2]);
+    if (id) { if (!abertos[id] || (vd_legado_(id) && !SD_PREF_LEGADO_USA.test(k))) { p.deleteProperty(k); n++; } return; }
+    var ma = k.match(SD_PREF_ANEXO);
+    if (ma) { if (!anexos[ma[1]] && parseInt(ma[1].slice(0, 8), 16) < recente) { p.deleteProperty(k); n++; } return; }
+    // aviso por item de checklist: sai quando o item não existe mais em card aberto (a chave traz a previsão, não a data do aviso)
+    var mi = k.match(SD_PREF_ITEM);
+    if (mi && !itens[mi[1]]) { p.deleteProperty(k); n++; }
+  });
+  // aba ANEXOS (cache de leitura, 16/10/2026): sai a leitura de anexo que não está mais em card aberto (e não é recente)
+  try {
+    var shA = vd_anxAba_(), nA = shA.getLastRow();
+    if (nA > 1) {
+      var rowsA = shA.getRange(2, 1, nA - 1, 3).getValues(), vistosA = {}, ficam = [];
+      for (var iA = rowsA.length - 1; iA >= 0; iA--) {   // de baixo para cima: fica a leitura mais nova de cada anexo
+        var idA = String(rowsA[iA][0] || '');
+        if (!idA || vistosA[idA]) continue;
+        vistosA[idA] = 1;
+        if (anexos[idA] || parseInt(idA.slice(0, 8), 16) >= recente) ficam.unshift(rowsA[iA]);
+      }
+      if (ficam.length < rowsA.length) {
+        shA.getRange(2, 1, nA - 1, 3).clearContent();
+        if (ficam.length) shA.getRange(2, 1, ficam.length, 3).setValues(ficam);
+        VD_ANXS.ROW = null;
+        n += rowsA.length - ficam.length;
+      }
+    }
+  } catch (e) { console.log('anexos/limpeza: ' + e); }
+  if (n) console.log('propriedades: ' + n + ' de cards fechados/anexos antigos apagadas');
+  return n;
+}
+
 // Seguranca.gs:16
 function sg_travarCard_(shortLink) {
   var cache = CacheService.getScriptCache(), k = 'sg_lock_' + shortLink, t0 = Date.now(), meu = Utilities.getUuid();
@@ -5629,6 +8279,16 @@ function vdf_arquivoTemp_(fid) {
 // Seguranca.gs:90
 function sg_celula_(v) { return typeof v === 'string' && /^[=+\-@]/.test(v) ? "'" + v : v; }
 
+// Seguranca.gs:95
+function vd_marca_(nome) {
+  var p = PropertiesService.getScriptProperties(), b = vd_board_(), k = nome + '_' + b, v = p.getProperty(k);
+  if (v === null && b === VD.BOARD_PADRAO) { v = p.getProperty(nome); if (v !== null) p.setProperty(k, v); }
+  return v;
+}
+
+// Seguranca.gs:100
+function vd_marcaSet_(nome, v) { PropertiesService.getScriptProperties().setProperty(nome + '_' + vd_board_(), String(v)); }
+
 // Seguranca.gs:108
 function vd_viradaMs_() {
   var p = PropertiesService.getScriptProperties(), k = 'VD_VIRADA_EM_' + vd_board_(), v = p.getProperty(k);
@@ -5679,6 +8339,9 @@ function vdf_testeMarcar(token, p) {
   return { ok: true, id: c.id, nome: c.name, teste: p.ligar !== false };
 }
 
+// TravaChecklist.gs:17
+function ck_ligado_() { return vd_prop_('CK_TRAVA', 'SIM') !== 'NAO'; }
+
 // TravaChecklist.gs:20
 function ck_licenca_(caminho, payload) {
   var ids = [], m;
@@ -5694,6 +8357,167 @@ function ck_licenca_(caminho, payload) {
     });
     c.putAll(novo, 1800);
   } catch (e) { console.log('licença checklist: ' + e); }
+}
+
+// TravaChecklist.gs:36
+function ck_licenciada_(a, cache) {
+  var d = a.data || {}, t = new Date(a.date).getTime();
+  var ids = [d.card && d.card.id, d.card && d.card.shortLink, d.checklist && d.checklist.id].filter(String);
+  return ids.some(function (id) {
+    var l = []; try { l = JSON.parse(cache['ck_' + id] || '[]'); } catch (e) {}
+    return l.some(function (ts) { return t >= ts - CK.DEPOIS_MS && t <= ts + CK.ANTES_MS; });
+  });
+}
+
+// TravaChecklist.gs:46
+function ck_aba_() {
+  var ss = vd_planilhaBackup_().getParent(), sh = ss.getSheetByName(CK.ABA);
+  if (!sh) { sh = ss.insertSheet(CK.ABA); sh.appendRow(['Card (id)', 'Checklists (JSON)', 'Atualizado em']); sh.setFrozenRows(1); }
+  return sh;
+}
+
+// TravaChecklist.gs:51
+function ck_retratar_(cardIds) {
+  if (!cardIds.length) return;
+  var sh = ck_aba_();
+  cardIds.forEach(function (id) {
+    try {
+      var ls = vd_api_('/cards/' + id + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name,state,due,pos', fields: 'name,pos' } });
+      var js = JSON.stringify(ls.map(function (k) { return { id: k.id, name: k.name, pos: k.pos, itens: (k.checkItems || []).map(function (i) { return { n: i.name, s: i.state, d: i.due || '', p: i.pos }; }) }; }));
+      var cel = sh.getRange('A:A').createTextFinder(id).matchEntireCell(true).findNext();
+      if (cel) sh.getRange(cel.getRow(), 2, 1, 2).setValues([[js, new Date()]]);
+      else sh.appendRow([id, js, new Date()]);
+    } catch (e) { console.log('retrato ' + id + ': ' + e); }
+  });
+}
+
+// TravaChecklist.gs:64
+function ck_retrato_(cardId, idChecklist) {
+  try {
+    var cel = ck_aba_().getRange('A:A').createTextFinder(cardId).matchEntireCell(true).findNext();
+    if (!cel) return null;
+    var ls = JSON.parse(String(ck_aba_().getRange(cel.getRow(), 2).getValue() || '[]'));
+    return ls.filter(function (k) { return k.id === idChecklist; })[0] || null;
+  } catch (e) { return null; }
+}
+
+// TravaChecklist.gs:74
+function ck_desfazer_(a) {
+  var d = a.data || {}, card = d.card || {}, it = d.checkItem || {}, cl = d.checklist || {};
+  switch (a.type) {
+    case 'updateCheckItemStateOnCard':
+      vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'put', payload: { state: it.state === 'complete' ? 'incomplete' : 'complete' } });
+      return (it.state === 'complete' ? 'desmarcado ✔ de ' : 'marcado de novo ') + pv_curto_(it.name);
+    case 'updateCheckItem':
+      var old = d.old || {}, volta = {};
+      ['name', 'due', 'pos'].forEach(function (k) { if (Object.prototype.hasOwnProperty.call(old, k)) volta[k] = old[k] === null ? null : old[k]; });
+      if (!Object.keys(volta).length) return '';
+      vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'put', payload: volta });
+      return 'voltou ' + (volta.name !== undefined ? 'o nome' : (volta.due !== undefined ? 'a data' : 'a posição')) + ' de ' + pv_curto_(old.name || it.name);
+    case 'createCheckItem':
+      vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'delete' });
+      return 'apagado item incluído à mão: ' + pv_curto_(it.name);
+    case 'deleteCheckItem':
+      var corpo = { name: it.name, pos: 'bottom' };
+      if (it.state === 'complete') corpo.checked = 'true';
+      vd_api_('/checklists/' + cl.id + '/checkItems', { method: 'post', payload: corpo });
+      return 'item apagado voltou: ' + pv_curto_(it.name);
+    case 'addChecklistToCard':
+      vd_api_('/checklists/' + cl.id, { method: 'delete' });
+      return 'apagado checklist criado à mão: ' + (cl.name || '');
+    case 'updateChecklist':
+      if (!d.old || d.old.name === undefined) return '';
+      vd_api_('/checklists/' + cl.id, { method: 'put', payload: { name: d.old.name } });
+      return 'checklist voltou a se chamar ' + d.old.name;
+    case 'removeChecklistFromCard':
+      var r = ck_retrato_(card.id, cl.id);
+      if (!r) return 'checklist ' + (cl.name || '') + ' apagado — sem retrato para refazer (refazer pelo formulário)';
+      var novo = vd_api_('/checklists', { method: 'post', payload: { idCard: card.id, name: r.name, pos: 'bottom' } });
+      r.itens.forEach(function (i) {
+        var c2 = { name: i.n, pos: 'bottom' };
+        if (i.s === 'complete') c2.checked = 'true';
+        if (i.d) c2.due = i.d;
+        vd_api_('/checklists/' + novo.id + '/checkItems', { method: 'post', payload: c2 });
+      });
+      return 'checklist ' + r.name + ' apagado voltou (' + r.itens.length + ' itens)';
+  }
+  return '';
+}
+
+// TravaChecklist.gs:117
+function ck_executar_() {
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || !ck_ligado_()) return 0;
+  var props = PropertiesService.getScriptProperties(), board = vd_board_();
+  var desde = vd_marca_('CK_DESDE');
+  if (!desde) {
+    // 1ª vez: só começa a vigiar daqui para frente; o retrato de cada card é tirado quando ele mexe
+    // (no quadro principal, retratar ~650 cards de uma vez estouraria o ciclo de 1 minuto)
+    var ult = vd_api_('/boards/' + board + '/actions', { cru: true, query: { limit: 1, fields: 'id' } });
+    vd_marcaSet_('CK_DESDE', ult.length ? ult[0].id : new Date().toISOString());
+    return 0;
+  }
+  var acts = vd_acoesQuadro_(board, { filter: CK.TIPOS, since: desde, limit: 200, memberCreator_fields: 'username,fullName' });
+  // 17/10/2026: só julga ação com mais de 90 s — a licença de gravação feita pelo servidor chega ao cache logo depois da
+  // escrita (o servidor manda antes de responder); a ação mais nova fica para o próximo ciclo (o marcador não passa dela)
+  var limCk = Date.now() - CK.ESPERA_MS;
+  acts = acts.filter(function (a) { return new Date(a.date).getTime() <= limCk; });
+  if (!acts.length) return 0;
+  var cache = {};
+  try {
+    var ids = [];
+    acts.forEach(function (a) { var d = a.data || {}; [d.card && d.card.id, d.card && d.card.shortLink, d.checklist && d.checklist.id].forEach(function (i) { if (i && ids.indexOf('ck_' + i) < 0) ids.push('ck_' + i); }); });
+    cache = CacheService.getScriptCache().getAll(ids);
+  } catch (e) {}
+  var avisos = {}, tocados = [], n = 0, manuais = {};
+  acts.slice().reverse().forEach(function (a) {
+    var cardId = a.data && a.data.card && a.data.card.id;
+    if (!cardId) return;
+    if (vd_legado_(cardId)) return;   // card antigo: segue o jeito antigo
+    if (tocados.indexOf(cardId) < 0) tocados.push(cardId);
+    if (ck_licenciada_(a, cache)) return;
+    // 10/10/2026 (revisão, 36 ✔ desfeitos em 5 dias): ✔ marcado direto no Trello num item PAGAS*/FORNECIMENTO* por quem pode
+    // receber vale como recebimento de hoje (comentário, evento, coluna) em vez de ser desfeito — ck_aceitarManual_
+    if (a.type === 'updateCheckItemStateOnCard' && a.data.checkItem && a.data.checkItem.state === 'complete' && /^(PAGAS|FORNECIMENTO)/i.test(String((a.data.checklist || {}).name || '').trim()) && vd_prop_('CK_ACEITA_OK', 'SIM') !== 'NAO') {
+      var quemM = a.memberCreator ? a.memberCreator.username : '';
+      if (quemM) { (manuais[cardId] = manuais[cardId] || { card: a.data.card, quem: quemM, nome: (a.memberCreator && a.memberCreator.fullName) || quemM, itens: [], acoes: [] }).itens.push(a.data.checkItem); manuais[cardId].acoes.push(a); return; }
+    }
+    var txt = '';
+    try { txt = ck_desfazer_(a); } catch (e) { txt = /\b404\b/.test(String(e.message || e)) ? '' : 'não consegui desfazer (' + String(e.message || e).slice(0, 60) + ')'; }   // 404 = o item já sumiu (checklist apagado antes): nada a desfazer
+    if (!txt) return;
+    n++;
+    var quem = a.memberCreator ? a.memberCreator.username : '';
+    var av = avisos[cardId] || (avisos[cardId] = { card: a.data.card, quem: quem, itens: [] });
+    av.itens.push(txt);
+    try { ev_registrar_('CHECKLIST DESFEITO', { name: a.data.card.name, shortLink: a.data.card.shortLink, labels: [] }, quem || '?', null, { detalhe: txt }); } catch (e) {}
+  });
+  vd_marcaSet_('CK_DESDE', acts[0].id);
+  // ✔ manual aceito como recebimento (quem não pode receber: desfeito como antes)
+  Object.keys(manuais).forEach(function (id) {
+    var m = manuais[id], aceitos = [];
+    try { aceitos = ck_aceitarManual_(id, m); } catch (e) { console.log('✔ manual: ' + e); }
+    m.acoes.forEach(function (a) {
+      if (aceitos.indexOf(a.data.checkItem.id) >= 0) return;
+      var txt = '';
+      try { txt = ck_desfazer_(a); } catch (e) { txt = /\b404\b/.test(String(e.message || e)) ? '' : 'não consegui desfazer (' + String(e.message || e).slice(0, 60) + ')'; }
+      if (!txt) return;
+      n++;
+      var av = avisos[id] || (avisos[id] = { card: a.data.card, quem: m.quem, itens: [] });
+      av.itens.push(txt);
+      try { ev_registrar_('CHECKLIST DESFEITO', { name: a.data.card.name, shortLink: a.data.card.shortLink, labels: [] }, m.quem || '?', null, { detalhe: txt }); } catch (e) {}
+    });
+  });
+  Object.keys(avisos).forEach(function (id) {
+    var av = avisos[id];
+    try {
+      var orig = ''; try { orig = es_autor_(id); } catch (e) {}
+      vd_comentar_({ id: id }, (av.quem ? '@' + av.quem + ' ' : '') + '🔒 **ALTERAÇÃO NÃO PERMITIDA** — checklist só muda pelo formulário (✔ de chegada: aba 📦 Recebimento).' + orig + ' Desfeito:\n' +
+        av.itens.map(function (t) { return '- ' + t; }).join('\n'));
+    } catch (e) {}
+  });
+  // retrato atualizado dos cards que mexeram (depois de desfazer)
+  ck_retratar_(tocados.slice(0, 30));
+  if (n) console.log('trava de checklist: ' + n + ' alteração(ões) desfeita(s)');
+  return n;
 }
 
 // Treino.gs:20
@@ -5923,6 +8747,9 @@ function vdf_treinoAssinatura(token, p) {
   return { ok: true, total: total, sig: sig, detalhe: detalhe };
 }
 
+// Validacao.gs:42
+function vd_cicloIniciar_(ms) { VD_CICLO_FIM = Date.now() + (ms || VD.CICLO_MS); }
+
 // Validacao.gs:44
 function vd_prazo_(ms, reserva) { var p = Date.now() + ms; return VD_CICLO_FIM ? Math.min(p, VD_CICLO_FIM - (reserva || 0)) : p; }
 
@@ -6041,6 +8868,56 @@ function vd_listas_(board) {
   ls.forEach(function (l) { m[vd_nomeColuna_(l.name)] = l.id; });
   try { if (cache) cache.put(k, JSON.stringify(m), 600); } catch (e) {}
   return m;
+}
+
+// Validacao.gs:174
+function vd_acoesQuadro_(board, q) {
+  q = q || {};
+  // 10/10/2026: com `since`, o Trello devolve as N mais NOVAS — com limit 100 e o quadro parado por horas, as ações mais antigas
+  // da janela ficavam para trás e os marcadores (ST/FAT/CK) pulavam por cima delas. Direto no Trello o limite sobe para 1000.
+  var direto = function () { var qq = {}; Object.keys(q).forEach(function (k) { qq[k] = q[k]; }); if (qq.since && qq.limit && qq.limit < 1000) qq.limit = 1000; return vd_api_('/boards/' + board + '/actions', { cru: true, query: qq }) || []; };
+  try {
+    if (vd_prop_('VD_ACOES_COMPARTILHADAS', 'SIM') === 'NAO') return direto();
+    if (!VD_ACOES || VD_ACOES.board !== board) {
+      // janela: 20 min, ou desde a marca mais antiga dos módulos (quadro parado à noite: as marcas ficam para trás), até 2 h
+      var desdeMs = Date.now() - 20 * 60000, piso = Date.now() - 2 * 3600000;   // janela maior que 2 h pesa o ciclo (1,5–5 s medidos em 06/10): marca mais velha vai direto
+      ['TR_ACT', 'ST_ULTIMA', 'EXC_ULTIMA', 'FAT_ULTIMA', 'CP_ACT', 'NU_ACT', 'CK_DESDE'].forEach(function (n) {
+        var v = vd_marca_(n), t = Date.parse(v);
+        if (isNaN(t) && /^[0-9a-f]{24}$/i.test(String(v || ''))) t = parseInt(String(v).slice(0, 8), 16) * 1000 - 1000;   // id de ação: data embutida
+        if (!isNaN(t) && t < desdeMs) desdeMs = Math.max(t - 5000, piso);
+      });
+      var lista = vd_api_('/boards/' + board + '/actions', { cru: true, query: { since: new Date(desdeMs).toISOString(), limit: 1000, fields: 'data,date,type,idMemberCreator', memberCreator: 'true', memberCreator_fields: 'username,fullName' } }) || [];   // idMemberCreator: a proteção contra exclusão confere se foi administrador (faltou em 06/10 e recriou card do Weslley)
+      VD_ACOES = { board: board, desde: desdeMs, lista: lista, cheio: lista.length >= 1000 };
+    }
+    if (VD_ACOES.cheio) return direto();
+    var base = VD_ACOES.lista, sinceMs = Date.parse(q.since);
+    if (q.since && isNaN(sinceMs)) {   // since por id de ação (trava de checklist): só o que veio depois dele
+      var ix = -1; base.forEach(function (a, i) { if (ix < 0 && a.id === q.since) ix = i; });
+      if (ix >= 0) { base = base.slice(0, ix); sinceMs = NaN; }
+      else {
+        // id fora da janela: se a data embutida no id é anterior ao início da janela, tudo o que está nela veio depois
+        var tId = /^[0-9a-f]{24}$/i.test(String(q.since)) ? parseInt(String(q.since).slice(0, 8), 16) * 1000 : NaN;
+        if (isNaN(tId) || tId + 1000 >= VD_ACOES.desde) return direto();
+        sinceMs = NaN;
+      }
+    } else if (!isNaN(sinceMs) && sinceMs < VD_ACOES.desde) return direto();
+    var tipos = String(q.filter || 'all').split(',').filter(String), beforeMs = q.before ? Date.parse(q.before) : NaN;
+    var out = base.filter(function (a) {
+      var t = Date.parse(a.date);
+      if (!isNaN(sinceMs) && !(t > sinceMs)) return false;
+      if (!isNaN(beforeMs) && !(t < beforeMs)) return false;
+      return tipos[0] === 'all' || tipos.some(function (f) { return vd_acaoBate_(a, f); });
+    });
+    return (q.limit && !q.since) ? out.slice(0, q.limit) : out;   // com `since` vai tudo o que há na janela (ver `direto`)
+  } catch (e) { console.log('ações compartilhadas: ' + e); return direto(); }
+}
+
+// Validacao.gs:215
+function vd_acaoBate_(a, f) {
+  var p = String(f).split(':'), d = a.data || {};
+  if (a.type !== p[0]) return false;
+  if (p.length < 2) return true;
+  return !!(d.old && Object.prototype.hasOwnProperty.call(d.old, p[1]));
 }
 
 // Validacao.gs:222
@@ -6382,6 +9259,16 @@ function vd_complTxt_(p) {
   return ' · ⚠️ comprado antes da autorização' + (p.compPor ? ' (liberado por ' + vd_md_(p.compPor) + ')' : '');
 }
 
+// Validacao.gs:562
+function vd_complPendentes_(an) {
+  return (an && an.pecas || []).filter(function (p) { return p.complemento && !p.particular && p.compStatus === 'ANTECIPADO'; });
+}
+
+// Validacao.gs:565
+function vd_complPendTxt_(pecas) {
+  return pecas.map(function (p) { return vd_nomePeca_(p) + (p.compPor ? ' (liberado por ' + p.compPor + ')' : ''); }).join('; ');
+}
+
 // Validacao.gs:571
 function vd_linhaPeca_(p, i) {
   var q = (p.qtd && +p.qtd > 1 ? ' | QTD ' + p.qtd : '') + (p.complemento && !p.particular ? ' | COMPLEMENTO' + (p.compData ? ' ' + p.compData : '') : '') + (p.complemento && !p.particular && p.compStatus ? ' | COMPL: ' + p.compStatus + (p.compPor ? ' ' + String(p.compPor).replace(/\|/g, '/').trim() : '') : '') + (p.particular ? ' | PARTICULAR' + (p.partPor ? ' @' + p.partPor : '') : '')
@@ -6609,6 +9496,29 @@ function vd_anxSet_(id, js) {
   else { sh.appendRow([id, new Date(), js]); idx[id] = sh.getLastRow(); }
   try { if (js.length < 90000) CacheService.getScriptCache().put('vd_anx_' + id, js, 21600); } catch (e) {}
   try { var pp = PropertiesService.getScriptProperties(); if (pp.getProperty('VD_ANX3_' + id) !== null) pp.deleteProperty('VD_ANX3_' + id); } catch (e) {}
+}
+
+// Validacao.gs:799
+function vd_anxMigrar_() {
+  var p = PropertiesService.getScriptProperties(), all = p.getProperties(), ks = Object.keys(all);
+  var velhas = ks.filter(function (k) { return /^VD_ANX2?_[0-9a-f]{24}$/.test(k); });
+  velhas.slice(0, 100).forEach(function (k) { p.deleteProperty(k); });
+  var mig = ks.filter(function (k) { return /^VD_ANX3_[0-9a-f]{24}$/.test(k); }).slice(0, 80);
+  if (!mig.length) return velhas.length;
+  var sh = vd_anxAba_(), idx = vd_anxIdx_(), agora = new Date(), novas = [];
+  mig.forEach(function (k) {
+    var id = k.slice(8);
+    novas.push([id, agora, all[k]]);   // linha repetida não atrapalha: o índice fica com a última
+  });
+  if (novas.length) {
+    var ini = sh.getLastRow() + 1;
+    sh.getRange(ini, 1, novas.length, 3).setValues(novas);
+    novas.forEach(function (r, i) { idx[r[0]] = ini + i; });
+  }
+  SpreadsheetApp.flush();
+  mig.forEach(function (k) { p.deleteProperty(k); });
+  console.log('anexos → planilha: ' + mig.length + ' leitura(s)' + (velhas.length ? ' · ' + Math.min(velhas.length, 100) + ' cache(s) velho(s) apagado(s)' : ''));
+  return mig.length;
 }
 
 // Validacao.gs:831
@@ -6877,8 +9787,23 @@ function tr_marcarRecente_(cardId, h) {
   } catch (e) { console.log('trava/recentes: ' + e); }
 }
 
+// Validacao.gs:1107
+function tr_ehOficial_(cardId, desc) {
+  try { return JSON.parse(CacheService.getScriptCache().get('tr_rec_' + cardId) || '[]').indexOf(tr_hash_(desc)) >= 0; } catch (e) { return false; }
+}
+
 // Validacao.gs:1111
 function tr_guardar_(cardId, desc) { tr_guardarLote_([{ id: cardId, desc: desc }]); }
+
+// Validacao.gs:1114
+function tr_ler_(cardId) {
+  var sh = tr_aba_();
+  var n = sh.getLastRow();
+  if (n < 2) return null;
+  var ids = sh.getRange(2, 1, n - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) if (String(ids[i][0]) === cardId) return String(sh.getRange(i + 2, 4).getValue());
+  return null;
+}
 
 // Validacao.gs:1124
 function vd_gravarDesc_(cardId, desc, token, extra) {
@@ -6940,6 +9865,66 @@ function vd_redesenhar_(cardId, token) {
   var desc = vd_completa_(cardId);
   if (!desc) desc = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'desc' } }).desc || '';
   vd_gravarDesc_(cardId, desc, token);
+}
+
+// Validacao.gs:1186
+function tr_executar_() {
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || vd_prop_('VD_TRAVA_DESC', 'SIM') === 'NAO') return 0;
+  var board = vd_board_();
+  var props = PropertiesService.getScriptProperties();
+  var todas = null;   // todas as propriedades: só lidas quando há card para conferir (10/10/2026 — era a cada minuto, ~400 KB)
+  var agora = Date.now();
+  // só os cards cuja descrição mudou (histórico do quadro), não o quadro inteiro: no principal são ~650 cards.
+  // Edição dos últimos 40 s fica para o próximo ciclo (gravação do formulário em andamento).
+  var ate = agora - TR.ESPERA_MS, desde = vd_marca_('TR_ACT');
+  if (!desde) { vd_marcaSet_('TR_ACT', new Date(ate).toISOString()); return 0; }
+  if (new Date(desde).getTime() >= ate) return 0;
+  var acts = vd_acoesQuadro_(board, { filter: 'updateCard:desc', since: desde, before: new Date(ate).toISOString(), limit: 200, fields: 'data,date' });
+  vd_marcaSet_('TR_ACT', new Date(ate).toISOString());
+  var ids = [];
+  acts.forEach(function (a) { var id = a.data && a.data.card && a.data.card.id; if (id && ids.indexOf(id) < 0) ids.push(id); });
+  var cards = [];
+  ids.forEach(function (id) {
+    if (vd_legado_(id)) return;
+    try { cards.push(vd_api_('/cards/' + id, { cru: true, query: { fields: 'name,desc,shortLink,shortUrl,dateLastActivity,closed' } })); } catch (e) {}
+  });
+  var baseline = [], restaurados = 0;
+  if (!cards.length) return 0;
+  todas = props.getProperties();
+  cards.forEach(function (c) {
+    if (c.closed) return;
+    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
+    var chave = TR.PREFIXO + c.id;
+    var h = tr_hash_(c.desc);
+    if (!todas[chave]) { baseline.push({ id: c.id, desc: c.desc, base: true }); return; }
+    if (todas[chave] === h) return;
+    // mudou: dá um tempo para gravação em andamento (formulário) registrar a assinatura
+    var atual = props.getProperty(chave);
+    if (atual === h) return;
+    var acs = [];
+    try { acs = vd_api_('/cards/' + c.id + '/actions', { query: { filter: 'updateCard:desc', limit: 1, memberCreator_fields: 'username' } }) || []; } catch (e) {}
+    var ultima = acs[0];
+    if (ultima && agora - new Date(ultima.date).getTime() < TR.ESPERA_MS) return;   // gravação recente: o marcador ainda cobre, volta no próximo ciclo
+    var oficial = tr_ler_(c.id);
+    if (oficial === null) { baseline.push({ id: c.id, desc: c.desc, base: true }); return; }
+    if (tr_hash_(oficial) === h) { props.setProperty(chave, h); return; }
+    var quem = ultima && ultima.memberCreator ? ultima.memberCreator.username : '';
+    vd_backup_(c, 'edição manual desfeita pela trava' + (quem ? ' (' + quem + ')' : ''));
+    tr_marcarRecente_(c.id, tr_hash_(oficial));   // o log de descrição não conta a restauração como edição
+    vd_api_('/cards/' + c.id, { method: 'put', payload: { desc: oficial } });
+    restaurados++;
+    var chaveAv = 'VD_DESC_AV_' + c.id;
+    if (agora - (+(todas[chaveAv] || 0)) > TR.AVISO_MS) {
+      try {
+        vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 **ALTERAÇÃO NÃO PERMITIDA** — a descrição só muda pelo formulário; o texto voltou ao original. ' +
+          'Use **' + VD_LINK.EDITAR + '** (peças/carro) ou **' + VD_LINK.COMPRA + '**.' + (function () { try { return es_autor_(c.id); } catch (e) { return ''; } })());
+      } catch (e) {}
+      props.setProperty(chaveAv, String(agora));
+    }
+  });
+  if (baseline.length) tr_guardarLote_(baseline);
+  if (restaurados) console.log('trava: ' + restaurados + ' descrição(ões) restaurada(s)');
+  return restaurados;
 }
 
 // Validacao.gs:1270
@@ -7427,6 +10412,29 @@ function vd_contexto_() {
   };
 }
 
+// Validacao.gs:1789
+function vd_cardsDasListas_(ids, comAnexos) {
+  var cards = [];
+  ids.forEach(function (idL) {
+    var q = { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels' };
+    if (comAnexos) { q.attachments = 'true'; q.attachment_fields = 'name,mimeType,isUpload,bytes,url,date'; }
+    cards = cards.concat(vd_api_('/lists/' + idL + '/cards', { query: q }));
+  });
+  return cards;
+}
+
+// Validacao.gs:1799
+function vd_cardsParaConferir_(ctx) {
+  var ids = [ctx.listas[VD.LISTA_COTACAO], ctx.listas[VD.LISTA_FALTA]].filter(String);
+  if (ids.length < 2) throw new Error('Quadro ' + ctx.board + ' sem as colunas "' + VD.LISTA_COTACAO + '" e "' + VD.LISTA_FALTA + '".');
+  return vd_cardsDasListas_(ids, true);
+}
+
+// Validacao.gs:1805
+function vd_listasPosCotacao_(ctx) {
+  return Object.keys(ctx.listas).filter(function (n) { return VD.LISTAS_FORA.indexOf(n) < 0; }).map(function (n) { return ctx.listas[n]; });
+}
+
 // Validacao.gs:1809
 function vd_marcar_(card) {
   try { cf_sincronizar_(card.id); } catch (e) {}   // campos personalizados antes de marcar (a gravação mexe na atividade)
@@ -7436,12 +10444,228 @@ function vd_marcar_(card) {
   } catch (e) {}
 }
 
+// Validacao.gs:1829
+function vd_garantirLinks_(forcar) {
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
+  var props = PropertiesService.getScriptProperties();
+  var ultimo = +(props.getProperty('VD_LINKS_EM') || 0);
+  if (!forcar && Date.now() - ultimo < 60 * 60 * 1000) return 0;   // o formulário já anexa os links ao criar o card
+  props.setProperty('VD_LINKS_EM', String(Date.now()));
+  var urlForm = vd_prop_('VD_URL_FORM', VD.URL_FORM);
+  if (!urlForm) return 0;
+  var cards = vd_api_('/boards/' + vd_board_() + '/cards', { query: { fields: 'name,shortLink', attachments: 'true', attachment_fields: 'name,url' } });
+  var n = 0;
+  cards.forEach(function (c) {
+    if (/^\s*AVISO\b/i.test(c.name || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || '')) return;
+    // 12/10/2026 (Weslley): card antigo também ganha os links — no celular são a única porta para o formulário, e o card só
+    // passa para o fluxo novo quando alguém salva por ele (regra da virada). Os links não mudam texto, coluna nem prazo.
+    var ans = c.attachments || [];
+    var temEditar = false, temCompra = false;
+    try {
+      ans.forEach(function (a) {
+        var ed = VD_LINK.RX_EDITAR.test(a.name || ''), co = VD_LINK.RX_COMPRA.test(a.name || '');
+        if (!ed && !co) return;
+        // nome antigo ("Editar peças (formulário)" / "Cotação / Compra (formulário)"): troca pelo nome novo
+        if ((ed && a.name !== VD_LINK.EDITAR) || (co && a.name !== VD_LINK.COMPRA)) { vd_api_('/cards/' + c.id + '/attachments/' + a.id, { method: 'delete' }); return; }
+        if (ed) temEditar = true; else temCompra = true;
+      });
+      if (!temEditar) { vd_api_('/cards/' + c.id + '/attachments', { method: 'post', payload: { url: urlForm + '?card=' + c.shortLink, name: VD_LINK.EDITAR, setCover: false } }); n++; }
+      if (!temCompra) { vd_api_('/cards/' + c.id + '/attachments', { method: 'post', payload: { url: urlForm + '?card=' + c.shortLink + '&modo=compras', name: VD_LINK.COMPRA, setCover: false } }); n++; }
+    } catch (e) {}
+  });
+  console.log('links do formulário incluídos: ' + n);
+  return n;
+}
+
+// Validacao.gs:1895
+function vd_pkRebasear_(posCot, ctx) {
+  var props = PropertiesService.getScriptProperties(), k = 'VD_PK2_REBASE';
+  if (props.getProperty(k) === '2026-10-05c') return;
+  // rodada c: também EM COTAÇÃO / FALTA DADOS (o RAM9I31 estava lá na rodada b e ficou com a base da vitrine)
+  var listas = posCot.concat([ctx.listas[VD.LISTA_COTACAO], ctx.listas[VD.LISTA_FALTA]].filter(String));
+  var cards = vd_cardsDasListas_(listas, false), n = 0, leg = 0, semCmp = 0, mapa = vd_completasTodas_();
+  cards.forEach(function (c) {
+    if (!mapa[c.id]) semCmp++;
+    if (vd_legado_(c.id)) { leg++; return; }
+    var sigs = vd_linhasConsultor_(vd_dividir_(c.desc).bloco).map(vd_sigItem_);
+    vd_pkSet_(c.id, sigs);
+    props.deleteProperty('VD_NOVAS_' + c.id);
+    n++;
+  });
+  props.setProperty(k, '2026-10-05c');
+  console.log('rebase VD_PK2: ' + n + ' card(s) das colunas pós-cotação regravados a partir da descrição completa · ' + cards.length + ' cards em ' + listas.length + ' colunas · ' + leg + ' legado(s) · ' + semCmp + ' sem completa na TRAVA · completas na TRAVA: ' + Object.keys(mapa).length + ' · virada ' + new Date(vd_viradaMs_()).toLocaleString('pt-BR'));
+}
+
+// Validacao.gs:1918
+function vd_fixarCardNovo_(ctx, cards, completa) {
+  if (!ctx.modoAtivo) return false;
+  var props = PropertiesService.getScriptProperties();
+  cards = cards || [];
+  if (completa) {
+    var fixo = cards.filter(function (c) { return /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name || ''); })[0];
+    if (fixo) props.setProperty('VD_FIXO', fixo.id + '|' + fixo.idList);
+  }
+  var g = String(props.getProperty('VD_FIXO') || '').split('|'), idFixo = g[0], idLista = g[1];
+  if (!idFixo || !idLista) return false;
+  var daColuna = cards.filter(function (c) { return c.idList === idLista; });
+  if (!daColuna.length || !daColuna.some(function (c) { return c.id !== idFixo; })) return false;   // nada entrou na coluna dele
+  // varredura completa já traz a coluna inteira em ordem; no ciclo incremental, lê a ordem atual
+  var ordem = completa ? daColuna : (vd_api_('/lists/' + idLista + '/cards', { query: { fields: 'name,pos' } }) || []);
+  if (!ordem.length || ordem[0].id === idFixo) return false;
+  if (!ordem.some(function (c) { return c.id === idFixo; })) return false;   // o fixo não está mais nessa coluna: a próxima varredura reaprende
+  vd_api_('/cards/' + idFixo, { method: 'put', payload: { pos: 'top' } });
+  return true;
+}
+
 // Validacao.gs:1938
 function vd_fixarTopo_(idLista, token) {
   try {
     var g = String(PropertiesService.getScriptProperties().getProperty('VD_FIXO') || '').split('|');
     if (g[0] && g[1] === idLista) vd_api_('/cards/' + g[0], { method: 'put', payload: { pos: 'top' } }, token);
   } catch (e) { console.log('fixar topo: ' + e); }
+}
+
+// Validacao.gs:1946
+function vd_executarNucleo_() {
+  if (!vd_ligado_()) return [];
+  var ctx = vd_contexto_();
+  var props = PropertiesService.getScriptProperties();
+  var out = [];
+  var mudou = function (c) { return props.getProperty('VD_AT_' + c.id) !== c.dateLastActivity + '|' + c.idList; };
+
+  // Quais cards olhar: só os que tiveram atividade desde o último ciclo (histórico do quadro).
+  // A cada 30 min (e na 1ª vez) faz a varredura completa das colunas, por segurança.
+  var posCot = vd_listasPosCotacao_(ctx), idCot = [ctx.listas[VD.LISTA_COTACAO], ctx.listas[VD.LISTA_FALTA]].filter(String);
+  var marca = vd_marca_('NU_ACT'), inicio = new Date().toISOString();
+  try { vd_pkRebasear_(posCot, ctx); } catch (e) { console.log('rebase: ' + e); }   // uma vez: bases gravadas da vitrine (02–05/10) voltam a ser da completa
+  // 10/10/2026 (revisão): a varredura completa dependia de o acionador cair num minuto múltiplo de 30 (nem sempre cai; o tryLock
+  // pula o ciclo quando o anterior ainda roda) — agora é por tempo desde a última completa
+  var ultimaCompleta = +(props.getProperty('NU_COMPLETA_EM') || 0);
+  var completa = !marca || !ctx.modoAtivo || Date.now() - ultimaCompleta > 30 * 60000;
+  if (completa) props.setProperty('NU_COMPLETA_EM', String(Date.now()));
+  var listaPos = null, listaCot = null;
+  if (!completa) {
+    try {
+      var acts = vd_acoesQuadro_(ctx.board, { since: new Date(new Date(marca).getTime() - 5000).toISOString(), limit: 1000, fields: 'data' });
+      var ids = [];
+      acts.forEach(function (a) { var id = a.data && a.data.card && a.data.card.id; if (id && ids.indexOf(id) < 0 && !vd_legado_(id)) ids.push(id); });
+      listaPos = []; listaCot = [];
+      ids.forEach(function (id) {
+        if (Date.now() > ctx.prazo) return;
+        var c;
+        // SEM cru: a desc precisa ser a COMPLETA (a vitrine do Trello não tem o bloco PEÇAS). Com cru (02/10 a 05/10) o robô
+        // comparava a vitrine com a base e acusava "PEÇA NOVA fora do padrão" em card que só ganhou cotação (RAM9I31, TST9Z99).
+        try { c = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels,closed', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } }); } catch (e) { return; }
+        if (!c || c.closed) return;
+        if (posCot.indexOf(c.idList) >= 0) listaPos.push(c);
+        else if (idCot.indexOf(c.idList) >= 0) listaCot.push(c);
+      });
+    } catch (e) { console.log('núcleo/histórico: ' + e); completa = true; listaPos = listaCot = null; }
+  }
+  if (completa) { listaPos = vd_cardsDasListas_(posCot, false); listaCot = vd_cardsParaConferir_(ctx); }
+  vd_marcaSet_('NU_ACT', inicio);
+  try { if (vd_fixarCardNovo_(ctx, listaPos.concat(listaCot), completa)) console.log('card fixo devolvido ao topo da coluna'); } catch (e) { console.log('card fixo: ' + e); }
+
+  // 1) colunas depois de EM COTAÇÃO: só peça nova
+  listaPos.forEach(function (c) {
+    if (Date.now() > ctx.prazo || !mudou(c)) return;
+    if (ctx.modoAtivo) ax_padronizarCard_(c, null);   // card que mexeu: anexos já lidos ganham o nome padronizado (05/10/2026)
+    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
+    var r = vd_conferirPosCotacao_(c, ctx);
+    if (r.acao !== 'base registrada' && r.acao !== 'sem peça nova' && r.acao !== 'ignorado') { out.push(r); vd_marcar_(c); }
+    else props.setProperty('VD_AT_' + c.id, c.dateLastActivity + '|' + c.idList);
+  });
+
+  // 2) EM COTAÇÃO e FALTA DADOS: conferência completa (ou só da peça nova)
+  listaCot.forEach(function (c) {
+    if (Date.now() > ctx.prazo) return;
+    if (!mudou(c) && ctx.modoAtivo) return;
+    if (ctx.modoAtivo) ax_padronizarCard_(c, null);
+    if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
+    out.push(vd_conferirCard_(c, ctx));
+    if (ctx.modoAtivo) vd_marcar_(c);
+  });
+  return out;
+}
+
+// Validacao.gs:2009
+function validarDadosPedido() {
+  if (qt_pausada_()) { console.log('ciclo pulado: ' + qt_resumoPausa_()); return; }   // cota estourada: não gasta chamada nem tempo
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return;
+  try {
+    try { qt_retomarSePreciso_(); } catch (e) {}   // voltou de uma pausa por cota: não desfaz o que a equipe fez à mão nesse período
+    // migração única: acionadores de 1 em 1 minuto (log de descrição + validação)
+    var pp = PropertiesService.getScriptProperties();
+    if (pp.getProperty('VD_ACIONADORES_1MIN') !== 'SIM') {
+      try { instalarAcionador(); vd_instalarAcionador(); pp.setProperty('VD_ACIONADORES_1MIN', 'SIM'); } catch (e) { console.log('acionadores: ' + e); }
+    }
+    var rodar = function () {
+      vd_cicloIniciar_(VD.CICLO_MS);   // prazo único do ciclo (10/10/2026)
+      var cabe = function (nome, fn) { if (vd_restante_() < 30 * 1000) { SD_TEMPOS.push(nome + ' pulado (ciclo cheio)'); return; } return sd_parte_(nome, fn); };
+      sd_parte_('trava de descrição', tr_executar_);   // antes de tudo: desfaz edição manual
+      sd_parte_('trava de colunas', st_executar_);     // e movimento manual fora do fluxo
+      sd_parte_('trava de checklist', ck_executar_);   // e checklist mexido à mão
+      sd_parte_('exclusão', exc_executar_);
+      if (typeof cr_executar_ === 'function') sd_parte_('correção 11/10', cr_executar_);   // uma vez só (Corretivo.gs)
+      sd_parte_('faturamento', fat_executar_);           // comentário "faturado" arquiva (substitui o Butler)            // card excluído por quem não é admin volta
+      var t0n = Date.now(), out = [];
+      qt_parte_('núcleo');
+      try { out = vd_executarNucleo_(); } finally { qt_parte_(''); }
+      if (Date.now() - t0n > 1500) SD_TEMPOS.push('núcleo ' + ((Date.now() - t0n) / 1000).toFixed(1) + 's');
+      cabe('complemento', cp_executar_);          // orçamento complementar anexado no card
+      if (typeof cl_executar_ === 'function') cabe('cilia (API)', cl_executar_);   // PDF e peças das bases de orçamento: Cilia (API; CL_LIGADO), HDI (CLH_LIGADO) e SOMA (CLS_LIGADO) — CiliaApi.gs
+      cabe('antigo de volta à cotação', mg_voltaExecutar_);
+      cabe('anexos → planilha', vd_anxMigrar_);   // tira o cache de leitura de anexos das propriedades (16/10/2026)
+      cabe('observação da peça na vitrine', vd_obsVitrine_);   // uma vez só, aos poucos (15/10/2026)
+      if (typeof mg_corrigirBDK2J49_ === 'function') sd_parte_('correção BDK2J49', mg_corrigirBDK2J49_);   // uma vez só (Migracao.gs)   // card antigo que volta para cotação vira fluxo novo (12/10/2026)
+      if (new Date().getMinutes() % 5 === 0) cabe('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
+      cabe('prazos por etapa', sla_executar_);
+      cabe('anexos antigos (madrugada)', ax_madrugada_);   // 3h–5h59: lê e batiza anexo antigo nunca lido (13/10/2026)
+      if (typeof cl_agendarTeste_ === 'function') sd_parte_('cilia (teste no TESTE)', cl_agendarTeste_);   // uma vez por versão do teste
+      sd_parte_('relatório', rel_instalarSeFaltar_);
+      sd_parte_('links', function () { return vd_garantirLinks_(); });
+      sd_parte_('alarme diário', sd_instalarSeFaltar_);
+      sd_batida_();
+      if (QT_N > 60) SD_TEMPOS.push('chamadas ' + QT_N + ' (' + Object.keys(QT_PARTES).map(function (k) { return k + ' ' + QT_PARTES[k]; }).join(', ') + ')');
+      if (SD_TEMPOS.length) {
+        console.log('tempos: ' + SD_TEMPOS.join(' · '));
+        try {
+          var lg = JSON.parse(pp.getProperty('SD_TEMPOS_LOG') || '[]');
+          lg.push(Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'HH:mm') + ' ' + SD_TEMPOS.join(' · '));
+          pp.setProperty('SD_TEMPOS_LOG', JSON.stringify(lg.slice(-40)));
+        } catch (e) {}
+      }
+      return out;
+    };
+    if (typeof comAlarme_ === 'function') return comAlarme_('validarDadosPedido', rodar);
+    return rodar();
+  } finally { lock.releaseLock(); try { qt_registrar_('ciclo'); } catch (e) {} }
+}
+
+// Validacao.gs:2103
+function vd_instalarAcionador() {
+  ScriptApp.getProjectTriggers().forEach(function (t) {
+    if (t.getHandlerFunction() === 'validarDadosPedido') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('validarDadosPedido').timeBased().everyMinutes(1).create();
+}
+
+// Validacao.gs:2136
+function pz_entradaColuna_(c, props) {
+  var k = 'PZ_COL_' + c.id, g = String(props.getProperty(k) || '').split('|');
+  if (g[0] === c.idList && g[1]) return g[1];
+  var quando = '';
+  try {
+    var acts = vd_api_('/cards/' + c.id + '/actions', { cru: true, query: { filter: 'updateCard:idList,createCard', limit: 5, fields: 'date,data,type' } }) || [];
+    for (var i = 0; i < acts.length; i++) {
+      var a = acts[i], d = a.data || {};
+      if (a.type === 'createCard' || (d.listAfter && d.listAfter.id === c.idList)) { quando = a.date; break; }
+    }
+  } catch (e) {}
+  if (!quando) quando = new Date().toISOString();
+  props.setProperty(k, c.idList + '|' + quando);
+  return quando;
 }
 
 // Validacao.gs:2152
@@ -7455,6 +10679,245 @@ function pz_labelId_(board, nome, cor) {
   if (!l) l = vd_api_('/boards/' + board + '/labels', { method: 'post', payload: { name: nome, color: cor } });
   cache.put(k, l.id, 21600);
   return l.id;
+}
+
+// Validacao.gs:2164
+function pz_hoje_() {
+  var d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+// Validacao.gs:2168
+function pz_diaLocal_(iso) {
+  var d = new Date(iso);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+// Validacao.gs:2172
+function pz_fmt_(iso) { return Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM'); }
+
+// Validacao.gs:2181
+function pz_executar_() {
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
+  var board = vd_board_();
+  var props = PropertiesService.getScriptProperties();
+  var fim = vd_prazo_(PZ.LIMITE_MS);
+  var listas = vd_listas_(board);
+  var fora = PZ.LISTAS_FORA.map(function (n) { return listas[n]; }).filter(String);
+  var concluidas = PZ.LISTAS_CONCLUIDAS.map(function (n) { return listas[vd_nomeColuna_(n)] || listas[n]; }).filter(String);
+  var idChegar = listas['FALTA CHEGAR'] || '';
+  var idAtrasado = null;
+  var cards = vd_api_('/boards/' + board + '/cards', { query: {
+    fields: 'name,idList,idLabels,due,dueComplete,dateLastActivity,shortLink',
+    checklists: 'all', checklist_fields: 'name', checkItem_fields: 'state,due,name'
+  } });
+  var hoje = pz_hoje_();
+  var n = 0;
+  cards.forEach(function (c) {
+    if (Date.now() > fim) return;
+    if (fora.indexOf(c.idList) >= 0) return;
+    if (vdf_cardProtegido_(c.name || '')) return;
+    // card legado também ganha prazo pelas peças (07/10/2026, ESR9A30): a regra só olha os checklists
+    var chave = 'PZ_AT_' + c.id;
+    var marca = c.dateLastActivity + '|' + c.idList, antes = String(props.getProperty(chave) || '');
+    if (antes === marca) return;
+    var trocouColuna = !!antes && antes.split('|')[1] !== c.idList, concluida = concluidas.indexOf(c.idList) >= 0;   // 1ª passada não mexe em prazo já posto à mão
+
+    var pend = [], todos = [], vencidosFO = [];
+    (c.checklists || []).forEach(function (ck) {
+      var ehFO = /FORNECIMENTO/i.test(ck.name || '');
+      (ck.checkItems || []).forEach(function (it) {
+        if (!it.due) return;
+        todos.push(it);
+        if (it.state === 'complete') return;
+        pend.push(it);
+        if (ehFO && pz_diaLocal_(it.due) < hoje) vencidosFO.push(it);
+      });
+    });
+    var melhor = null;
+    // 09/10/2026 (TBU8D71): "todas recebidas -> a maior de todas" só vale em coluna concluída; card que voltou ao fluxo com peça
+    // nova (sem item no checklist ainda) não pode herdar a previsão velha — cai na regra de entrada na coluna + N d.u.
+    (pend.length ? pend : (concluida ? todos : [])).forEach(function (it) { var t = new Date(it.due).getTime(); if (melhor === null || t > melhor) melhor = t; });
+    var mudou = false, atual = c.due ? new Date(c.due).getTime() : 0, upd = {};
+    if (melhor !== null) {
+      // prazo do card = maior previsão entre as peças pendentes (todas recebidas: a maior de todas)
+      if (Math.abs(atual - melhor) > 43200000) upd.due = new Date(melhor).toISOString();
+    } else if (!c.due || trocouColuna || !concluida) {
+      // sem previsão de peça: N dias úteis a partir da entrada na coluna (07/10/2026)
+      var entrada = pz_entradaColuna_(c, props), alvo = new Date(du_somarUteis_(PZ.DIAS_SEM_PREVISAO, entrada)).getTime();
+      // sem troca de coluna, só mexe quando o prazo atual é anterior à entrada na coluna (prazo velho de card que voltou)
+      var velho = !!c.due && atual < new Date(entrada).getTime();
+      if ((!c.due || trocouColuna || velho) && Math.abs(atual - alvo) > 43200000) upd.due = new Date(alvo).toISOString();
+    }
+    // concluído = card em ENCERRADO/ENTREGUES/PENDÊNCIA; volta para trás = desconcluído
+    if ((c.due || upd.due) && !!c.dueComplete !== concluida) upd.dueComplete = concluida;
+    if (Object.keys(upd).length) {
+      if (upd.due && upd.dueComplete === undefined) upd.dueComplete = concluida;
+      vd_api_('/cards/' + c.id, { method: 'put', payload: upd });
+      mudou = true;
+    }
+    // FALTA CHEGAR sem previsão de peça e prazo (entrada + 2 d.u.) vencido: avisa uma vez por prazo (07/10/2026)
+    var dueAgora = upd.due || c.due || '';
+    if (melhor === null && c.idList === idChegar && dueAgora && pz_diaLocal_(dueAgora) < hoje && !concluida) {
+      var kAviso = 'PZ_SEMPREV_' + c.id;
+      if (props.getProperty(kAviso) !== dueAgora) {
+        var semDataFo = [], semDataPg = [];
+        (c.checklists || []).forEach(function (ck) {
+          var nomeCk = String(ck.name || '').trim();
+          (ck.checkItems || []).forEach(function (it) { if (it.state === 'complete' || it.due) return; (/FORNECIMENTO/i.test(nomeCk) ? semDataFo : (/^PAGAS/i.test(nomeCk) ? semDataPg : [])).push(it.name.split(/\s+[-—]\s+/)[0]); });
+        });
+        if (semDataFo.length || semDataPg.length) {
+          vd_comentar_(c, '⏰ Prazo do card vencido sem previsão de peça — ' + [semDataFo.length ? 'verificar prazo do item ' + semDataFo.join('; ') : '', semDataPg.length ? 'verificar compra do item ' + semDataPg.join('; ') : ''].filter(String).join(' · ') + '.');
+          mudou = true;
+        }
+        props.setProperty(kAviso, dueAgora);
+      }
+    }
+    // etiqueta ATRASADO
+    if (vencidosFO.length || (c.idLabels || []).length) {
+      if (idAtrasado === null) idAtrasado = pz_labelId_(board, PZ.LBL_ATRASADO, PZ.COR_ATRASADO);
+      var tem = (c.idLabels || []).indexOf(idAtrasado) >= 0;
+      if (vencidosFO.length && !tem) {
+        vd_api_('/cards/' + c.id + '/idLabels', { method: 'post', payload: { value: idAtrasado } });
+        // 10/10/2026: comenta só o item + previsão ainda não avisado (etiqueta tirada e posta de novo não repete o aviso)
+        var kFo = 'PZ_FOAV_' + c.id, jaAv = []; try { jaAv = JSON.parse(props.getProperty(kFo) || '[]'); } catch (e) {}
+        var novosFO = vencidosFO.filter(function (it) { return jaAv.indexOf(it.id + '|' + String(it.due).slice(0, 10)) < 0; });
+        if (novosFO.length) {
+          vd_comentar_(c, '⏰ Fornecimento atrasado — verificar prazo do item ' +
+            novosFO.map(function (it) { return it.name + ' (previsão ' + pz_fmt_(it.due) + ')'; }).join(', ') + '.');
+          try { props.setProperty(kFo, JSON.stringify(jaAv.concat(novosFO.map(function (it) { return it.id + '|' + String(it.due).slice(0, 10); })).slice(-40))); } catch (e) {}
+        }
+        mudou = true;
+      } else if (!vencidosFO.length && tem) {
+        vd_api_('/cards/' + c.id + '/idLabels/' + idAtrasado, { method: 'delete' });
+        mudou = true;
+      }
+    }
+    if (mudou) n++;
+    // marca: se mexemos no card, a atividade mudou; pega a nova para não reprocessar
+    var nova = marca;
+    if (mudou) { try { var c2 = vd_api_('/cards/' + c.id, { query: { fields: 'dateLastActivity,idList' } }); nova = c2.dateLastActivity + '|' + c2.idList; } catch (e) {} }
+    props.setProperty(chave, nova);
+  });
+  return n;
+}
+
+// Validacao.gs:2303
+function rel_unidade_(card) {
+  var nomes = (card.labels || []).map(function (l) { return l.name || ''; }).join(' ');
+  for (var i = 0; i < REL.UNIDADES.length; i++) if (REL.UNIDADES[i][1].test(nomes)) return REL.UNIDADES[i][0];
+  return 'SEM UNIDADE';
+}
+
+// Validacao.gs:2308
+function rel_dias_(ms) { return Math.floor((Date.now() - ms) / 864e5); }
+
+// Validacao.gs:2309
+function rel_criacaoId_(id) { return 1000 * parseInt(String(id).substring(0, 8), 16); }
+
+// Validacao.gs:2310
+function rel_esc_(s) { return String(s || '').replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
+
+// Validacao.gs:2313
+function rel_coletar_() {
+  var board = vd_prop_('REL_BOARD', vd_board_());
+  var listas = vd_listas_(board);
+  var nomeLista = {}; Object.keys(listas).forEach(function (n) { nomeLista[listas[n]] = n; });
+  var cards = vd_api_('/boards/' + board + '/cards', { query: {
+    fields: 'name,idList,labels,due,dateLastActivity,shortUrl',
+    checklists: 'all', checklist_fields: 'name', checkItem_fields: 'state,due,name'
+  } });
+  var hoje = pz_hoje_();
+  var por = {};
+  var add = function (card, tipo, txt) {
+    var u = rel_unidade_(card);
+    por[u] = por[u] || { foVencido: [], pagas: [], faltaDados: [], entregues: [] };
+    por[u][tipo].push({ card: card.name, url: card.shortUrl, txt: txt });
+  };
+  cards.forEach(function (c) {
+    if (/^\s*AVISO\b/i.test(c.name) || /NOVO PEDIDO DE PE[ÇC]A/i.test(c.name)) return;
+    var lista = nomeLista[c.idList] || '';
+    var diasParado = rel_dias_(new Date(c.dateLastActivity).getTime());
+    if (lista === REL.LISTA_FALTA && diasParado >= REL.DIAS_FALTA_DADOS) add(c, 'faltaDados', 'parado há ' + diasParado + ' dia(s)');
+    if (lista === REL.LISTA_ENTREGUES && diasParado >= REL.DIAS_ENTREGUES && !fat_semCobranca_(c.labels)) add(c, 'entregues', 'há ' + diasParado + ' dia(s) sem faturar');
+    if (REL.LISTAS_ENCERRADAS.indexOf(lista) >= 0) return;
+    (c.checklists || []).forEach(function (ck) {
+      var ehFO = /FORNECIMENTO/i.test(ck.name || ''), ehPagas = /^PAGAS/i.test((ck.name || '').trim());
+      (ck.checkItems || []).forEach(function (it) {
+        if (it.state === 'complete') return;
+        if (ehFO && it.due && pz_diaLocal_(it.due) < hoje) {
+          add(c, 'foVencido', it.name + ' — previsão ' + pz_fmt_(it.due) + ' (' + rel_dias_(new Date(it.due).getTime()) + ' dia(s) atrás)');
+        }
+        if (ehPagas) {
+          var d = rel_dias_(rel_criacaoId_(it.id));
+          if (d >= REL.DIAS_PAGAS) add(c, 'pagas', it.name + ' — comprado há ' + d + ' dia(s), ainda não chegou/sem nota');
+        }
+      });
+    });
+  });
+  return por;
+}
+
+// Validacao.gs:2352
+function rel_html_(por) {
+  var secoes = [['foVencido', '⏰ Fornecimento vencido (seguradora) — verificar prazo'], ['pagas', '💳 PAGAS há mais de ' + REL.DIAS_PAGAS + ' dias sem chegar / sem nota'],
+    ['faltaDados', '⚠️ FALTA DADOS PARA COTAR parado há ' + REL.DIAS_FALTA_DADOS + '+ dia(s)'], ['entregues', '🧾 ENTREGUES há mais de ' + REL.DIAS_ENTREGUES + ' dias sem faturar']];
+  var unidades = Object.keys(por).sort();
+  if (!unidades.length) return '<p>Nenhuma exceção hoje. 🎉</p>';
+  var h = '';
+  unidades.forEach(function (u) {
+    var g = por[u], total = g.foVencido.length + g.pagas.length + g.faltaDados.length + g.entregues.length;
+    if (!total) return;
+    h += '<h2 style="margin:18px 0 6px;font-size:16px">' + rel_esc_(u) + ' <span style="color:#888;font-weight:normal">(' + total + ')</span></h2>';
+    secoes.forEach(function (sec) {
+      var itens = g[sec[0]];
+      if (!itens.length) return;
+      h += '<div style="margin:6px 0 2px;font-weight:bold">' + sec[1] + ' — ' + itens.length + '</div><ul style="margin:0 0 8px 18px;padding:0">';
+      itens.forEach(function (i) { h += '<li><a href="' + i.url + '">' + rel_esc_(i.card) + '</a>: ' + rel_esc_(i.txt) + '</li>'; });
+      h += '</ul>';
+    });
+  });
+  return h || '<p>Nenhuma exceção hoje. 🎉</p>';
+}
+
+// Validacao.gs:2373
+function rel_enviar_() {
+  var por = rel_coletar_();
+  var total = 0;
+  Object.keys(por).forEach(function (u) { var g = por[u]; total += g.foVencido.length + g.pagas.length + g.faltaDados.length + g.entregues.length; });
+  var quadro = vd_prop_('REL_BOARD', vd_board_());
+  var hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
+  var html = '<div style="font-family:Arial,sans-serif;font-size:14px;color:#222">' +
+    '<p>Exceções do quadro <b>Compra de Peça' + (quadro === VD.BOARD_PADRAO ? ' – TESTE' : '') + '</b> em ' + hoje + ' — ' + total + ' item(ns).</p>' +
+    rel_html_(por) +
+    '<p style="color:#888;font-size:12px;margin-top:18px">Regras: fornecimento vencido = item do checklist FORNECIMENTO com previsão passada e não marcado; PAGAS = item criado há ' + REL.DIAS_PAGAS + '+ dias e não marcado; FALTA DADOS = card sem movimento há ' + REL.DIAS_FALTA_DADOS + '+ dia(s); ENTREGUES = card há ' + REL.DIAS_ENTREGUES + '+ dias na coluna. Enviado pelo robô do Trello (Log de Descricao Trello).</p></div>';
+  MailApp.sendEmail({
+    to: vd_prop_('REL_EMAILS', REL.EMAILS),
+    subject: 'Compra de Peça — exceções do dia ' + hoje + ' (' + total + ')',
+    htmlBody: html
+  });
+  return total;
+}
+
+// Validacao.gs:2392
+function relatorioDiario() {
+  if (typeof comAlarme_ === 'function') return comAlarme_('relatório diário', rel_enviar_);
+  return rel_enviar_();
+}
+
+// Validacao.gs:2397
+function rel_instalar() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'relatorioDiario') ScriptApp.deleteTrigger(t); });
+  ScriptApp.newTrigger('relatorioDiario').timeBased().everyDays(1).atHour(7).nearMinute(15).create();
+}
+
+// Validacao.gs:2403
+function rel_instalarSeFaltar_() {
+  var pp = PropertiesService.getScriptProperties();
+  if (pp.getProperty('REL_INSTALADO') === 'SIM') return;
+  rel_instalar();
+  pp.setProperty('REL_INSTALADO', 'SIM');
+  rel_enviar_();
 }
 
 // Validacao.gs:2426
@@ -7676,4 +11139,25 @@ function vd_textoLegado_(desc) {
     out.push(linhas[i]);
   }
   return out.join('\n').trim();
+}
+
+// Validacao.gs:2649
+function vd_obsVitrine_() {
+  var props = PropertiesService.getScriptProperties(), st = props.getProperty('VD_OBSVIT') || '2';
+  if (st === 'FEITO' || !vd_ligado_() || vd_modo_() !== 'ATIVO' || !vd_vitrineLigada_()) return 0;
+  var sh = tr_aba_(), n = sh.getLastRow(), lin = Math.max(2, parseInt(st, 10) || 2), feitos = 0;
+  if (lin > n) { props.setProperty('VD_OBSVIT', 'FEITO'); return 0; }
+  var fim = Math.min(n, lin + 399), vals = sh.getRange(lin, 1, fim - lin + 1, 5).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    if (feitos >= 15 || vd_restante_() < 40 * 1000) { props.setProperty('VD_OBSVIT', String(lin + i)); return feitos; }
+    var id = String(vals[i][0] || ''), cmp = String(vals[i][4] || '');
+    if (!id || !/\|\s*OBS\s*:/i.test(cmp)) continue;
+    var temObs = false;
+    try { temObs = vd_linhasPecas_(vd_dividir_(cmp).bloco).linhas.some(function (l) { return /\|\s*OBS\s*:/i.test(l); }); } catch (e) {}
+    if (!temObs) continue;
+    try { vd_gravarDesc_(id, cmp); feitos++; } catch (e) { console.log('obsVitrine ' + id + ': ' + e); }
+  }
+  props.setProperty('VD_OBSVIT', fim >= n ? 'FEITO' : String(fim + 1));
+  if (feitos) console.log('obsVitrine: ' + feitos + ' vitrine(s) regravada(s)');
+  return feitos;
 }

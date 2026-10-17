@@ -14,7 +14,9 @@ const MODO = process.argv[2] || 'leitores';
 const raizesLeitores = ['vd_lerOrcamento_', 'vd_extrair_', 'pv_lerFornecimento_', 'pv_lerStatusCilia_', 'pv_lerHdiPecas_', 'pv_lerPareceresCilia_',
   'pv_ultimaAtualizacaoCilia_', 'pv_aplicarPareceres_', 'vd_orcCompacto_', 'vd_orcExpandir_', 'vd_dicaNorm_', 'vd_placaDoTexto_', 'vd_mesmaPlaca_',
   'cp_similar_', 'cp_norm_', 'fo_resolver_', 'pv_enriquecerFo_'];
-const raizesFormulario = () => ['doPost', 'vdf_usuario_', ...fs.readdirSync(dir).filter((f) => f.endsWith('.gs'))
+// 17/10/2026: o robô inteiro (ciclo de 1 min e rotinas diárias) também vai para o servidor
+const RAIZES_ROBO = ['validarDadosPedido', 'verificarAlteracoesDescricao', 'rotinaDiaria', 'relatorioDiario', 'sd_diario', 'es_sincronizar', 'axPadronizarQuadro'];
+const raizesFormulario = () => ['doPost', 'vdf_usuario_', ...RAIZES_ROBO, ...fs.readdirSync(dir).filter((f) => f.endsWith('.gs'))
   .flatMap((f) => [...fs.readFileSync(path.join(dir, f), 'utf8').matchAll(/^function (vdf_[A-Za-z0-9]+[A-Za-z0-9])\(/gm)].map((m) => m[1]))];
 // leem planilha/cache do Apps Script: viram adaptadores (ver ADAPTADORES abaixo)
 const ADAPTADO = MODO === 'leitores' ? new Set(['fo_lista_', 'fo_aba_', 'vd_planilhaBackup_']) : new Set();
