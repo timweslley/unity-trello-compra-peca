@@ -409,6 +409,21 @@ function pv_lerStatusCilia_(texto, lista) {
     }
     var mq = l.match(/^(.+?)\s*QTD$/);   // "FAROL DIREITOQTD" (Google) — descrição antes do código no bloco
     if (mq && /[A-Z]{3}/.test(mq[1]) && !ehCodigo(mq[1])) { pecas.push({ i: i, codigo: '', descricao: mq[1].trim(), forn: '', prev: '', semCodigo: true }); continue; }
+    // 16/10/2026 (BAE2475, OCR do Google): fornecedor sem "/" grudado no rótulo ("DEMAK IMPORTSPREVISÃO DE ENTREGA")
+    var mfg = l.match(/^(.*[A-Z]{3}.*?)\s*PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})?$/);
+    if (mfg && !ehForn(l) && !STATUS.test(mfg[1]) && !LABEL.test(mfg[1].trim()) && !ehCodigo(mfg[1].replace(/\s/g, '')) && !/HTTPS?:|:|\d{1,2}\/\d{1,2}/.test(mfg[1]) && mfg[1].trim().split(' ').length <= 8) {
+      forns.push({ i: i, nome: mfg[1].trim() });
+      if (mfg[2]) prevs.push({ i: i, data: mfg[2] });
+      continue;
+    }
+    // fornecedor sem "/" numa linha sozinha logo antes de "PREVISÃO DE ENTREGA dd/mm" ("KAIZEN RS - VEIULOS E SERVIÇOS LTDA")
+    if (/^PREVISAO DE ENTREGA\s*\d/.test(linhas[i + 1] || '') && /[A-Z]{3}/.test(l) && !STATUS.test(l) && !LABEL.test(l) && !ehCodigo(l.replace(/\s/g, '')) && !/HTTPS?:|:|\d{1,2}\/\d{1,2}|^PREVISAO|ENTREG/.test(l) && l.split(' ').length <= 10) {
+      forns.push({ i: i, nome: l.trim() });
+      continue;
+    }
+    // carimbo de status grudado ("01/10/26 - 15:20:55Entregue RUBRICA"): a peça foi entregue nessa data
+    var mcg = l.match(/^(\d{1,2}\/\d{1,2}\/\d{2,4})\s*-\s*[\d:]+\s*ENTREGUE\b/);
+    if (mcg) { entregas.push({ i: i, data: mcg[1] }); continue; }
     if (ehForn(l)) {
       var md = l.match(/PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/);
       forns.push({ i: i, nome: limpaForn(l) });
@@ -417,7 +432,7 @@ function pv_lerStatusCilia_(texto, lista) {
     }
     if (/^FORNECEDOR$/.test(l)) {   // nome na linha seguinte (quando não tem "/")
       var prox = linhas[i + 1] || '';
-      if (/[A-Z]{3}/.test(prox) && !STATUS.test(prox) && !LABEL.test(prox) && !ehCodigo(prox) && !ehForn(prox)) forns.push({ i: i, nome: limpaForn(prox) });
+      if (/[A-Z]{3}/.test(prox) && !STATUS.test(prox) && !LABEL.test(prox) && !ehCodigo(prox) && !ehForn(prox) && limpaForn(prox)) forns.push({ i: i, nome: limpaForn(prox) });
       continue;
     }
     var mp = l.match(/^PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/); if (mp) { prevs.push({ i: i, data: mp[1] }); continue; }
@@ -429,8 +444,11 @@ function pv_lerStatusCilia_(texto, lista) {
   pecas = pecas.filter(function (p, k) {
     if (!p.semCodigo) return true;
     var prox = pecas[k + 1];
-    if (prox && !prox.semCodigo && prox.i - p.i <= 6) { prox.descricao = p.descricao; return false; }   // a descrição "…QTD" vale mais que o palpite
-    return false;
+    if (prox && !prox.semCodigo && prox.i - p.i <= 6) { prox.descricao = p.descricao; prox.i = p.i; return false; }   // 16/10: o bloco começa na descrição (o fornecedor fica entre ela e o código)   // a descrição "…QTD" vale mais que o palpite
+    // 16/10/2026 (BAE2475, CONDENSADOR): bloco com código curto ("6899") ou sem código — fica; casa pelo código curto ou
+    // pela descrição (peça do card que não achou o código no documento)
+    for (var z = p.i + 1; z < Math.min(p.i + 6, linhas.length); z++) { if (/^[A-Z0-9]{3,5}$/.test(linhas[z]) && /\d{3}/.test(linhas[z])) { p.codigo = linhas[z]; break; } }
+    return pecas.some(function (q) { return !q.semCodigo; });
   });
   if (!pecas.length) return null;
   // valor dominante (o documento costuma ter um fornecedor só; a linha de parecer que escapou não muda a maioria)
@@ -445,7 +463,7 @@ function pv_lerStatusCilia_(texto, lista) {
     var ent = noBloco(entregas) || (entregas.length === pecas.length ? entregas[k] : null);
     var d = prev ? pv_datas_(prev) : [];
     var dEnt = ent && ent.data ? pv_datas_(/\/\d{2,4}$/.test(ent.data) ? ent.data : ent.data.replace(/\/?$/, '/' + new Date().getFullYear())) : [];
-    out[cp_norm_(p.codigo)] = {
+    out[cp_norm_(p.codigo) || ('SEMCOD' + k)] = {
       codigo: p.codigo, descricao: p.descricao, fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '',
       previsao: d.length ? d[0].toISOString() : '', entregue: !!ent, entregueEm: dEnt.length ? dEnt[0].toISOString() : '',
       linha: (p.codigo + ' ' + p.descricao).slice(0, 120)
