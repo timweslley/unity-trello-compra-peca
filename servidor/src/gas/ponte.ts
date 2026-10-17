@@ -165,10 +165,17 @@ async function carimboAoVivo(tipo: 'card' | 'quadro', ref: string, auth: { key: 
   return { valor, ultima, id: j.id, shortLink: j.shortLink };
 }
 
+/** Até quando as leituras do principal ignoram o que está guardado (marcado a cada gravação pelo servidor). */
+let gravouAte = 0;
+export function marcarGravacaoPrincipal(): void { gravouAte = Date.now() + 30_000; guardadoPrincipal.clear(); abasGuardadas.delete('TRAVA'); }
+
 async function buscarPrincipal(p: Pedido, ctx: Contexto): Promise<Resposta | null> {
   const alvo = alvoDoPrincipal(p.url);
   const ex = ctx.atual;
   if (!alvo || !ex || !ex.usarGuardado) return null;
+  // 17/10/2026 (teste das cópias): logo depois de uma gravação pelo servidor o Trello ainda pode devolver o carimbo antigo
+  // (data da última atividade atrasa ~1 s) — a releitura do formulário via o card de antes. Por 30 s lê tudo ao vivo.
+  if (Date.now() < gravouAte) return null;
   const u = new URL(p.url);
   const auth = { key: u.searchParams.get('key') || '', token: u.searchParams.get('token') || '' };
   if (!auth.key || !auth.token) return null;
@@ -593,7 +600,7 @@ class Contexto {
         const id = ++this.seq;
         let r: unknown;
         try { r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg, ...extra }); }); }
-        finally { if (this.remoto) { await this.gravarAbas(ex); this.devolverProps(ex); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
+        finally { if (this.remoto) { await this.gravarAbas(ex); this.devolverProps(ex); if (this.quadro === QUADRO_PRINCIPAL_SL) marcarGravacaoPrincipal(); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
         return r;
