@@ -187,6 +187,9 @@ function vd_secao_(U, inicio, finais) {
 
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
+  // 17/10/2026 (Weslley: "sem cobertura não entra pra compra"): no Cilia, os itens do bloco "ITENS DO TIPO SEM COBERTURA" (até
+  // o próximo "ITENS DO TIPO …") não são pagos pela seguradora — ficam fora da leitura
+  U = U.replace(/ITENS DO TIPO SEM COBERTURA[\s\S]*?(?=ITENS DO TIPO |RESUMO GERAL|$)/g, ' ');
   var r = { origem: '', oficina: [], fo: [], seguradora: '', cor: '', sinistro: '' };
   var m;
 

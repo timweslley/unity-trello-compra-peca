@@ -376,6 +376,9 @@ function vd_secao_(U, inicio, finais) {
 // Orcamento.gs:188
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
+  // 17/10/2026 (Weslley: "sem cobertura não entra pra compra"): no Cilia, os itens do bloco "ITENS DO TIPO SEM COBERTURA" (até
+  // o próximo "ITENS DO TIPO …") não são pagos pela seguradora — ficam fora da leitura
+  U = U.replace(/ITENS DO TIPO SEM COBERTURA[\s\S]*?(?=ITENS DO TIPO |RESUMO GERAL|$)/g, ' ');
   var r = { origem: '', oficina: [], fo: [], seguradora: '', cor: '', sinistro: '' };
   var m;
 
@@ -1000,53 +1003,53 @@ function pv_enriquecerFo_(texto, fo) {
   return n;
 }
 
-// Validacao.gs:205
+// Validacao.gs:207
 function vd_semAcento_(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 }
 
-// Validacao.gs:236
+// Validacao.gs:238
 function vd_normPlaca_(p) {
   return String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-// Validacao.gs:240
+// Validacao.gs:242
 function vd_placaMercosul_(p) {
   p = vd_normPlaca_(p);
   if (/^[A-Z]{3}\d{4}$/.test(p)) return p.slice(0, 4) + 'ABCDEFGHIJ'.charAt(+p.charAt(4)) + p.slice(5);
   return p;
 }
 
-// Validacao.gs:245
+// Validacao.gs:247
 function vd_mesmaPlaca_(a, b) {
   return !!a && !!b && vd_placaMercosul_(a) === vd_placaMercosul_(b);
 }
 
-// Validacao.gs:259
+// Validacao.gs:261
 function vd_placaDoTexto_(s) {
   var m = String(s || '').toUpperCase().match(/\b([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/);
   return m ? m[1] + m[2] : '';
 }
 
-// Validacao.gs:264
+// Validacao.gs:266
 function vd_normChassi_(c) {
   return String(c || '').toUpperCase().replace(/[\s.\-]/g, '');
 }
 
-// Validacao.gs:267
+// Validacao.gs:269
 function vd_chassiValido_(c) {
   c = vd_normChassi_(c);
   return /^[A-HJ-NPR-Z0-9]{17}$/.test(c) && /[A-Z]/.test(c) && /\d{4}$/.test(c);
 }
 
-// Validacao.gs:539
+// Validacao.gs:541
 function vd_valorOrcTxt_(v) {
   if (v == null || v === '') return '';
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   return isNaN(n) || n <= 0 ? '' : vd_valorBR_(n);
 }
 
-// Validacao.gs:639
+// Validacao.gs:641
 function vd_motorDoModelo_(m) {
   var s = String(m || '');
   var d = s.match(/\b\d\.\d\b/);
@@ -1056,7 +1059,7 @@ function vd_motorDoModelo_(m) {
   return [d[0]].concat(tk.filter(function (t, i) { return tk.indexOf(t) === i; })).join(' ');
 }
 
-// Validacao.gs:647
+// Validacao.gs:649
 function vd_extrair_(texto) {
   var T = String(texto || '').replace(/\r/g, '');
   var U = vd_semAcento_(T).replace(/[\s\u00a0]+/g, ' ');
@@ -1108,7 +1111,7 @@ function vd_extrair_(texto) {
   return r;
 }
 
-// Validacao.gs:928
+// Validacao.gs:930
 function vd_dicaNorm_(t) {
   var s = vd_semAcento_(t);
   if (/^GENU/.test(s)) return 'GENUÍNO';
@@ -1119,14 +1122,14 @@ function vd_dicaNorm_(t) {
   return '';
 }
 
-// Validacao.gs:964
+// Validacao.gs:966
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
 
-// Validacao.gs:986
+// Validacao.gs:988
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4

@@ -53,8 +53,10 @@ function vd_prop_(k, padrao) {
 // 15/10/2026 (CiliaApi.gs): teste no quadro TESTE numa execução própria (gatilho único) — o quadro forçado vale só nela
 var VD_BOARD_FORCA = '';
 function vd_board_() { return VD_BOARD_FORCA || vd_prop_('VD_BOARD', VD.BOARD_PADRAO); }
-/** 16/10/2026: comportamentos da versão 2.0 no robô/servidor — sempre no TESTE; no principal só com a propriedade VD_V2=SIM (virada). */
-function vd_v2_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('VD_V2', 'NAO') === 'SIM'; } catch (e) { return false; } }
+/** 16/10/2026: comportamentos da versão 2.0 no robô/servidor — sempre no TESTE; no principal com VD_V2_PRINCIPAL (virada 17/10/2026, OK do
+ *  Weslley às 03h57: "faça já"). Voltar: VD_V2_PRINCIPAL = false (ou a propriedade VD_V2=NAO) + tirar o principal de QUADROS_V2 no powerup/config.js. */
+var VD_V2_PRINCIPAL = true;
+function vd_v2_() { try { return vd_board_() === VD.BOARD_PADRAO || (VD_V2_PRINCIPAL && vd_prop_('VD_V2', 'SIM') !== 'NAO'); } catch (e) { return false; } }
 function vd_modo_() { return vd_prop_('VD_MODO', 'ATIVO'); }
 function vd_ligado_() { return vd_prop_('VD_LIGADO', 'SIM') !== 'NAO'; }
 

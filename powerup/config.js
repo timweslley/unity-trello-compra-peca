@@ -13,7 +13,7 @@ window.PU_CFG = {
   QUADROS_SERVIDOR: ['ZX4gRmnX'],
   /* 16/10/2026: quadros que abrem o formulário 2.0 (visual e telas novas) sem passar pelo servidor (gravações no Apps Script).
    * VIRADA DO PRINCIPAL: acrescentar 'oH4TbTqb' aqui E ligar a propriedade VD_V2=SIM no Apps Script. Voltar: tirar os dois. */
-  QUADROS_V2: [],
+  QUADROS_V2: ['oH4TbTqb'],   // 17/10/2026 03h57 — virada do principal (Weslley: "faça já")
   /* 07/10/2026: no quadro PRINCIPAL, leituras de navegação (abrir, carregar card, buscar placa) pelo servidor próprio,
    * com volta automática ao Apps Script se ele não responder. Por usuário; 'todos' libera a equipe inteira. */
   /* 09/10/2026 16:10 — DESLIGADO até o servidor corrigir: o trabalhador do servidor guarda a aba TRAVA (descrição
