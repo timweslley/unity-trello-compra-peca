@@ -4942,7 +4942,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
       if (!melhor) return;
       usadasC[melhor] = 1;
       var r = cilia[melhor];
-      outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, codigoNovo: r.codigo, descNova: r.descricao, entregue: r.entregue, entregueEm: r.entregueEm });
+      outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, codigoNovo: String(r.codigo || '').length >= 6 ? r.codigo : '', descNova: r.descricao, entregue: r.entregue, entregueEm: r.entregueEm });
     });
     if (outC.length) {
       // pareceres mais novos que a tabela mudam a previsão (com motivo) ou marcam B.O. (07/10/2026)
