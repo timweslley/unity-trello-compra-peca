@@ -80,14 +80,16 @@ function vdf_servidorProps(token, op) {
   var p = PropertiesService.getScriptProperties();
   op = op || {};
   if (op.ler) return p.getProperties();
-  var lock = LockService.getScriptLock();
-  lock.waitLock(25000);
+  // 17/10/2026: o ciclo do robô segura a trava do script por minutos — esperar por ela fazia a devolução falhar (VD_DESC não
+  // chegava). Tenta a trava por 3 s e grava de qualquer jeito (setProperties é atômico por chamada).
+  var lock = LockService.getScriptLock(), travou = false;
+  try { travou = lock.tryLock(3000); } catch (e) {}
   try {
     var set = op.set || {}, n = 0;
     if (Object.keys(set).length) { p.setProperties(set, false); n += Object.keys(set).length; }
     (op.del || []).forEach(function (k) { p.deleteProperty(k); n++; });
-    return { ok: true, n: n };
-  } finally { lock.releaseLock(); }
+    return { ok: true, n: n, trava: travou };
+  } finally { if (travou) lock.releaseLock(); }
 }
 
 function vdf_propsServidor(token) {
@@ -457,13 +459,17 @@ function vdf_partesTitulo_(nome, dados) {
   if (estrIni && dados.pais) nome = nome.replace(estrIni[0], ' ABC1D23 ');   // troca por uma placa de mentira só para separar as partes
   if (!vd_placaDoTexto_(nome)) nome = '';   // título fora do padrão (ex.: "image.png"): monta do zero
   // nº da ordem antes da placa ("4496 BBV0H58 ETIOS …", card criado à mão) não é parte do carro (09/10/2026)
-  var ps0 = vd_semAcento_(nome).replace(/^[\s\d]+(?=[A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2}\b)/, '').replace(/\b[A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2}\b/, ' ').replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(String);
+  var ps0 = vd_semAcento_(nome).replace(/^[\s\d]+(?=[A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2}\b)/, '').replace(/\b[A-Z]{3}[\s\-]?\d[A-Z0-9]\d{2}\b/, ' ').replace(/[^A-Z0-9 \-]/g, ' ').split(/\s+/).map(function (t) { return t.replace(/^-+|-+$/g, ''); }).filter(String);   // 17/10: hífen do carro fica (F-250, HR-V, T-CROSS)
   var ps = ps0.filter(function (t) { return VD_LIXO_TITULO.indexOf(t) < 0; });
   var r = { carro: '', cor: dados.cor || '', seguradora: dados.seguradora || '' };
   if (ps.length && !r.seguradora && (ps[ps.length - 1] === 'PARTICULAR' || ps[ps.length - 1] === 'RETORNO' || VD_SEGURADORAS.some(function (s) { return s[0] === ps[ps.length - 1]; }))) r.seguradora = ps.pop();
   else if (ps.length && r.seguradora && ps[ps.length - 1] === vd_semAcento_(r.seguradora)) ps.pop();
+  // 17/10/2026 (DRL8G82 "HONDA CIVIC CINZA AZUL", orçamento da Porto): outra seguradora no fim do título também sai (AZUL é
+  // seguradora e cor) e a cor lida do anexo não fica repetida no carro ("HONDA CIVIC CINZA CINZA PORTO")
+  else if (ps.length > 1 && r.seguradora && VD_SEGURADORAS.some(function (s) { return s[0] === ps[ps.length - 1]; })) ps.pop();
+  if (r.cor) { var corN = vd_semAcento_(r.cor); for (var k0 = ps.length - 1; k0 > 0; k0--) if (ps[k0] === corN) { ps.splice(k0, 1); break; } }
   for (var k = ps.length - 1; k > 0; k--) {
-    if (VD_CORES.indexOf(ps[k]) >= 0) { var c = ps.splice(k, 1)[0]; if (!r.cor) r.cor = c; break; }
+    if (VD_CORES.indexOf(ps[k]) >= 0 && !(r.cor && k < ps.length - 1)) { var c = ps.splice(k, 1)[0]; if (!r.cor) r.cor = c; break; }
   }
   r.carro = ps.join(' ') || vd_carroCurto_(dados.modelo || '');
   return r;

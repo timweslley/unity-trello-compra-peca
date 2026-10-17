@@ -373,22 +373,10 @@ async function atenderRemoto(op: string, d: any, ctx: Contexto): Promise<unknown
       return v;
     }
     case 'aba.gravar': {
+      // 17/10/2026: as gravações da planilha juntam até o fim da chamada (31 gravações = 11 s; juntas = 2 chamadas)
       if (!CFG.planilhaId || d.nome === 'backup' || !(await abasReais()).includes(d.nome)) return null;
-      const tam = ctx.tam[d.nome] ?? 0, fixas: Record<string, unknown[]> = {}, novas: unknown[][] = [];
-      for (const [n, v] of Object.entries(d.linhas as Record<string, unknown[]>).sort((a, b) => +a[0] - +b[0])) {
-        if (+n > tam) novas.push(v); else fixas[n] = v;
-      }
-      try {
-        await gravarLinhasPlanilha(CFG.planilhaId, d.nome, fixas);
-        await anexarLinhasPlanilha(CFG.planilhaId, d.nome, novas);
-        ctx.tam[d.nome] = tam + novas.length;
-      } catch (e) {
-        // a planilha é cópia de segurança/registro: falha nela não interrompe a gravação no Trello — fica guardada para refazer
-        console.error('[gravação do principal] planilha', d.nome, (e as Error).message);
-        if (ctx.atual) ctx.atual.erro = ('planilha ' + d.nome + ': ' + (e as Error).message).slice(0, 200);
-        await consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`,
-          ['planilha_pendente_' + Date.now() + '_' + d.nome, JSON.stringify({ aba: d.nome, fixas, novas })]).catch(() => null);
-      }
+      const tam = ctx.tam[d.nome] ?? 0, b = (ctx.bufAbas[d.nome] = ctx.bufAbas[d.nome] || { fixas: {}, novas: {} });
+      for (const [n, v] of Object.entries(d.linhas as Record<string, unknown[]>)) { if (+n > tam) b.novas[n] = v; else b.fixas[n] = v; }
       return null;
     }
     case 'gatilho': console.warn('[gravação do principal] gatilho fica com o robô do Google:', d?.fn); return null;
@@ -538,6 +526,7 @@ class Contexto {
   /** gravação remota (17/10/2026): propriedades a devolver ao Apps Script no fim da chamada e tamanho das abas lidas */
   pend: { set: Record<string, string>; del: Set<string> } = { set: {}, del: new Set() };
   tam: Record<string, number> = {};
+  bufAbas: Record<string, { fixas: Record<string, unknown[]>; novas: Record<string, unknown[]> }> = {};
   constructor(readonly nome: 'teste' | 'principal' | 'retrato' | 'principalGrava' | 'testeRemoto', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false, readonly remoto = false) {}
 
   private fixas(): Record<string, string> {
@@ -598,13 +587,13 @@ class Contexto {
         await this.iniciar();
         let extra: Record<string, unknown> = this.nome === 'principal' ? { props: await propsDoPrincipal() } : {};
         if (this.remoto) {
-          this.pend = { set: {}, del: new Set() }; this.tam = {};
+          this.pend = { set: {}, del: new Set() }; this.tam = {}; this.bufAbas = {};
           try { extra = { props: await propsParaGravacao(), propsTrocar: true }; } catch (e) { throw new Error('servidor (nada gravado): ' + (e as Error).message); }
         }
         const id = ++this.seq;
         let r: unknown;
         try { r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg, ...extra }); }); }
-        finally { if (this.remoto) this.devolverProps(ex); }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
+        finally { if (this.remoto) { await this.gravarAbas(ex); this.devolverProps(ex); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
         return r;
@@ -617,6 +606,23 @@ class Contexto {
     });
     this.fila = p.catch(() => null);
     return p;
+  }
+  /** Grava na planilha real o que a chamada juntou (uma chamada por aba para as linhas que mudaram e outra para as novas). */
+  private async gravarAbas(ex: Execucao): Promise<void> {
+    for (const [aba, b] of Object.entries(this.bufAbas)) {
+      const novas = Object.entries(b.novas).sort((x, y) => +x[0] - +y[0]).map(([, v]) => v);
+      try {
+        await gravarLinhasPlanilha(CFG.planilhaId, aba, b.fixas);
+        await anexarLinhasPlanilha(CFG.planilhaId, aba, novas);
+      } catch (e) {
+        // a planilha é cópia de segurança/registro: falha nela não desfaz a gravação no Trello — fica guardada para refazer
+        console.error('[gravação do principal] planilha', aba, (e as Error).message);
+        ex.erro = ('planilha ' + aba + ': ' + (e as Error).message).slice(0, 200);
+        await consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`,
+          ['planilha_pendente_' + Date.now() + '_' + aba, JSON.stringify({ aba, fixas: b.fixas, novas })]).catch(() => null);
+      }
+    }
+    this.bufAbas = {};
   }
   /** Devolve ao Apps Script as propriedades que a chamada mudou (assinatura da TRAVA etc.) — até 3 tentativas. */
   private devolverProps(ex: Execucao): void {
