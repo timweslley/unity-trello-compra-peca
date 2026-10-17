@@ -31,6 +31,11 @@ function ligarLeituraServidor(usuario) {
   if (cg === 'todos') guard = true;
   else if (cg && cg.usuarios) guard = cg.usuarios.map(function (u) { return String(u).toLowerCase(); }).indexOf(String(usuario || '').toLowerCase()) >= 0;
   try { localStorage.setItem('vd_leitura_guardada', guard ? '1' : '0'); } catch (e) {}
+  /* 17/10/2026: gravações do principal pelo servidor (passo 2 da virada) — por usuário em PU_CFG.GRAVACAO_SERVIDOR */
+  var cw = window.PU_CFG && PU_CFG.GRAVACAO_SERVIDOR, grava = false;
+  if (cw === 'todos') grava = true;
+  else if (cw && cw.usuarios) grava = cw.usuarios.map(function (u) { return String(u).toLowerCase(); }).indexOf(String(usuario || '').toLowerCase()) >= 0;
+  try { localStorage.setItem('vd_grava_srv', grava ? '1' : '0'); } catch (e) {}
   return liga;
 }
 /* medição local (últimas 60 chamadas): fn, por onde foi, ms, ok — para diagnóstico pelo console (vd_tempos) */
@@ -64,8 +69,27 @@ function avisoLento(txt) {
   }
   d.textContent = txt || ''; d.style.display = txt ? 'block' : 'none';
 }
+function gravacaoServidorLigada() {
+  if (!leituraServidorLigada()) return false;   // só no principal (no TESTE, srv=1, tudo já vai ao servidor)
+  try { return localStorage.getItem('vd_grava_srv') === '1'; } catch (e) { return false; }
+}
+/* 17/10/2026: gravação pelo servidor — uma tentativa só (sem repetir em paralelo, para não gravar duas vezes). Volta para o
+ * Google apenas quando o servidor diz que nada foi gravado ("nada gravado") ou nem respondeu ao pedido (falha de rede antes). */
+function chamarServidorGravacao(fn, args) {
+  var t0 = Date.now(), corpo = JSON.stringify({ fn: fn, args: args, rid: novoRid() });
+  return fetch(PU_CFG.URL_SERVIDOR + '?quadro=principal&grava=1', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo })
+    .then(function (r) { if (r.status >= 500 && r.status !== 504) { var e = new Error('servidor: ' + r.status); e.nadaGravado = true; throw e; } return r.text(); })
+    .then(function (t) {
+      var j; try { j = JSON.parse(t); } catch (e) { throw new Error('O servidor respondeu algo inválido. Confira o card antes de enviar de novo.'); }
+      anotarTempo(fn, 'srv-grava', Date.now() - t0, !!j.ok);
+      if (j.ok) return j.r;
+      var e2 = new Error(String(j.erro || 'erro').replace(/^Error:\s*/, '')); if (/nada gravado/i.test(j.erro || '')) e2.nadaGravado = true; throw e2;
+    }, function (e) { if (e && e.nadaGravado) throw e; var e3 = new Error(e && e.message || 'falha de rede'); e3.nadaGravado = /Failed to fetch|NetworkError|Load failed/i.test(String(e && e.message)); throw e3; })
+    .catch(function (e) { if (e && e.nadaGravado) { anotarTempo(fn, 'srv-grava→google', Date.now() - t0, false); return chamarGoogle(fn, args); } throw e; });
+}
 function chamar(fn) {
   var args = Array.prototype.slice.call(arguments, 1);
+  if (!LEITURA_SRV_FN[fn] && gravacaoServidorLigada()) return chamarServidorGravacao(fn, args);
   if (LEITURA_SRV_FN[fn] && leituraServidorLigada()) {
     var corpoSrv = JSON.stringify({ fn: fn, args: args });
     return chamarServidorLeitura(corpoSrv, fn).catch(function () { return chamarGoogle(fn, args); });

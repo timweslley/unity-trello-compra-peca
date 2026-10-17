@@ -27,7 +27,10 @@ window.PU_CFG = {
   /* 10/10/2026 (pedido do Weslley: abrir card < 1 s): no principal, o servidor guarda o card/a TRAVA e só confere com uma consulta
    * leve se mudou (resposta igual à do Google; 50 cards conferidos). Primeiro só estes usuários; depois 'todos'.
    * Para desligar: { usuarios: [] }. */
-  LEITURA_GUARDADA: 'todos',   // 10/10/2026 17:12 — Weslley liberou para a equipe toda (antes: timweslley, christianfarias23)
+  LEITURA_GUARDADA: 'todos',
+  /* 17/10/2026 (Weslley 03h57: "fazer imediatamente"): gravações do principal pelo servidor, com as propriedades e a planilha
+   * do robô do Google (passo 2 da virada). Primeiro só quem está na lista; depois 'todos'. Desligar: { usuarios: [] }. */
+  GRAVACAO_SERVIDOR: { usuarios: [] },   // 10/10/2026 17:12 — Weslley liberou para a equipe toda (antes: timweslley, christianfarias23)
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:

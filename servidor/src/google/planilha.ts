@@ -9,18 +9,48 @@ import { createHash } from 'node:crypto';
 import { consulta } from '../db.js';
 
 const ESCOPO = 'https://www.googleapis.com/auth/spreadsheets.readonly';
-let tokenCache: { valor: string; expira: number } | null = null;
+/** 17/10/2026: gravações do principal pelo servidor escrevem na planilha real (precisa da conta como Editor). */
+const ESCOPO_GRAVAR = 'https://www.googleapis.com/auth/spreadsheets';
+const tokens: Record<string, { valor: string; expira: number }> = {};
 
 /** Token da conta de serviço do Cloud Run (servidor de metadados). Em desenvolvimento: GOOGLE_TOKEN. */
-async function tokenGoogle(): Promise<string> {
+async function tokenGoogle(escopo = ESCOPO): Promise<string> {
   if (process.env.GOOGLE_TOKEN) return process.env.GOOGLE_TOKEN;
-  if (tokenCache && tokenCache.expira > Date.now() + 60_000) return tokenCache.valor;
-  const r = await fetch(`http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token?scopes=${encodeURIComponent(ESCOPO)}`,
+  const c = tokens[escopo];
+  if (c && c.expira > Date.now() + 60_000) return c.valor;
+  const r = await fetch(`http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token?scopes=${encodeURIComponent(escopo)}`,
     { headers: { 'Metadata-Flavor': 'Google' } });
   if (!r.ok) throw new Error(`metadados do Google ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const j = await r.json() as { access_token: string; expires_in: number };
-  tokenCache = { valor: j.access_token, expira: Date.now() + j.expires_in * 1000 };
+  tokens[escopo] = { valor: j.access_token, expira: Date.now() + j.expires_in * 1000 };
   return j.access_token;
+}
+
+/** Valor do robô → célula: data ({$d} ou Date) vira número de série no horário de São Paulo (o inverso de dataDoSerial). */
+function celula(v: unknown): unknown {
+  const iso = v instanceof Date ? v.toISOString() : (v && typeof v === 'object' && '$d' in (v as object) ? (v as { $d: string }).$d : null);
+  if (iso) { const ms = Date.parse(iso); return Number.isFinite(ms) ? (ms - 3 * 3_600_000) / 86_400_000 + 25569 : ''; }
+  return v === undefined || v === null ? '' : v;
+}
+const faixa = (aba: string) => `'${aba.replace(/'/g, "''")}'`;
+
+/** Grava linhas inteiras (número da linha → valores), a partir da coluna A. */
+export async function gravarLinhasPlanilha(planilhaId: string, aba: string, linhas: Record<string, unknown[]>): Promise<void> {
+  const data = Object.entries(linhas).map(([n, v]) => ({ range: `${faixa(aba)}!A${n}`, values: [v.map(celula)] }));
+  if (!data.length) return;
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${planilhaId}/values:batchUpdate`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + await tokenGoogle(ESCOPO_GRAVAR), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ valueInputOption: 'RAW', data }) });
+  if (!r.ok) throw new ErroPlanilha(r.status, `Sheets ${r.status} ao gravar ${aba}${r.status === 403 ? ' (a conta do servidor precisa ser Editor da planilha)' : ''}: ${(await r.text()).slice(0, 200)}`);
+}
+
+/** Acrescenta linhas no fim da aba (sem disputar o número da linha com o robô do Google). */
+export async function anexarLinhasPlanilha(planilhaId: string, aba: string, linhas: unknown[][]): Promise<void> {
+  if (!linhas.length) return;
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${planilhaId}/values/${encodeURIComponent(faixa(aba) + '!A1')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + await tokenGoogle(ESCOPO_GRAVAR), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: linhas.map((l) => l.map(celula)) }) });
+  if (!r.ok) throw new ErroPlanilha(r.status, `Sheets ${r.status} ao acrescentar em ${aba}${r.status === 403 ? ' (a conta do servidor precisa ser Editor da planilha)' : ''}: ${(await r.text()).slice(0, 200)}`);
 }
 
 export class ErroPlanilha extends Error {

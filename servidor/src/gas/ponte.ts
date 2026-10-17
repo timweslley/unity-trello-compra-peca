@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { CFG } from '../config.js';
 import { consulta } from '../db.js';
 import { textoDoArquivo, URL_APP } from '../leitores/ocr.js';
-import { lerAbaPlanilha, listarAbasPlanilha } from '../google/planilha.js';
+import { lerAbaPlanilha, listarAbasPlanilha, gravarLinhasPlanilha, anexarLinhasPlanilha } from '../google/planilha.js';
 import { trello } from '../trello/api.js';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
@@ -293,6 +293,73 @@ async function atenderLeitura(op: string, d: any, ctx: Contexto): Promise<unknow
   }
 }
 
+/** 17/10/2026 — chamada ao Apps Script (o robô do Google) como servidor: mesmo protocolo do formulário. */
+async function chamarAppsScript(fn: string, args: unknown[], prazoMs = 30_000): Promise<unknown> {
+  const r = await fetch(URL_APP, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn, args }), signal: AbortSignal.timeout(prazoMs) });
+  const j = await r.json() as { ok?: boolean; r?: unknown; erro?: string };
+  if (!j || !j.ok) throw new Error('Apps Script ' + fn + ': ' + (j?.erro || 'resposta inválida'));
+  return j.r;
+}
+/** Todas as Propriedades do Script do robô do Google, lidas AGORA (gravação no principal). */
+async function propsAoVivo(): Promise<Record<string, string>> {
+  const r = await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { ler: true }]) as Record<string, unknown>;
+  return Object.fromEntries(Object.entries(r || {}).map(([k, v]) => [k, String(v)]));
+}
+let abasReaisCache: { v: string[]; em: number } | null = null;
+async function abasReais(): Promise<string[]> {
+  if (!CFG.planilhaId) return [];
+  if (!abasReaisCache || Date.now() - abasReaisCache.em > 10 * 60_000) abasReaisCache = { v: await listarAbasPlanilha(CFG.planilhaId), em: Date.now() };
+  return abasReaisCache.v;
+}
+
+/**
+ * 17/10/2026 — gravações do quadro principal pelo servidor (passo 2 da virada): o código do robô roda aqui, mas as
+ * Propriedades do Script e a planilha são as REAIS do robô do Google — propriedades lidas no começo de cada chamada e
+ * gravadas de volta no fim (vdf_servidorProps, com a trava do script); planilha lida e gravada ao vivo (linhas novas
+ * entram por "append", sem disputar o número da linha com o robô).
+ */
+async function atenderRemoto(op: string, d: any, ctx: Contexto): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  switch (op) {
+    case 'props.gravar':
+      for (const [k, v] of Object.entries(d as Record<string, string>)) { ctx.pend.set[k] = String(v); ctx.pend.del.delete(k); }
+      return null;
+    case 'props.apagar':
+      for (const k of d as string[]) { delete ctx.pend.set[k]; ctx.pend.del.add(k); }
+      return null;
+    case 'aba.existe': return d === 'backup' || (await abasReais()).includes(d);
+    case 'aba.lista': return ['backup', ...(await abasReais()).filter((n) => n !== 'backup')];
+    case 'aba.criar': console.warn('[gravação do principal] aba nova não criada pelo servidor:', d?.nome); return null;
+    case 'aba.ler': {
+      if (d === 'backup' || !CFG.planilhaId || !(await abasReais()).includes(d)) { ctx.tam[d] = 0; return []; }
+      const v = (await lerAbaPlanilha(CFG.planilhaId, d)).map(reviverData(ABAS_COPIADAS[d] || []));
+      ctx.tam[d] = v.length;
+      return v;
+    }
+    case 'aba.gravar': {
+      if (!CFG.planilhaId || d.nome === 'backup' || !(await abasReais()).includes(d.nome)) return null;
+      const tam = ctx.tam[d.nome] ?? 0, fixas: Record<string, unknown[]> = {}, novas: unknown[][] = [];
+      for (const [n, v] of Object.entries(d.linhas as Record<string, unknown[]>).sort((a, b) => +a[0] - +b[0])) {
+        if (+n > tam) novas.push(v); else fixas[n] = v;
+      }
+      try {
+        await gravarLinhasPlanilha(CFG.planilhaId, d.nome, fixas);
+        await anexarLinhasPlanilha(CFG.planilhaId, d.nome, novas);
+        ctx.tam[d.nome] = tam + novas.length;
+      } catch (e) {
+        // a planilha é cópia de segurança/registro: falha nela não interrompe a gravação no Trello — fica guardada para refazer
+        console.error('[gravação do principal] planilha', d.nome, (e as Error).message);
+        if (ctx.atual) ctx.atual.erro = ('planilha ' + d.nome + ': ' + (e as Error).message).slice(0, 200);
+        await consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`,
+          ['planilha_pendente_' + Date.now() + '_' + d.nome, JSON.stringify({ aba: d.nome, fixas, novas })]).catch(() => null);
+      }
+      return null;
+    }
+    case 'gatilho': console.warn('[gravação do principal] gatilho fica com o robô do Google:', d?.fn); return null;
+    default: return atender(op, d, ctx);
+  }
+}
+
 async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
   switch (op) {
     case 'fetch': return buscar(d, ctx);
@@ -432,14 +499,17 @@ class Contexto {
   private esperando = new Map<number, { ok: (v: unknown) => void; erro: (e: Error) => void }>();
   private fila: Promise<unknown> = Promise.resolve();
   atual: Execucao | null = null;
-  constructor(readonly nome: 'teste' | 'principal' | 'retrato', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false) {}
+  /** gravação remota (17/10/2026): propriedades a devolver ao Apps Script no fim da chamada e tamanho das abas lidas */
+  pend: { set: Record<string, string>; del: Set<string> } = { set: {}, del: new Set() };
+  tam: Record<string, number> = {};
+  constructor(readonly nome: 'teste' | 'principal' | 'retrato' | 'principalGrava' | 'testeRemoto', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false, readonly remoto = false) {}
 
   private fixas(): Record<string, string> {
     return {
       TRELLO_KEY: CFG.trello.chave, TRELLO_TOKEN: CFG.trello.token, VD_PLANILHA_BACKUP: 'planilha-servidor',
       VD_BOARD: this.quadro,
       // links ✏️/💰: no TESTE o atalho que abre o formulário com srv=1; no principal o formulário de sempre
-      VD_URL_FORM: this.nome === 'principal' ? 'https://timweslley.github.io/unity-trello-compra-peca/powerup/formulario.html'
+      VD_URL_FORM: (this.nome === 'principal' || this.nome === 'principalGrava') ? 'https://timweslley.github.io/unity-trello-compra-peca/powerup/formulario.html'
         : 'https://timweslley.github.io/unity-trello-compra-peca/powerup/servidor.html',
     };
   }
@@ -447,7 +517,7 @@ class Contexto {
   private iniciar(): Promise<void> {
     if (this.pronto) return this.pronto;
     this.pronto = (async () => {
-      const props = this.nome === 'principal' ? {} : await propsIniciais();   // principal: vêm do Apps Script a cada chamada
+      const props = (this.nome === 'principal' || this.remoto) ? {} : await propsIniciais();   // principal: vêm do Apps Script a cada chamada
       const sinal = new SharedArrayBuffer(4);
       const flag = new Int32Array(sinal);
       const { port1, port2 } = new MessageChannel();
@@ -456,7 +526,7 @@ class Contexto {
       port1.on('message', async (m: { op: string; dados: unknown }) => {
         let resp: { ok: boolean; r?: unknown; erro?: string };
         const t0 = Date.now();
-        try { resp = { ok: true, r: await (this.somenteLeitura ? atenderLeitura(m.op, m.dados, this) : atender(m.op, m.dados, this)) }; }
+        try { resp = { ok: true, r: await (this.somenteLeitura ? atenderLeitura(m.op, m.dados, this) : this.remoto ? atenderRemoto(m.op, m.dados, this) : atender(m.op, m.dados, this)) }; }
         catch (e) { resp = { ok: false, erro: (e as Error).message }; }
         contar(this.atual, m, Date.now() - t0);
         port1.postMessage(resp);
@@ -490,9 +560,15 @@ class Contexto {
       try {
         if (!this.trabalhador) ex.frio = true;
         await this.iniciar();
-        const extra = this.nome === 'principal' ? { props: await propsDoPrincipal() } : {};
+        let extra: Record<string, unknown> = this.nome === 'principal' ? { props: await propsDoPrincipal() } : {};
+        if (this.remoto) {
+          this.pend = { set: {}, del: new Set() }; this.tam = {};
+          try { extra = { props: await propsAoVivo(), propsTrocar: true }; } catch (e) { throw new Error('servidor (nada gravado): ' + (e as Error).message); }
+        }
         const id = ++this.seq;
-        const r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg, ...extra }); });
+        let r: unknown;
+        try { r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg, ...extra }); }); }
+        finally { if (this.remoto) await this.devolverProps(ex); }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
         return r;
@@ -506,6 +582,20 @@ class Contexto {
     this.fila = p.catch(() => null);
     return p;
   }
+  /** Devolve ao Apps Script as propriedades que a chamada mudou (assinatura da TRAVA etc.) — até 3 tentativas. */
+  private async devolverProps(ex: Execucao): Promise<void> {
+    const set = this.pend.set, del = [...this.pend.del];
+    if (!Object.keys(set).length && !del.length) return;
+    let erro = '';
+    for (let i = 0; i < 3; i++) {
+      try { await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { set, del }], 40_000); return; }
+      catch (e) { erro = (e as Error).message; await new Promise((ok) => setTimeout(ok, 1500 * (i + 1))); }
+    }
+    ex.erro = ('propriedades não devolvidas ao Apps Script: ' + erro).slice(0, 200);
+    console.error('[gravação do principal] ' + ex.erro, Object.keys(set), del);
+    await consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`,
+      ['props_pendentes_' + Date.now(), JSON.stringify({ set, del })]).catch(() => null);
+  }
   chamar(fn: string, args: unknown[]): Promise<unknown> { return this.enviar({ tipo: 'chamar', fn, args }); }
   /** Liga o trabalhador antes da primeira chamada (partida a frio fora do caminho do usuário). */
   aquecer(): Promise<void> { return this.iniciar().catch(() => undefined); }
@@ -515,6 +605,10 @@ const TESTE = new Contexto('teste', false, CFG.trello.quadro);
 const PRINCIPAL = new Contexto('principal', true, QUADRO_PRINCIPAL_SL, true);
 /** Retrato dos pedidos do TESTE no banco (versão 2.0, passo 1): lê o card como o formulário lê, sem gravar nada. */
 const RETRATO = new Contexto('retrato', true, CFG.trello.quadro);
+/** 17/10/2026 — gravações do principal pelo servidor (propriedades e planilha reais do robô do Google). */
+const PRINCIPAL_GRAVA = new Contexto('principalGrava', false, QUADRO_PRINCIPAL_SL, true, true);
+/** O mesmo modo no TESTE, para conferir antes de ligar no principal (?quadro=testeremoto). */
+const TESTE_REMOTO = new Contexto('testeRemoto', false, CFG.trello.quadro, true, true);
 /** Liga os trabalhadores do TESTE e do principal assim que o servidor sobe. */
 export function aquecerTrabalhadores(): Promise<unknown> { void propsDoPrincipal(); return Promise.all([TESTE.aquecer(), PRINCIPAL.aquecer()]); }
 export function retratoDoCard(shortLink: string): Promise<unknown> { return RETRATO.chamar('vdf_carregarCard', [CFG.trello.token, shortLink]); }
@@ -523,5 +617,8 @@ export function retratoDoCard(shortLink: string): Promise<unknown> { return RETR
 export function executarPost(corpo: string): Promise<string> { return TESTE.enviar({ tipo: 'post', corpo }) as Promise<string>; }
 /** Leitura de navegação do quadro principal (só as funções de LEITURAS_PRINCIPAL; quem chama confere). */
 export function executarLeituraPrincipal(corpo: string, usarGuardado = false): Promise<string> { return PRINCIPAL.enviar({ tipo: 'post', corpo }, { usarGuardado }) as Promise<string>; }
+/** Gravação (e leitura) do quadro principal pelo servidor, com propriedades e planilha do robô do Google (17/10/2026). */
+export function executarGravacaoPrincipal(corpo: string): Promise<string> { return PRINCIPAL_GRAVA.enviar({ tipo: 'post', corpo }) as Promise<string>; }
+export function executarTesteRemoto(corpo: string): Promise<string> { return TESTE_REMOTO.enviar({ tipo: 'post', corpo }) as Promise<string>; }
 /** Chama uma função do robô direto (gatilhos, diagnóstico) — quadro do servidor. */
 export function chamar(fn: string, args: unknown[]): Promise<unknown> { return TESTE.chamar(fn, args); }

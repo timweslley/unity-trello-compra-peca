@@ -12,7 +12,7 @@ import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
 import { retratar, retratarTodos } from './retrato.js';
-import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal } from './gas/ponte.js';
+import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -152,7 +152,12 @@ export function criarApp() {
       // quadro principal (07/10/2026): só as leituras de navegação; o formulário marca com ?quadro=principal
       let pedido: { fn?: string; quadro?: string } = {};
       try { pedido = JSON.parse(corpo); } catch { /* o robô responde o erro */ }
-      if ((req.query as Record<string, string>)?.quadro === 'principal' || pedido.quadro === 'principal') {
+      const qy = (req.query as Record<string, string>) || {};
+      // 17/10/2026 — gravações pelo servidor com as propriedades e a planilha do robô do Google: ?quadro=testeremoto (conferência
+      // no TESTE) e ?quadro=principal&grava=1 (principal; o formulário liga por usuário em PU_CFG.GRAVACAO_SERVIDOR)
+      if (qy.quadro === 'testeremoto') return await executarTesteRemoto(corpo);
+      if ((qy.quadro === 'principal' || pedido.quadro === 'principal') && qy.grava === '1' && !LEITURAS_PRINCIPAL.includes(String(pedido.fn))) return await executarGravacaoPrincipal(corpo);
+      if (qy.quadro === 'principal' || pedido.quadro === 'principal') {
         if (!LEITURAS_PRINCIPAL.includes(String(pedido.fn))) return JSON.stringify({ ok: false, erro: 'servidor: no quadro principal o servidor só faz leitura (' + String(pedido.fn) + ' fica no Apps Script)' });
         // 10/10/2026: ?guardado=1 → leituras do Trello/planilha guardadas e conferidas (mais rápido); o formulário liga por usuário
         return await executarLeituraPrincipal(corpo, (req.query as Record<string, string>)?.guardado === '1' || process.env.GUARDADO_PRINCIPAL === 'todos');

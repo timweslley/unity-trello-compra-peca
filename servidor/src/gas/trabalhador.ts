@@ -318,12 +318,12 @@ function renascerGlobais() {
   for (const [k, v] of INICIAIS) (globalThis as Record<string, unknown>)[k] = v !== null && typeof v === 'object' ? structuredClone(v) : v;
 }
 
-parentPort!.on('message', (m: { id: number; tipo: 'post' | 'chamar' | 'gatilho'; corpo?: string; fn?: string; args?: unknown[]; props?: Record<string, string> }) => {
+parentPort!.on('message', (m: { id: number; tipo: 'post' | 'chamar' | 'gatilho'; corpo?: string; fn?: string; args?: unknown[]; props?: Record<string, string>; propsTrocar?: boolean }) => {
   const t0 = Date.now();
   // quadro principal (10/10/2026): as Propriedades do Script vêm do próprio Apps Script (vdf_propsServidor), não do banco do TESTE
-  if (somenteLeitura && m.props) { Object.keys(PROPS).forEach((k) => delete PROPS[k]); Object.assign(PROPS, m.props); }
+  if ((somenteLeitura || m.propsTrocar) && m.props) { Object.keys(PROPS).forEach((k) => delete PROPS[k]); Object.assign(PROPS, m.props); }
   // leitura do quadro principal (07/10/2026): nada guardado de uma execução para outra — a planilha e o Trello são lidos de novo
-  if (somenteLeitura) { ABAS.clear(); CACHE.clear(); }
+  if (somenteLeitura || m.propsTrocar) { ABAS.clear(); CACHE.clear(); }   // 17/10: gravação remota também lê tudo de novo
   renascerGlobais();
   try {
     let r: unknown;

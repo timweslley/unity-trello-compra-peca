@@ -23,7 +23,7 @@ function doGet(e) {
 /* ---------- API JSON para o formulário hospedado no GitHub Pages (powerup/formulario.html) ----------
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
-var VDF_API = ['vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
+var VDF_API = ['vdf_servidorProps', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
   'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor'];
 
 function doPost(e) {
@@ -68,6 +68,28 @@ function doPost(e) {
 var VDF_PROPS_SERVIDOR = ['RC_LOCAIS', 'RC_QUEM', 'VD_COMPRADORES', 'VD_AUTORIZADORES', 'FAT_USUARIOS', 'DU_EXTRAS', 'DU_REMOVER',
   'VD_DIAS_UTEIS', 'SLA_DIAS_COTAR', 'SLA_DIAS_AUTORIZAR', 'SLA_DIAS_RECEBER', 'SLA_DIAS_FATURAR', 'SLA_REPETIR_DU', 'TST_CARDS',
   'VD_FIXO', 'VD_VITRINE', 'VD_TRAVA_DESC'];
+/**
+ * 17/10/2026 — gravações do quadro principal pelo servidor (passo 2 da virada): o servidor roda o mesmo código e precisa ver e
+ * gravar as MESMAS propriedades do robô (assinaturas da TRAVA VD_DESC_*, marcadores, travas de duplicata). Só a conta do
+ * próprio robô (o token do script) pode usar. op = {ler:true} → todas as propriedades; op = {set:{k:v}, del:[k]} → grava com a
+ * trava do script (a mesma do robô e do formulário).
+ */
+function vdf_servidorProps(token, op) {
+  var me = vdf_usuario_(token), dono = vd_api_('/members/me', { query: { fields: 'id' } });
+  if (!me || !dono || me.id !== dono.id) throw new Error('Só o servidor (conta do robô).');
+  var p = PropertiesService.getScriptProperties();
+  op = op || {};
+  if (op.ler) return p.getProperties();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(25000);
+  try {
+    var set = op.set || {}, n = 0;
+    if (Object.keys(set).length) { p.setProperties(set, false); n += Object.keys(set).length; }
+    (op.del || []).forEach(function (k) { p.deleteProperty(k); n++; });
+    return { ok: true, n: n };
+  } finally { lock.releaseLock(); }
+}
+
 function vdf_propsServidor(token) {
   vdf_usuario_(token);
   var p = PropertiesService.getScriptProperties(), out = {};
