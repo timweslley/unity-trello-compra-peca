@@ -30,7 +30,7 @@ window.PU_CFG = {
   LEITURA_GUARDADA: 'todos',   // 10/10/2026 17:12 — Weslley liberou para a equipe toda (antes: timweslley, christianfarias23)
   /* 17/10/2026 (Weslley 03h57: "fazer imediatamente"): gravações do principal pelo servidor, com as propriedades e a planilha
    * do robô do Google (passo 2 da virada). Primeiro só quem está na lista; depois 'todos'. Desligar: { usuarios: [] }. */
-  GRAVACAO_SERVIDOR: { usuarios: ['timweslley'] },   // 17/10 04h30: planilha como Editor (Weslley); primeiro só ele
+  GRAVACAO_SERVIDOR: 'todos',   // 17/10 04h35 — Weslley: "já coloca pra todo mundo" (antes só timweslley)
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
