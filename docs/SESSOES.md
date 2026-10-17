@@ -98,3 +98,18 @@ da outra, deixar um recado aqui e no commit.
   nova; na autorização, aviso amarelo "a cotação autorizada ficou indisponível… cotação nova do comprador…" com a nova já marcada
   e selo "cotação nova"; tipo da nova já vem o da cotação autorizada. Servidor: vd_cotacoesDaDescricao_ marca q.nova nas cotações
   do bloco RECOTAÇÃO.
+## 16/10 22h–00h — teste completo para a migração (Weslley: "teste tudo, 100%… use orçamentos, status prints…")
+- **Leitor do robô (vale no principal)**: regressão no corpus de treino (519 textos; 116 mudaram com `18018c6`): 129 valores
+  passaram ao líquido impresso, 64 peças recuperadas, nenhuma perdida. Ajustes: sigla PPOI; sinistro do Cilia (número sozinho
+  depois de "Orçamento <versão> - <data>"); horário ("DAS 8H00") e câmbio+ano ("AUT 2020") não viram placa; seguradoras PIER e
+  COONECTA; operação da linha seguinte e "2º código+GENUÍNA" não vazam na descrição.
+- **Status do Pedido do Cilia (vale no principal)**: item do card com código com espaço ("71198 T7AJ00") não casava e caía
+  no leitor genérico (fornecedor "EM COTACAO" ou "06/10/26"); fornecedor sem "/" ou grudado em "PREVISÃO DE ENTREGA";
+  carimbo "dd/mm - hh:mm Entregue" grudado; peça com código curto ("6899") casa pela descrição sem trocar o código do card;
+  peça ainda em cotação não herda fornecedor/previsão das outras.
+- **Autorização**: total da mensagem/comentário multiplica pela quantidade (era R$ 230 com LÍQUIDO 4 × R$ 40).
+- **Formulário 2.0**: aviso FALTA DADOS só antes da cotação; aviso "sem código" some ao digitar; tela Enviado sem a coluna
+  velha; selo "📦 entregue no Cilia" na leitura do fornecimento.
+- Ciclo real no TESTE pelo servidor (ZZT9B01, orçamento Allianz real): cotação → autorização → duas indisponíveis (uma com
+  cotação nova, outra sem → EM COTAÇÃO) → recotação → autorização com a nova destacada → compra com anexo → recebimento →
+  fornecimento pelo Status do Pedido → retirada. Anexo do pedido e da compra sobem pelo servidor (`getParents`).
