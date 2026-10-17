@@ -133,3 +133,22 @@ da outra, deixar um recado aqui e no commit.
   `vdf_definirCapa` no ARW5715 (mesma capa) em 1 s. Próximo: acompanhar as gravações dele em `/tarefas/execucoes`
   (quadro `principalGrava`) e liberar 'todos'.
 - 17/10 04h40 — **liberado para todos** (Weslley 04h35: "já coloca pra todo mundo e não esquece o celular"): `GRAVACAO_SERVIDOR: 'todos'`. Celular conferido (iPhone/Android abrem a 2.0 com `v2=1`). Pendências de devolução aparecem no `/saude` (`pendentesGravacao`). **Desligar:** `GRAVACAO_SERVIDOR: { usuarios: [] }` (1–10 min).
+
+## 17/10 05h20–07h — teste com 10 cópias de cards reais no principal (Weslley 05h18: "teste todo o robô… documente e corrija")
+- Cópias marcadas como teste (`TST_CARDS`; menções silenciadas), fluxo completo pelo servidor: pedido → cotação → autorização →
+  ordem autorizada → compra → recebimento → ENCERRADO (5–10 s por passo; card de 39 peças até 30 s antes do paralelo).
+- 🔴 **Gravação pelo servidor DESLIGADA** (`d6e1233`, `ea3af12`): as licenças das travas do robô (checklist `ck_*`, coluna
+  `st_ok_*`, descrição `tr_rec_*`) ficavam no cache do servidor e não no do Apps Script — um minuto depois o robô desfazia o
+  PAGAS/movimento e comentava "🔒 ALTERAÇÃO NÃO PERMITIDA". Só cards de teste foram atingidos (conferido o quadro desde 16/10 18h).
+  Servidor recusa com "nada gravado" e o formulário refaz pelo Google (vale para navegador com config antigo).
+  **Correção** (`3bafc2b`): licenças vão ao cache do Apps Script (`vdf_servidorProps {cache}`) antes de responder; travas de
+  checklist e coluna só julgam ação com mais de 90 s. Com a gravação desligada, só cards de `TST_CARDS` gravam pelo servidor
+  (conferência). **Religar:** variável `GRAVACAO_PRINCIPAL=SIM` no Cloud Run + `GRAVACAO_SERVIDOR: 'todos'` — só com OK do Weslley.
+- Outras correções: trava curta na devolução de props e refazer pendentes (`/tarefas/pendentes`); planilha gravada em lote no fim
+  da chamada; leitura ao vivo por 30 s após gravação (releitura mostrava o card de antes); MARKUP e BORRACHEIRO são serviço;
+  título sem cor/seguradora repetida; pneu sem código vindo como peça comum vira pneu; peça casa pelo código inteiro e mais longo
+  ("0000001" pegava a cotação do "00000014"); compra/recebimento gravam itens do checklist em paralelo; eventos não registram card
+  de teste; coluna não usa regras de peças quando só há a vitrine (card ia para ENCERRADO "sem peça para a oficina comprar");
+  TRAVA com linha duplicada usa a linha da vitrine atual.
+- Em aberto (decisão do Weslley): card PARTICULAR precisa da etiqueta ORDEM AUTORIZADA para registrar compra? Dois pneus da mesma
+  medida no mesmo card (item + complemento) dividem a mesma chave.
