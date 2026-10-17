@@ -36,7 +36,15 @@ export async function idDoQuadro(): Promise<string> {
  * card novo, comentário novo — 07/10/2026, compra do TAJ0E65). Nesse caso pergunta ao Trello (só leitura) de que
  * quadro é. Sem chave do Trello (testes) ou se o Trello não responder: '' (= não confirmado, recusa).
  */
+const quadroDe = new Map<string, { q: string; em: number }>();   // 17/10: id → quadro, já perguntado (1 h)
 async function quadroNoTrello(tipo: 'cards' | 'checklists' | 'actions' | 'lists', id: string): Promise<string> {
+  const g = quadroDe.get(tipo + id);
+  if (g && Date.now() - g.em < 3_600_000) return g.q;
+  const q = await quadroNoTrello0(tipo, id);
+  if (q) { if (quadroDe.size > 5000) quadroDe.clear(); quadroDe.set(tipo + id, { q, em: Date.now() }); }
+  return q;
+}
+async function quadroNoTrello0(tipo: 'cards' | 'checklists' | 'actions' | 'lists', id: string): Promise<string> {
   if (!CFG.trello.chave || !CFG.trello.token) return '';
   try {
     if (tipo === 'actions') {
@@ -48,11 +56,19 @@ async function quadroNoTrello(tipo: 'cards' | 'checklists' | 'actions' | 'lists'
   } catch { return ''; }
 }
 
-/** Decide se uma gravação no Trello pode ser feita (só no quadro do servidor). Devolve o motivo da recusa ou ''. */
-export async function conferirEscrita(url: string, metodo: string, corpo: string): Promise<string> {
+/** id do quadro a partir do shortLink (17/10/2026: gravação do principal) — perguntado ao Trello uma vez. */
+const idsDeQuadro = new Map<string, string>();
+async function idDoQuadroSl(sl: string): Promise<string> {
+  if (sl === CFG.trello.quadro) return idDoQuadro();
+  if (!idsDeQuadro.has(sl)) { const b = await trello<{ id: string }>(`/boards/${sl}`, { query: { fields: 'id' }, tentativas: 2 }); idsDeQuadro.set(sl, b.id); }
+  return idsDeQuadro.get(sl)!;
+}
+
+/** Decide se uma gravação no Trello pode ser feita (só no quadro do trabalhador). Devolve o motivo da recusa ou ''. */
+export async function conferirEscrita(url: string, metodo: string, corpo: string, quadroSl: string = CFG.trello.quadro): Promise<string> {
   if (metodo === 'GET' || !/^https:\/\/api\.trello\.com\//.test(url)) return '';
   if (CFG.permitirPrincipal) return '';
-  const quadro = await idDoQuadro();
+  const quadro = await idDoQuadroSl(quadroSl);
   const caminho = new URL(url).pathname.replace(/^\/1/, '');
   let json: Record<string, unknown> = {};
   try { json = corpo ? JSON.parse(corpo) : {}; } catch { /* corpo de formulário */ }
@@ -68,7 +84,7 @@ export async function conferirEscrita(url: string, metodo: string, corpo: string
     const alvo = String(json.idCard || json.idList || '');
     if (caminho === '/checklists') return (await doCard(alvo)) ? '' : 'checklist novo em card de fora do quadro';
     const [l] = await consulta<{ listas: Array<{ id: string }> }>(`SELECT listas FROM trello_quadro WHERE id = $1`, [quadro]);
-    return l?.listas.some((x) => x.id === alvo) ? '' : 'card novo em lista de fora do quadro';
+    return l?.listas.some((x) => x.id === alvo) || (/^[a-f0-9]{24}$/.test(alvo) && await quadroNoTrello('lists', alvo) === quadro) ? '' : 'card novo em lista de fora do quadro';
   }
   if ((m = caminho.match(/^\/actions\/([a-f0-9]{24})/))) {
     const ok = await consulta(`SELECT 1 FROM trello_acao WHERE id = $1 AND quadro = $2`, [m[1], quadro]);
@@ -218,7 +234,7 @@ async function buscar(p: Pedido, ctx: Contexto) {
   } else if (p.metodo !== 'GET' && /api\.trello\.com\/1\/(boards|lists|labels|customFields)/.test(p.url)) {
     memoria.clear();   // mudou a estrutura do quadro: esquece tudo
   }
-  const r = await buscarRede(p);
+  const r = await buscarRede(p, ctx.quadro);
   if (ttl && r.status === 200) {
     if (memoria.size > 500) memoria.clear();
     memoria.set(chave, { ate: Date.now() + ttl, r });
@@ -226,9 +242,9 @@ async function buscar(p: Pedido, ctx: Contexto) {
   return r;
 }
 
-async function buscarRede(p: Pedido): Promise<Resposta> {
+async function buscarRede(p: Pedido, quadroSl?: string): Promise<Resposta> {
   const corpoTexto = p.corpo.tipo === 'texto' ? p.corpo.texto : '';
-  const recusa = await conferirEscrita(p.url, p.metodo, corpoTexto);
+  const recusa = await conferirEscrita(p.url, p.metodo, corpoTexto, quadroSl);
   if (recusa) {
     console.warn('[proteção] gravação recusada:', p.metodo, p.url.split('?')[0], '-', recusa);
     return { status: 403, cab: { 'content-type': 'text/plain' }, corpo: new TextEncoder().encode('servidor: ' + recusa) };
