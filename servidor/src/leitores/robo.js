@@ -129,6 +129,9 @@ var VD_SEGURADORAS = [
   ['JUSTOS', /\bJUSTOS\b/], ['PORTO', /\bPORTO\b/]
 ];
 
+// Orcamento.gs:27
+var VD_PALAVRAS_PECA = 'SENSOR|SILENCIOSO|PARACHOQUE|PARABARRO|PARALAMA|PARABRISA|FAROL|FAROLETE|LANTERNA|GRADE|MOLDURA|SUPORTE|EMBLEMA|FRISO|GUIA|PORTA|CAPO|TAMPA|ESPELHO|RETROVISOR|PAINEL|ABSORVEDOR|ALMA|REFORCO|BORRACHA|ACABAMENTO|APLIQUE|DEFLETOR|COBERTURA|CAPA|TRAVA|FECHADURA|MACANETA|VIDRO|RADIADOR|CONDENSADOR|ELETROVENTILADOR|PROTETOR|COXIM|BRACO|AMORTECEDOR|BANDEJA|PNEU|RODA|CALOTA|LONGARINA|COLUNA|SOLEIRA|CAIXA|TUBO|MANGUEIRA|RESERVATORIO|PALHETA|BOCAL|TRILHO|DOBRADICA|BATENTE|PARAFUSO|PORCA|GRAMPO|ETIQUETA|ADESIVO|SPOILER|ESTRIBO|CHICOTE|LAMPADA|INTERCOOLER|VIGA|TRAVESSA|ESTRUTURA|LATERAL|CARCACA|ALOJAMENTO|FORRO|REVESTIMENTO|BAGAGEIRO|ANTENA|BUZINA|MODULO|CENTRAL|CONJUNTO|JOGO|KIT|CJ';
+
 // Complemento.gs:23
 function cp_norm_(s) { return vd_semAcento_(s).replace(/[^A-Z0-9]/g, ''); }
 
@@ -213,12 +216,12 @@ function vd_codigoInterno_(c) {
   return /^0{2,}\d+$/.test(c) || /^SOMA\d+$/.test(c);
 }
 
-// Orcamento.gs:27
+// Orcamento.gs:30
 function vd_ehServico_(desc) {
   return /TAXA|ASSESSORIA|BORRACHARIA|GEOMETRIA|ALINHAMENTO|BALANCEAMENTO|PRESILHA|MAO DE OBRA|LAVAGEM|POLIMENTO|HIGIENIZA|GUINCHO|REBOQUE|DIAGNOSTICO|SCANNER|RECARGA|FRETE/.test(desc);
 }
 
-// Orcamento.gs:31
+// Orcamento.gs:34
 function vd_tipoOrcamento_(t) {
   t = String(t || '').toUpperCase();
   if (/^GENU|^GE$/.test(t)) return 'GENUÍNA';   // Cilia abrevia: GE = genuína, OR = original (AYI7869, 08/10/2026)
@@ -227,7 +230,7 @@ function vd_tipoOrcamento_(t) {
   return t;
 }
 
-// Orcamento.gs:40
+// Orcamento.gs:43
 function vd_pneuDaDescricao_(desc) {
   var d = String(desc || '');
   if (!/\bPNEU/.test(d)) return null;
@@ -246,13 +249,14 @@ function vd_pneuDaDescricao_(desc) {
   return { pneu: true, medida: medida, marca: marca, categoria: categoria };
 }
 
-// Orcamento.gs:58
+// Orcamento.gs:61
 function vd_limparDescricao_(d) {
   return String(d || '')
     .replace(/^\(A\)\s*/, '')
     .replace(/^(?:\d{3,}\s+)+/, '')              // 2º código numérico do Cilia (ex.: 1632439, 4310)
     .replace(/^\d{5,}(?=[A-Z]{3})/, '')           // 2º código colado na descrição ("951450JOGO DE FAROIS")
     .replace(/^(?:PPG|PPC|PPO|PRO|PAR|PG|PO|OR|GE)\s+/, '')   // sigla de tipo do Cilia (PPG/PPC = paralela; PPO = original)
+    .replace(new RegExp('^(?:PPG|PPC|PPO|PRO|PG|PO|GE)(?=(?:' + VD_PALAVRAS_PECA + ')\\b)'), '')   // sigla colada ("PGCONDENSADOR", 16/10/2026)
     .replace(/^(?:PPG|PPC|PPO|GENUINA|ORIGINAL)(?=[A-Z])/, '')   // sigla/tipo colado na descrição pelo OCR ("PPOFAROL", "GENUINAFAROL") — 08/10/2026
     .replace(/([A-Z]{4,})(DIANT|TRAS|DIR|ESQ|SUP|INF)\b/g, '$1 $2')   // OCR da HDI cola palavras ("PARALAMADIANT DIR", "RODADIANT")
     .replace(/^\((.*)\)$/, '$1')
@@ -266,7 +270,7 @@ function vd_limparDescricao_(d) {
     .slice(0, 70);
 }
 
-// Orcamento.gs:79
+// Orcamento.gs:83
 function vd_tirarRepeticao_(d) {
   var ws = String(d).split(' ');
   for (var i = Math.ceil(ws.length / 2); i < ws.length; i++) {
@@ -276,17 +280,17 @@ function vd_tirarRepeticao_(d) {
   return d;
 }
 
-// Orcamento.gs:89
+// Orcamento.gs:93
 function vd_numOrc_(s) { var n = parseFloat(String(s || '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? NaN : n; }
 
-// Orcamento.gs:91
+// Orcamento.gs:95
 function vd_liquidoOrc_(unit, descPct) {
   var u = vd_numOrc_(unit), d = vd_numOrc_(descPct);
   if (isNaN(u)) return NaN;
-  return isNaN(d) || d <= 0 || d >= 100 ? u : u * (1 - d / 100);
+  return isNaN(d) || d === 0 || d >= 100 || d <= -100 ? u : u * (1 - d / 100);   // desconto negativo = acréscimo (16/10/2026, JDC7H45)
 }
 
-// Orcamento.gs:102
+// Orcamento.gs:106
 function vd_websomaDetalhado_(corpo, lista, add) {
   var txt = vd_compactarCodigos_(corpo, '\u0001');
   // 08/10/2026 (treino 2025, "Orcamento_Detalhado.pdf" da Porto): mesmo relatório impresso com número no formato inglês
@@ -346,7 +350,7 @@ function vd_websomaDetalhado_(corpo, lista, add) {
   }
 }
 
-// Orcamento.gs:162
+// Orcamento.gs:166
 function vd_compactarCodigos_(txt, marca) {
   return String(txt || '').replace(/\b([A-Z0-9]{2,4})\/ ?([A-Z0-9]{3,8})\/ ?([A-Z0-9]{0,3}) ?\/ ?([A-Z0-9]{0,4})(?=\s|$)/g, function (_, a, b, c, d) {
     var cod = [a, b, c, d].filter(String).join('/');
@@ -354,7 +358,7 @@ function vd_compactarCodigos_(txt, marca) {
   });
 }
 
-// Orcamento.gs:170
+// Orcamento.gs:174
 function vd_secao_(U, inicio, finais) {
   var i = U.search(inicio);
   if (i < 0) return '';
@@ -367,7 +371,7 @@ function vd_secao_(U, inicio, finais) {
   return resto.slice(0, fim);
 }
 
-// Orcamento.gs:182
+// Orcamento.gs:186
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
   var r = { origem: '', oficina: [], fo: [], seguradora: '', cor: '', sinistro: '' };
@@ -404,6 +408,9 @@ function vd_lerOrcamento_(texto) {
     desc = vd_limparDescricao_(desc);
     var mc = codigo.match(/^(\d{6,})([A-Z][A-Z\-]{2,})$/);   // "52181025PARACHOQUE" veio como código (08/10/2026)
     if (mc) { codigo = mc[1]; desc = vd_limparDescricao_(mc[2] + ' ' + desc); }
+    // 16/10/2026 (STG3I57): código alfanumérico colado na 1ª palavra ("5Q0919275CGRUSENSOR", "5U7807421T9B9PARACHOQUE")
+    var mw = !mc && codigo.length >= 10 && codigo.match(new RegExp('^([A-Z0-9]*\\d[A-Z0-9]*?)(' + VD_PALAVRAS_PECA + ')([A-Z]*)$'));
+    if (mw && mw[1].length >= 6) { codigo = mw[1]; desc = vd_limparDescricao_(mw[2] + mw[3] + ' ' + desc); }
     var pneu = vd_pneuDaDescricao_(desc);
     if (!desc || vd_ehServico_(desc)) return;
     // código interno (000000x / SOMA00x) = peça sem código de fábrica: consultor completa pelo Cilia
@@ -487,9 +494,10 @@ function vd_lerOrcamento_(texto) {
     // ("…FAROL DIREITO (…) T 0,50 1 8117098010 GENUINAFAROL ESQUERDO (…) SEGURADORA R$ 804,47 - - SEGURADORA R$ 761,13 - -").
     // Por isso o leitor anda em fila: cada ITEM entra numa fila e cada PREÇO (OFICINA/SEGURADORA …) sai para o item mais
     // antigo sem preço. O tipo pode vir colado ("GENUINAFAROL", "PPOJOGO") — vd_limparDescricao_ tira.
-    var PROX = '\\bT (?:-|\\d+,\\d{2})(?: P \\d+,\\d{2})? \\d{1,3} [A-Z0-9]{4,20}\\b';
-    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P \\d+,\\d{2})? (\\d{1,3}) ([A-Z0-9]{4,20})\\.? (?:\\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
-      '|(OFICINA|SEGURADORA) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(\\d{1,3},\\d{2}) ?%)?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
+    // 16/10/2026 (BDL9F71, UBR1C00): pintura "P -" (sem horas) também; código colado na descrição pode passar de 20 letras
+    var PROX = '\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? \\d{1,3} [A-Z0-9]{4,30}\\b';
+    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:\\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
+      '|(OFICINA|SEGURADORA) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(-?\\d{1,3},\\d{2}) ?%| ?-(?= ?R\\$))?(?: ?R\\$ ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2}))?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
     // código com ponto no fim ("1312791700. BRAÇO OSCILANTE", 14/10/2026, JDC7H45): o item sumia e o preço OFICINA ficava sem dono
     var filaCi = [];
     while ((m = reCi.exec(U))) {
@@ -497,7 +505,15 @@ function vd_lerOrcamento_(texto) {
       var it = filaCi.shift();
       if (!it) continue;   // preço sem item antes (cabeçalho, serviços): ignora
       // Cilia: "OFICINA R$ unit [R$ total] [desc %]" — o valor unitário líquido; formato confirmado no 1º PDF real (05/10/2026)
-      add(m[6] === 'SEGURADORA' ? r.fo : r.oficina, it.codigo, it.desc, it.qtd, it.tipo, m[7] ? vd_liquidoOrc_(m[7], m[9]) : NaN);
+      // 16/10/2026 (SJC0H98, AZV7F58, JDC7H45): o PREÇO LÍQUIDO impresso vale — preço negociado ("R$ 719,80 - R$ 500,00")
+      // e desconto negativo ("R$ 73,37 -5,30% R$ 77,26") davam o bruto. O líquido é da linha: com quantidade > 1 divide,
+      // salvo quando ele já bate com o unitário calculado.
+      var calcU = m[7] ? vd_liquidoOrc_(m[7], m[9]) : NaN, vOrc = calcU;
+      if (m[10]) {
+        var liqL = vd_numOrc_(m[10]), qn = Math.max(1, parseInt(it.qtd, 10) || 1);
+        if (!isNaN(liqL)) vOrc = (qn > 1 && !isNaN(calcU) && Math.abs(liqL - calcU) < 0.05) ? liqL : liqL / qn;
+      }
+      add(m[6] === 'SEGURADORA' ? r.fo : r.oficina, it.codigo, it.desc, it.qtd, it.tipo, vOrc);
     }
     // item que ficou sem preço (fim do texto cortado): entra como da oficina, sem valor
     filaCi.forEach(function (it) { add(r.oficina, it.codigo, it.desc, it.qtd, it.tipo, NaN); });
@@ -1078,4 +1094,4 @@ function vd_orcExpandir_(lista) {
   });
 }
 
-export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };
+export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_PALAVRAS_PECA, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };
