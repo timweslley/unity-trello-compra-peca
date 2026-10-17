@@ -1842,6 +1842,8 @@ function aplicarLeituraForn(r, av, anexa) {
         it.dataset.codigoNovo = a.codigoNovo; it.dataset.descNova = a.descNova || '';
         var st = it.querySelector('strong'); if (st && !it.querySelector('.selo-codnovo')) st.insertAdjacentHTML('beforeend', ' <span class="selo prazo selo-codnovo">🔄 código novo: ' + esc(a.codigoNovo) + '</span>');
       }
+      // 16/10/2026 (2.0): o Status do Pedido diz que a peça já foi entregue — só informa (quem marca Chegou é a equipe)
+      if (a.entregue && document.documentElement.classList.contains('v2')) { var stE = it.querySelector('strong'); if (stE && !it.querySelector('.selo-entregue')) stE.insertAdjacentHTML('beforeend', ' <span class="selo prazo selo-entregue">📦 entregue no Cilia' + (a.entregueEm ? ' ' + esc(brData(a.entregueEm)) : '') + '</span>'); }
       if (a.fornecedor || a.previsao || a.codigoNovo || a.situacao) { n++; it.style.boxShadow = '0 0 0 2px var(--verde)'; }
     });
     var h = '<div class="aviso ' + (n ? 'ok' : 'info') + '" style="margin-top:8px">' + (n ? '✓ ' + n + ' peça(s) preenchida(s) pelo documento — confira e clique em <b>Salvar fornecimento</b>' + (anexa ? ' (o arquivo vai anexado no card).' : '.') : 'Li o documento, mas não achei fornecedor/prazo das peças deste card.') + '</div>';
