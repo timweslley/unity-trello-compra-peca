@@ -126,7 +126,7 @@ var VD_SEGURADORAS = [
   ['TOKIO', /\bTOKIO\b/], ['MAPFRE', /\bMAPFRE\b/], ['SURA', /\bSURA\b/], ['ZURICH', /\bZURICH\b/],
   ['SUHAI', /\bSUHAI\b/], ['MITSUI', /\bMITSUI\b/], ['EZZE', /\bEZZE\b/], ['DARWIN', /\bDARWIN\b/],
   ['AMERICAS', /\bAMERICAS\b/], ['SOMPO', /\bSOMPO\b/], ['GENERALI', /\bGENERALI\b/], ['ALFA', /\bALFA SEGURADORA\b/],
-  ['JUSTOS', /\bJUSTOS\b/], ['PORTO', /\bPORTO\b/]
+  ['JUSTOS', /\bJUSTOS\b/], ['PIER', /\bPIER SEGURADORA\b/], ['COONECTA', /\bCOONECTA\b/], ['PORTO', /\bPORTO\b/]
 ];
 
 // Orcamento.gs:27
@@ -395,6 +395,17 @@ function vd_lerOrcamento_(texto) {
   else if ((m = U.match(/IMPREGNACAO:? ([A-Z]{3,15})\b/)) && !/^(FABRICACAO|EMPRESA|MODELO|ANO|KM|VERSAO|PLACA|CHASSI|LICENCA|MOTIVO|DATA)$/.test(m[1])) r.cor = m[1];
   // sinistro
   if ((m = U.match(/SINISTRO:? (\d[\d.\-\/]{6,})/))) r.sinistro = m[1];
+  // 16/10/2026: no Cilia o rótulo "Sinistro" sai sem valor (cabeçalho em colunas) e o número vem sozinho numa linha logo
+  // depois de "Orçamento <versão> - <data>" (UBR1C00 434427503, BCB8218 531.26.02497). Só número puro: CNPJ (com /),
+  // quilometragem ("72759.0") e código interno ("0000002") ficam de fora; "a informar" deixa vazio.
+  var ii;
+  if (!r.sinistro && /SINISTRO/.test(U) && (ii = texto.search(/\nOr[çc]amento \n\d+\.\d+ - \d\d\/\d\d\/\d\d/)) >= 0) {
+    var lin = texto.slice(ii).split('\n').slice(2, 40);
+    for (var li = 0; li < lin.length; li++) {
+      var ls = lin[li].trim();
+      if (/^\d[\d.\-]{6,21}$/.test(ls) && !/\.\d$/.test(ls) && !/^0{3}/.test(ls) && ls.replace(/\D/g, '').length >= 8) { r.sinistro = ls; break; }
+    }
+  }
 
   // valor líquido unitário da peça no orçamento (o que a seguradora paga) — 05/10/2026, Weslley: aparece ao lado da peça
   // na cotação/autorização e serve de base para a comparação com a cotação (economia < 20% vermelho, 20–30 amarelo, > 30 verde)
@@ -1027,7 +1038,9 @@ function vd_extrair_(texto) {
   while ((m = reRot.exec(U))) { var c = vd_normChassi_(m[1]).slice(0, 17); if (vd_chassiValido_(c) && r.chassis.indexOf(c) < 0) r.chassis.push(c); }
   if (!r.chassis.length) { var reSolto = /\b([A-HJ-NPR-Z0-9]{17})\b/g; while ((m = reSolto.exec(U))) { if (vd_chassiValido_(m[1]) && /^[1-9A-HJ-NPR-Z]/.test(m[1]) && r.chassis.indexOf(m[1]) < 0) r.chassis.push(m[1]); } }
   var reP = /\b([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/g;
-  while ((m = reP.exec(U))) { var p = m[1] + m[2]; if (r.placas.indexOf(p) < 0) r.placas.push(p); }
+  // 16/10/2026: horário ("DAS 8H00 ÀS 20H00") e câmbio + ano ("FLEX AUT 2020") não são placa
+  var naoPlaca = function (a, b) { return (/^(DAS|AS|ATE|DES)$/.test(a) && /^\dH[0-5]\d$/.test(b)) || (/^(AUT|MEC|MAN|ANO|MOD|CVT)$/.test(a) && /^(19|20)\d\d$/.test(b)); };
+  while ((m = reP.exec(U))) { var p = m[1] + m[2]; if (!naoPlaca(m[1], m[2]) && r.placas.indexOf(p) < 0) r.placas.push(p); }
   // placa "com rótulo": logo depois de PLACA (Cilia/HDI/CRLV) ou logo depois do chassi (Websoma "Licença")
   r.placasRot = [];
   var reRotP = /(?:PLACA\s*(?:N[O.]*)?\s*[:.\-]?|\b[A-HJ-NPR-Z0-9]{17}) ?([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/g;
@@ -1067,7 +1080,7 @@ function vd_extrair_(texto) {
   return r;
 }
 
-// Validacao.gs:924
+// Validacao.gs:926
 function vd_dicaNorm_(t) {
   var s = vd_semAcento_(t);
   if (/^GENU/.test(s)) return 'GENUÍNO';
@@ -1078,14 +1091,14 @@ function vd_dicaNorm_(t) {
   return '';
 }
 
-// Validacao.gs:960
+// Validacao.gs:962
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
 
-// Validacao.gs:982
+// Validacao.gs:984
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4

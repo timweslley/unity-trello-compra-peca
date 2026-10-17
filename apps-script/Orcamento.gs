@@ -12,7 +12,7 @@ var VD_SEGURADORAS = [
   ['TOKIO', /\bTOKIO\b/], ['MAPFRE', /\bMAPFRE\b/], ['SURA', /\bSURA\b/], ['ZURICH', /\bZURICH\b/],
   ['SUHAI', /\bSUHAI\b/], ['MITSUI', /\bMITSUI\b/], ['EZZE', /\bEZZE\b/], ['DARWIN', /\bDARWIN\b/],
   ['AMERICAS', /\bAMERICAS\b/], ['SOMPO', /\bSOMPO\b/], ['GENERALI', /\bGENERALI\b/], ['ALFA', /\bALFA SEGURADORA\b/],
-  ['JUSTOS', /\bJUSTOS\b/], ['PORTO', /\bPORTO\b/]
+  ['JUSTOS', /\bJUSTOS\b/], ['PIER', /\bPIER SEGURADORA\b/], ['COONECTA', /\bCOONECTA\b/], ['PORTO', /\bPORTO\b/]
 ];
 
 function vd_normTexto_(texto) {
@@ -206,6 +206,17 @@ function vd_lerOrcamento_(texto) {
   else if ((m = U.match(/IMPREGNACAO:? ([A-Z]{3,15})\b/)) && !/^(FABRICACAO|EMPRESA|MODELO|ANO|KM|VERSAO|PLACA|CHASSI|LICENCA|MOTIVO|DATA)$/.test(m[1])) r.cor = m[1];
   // sinistro
   if ((m = U.match(/SINISTRO:? (\d[\d.\-\/]{6,})/))) r.sinistro = m[1];
+  // 16/10/2026: no Cilia o rótulo "Sinistro" sai sem valor (cabeçalho em colunas) e o número vem sozinho numa linha logo
+  // depois de "Orçamento <versão> - <data>" (UBR1C00 434427503, BCB8218 531.26.02497). Só número puro: CNPJ (com /),
+  // quilometragem ("72759.0") e código interno ("0000002") ficam de fora; "a informar" deixa vazio.
+  var ii;
+  if (!r.sinistro && /SINISTRO/.test(U) && (ii = texto.search(/\nOr[çc]amento \n\d+\.\d+ - \d\d\/\d\d\/\d\d/)) >= 0) {
+    var lin = texto.slice(ii).split('\n').slice(2, 40);
+    for (var li = 0; li < lin.length; li++) {
+      var ls = lin[li].trim();
+      if (/^\d[\d.\-]{6,21}$/.test(ls) && !/\.\d$/.test(ls) && !/^0{3}/.test(ls) && ls.replace(/\D/g, '').length >= 8) { r.sinistro = ls; break; }
+    }
+  }
 
   // valor líquido unitário da peça no orçamento (o que a seguradora paga) — 05/10/2026, Weslley: aparece ao lado da peça
   // na cotação/autorização e serve de base para a comparação com a cotação (economia < 20% vermelho, 20–30 amarelo, > 30 verde)

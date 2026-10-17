@@ -651,7 +651,9 @@ function vd_extrair_(texto) {
   while ((m = reRot.exec(U))) { var c = vd_normChassi_(m[1]).slice(0, 17); if (vd_chassiValido_(c) && r.chassis.indexOf(c) < 0) r.chassis.push(c); }
   if (!r.chassis.length) { var reSolto = /\b([A-HJ-NPR-Z0-9]{17})\b/g; while ((m = reSolto.exec(U))) { if (vd_chassiValido_(m[1]) && /^[1-9A-HJ-NPR-Z]/.test(m[1]) && r.chassis.indexOf(m[1]) < 0) r.chassis.push(m[1]); } }
   var reP = /\b([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/g;
-  while ((m = reP.exec(U))) { var p = m[1] + m[2]; if (r.placas.indexOf(p) < 0) r.placas.push(p); }
+  // 16/10/2026: horário ("DAS 8H00 ÀS 20H00") e câmbio + ano ("FLEX AUT 2020") não são placa
+  var naoPlaca = function (a, b) { return (/^(DAS|AS|ATE|DES)$/.test(a) && /^\dH[0-5]\d$/.test(b)) || (/^(AUT|MEC|MAN|ANO|MOD|CVT)$/.test(a) && /^(19|20)\d\d$/.test(b)); };
+  while ((m = reP.exec(U))) { var p = m[1] + m[2]; if (!naoPlaca(m[1], m[2]) && r.placas.indexOf(p) < 0) r.placas.push(p); }
   // placa "com rótulo": logo depois de PLACA (Cilia/HDI/CRLV) ou logo depois do chassi (Websoma "Licença")
   r.placasRot = [];
   var reRotP = /(?:PLACA\s*(?:N[O.]*)?\s*[:.\-]?|\b[A-HJ-NPR-Z0-9]{17}) ?([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/g;
