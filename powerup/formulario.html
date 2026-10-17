@@ -2489,7 +2489,7 @@ function novoItem(tipo, dados) {
     });
     h += '</div>';
     if (dados.dica) h += '<div class="dica">No orçamento: <b>' + esc(dados.dica) + '</b> — escolha o tipo acima.</div>';
-    if (dados.descricaoOrc !== undefined && !dados.codigo) h += '<div class="dica ruim">O orçamento não traz código de fábrica desta peça — busque no Cilia (se nem o Cilia tiver, escreva ACESSORIO).</div>';
+    if (dados.descricaoOrc !== undefined && !dados.codigo) h += '<div class="dica ruim sem-cod">O orçamento não traz código de fábrica desta peça — busque no Cilia (se nem o Cilia tiver, escreva ACESSORIO).</div>';
     h += '</div></div>';
   }
   // observação do consultor sobre a peça (06/10/2026): vai na linha da peça do card e aparece para o comprador
@@ -2796,7 +2796,7 @@ function enviarPayload(payload) {
     guardar('vd_card_pend', null);
     $('msgSucesso').innerHTML = (r.novo ? '✅ Card criado: ' : '✅ Card atualizado: ') + '<b>' + esc(r.nome) + '</b>'
       + (/EM COTA/.test(r.acao || '') && /volta/.test(r.acao || '') ? '<br>O card voltou para EM COTAÇÃO.' : '')
-      + (/FALTA/.test(r.acao || '') || payload.parcial ? '<br>⚠️ O card fica em FALTA DADOS até completar — o robô comenta o que falta.' : '')
+      + (/FALTA/.test(r.acao || '') || (payload.parcial && !(document.documentElement.classList.contains('v2') && !r.novo && window.CARD && /COTA|AUTORIZ|COMPRA|ENTREG|RECEB|FINALIZ|PENDENTE|ENCERR/i.test(CARD.lista || ''))) ? '<br>⚠️ O card fica em FALTA DADOS até completar — o robô comenta o que falta.' : '')
       + (r.fo ? '<br>Checklist FORNECIMENTO: ' + r.fo + ' peça(s) incluída(s).' : '')
       + (r.comp ? '<br>➕ Orçamento complementar: ' + r.comp + ' peça(s) nova(s) da oficina na lista.' : '')
       + (r.foComp ? '<br>Checklist FORNECIMENTO COMPLEMENTO: ' + r.foComp + ' peça(s) incluída(s).' : '')
@@ -4677,7 +4677,7 @@ iniciar();
     var etapa = '';
     if (visivel(g('comprador'))) { var a = document.querySelector('.aba.marcada .rotulo'); etapa = a ? a.textContent : ''; }
     else if (visivel(g('form'))) etapa = window.CARD_EDICAO ? 'Editar pedido' : 'Pedido novo';
-    else if (visivel(g('telaSucesso'))) etapa = 'Enviado';
+    else if (visivel(g('telaSucesso'))) { etapa = 'Enviado'; lista = window.LISTA_ENVIADO || ''; }   // 16/10: a coluna de antes do envio já não vale (F2)
     html.classList.toggle('v2-diretoria', !!(window.CARD && window.CARD.diretoria));
     var hT = (g('v2topo') || {}).offsetHeight || 0; if (hT && html.style.getPropertyValue('--v2topoH') !== hT + 'px') html.style.setProperty('--v2topoH', hT + 'px');
     var compTopo = PC && visivel(g('comprador'));   // 14/10/2026: telas do comprador com a mesma barra única do pedido
@@ -7916,5 +7916,13 @@ iniciar();
 })();
 </script>
 
+<script>
+/* 16/10/2026 (2.0): o aviso "orçamento não traz código" some assim que o código (ou ACESSORIO) é digitado */
+document.addEventListener('input', function (e) {
+  if (!document.documentElement.classList.contains('v2')) return;
+  var t = e.target; if (!t || !t.classList || !t.classList.contains('f-codigo')) return;
+  var it = t.closest('.item'); var d = it && it.querySelector('.sem-cod'); if (d) d.style.display = t.value.trim() ? 'none' : '';
+});
+</script>
 </body>
 </html>
