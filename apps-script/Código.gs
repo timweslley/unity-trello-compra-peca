@@ -501,10 +501,12 @@ function comAlarme_(nome, fn) {
 }
 
 function verificarAlteracoesDescricao() {
+  if (vd_roboNoServidor_()) return;
   comAlarme_('log de descrição', verificarAlteracoesDescricaoNucleo_);
 }
 
 function rotinaDiaria() {
+  if (vd_roboNoServidor_()) return;
   comAlarme_('rotina diária', rotinaDiariaNucleo_);
 }
 

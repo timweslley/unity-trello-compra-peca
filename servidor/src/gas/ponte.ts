@@ -339,8 +339,22 @@ async function propsAoVivo(): Promise<Record<string, string>> {
  */
 let espelhoProps: { v: Record<string, string>; em: number } | null = null;
 let renovandoProps: Promise<void> | null = null;
+/** 17/10/2026: o que o servidor gravou nos últimos 3 min vale sobre a leitura do Apps Script (a devolução pode não ter chegado). */
+const escritasRecentes = new Map<string, { v: string | null; em: number }>();
+function lembrarEscritas(set: Record<string, string>, del: string[]): void {
+  const agora = Date.now();
+  for (const [k, v] of Object.entries(set)) escritasRecentes.set(k, { v, em: agora });
+  for (const k of del) escritasRecentes.set(k, { v: null, em: agora });
+}
 function renovarProps(): Promise<void> {
-  if (!renovandoProps) renovandoProps = propsAoVivo().then((v) => { espelhoProps = { v, em: Date.now() }; })
+  const inicio = Date.now();
+  if (!renovandoProps) renovandoProps = propsAoVivo().then((v) => {
+    for (const [k, x] of escritasRecentes) {
+      if (Date.now() - x.em > 180_000) { escritasRecentes.delete(k); continue; }
+      if (x.em >= inicio - 60_000) { if (x.v === null) delete v[k]; else v[k] = x.v; }
+    }
+    espelhoProps = { v, em: Date.now() };
+  })
     .finally(() => { renovandoProps = null; });
   return renovandoProps;
 }
@@ -457,6 +471,7 @@ async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   
 export interface Execucao {
   /** robô em OBSERVAR: as gravações que ele faria */
   escritas?: Array<{ m: string; c: string; b: string }>;
+  propsObs?: string[];
   fn: string; rid?: string; quadro?: string; chegou: string; frio?: boolean; filaMs: number; ms?: number; ok?: boolean; erro?: string;
   /** por operação pedida pelo trabalhador: quantas vezes e quanto tempo (ms) */
   ops: Record<string, { n: number; ms: number }>;
@@ -609,11 +624,13 @@ class Contexto {
         if (this.remoto) {
           this.pend = { set: {}, del: new Set() }; this.tam = {}; this.bufAbas = {}; this.licencas = {};
           try { extra = { props: await propsParaGravacao(), propsTrocar: true }; } catch (e) { throw new Error('servidor (nada gravado): ' + (e as Error).message); }
+          if (this.nome === 'robo') this.observar = process.env.ROBO_SERVIDOR !== 'ATIVO';
         }
         const id = ++this.seq;
         let r: unknown;
         try { r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg, ...extra }); }); }
-        finally { if (this.remoto && this.observar) { ex.ops['observar'] = { n: Object.keys(this.pend.set).length + this.pend.del.size, ms: Object.keys(this.bufAbas).length }; this.bufAbas = {}; this.licencas = {}; }
+        finally { if (this.remoto && this.observar) { ex.ops['observar'] = { n: Object.keys(this.pend.set).length + this.pend.del.size, ms: Object.keys(this.bufAbas).length };
+          ex.propsObs = [...Object.keys(this.pend.set), ...[...this.pend.del].map((k) => '-' + k)].slice(0, 60); this.bufAbas = {}; this.licencas = {}; }
           else if (this.remoto) { await this.gravarAbas(ex); await this.enviarLicencas(ex); this.devolverProps(ex); if (this.quadro === QUADRO_PRINCIPAL_SL) marcarGravacaoPrincipal(); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
@@ -666,6 +683,7 @@ class Contexto {
     const set = this.pend.set, del = [...this.pend.del];
     if (!Object.keys(set).length && !del.length) return;
     if (espelhoProps) { Object.assign(espelhoProps.v, set); del.forEach((k) => delete espelhoProps!.v[k]); }
+    lembrarEscritas(set, del);
     filaDevolver = filaDevolver.then(() => this.enviarProps(ex, set, del)).catch(() => null);
   }
   private async enviarProps(ex: Execucao, set: Record<string, string>, del: string[]): Promise<void> {
@@ -732,11 +750,42 @@ export async function rodarRobo(fn: string): Promise<Record<string, unknown>> {
   finally { roboRodando = false; }
   const ex = execucoes.filter((e) => e.quadro === 'robo').pop();
   const reg = { em: new Date(t0).toISOString(), fn, ms: Date.now() - t0, modo: ROBO.observar ? 'OBSERVAR' : 'ATIVO', erro: erro || undefined,
-    escritas: ex?.escritas || [], props: ex?.ops?.observar?.n, abas: ex?.ops?.observar?.ms, rede: ex?.rede };
+    escritas: ex?.escritas || [], props: ex?.propsObs,  abas: ex?.ops?.observar?.ms, rede: ex?.rede };
   obsRobo.push(reg); if (obsRobo.length > 120) obsRobo.shift();
   if ((reg.escritas as unknown[]).length) consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`,
     ['robo_obs_' + t0, JSON.stringify(reg)]).catch(() => null);
   return { ok: !erro, ...reg };
+}
+/** Chave do Apps Script (VD_ROBO_SERVIDOR) acompanhando o modo do servidor: ATIVO aqui = Google parado (reserva). */
+async function alinharChaveGoogle(): Promise<string> {
+  const quer = process.env.ROBO_SERVIDOR === 'ATIVO' ? 'SIM' : 'NAO';
+  const tem = (await propsParaGravacao()).VD_ROBO_SERVIDOR || 'NAO';
+  if (tem === quer) return quer;
+  await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { set: { VD_ROBO_SERVIDOR: quer } }], 40_000);
+  if (espelhoProps) espelhoProps.v.VD_ROBO_SERVIDOR = quer;
+  lembrarEscritas({ VD_ROBO_SERVIDOR: quer }, []);
+  console.log('[robô] chave do Google VD_ROBO_SERVIDOR =', quer);
+  return quer;
+}
+const diarias: Array<{ fn: string; hhmm: string }> = [{ fn: 'rotinaDiaria', hhmm: '07:00' }, { fn: 'relatorioDiario', hhmm: '07:15' }];
+/** Agendador (Cloud Scheduler, a cada minuto): ciclo do robô, log de descrição e as rotinas diárias na hora. */
+export async function minutoRobo(): Promise<Record<string, unknown>> {
+  if (roboRodando) return { ok: true, pulado: 'robô ainda rodando' };
+  const out: Record<string, unknown> = { modo: process.env.ROBO_SERVIDOR === 'ATIVO' ? 'ATIVO' : 'OBSERVAR' };
+  try { out.chaveGoogle = await alinharChaveGoogle(); } catch (e) { out.chaveGoogle = 'erro: ' + (e as Error).message.slice(0, 120); if (out.modo === 'ATIVO') return { ok: false, ...out, erro: 'não consegui parar o robô do Google — nada rodado' }; }
+  out.ciclo = await rodarRobo('validarDadosPedido');
+  out.log = await rodarRobo('verificarAlteracoesDescricao');
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  const hoje = p.year + '-' + p.month + '-' + p.day, hhmm = p.hour + ':' + p.minute;
+  for (const d of diarias) {
+    if (hhmm < d.hhmm) continue;
+    const k = 'robo_diaria_' + String(out.modo) + '_' + d.fn;
+    const [g] = await consulta<{ valor: unknown }>(`SELECT valor FROM guardado WHERE nome = $1`, [k]).catch(() => []);
+    if (g && String((g.valor as { dia?: string })?.dia) === hoje) continue;
+    await consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`, [k, JSON.stringify({ dia: hoje })]).catch(() => null);
+    out[d.fn] = await rodarRobo(d.fn);
+  }
+  return { ok: true, ...out };
 }
 export function observacoesRobo(): unknown[] { return obsRobo.slice(-60).reverse(); }
 function anotarEscrita(p: Pedido, ctx: Contexto): Resposta {

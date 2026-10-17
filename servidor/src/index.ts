@@ -12,7 +12,7 @@ import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
 import { retratar, retratarTodos } from './retrato.js';
-import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo } from './gas/ponte.js';
+import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo, minutoRobo } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -271,6 +271,7 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
   /** 17/10/2026 — robô no servidor (agendador a cada minuto): POST /tarefas/robo?fn=validarDadosPedido; GET mostra o que ele fez/faria. */
   app.post('/tarefas/robo', async (req) => rodarRobo(String((req.query as Record<string, string>)?.fn || 'validarDadosPedido')));
   app.get('/tarefas/robo', async () => ({ ok: true, execucoes: observacoesRobo() }));
+  app.post('/tarefas/minuto', async () => minutoRobo());
 
   /** Gravações do principal que ficaram pendentes (sem conteúdo de card). POST refaz as de propriedades. */
   app.get('/tarefas/pendentes', async () => ({ ok: true, pendentes: await resumoPendentes() }));

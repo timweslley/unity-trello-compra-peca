@@ -2006,7 +2006,13 @@ function vd_executarNucleo_() {
 }
 
 /** Função do acionador. Usa o alarme de falhas das rotinas antigas, se existir. */
+/** 17/10/2026 — robô rodando no servidor (VD_ROBO_SERVIDOR = SIM): no Google os acionadores só retornam (reserva). */
+function vd_roboNoServidor_() {
+  try { return ScriptApp.getScriptId() !== 'servidor-compra-peca' && vd_prop_('VD_ROBO_SERVIDOR', 'NAO') === 'SIM'; } catch (e) { return false; }
+}
+
 function validarDadosPedido() {
+  if (vd_roboNoServidor_()) return;
   if (qt_pausada_()) { console.log('ciclo pulado: ' + qt_resumoPausa_()); return; }   // cota estourada: não gasta chamada nem tempo
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return;
@@ -2390,6 +2396,7 @@ function rel_enviar_() {
 
 /** Função do acionador diário. */
 function relatorioDiario() {
+  if (vd_roboNoServidor_()) return;
   if (typeof comAlarme_ === 'function') return comAlarme_('relatório diário', rel_enviar_);
   return rel_enviar_();
 }
