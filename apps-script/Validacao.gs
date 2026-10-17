@@ -53,6 +53,8 @@ function vd_prop_(k, padrao) {
 // 15/10/2026 (CiliaApi.gs): teste no quadro TESTE numa execução própria (gatilho único) — o quadro forçado vale só nela
 var VD_BOARD_FORCA = '';
 function vd_board_() { return VD_BOARD_FORCA || vd_prop_('VD_BOARD', VD.BOARD_PADRAO); }
+/** 16/10/2026: comportamentos da versão 2.0 no robô/servidor — sempre no TESTE; no principal só com a propriedade VD_V2=SIM (virada). */
+function vd_v2_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('VD_V2', 'NAO') === 'SIM'; } catch (e) { return false; } }
 function vd_modo_() { return vd_prop_('VD_MODO', 'ATIVO'); }
 function vd_ligado_() { return vd_prop_('VD_LIGADO', 'SIM') !== 'NAO'; }
 

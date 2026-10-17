@@ -2325,7 +2325,7 @@ function vdf_cotacaoIndisponivel(token, p) {
     us = us.filter(function (u, i) { return u && u !== me.username && us.indexOf(u) === i; });
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: us.map(function (u) { return '@' + u + ' '; }).join('') + '⚠️ **COTAÇÃO INDISPONÍVEL** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' +
       // 16/10/2026: no quadro TESTE (2.0) o comentário traz a cotação nova; no principal fica o texto de antes até a migração
-      (vd_board_() === VD.BOARD_PADRAO ? resumo.join('\n') + (!semNova ? '\n✅ Autorizar de novo pela aba Autorizar (a cotação nova já vem marcada).' : temNova ? '\n🔁 Falta cotar ' + (semNova === 1 ? 'a peça sem cotação nova' : 'as peças sem cotação nova') + ' — depois a cotação vai para autorização junto com a nova.' : '\n🔁 Sem cotação nova: volta para cotação.')
+      (vd_v2_() ? resumo.join('\n') + (!semNova ? '\n✅ Autorizar de novo pela aba Autorizar (a cotação nova já vem marcada).' : temNova ? '\n🔁 Falta cotar ' + (semNova === 1 ? 'a peça sem cotação nova' : 'as peças sem cotação nova') + ' — depois a cotação vai para autorização junto com a nova.' : '\n🔁 Sem cotação nova: volta para cotação.')
         : linhas.map(function (l) { return '- ' + l.replace(/^INDISPON[IÍ]VEL:\s*/i, ''); }).join('\n') + (temNova ? '\n↪️ Cotação nova: autorizar de novo.' : '\n↪️ Sem cotação nova: volta para cotação.')) } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}

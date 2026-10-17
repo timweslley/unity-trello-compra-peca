@@ -14,7 +14,7 @@
   try { ls.removeItem('vd_tema'); } catch (e0) {}
   if (/[?&]tema=padrao\b/.test(q)) ls.removeItem('vd_tema2'); else if (/[?&]tema=trello\b/.test(q)) ls.setItem('vd_tema2', 'trello');
   /* 07/10/2026 (versão 2.0): no quadro TESTE (formulário servido pelo servidor novo, srv=1) o visual novo vale para todos */
-  if (ls.getItem('vd_tema2') === 'trello' || /[?&]srv=1(&|$)/.test(q)) document.documentElement.className += ' tt';
+  if (ls.getItem('vd_tema2') === 'trello' || /[?&](srv|v2)=1(&|$)/.test(q)) document.documentElement.className += ' tt';
 } catch (e) {} })();
 </script>
 <style>
@@ -4609,7 +4609,7 @@ iniciar();
 </style>
 <script>
 (function () {
-  if (!/[?&]srv=1(&|$)/.test(location.search)) return;          // só no quadro TESTE (servidor novo)
+  if (!/[?&](srv|v2)=1(&|$)/.test(location.search)) return;     // TESTE (srv=1) e quadros da virada 2.0 (v2=1, Apps Script)
   if (/[?&]v2=0(&|$)/.test(location.search)) return;            // conferência: abre a tela clássica (sem a camada 2.0) para comparar
   /* 09/10/2026 (Weslley): a 2.0 vale também no computador — antes só até 640 px, e no PC sobrava o visual antigo
      (título e Fechar repetidos, anexos numa linha embolada). Em tela larga ganha a classe v2pc (conteúdo centralizado). */
@@ -7314,7 +7314,7 @@ iniciar();
   document.addEventListener('click', function (e) {
     var a = e.target && e.target.closest && e.target.closest('#v2cResumo a[data-v2c="editar"]'); if (!a) return;
     e.preventDefault();
-    try { guardar('vd_modo_pend', null); location.href = CFG.urlApp + '?card=' + window.CARD_EDICAO + (/[?&]srv=1(&|$)/.test(location.search) ? '&srv=1' : '') + (/[?&]pu=1(&|$)/.test(location.search) ? '&pu=1' : ''); } catch (x) {}
+    try { guardar('vd_modo_pend', null); location.href = CFG.urlApp + '?card=' + window.CARD_EDICAO + (/[?&]srv=1(&|$)/.test(location.search) ? '&srv=1' : /[?&]v2=1(&|$)/.test(location.search) ? '&v2=1' : '') + (/[?&]pu=1(&|$)/.test(location.search) ? '&pu=1' : ''); } catch (x) {}
   });
   /* conferência na hora: cada mudança nas telas do comprador atualiza a lateral e as peças no mesmo instante */
   var COMP_RAF = 0;
@@ -7727,7 +7727,7 @@ iniciar();
  * Só no quadro TESTE (srv=1). Mostra as fotos anexadas ao card, a capa primeiro, trocando sozinhas a cada 4 s (para quando o mouse
  * ou o foco estão em cima, e não roda para quem pede menos movimento). Clicar abre a foto grande, com "Usar como capa". */
 (function () {
-  if (!/[?&]srv=1(&|$)/.test(location.search)) return;
+  if (!/[?&](srv|v2)=1(&|$)/.test(location.search)) return;
   var html = document.documentElement;
   var css = document.createElement('style');
   css.textContent = [

@@ -11,6 +11,9 @@ window.PU_CFG = {
    * os demais (o principal) continuam no Apps Script (URL_APP). */
   URL_SERVIDOR: 'https://compra-peca-858550421734.southamerica-east1.run.app/api',
   QUADROS_SERVIDOR: ['ZX4gRmnX'],
+  /* 16/10/2026: quadros que abrem o formulário 2.0 (visual e telas novas) sem passar pelo servidor (gravações no Apps Script).
+   * VIRADA DO PRINCIPAL: acrescentar 'oH4TbTqb' aqui E ligar a propriedade VD_V2=SIM no Apps Script. Voltar: tirar os dois. */
+  QUADROS_V2: [],
   /* 07/10/2026: no quadro PRINCIPAL, leituras de navegação (abrir, carregar card, buscar placa) pelo servidor próprio,
    * com volta automática ao Apps Script se ele não responder. Por usuário; 'todos' libera a equipe inteira. */
   /* 09/10/2026 16:10 — DESLIGADO até o servidor corrigir: o trabalhador do servidor guarda a aba TRAVA (descrição
