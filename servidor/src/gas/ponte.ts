@@ -634,7 +634,7 @@ class Contexto {
   private async enviarProps(ex: Execucao, set: Record<string, string>, del: string[]): Promise<void> {
     let erro = '';
     for (let i = 0; i < 3; i++) {
-      try { await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { set, del }], 40_000); return; }
+      try { await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { set, del }], 40_000); await refazerPropsPendentes(); return; }
       catch (e) { erro = (e as Error).message; await new Promise((ok) => setTimeout(ok, 1500 * (i + 1))); }
     }
     ex.erro = ('propriedades não devolvidas ao Apps Script: ' + erro).slice(0, 200);
@@ -646,6 +646,33 @@ class Contexto {
   /** Liga o trabalhador antes da primeira chamada (partida a frio fora do caminho do usuário). */
   aquecer(): Promise<void> { return this.iniciar().catch(() => undefined); }
 }
+
+/** 17/10/2026: devoluções de propriedades que falharam (trava do robô ocupada) são refeitas na ordem, depois da próxima
+ * devolução que der certo. Refazer é seguro: a TRAVA confere a descrição oficial na aba TRAVA antes de restaurar. */
+let refazendo = false;
+async function refazerPropsPendentes(): Promise<number> {
+  if (refazendo) return 0; refazendo = true; let n = 0;
+  try {
+    const linhas = await consulta<{ nome: string; valor: string }>(`SELECT nome, valor FROM guardado WHERE nome LIKE 'props_pendentes_%' ORDER BY nome LIMIT 10`);
+    for (const l of linhas) {
+      const v = JSON.parse(l.valor) as { set: Record<string, string>; del: string[] };
+      await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { set: v.set || {}, del: v.del || [] }], 40_000);
+      await consulta(`DELETE FROM guardado WHERE nome = $1`, [l.nome]); n++;
+    }
+  } catch (e) { console.error('[gravação do principal] refazer propriedades', (e as Error).message); }
+  finally { refazendo = false; }
+  return n;
+}
+/** Resumo das gravações pendentes (sem conteúdo de card): nomes das abas, número de linhas e chaves de propriedades. */
+export async function resumoPendentes(): Promise<unknown> {
+  const linhas = await consulta<{ nome: string; valor: string; em: string }>(`SELECT nome, valor, em FROM guardado WHERE nome LIKE 'props_pendentes_%' OR nome LIKE 'planilha_pendente_%' ORDER BY nome`).catch(() => []);
+  return linhas.map((l) => {
+    let v: Record<string, unknown> = {}; try { v = JSON.parse(l.valor); } catch { /* */ }
+    return l.nome.startsWith('props') ? { nome: l.nome, em: l.em, chaves: Object.keys((v.set as object) || {}), apagar: v.del }
+      : { nome: l.nome, em: l.em, aba: v.aba, linhasFixas: Object.keys((v.fixas as object) || {}), novas: ((v.novas as unknown[]) || []).length };
+  });
+}
+export { refazerPropsPendentes };
 
 const TESTE = new Contexto('teste', false, CFG.trello.quadro);
 const PRINCIPAL = new Contexto('principal', true, QUADRO_PRINCIPAL_SL, true);

@@ -12,7 +12,7 @@ import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
 import { retratar, retratarTodos } from './retrato.js';
-import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal } from './gas/ponte.js';
+import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -261,6 +261,10 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
 
   /** Últimas execuções do código do formulário: função, espera na fila, duração e chamadas por destino (sem dados de card). */
   app.get('/tarefas/execucoes', async () => ({ ok: true, memoria: usosDaMemoria(), propsPrincipal: estadoPropsPrincipal(), execucoes: ultimasExecucoes() }));
+
+  /** Gravações do principal que ficaram pendentes (sem conteúdo de card). POST refaz as de propriedades. */
+  app.get('/tarefas/pendentes', async () => ({ ok: true, pendentes: await resumoPendentes() }));
+  app.post('/tarefas/pendentes', async () => ({ ok: true, refeitas: await refazerPropsPendentes(), pendentes: await resumoPendentes() }));
 
   /** Leitura dos anexos de UM card (pelo código do link): só dados de peças, sem placa/chassi/nomes. ?forcar=1 relê. */
   app.get('/tarefas/leitura/:card', async (req, resp) => {
