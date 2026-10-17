@@ -127,3 +127,8 @@ da outra, deixar um recado aqui e no commit.
   interrompe e fica em `guardado` (`planilha_pendente_*`). Formulário: `PU_CFG.GRAVACAO_SERVIDOR` por usuário (vazio). Testado no
   TESTE (recebimento real: comentário, checklist, descrição e assinatura VD_DESC no Apps Script). **Falta:** planilha como Editor
   para `compra-peca-run` (hoje Leitor → 403 nas gravações da planilha); depois ligar só para timweslley, conferir e liberar.
+- 17/10 04h35 — planilha do robô como **Editor** para `compra-peca-run` (Weslley). Gravação da planilha conferida no TESTE
+  (`testeRemoto`, recebimento sem erro). `GRAVACAO_SERVIDOR: { usuarios: ['timweslley'] }` — **ligado só para o Weslley**.
+  Proteção de escrita passou a conferir o quadro do trabalhador (`b28da12`). Primeira gravação real no principal pelo servidor:
+  `vdf_definirCapa` no ARW5715 (mesma capa) em 1 s. Próximo: acompanhar as gravações dele em `/tarefas/execucoes`
+  (quadro `principalGrava`) e liberar 'todos'.
