@@ -301,11 +301,31 @@ async function chamarAppsScript(fn: string, args: unknown[], prazoMs = 30_000): 
   if (!j || !j.ok) throw new Error('Apps Script ' + fn + ': ' + (j?.erro || 'resposta inválida'));
   return j.r;
 }
-/** Todas as Propriedades do Script do robô do Google, lidas AGORA (gravação no principal). */
+/** Todas as Propriedades do Script do robô do Google, lidas AGORA. */
 async function propsAoVivo(): Promise<Record<string, string>> {
   const r = await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { ler: true }]) as Record<string, unknown>;
   return Object.fromEntries(Object.entries(r || {}).map(([k, v]) => [k, String(v)]));
 }
+/**
+ * Cópia das propriedades do robô para as gravações (17/10/2026): ler e devolver ao Apps Script a cada chamada custava 5–10 s.
+ * A cópia vale até 5 min (mais velha que isso a chamada espera a leitura nova); com mais de 15 s é renovada em segundo plano.
+ * O que o servidor grava entra na cópia na hora e vai ao Apps Script em segundo plano, em ordem (a TRAVA do robô só
+ * confere descrições com mais de 40 s, então a assinatura chega antes).
+ */
+let espelhoProps: { v: Record<string, string>; em: number } | null = null;
+let renovandoProps: Promise<void> | null = null;
+function renovarProps(): Promise<void> {
+  if (!renovandoProps) renovandoProps = propsAoVivo().then((v) => { espelhoProps = { v, em: Date.now() }; })
+    .finally(() => { renovandoProps = null; });
+  return renovandoProps;
+}
+async function propsParaGravacao(): Promise<Record<string, string>> {
+  const idade = espelhoProps ? Date.now() - espelhoProps.em : Infinity;
+  if (idade > 5 * 60_000) await renovarProps();
+  else if (idade > 15_000) renovarProps().catch((e) => console.error('props (segundo plano):', (e as Error).message));
+  return { ...espelhoProps!.v };
+}
+let filaDevolver: Promise<unknown> = Promise.resolve();
 let abasReaisCache: { v: string[]; em: number } | null = null;
 async function abasReais(): Promise<string[]> {
   if (!CFG.planilhaId) return [];
@@ -563,12 +583,12 @@ class Contexto {
         let extra: Record<string, unknown> = this.nome === 'principal' ? { props: await propsDoPrincipal() } : {};
         if (this.remoto) {
           this.pend = { set: {}, del: new Set() }; this.tam = {};
-          try { extra = { props: await propsAoVivo(), propsTrocar: true }; } catch (e) { throw new Error('servidor (nada gravado): ' + (e as Error).message); }
+          try { extra = { props: await propsParaGravacao(), propsTrocar: true }; } catch (e) { throw new Error('servidor (nada gravado): ' + (e as Error).message); }
         }
         const id = ++this.seq;
         let r: unknown;
         try { r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg, ...extra }); }); }
-        finally { if (this.remoto) await this.devolverProps(ex); }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado
+        finally { if (this.remoto) this.devolverProps(ex); }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
         return r;
@@ -583,9 +603,13 @@ class Contexto {
     return p;
   }
   /** Devolve ao Apps Script as propriedades que a chamada mudou (assinatura da TRAVA etc.) — até 3 tentativas. */
-  private async devolverProps(ex: Execucao): Promise<void> {
+  private devolverProps(ex: Execucao): void {
     const set = this.pend.set, del = [...this.pend.del];
     if (!Object.keys(set).length && !del.length) return;
+    if (espelhoProps) { Object.assign(espelhoProps.v, set); del.forEach((k) => delete espelhoProps!.v[k]); }
+    filaDevolver = filaDevolver.then(() => this.enviarProps(ex, set, del)).catch(() => null);
+  }
+  private async enviarProps(ex: Execucao, set: Record<string, string>, del: string[]): Promise<void> {
     let erro = '';
     for (let i = 0; i < 3; i++) {
       try { await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { set, del }], 40_000); return; }
