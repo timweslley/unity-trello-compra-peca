@@ -10,7 +10,8 @@ var CK = {
   TIPOS: 'createCheckItem,updateCheckItem,updateCheckItemStateOnCard,deleteCheckItem,addChecklistToCard,removeChecklistFromCard,updateChecklist',
   ANTES_MS: 15 * 1000,     // ação até 15 s depois da licença...
   DEPOIS_MS: 120 * 1000,   // ...ou até 2 min antes dela = oficial (licença gravada antes e depois da escrita)
-  ABA: 'CHECKLISTS'
+  ABA: 'CHECKLISTS',
+  ESPERA_MS: 90 * 1000     // 17/10/2026: ação mais nova que isso espera o próximo ciclo (licença do servidor a caminho)
 };
 
 function ck_ligado_() { return vd_prop_('CK_TRAVA', 'SIM') !== 'NAO'; }
@@ -125,6 +126,10 @@ function ck_executar_() {
     return 0;
   }
   var acts = vd_acoesQuadro_(board, { filter: CK.TIPOS, since: desde, limit: 200, memberCreator_fields: 'username,fullName' });
+  // 17/10/2026: só julga ação com mais de 90 s — a licença de gravação feita pelo servidor chega ao cache logo depois da
+  // escrita (o servidor manda antes de responder); a ação mais nova fica para o próximo ciclo (o marcador não passa dela)
+  var limCk = Date.now() - CK.ESPERA_MS;
+  acts = acts.filter(function (a) { return new Date(a.date).getTime() <= limCk; });
   if (!acts.length) return 0;
   var cache = {};
   try {

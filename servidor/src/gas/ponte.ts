@@ -342,6 +342,11 @@ function renovarProps(): Promise<void> {
     .finally(() => { renovandoProps = null; });
   return renovandoProps;
 }
+/** Card de teste do principal (TST_CARDS do robô) — com a gravação desligada, só eles gravam pelo servidor (conferência). */
+export async function ehCardTesteDoPrincipal(ref: string): Promise<boolean> {
+  if (!ref) return false;
+  try { const lista = JSON.parse((await propsParaGravacao()).TST_CARDS || '[]') as string[]; return lista.includes(ref); } catch { return false; }
+}
 async function propsParaGravacao(): Promise<Record<string, string>> {
   const idade = espelhoProps ? Date.now() - espelhoProps.em : Infinity;
   if (idade > 5 * 60_000) await renovarProps();
@@ -364,6 +369,7 @@ async function abasReais(): Promise<string[]> {
  */
 async function atenderRemoto(op: string, d: any, ctx: Contexto): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
   switch (op) {
+    case 'cache.licenca': { const x = d as { k: string; v: string; seg: number }; ctx.licencas[x.k] = { v: x.v, seg: x.seg }; return null; }
     case 'props.gravar':
       for (const [k, v] of Object.entries(d as Record<string, string>)) { ctx.pend.set[k] = String(v); ctx.pend.del.delete(k); }
       return null;
@@ -393,6 +399,7 @@ async function atenderRemoto(op: string, d: any, ctx: Contexto): Promise<unknown
 
 async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
   switch (op) {
+    case 'cache.licenca': return null;   // só interessa nas gravações remotas (atenderRemoto)
     case 'fetch': return buscar(d, ctx);
     case 'fetchAll': return Promise.all((d as Pedido[]).map((x) => buscar(x, ctx)));
     case 'props.gravar':
@@ -534,6 +541,7 @@ class Contexto {
   pend: { set: Record<string, string>; del: Set<string> } = { set: {}, del: new Set() };
   tam: Record<string, number> = {};
   bufAbas: Record<string, { fixas: Record<string, unknown[]>; novas: Record<string, unknown[]> }> = {};
+  licencas: Record<string, { v: string; seg: number }> = {};
   constructor(readonly nome: 'teste' | 'principal' | 'retrato' | 'principalGrava' | 'testeRemoto', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false, readonly remoto = false) {}
 
   private fixas(): Record<string, string> {
@@ -594,13 +602,13 @@ class Contexto {
         await this.iniciar();
         let extra: Record<string, unknown> = this.nome === 'principal' ? { props: await propsDoPrincipal() } : {};
         if (this.remoto) {
-          this.pend = { set: {}, del: new Set() }; this.tam = {}; this.bufAbas = {};
+          this.pend = { set: {}, del: new Set() }; this.tam = {}; this.bufAbas = {}; this.licencas = {};
           try { extra = { props: await propsParaGravacao(), propsTrocar: true }; } catch (e) { throw new Error('servidor (nada gravado): ' + (e as Error).message); }
         }
         const id = ++this.seq;
         let r: unknown;
         try { r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg, ...extra }); }); }
-        finally { if (this.remoto) { await this.gravarAbas(ex); this.devolverProps(ex); if (this.quadro === QUADRO_PRINCIPAL_SL) marcarGravacaoPrincipal(); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
+        finally { if (this.remoto) { await this.gravarAbas(ex); await this.enviarLicencas(ex); this.devolverProps(ex); if (this.quadro === QUADRO_PRINCIPAL_SL) marcarGravacaoPrincipal(); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
         return r;
@@ -634,6 +642,18 @@ class Contexto {
       }
     }
     this.bufAbas = {};
+  }
+  /** Licenças das travas (checklist/coluna) no cache do Apps Script — ANTES de responder: o robô confere a cada minuto
+   * (e só ações com mais de 90 s, desde 17/10/2026). Falhou: segue em segundo plano com as propriedades. */
+  private async enviarLicencas(ex: Execucao): Promise<void> {
+    const lic = this.licencas; this.licencas = {};
+    if (!Object.keys(lic).length) return;
+    const t0 = Date.now();
+    try { await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { cache: lic }], 15_000); }
+    catch (e) {
+      console.error('[gravação do principal] licenças', (e as Error).message);
+      filaDevolver = filaDevolver.then(() => chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { cache: lic }], 40_000)).catch(() => null);
+    } finally { ex.ops['licencas'] = { n: Object.keys(lic).length, ms: Date.now() - t0 }; }
   }
   /** Devolve ao Apps Script as propriedades que a chamada mudou (assinatura da TRAVA etc.) — até 3 tentativas. */
   private devolverProps(ex: Execucao): void {

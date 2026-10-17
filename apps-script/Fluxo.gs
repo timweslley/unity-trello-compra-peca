@@ -44,6 +44,11 @@ function st_executar_() {
   if (!desde) { vd_marcaSet_('ST_ULTIMA', agora); return 0; }   // 1ª vez: não olha para trás
   var board = vd_board_();
   var acoes = vd_acoesQuadro_(board, { filter: 'updateCard:idList', since: desde, limit: 100, memberCreator_fields: 'username,fullName' });
+  // 17/10/2026: só julga movimento com mais de 90 s (licença de gravação feita pelo servidor chega logo depois) — o marcador
+  // para no limite, e o movimento mais novo é visto no próximo ciclo
+  agora = new Date(Date.now() - 90 * 1000).toISOString();
+  if (desde >= agora) return 0;
+  acoes = acoes.filter(function (a) { return !a.date || a.date <= agora; });
   if (!acoes.length) { vd_marcaSet_('ST_ULTIMA', agora); return 0; }
   var ultimaFeita = desde;   // o marcador só avança sobre o que foi processado de verdade
   var ls = vd_listas_(board), nome = {};

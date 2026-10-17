@@ -12,7 +12,7 @@ import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
 import { retratar, retratarTodos } from './retrato.js';
-import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes } from './gas/ponte.js';
+import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, ehCardTesteDoPrincipal } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -163,7 +163,8 @@ export function criarApp() {
       if ((qy.quadro === 'principal' || pedido.quadro === 'principal') && qy.grava === '1' && !LEITURAS_PRINCIPAL.includes(String(pedido.fn))) {
         // 17/10/2026 06h40: DESLIGADO até as travas do robô (checklist e coluna) enxergarem as licenças das gravações do servidor.
         // "nada gravado" faz o formulário refazer a chamada pelo Google na hora (navegador com o config.js antigo em cache).
-        if (process.env.GRAVACAO_PRINCIPAL !== 'SIM') return JSON.stringify({ ok: false, erro: 'servidor (nada gravado): gravação do principal pelo servidor desligada' });
+        const slP = String(((pedido as { args?: unknown[] }).args?.[1] as { shortLink?: string } | undefined)?.shortLink || '');
+        if (process.env.GRAVACAO_PRINCIPAL !== 'SIM' && !(await ehCardTesteDoPrincipal(slP))) return JSON.stringify({ ok: false, erro: 'servidor (nada gravado): gravação do principal pelo servidor desligada' });
         return await executarGravacaoPrincipal(corpo);
       }
       if (qy.quadro === 'principal' || pedido.quadro === 'principal') {

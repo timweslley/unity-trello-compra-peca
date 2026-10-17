@@ -80,6 +80,18 @@ function vdf_servidorProps(token, op) {
   var p = PropertiesService.getScriptProperties();
   op = op || {};
   if (op.ler) return p.getProperties();
+  // 17/10/2026: licenças das travas do robô gravadas pelo servidor (ck_* = lista de horários, junta com a que já existe)
+  if (op.cache) {
+    var cs = CacheService.getScriptCache(), ks = Object.keys(op.cache), atual = cs.getAll(ks), nc = 0;
+    ks.forEach(function (k) {
+      if (!/^(ck_|st_ok_|tr_rec_)/.test(k)) return;
+      var x = op.cache[k] || {}, v = String(x.v || '');
+      if (/^(ck_|tr_rec_)/.test(k)) { var a1 = [], a2 = []; try { a1 = JSON.parse(atual[k] || '[]'); } catch (e) {} try { a2 = JSON.parse(v || '[]'); } catch (e) {}
+        v = JSON.stringify(a1.concat(a2).filter(function (t, i, arr) { return arr.indexOf(t) === i; }).slice(/^ck_/.test(k) ? -40 : -12)); }
+      cs.put(k, v, Math.min(+x.seg || 600, 21600)); nc++;
+    });
+    if (!op.set && !op.del) return { ok: true, cache: nc };
+  }
   // 17/10/2026: o ciclo do robô segura a trava do script por minutos — esperar por ela fazia a devolução falhar (VD_DESC não
   // chegava). Tenta a trava por 3 s e grava de qualquer jeito (setProperties é atômico por chamada).
   var lock = LockService.getScriptLock(), travou = false;
