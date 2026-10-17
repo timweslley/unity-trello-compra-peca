@@ -833,6 +833,15 @@ export async function minutoRobo(): Promise<Record<string, unknown>> {
   }
   return { ok: true, ...out };
 }
+export async function testeDrive(): Promise<unknown> {
+  const out: Record<string, unknown> = {};
+  for (const n of ['CILIA-HOJE.json', 'HDI-HOJE.json', 'SOMA-HOJE.json']) {
+    try { const l = await driveLer('drive.buscar', `name = '${n}' and trashed = false`) as Array<{ nome: string; modificado: string; pais: Array<{ nome: string }> }>;
+      out[n] = l.map((x) => ({ modificado: x.modificado, pasta: x.pais.map((p) => p.nome).join(',') })); }
+    catch (e) { out[n] = 'erro: ' + (e as Error).message.slice(0, 200); }
+  }
+  return out;
+}
 export function observacoesRobo(): unknown[] { return obsRobo.slice(-60).reverse(); }
 function anotarEscrita(p: Pedido, ctx: Contexto): Resposta {
   let c = p.url; try { c = new URL(p.url).pathname.replace(/^\/1/, ''); } catch { /* */ }
