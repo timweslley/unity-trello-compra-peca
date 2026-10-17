@@ -327,7 +327,7 @@ async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   
       await consulta(`INSERT INTO gas_arquivo (id, nome, tipo, dados, pasta) VALUES ($1,$2,$3,$4,$5)`, [id, d.nome, d.tipo, Buffer.from(d.dados), d.pasta]);
       return id;
     }
-    case 'arq.info': { const [a] = await consulta<{ nome: string; tipo: string }>(`SELECT nome, tipo FROM gas_arquivo WHERE id = $1 AND NOT lixeira`, [d]); return a || null; }
+    case 'arq.info': { const [a] = await consulta<{ nome: string; tipo: string; pasta: string | null }>(`SELECT nome, tipo, pasta FROM gas_arquivo WHERE id = $1 AND NOT lixeira`, [d]); return a || null; }
     case 'arq.ler': { const [a] = await consulta<{ nome: string; tipo: string; dados: Buffer }>(`SELECT nome, tipo, dados FROM gas_arquivo WHERE id = $1`, [d]); return a ? { ...a, dados: new Uint8Array(a.dados || []) } : null; }
     case 'arq.renomear': await consulta(`UPDATE gas_arquivo SET nome = $2 WHERE id = $1`, [d.id, d.nome]); return null;
     case 'arq.lixeira': await consulta(`UPDATE gas_arquivo SET lixeira = $2, dados = CASE WHEN $2 THEN NULL ELSE dados END WHERE id = $1`, [d.id, d.lixeira]); return null;

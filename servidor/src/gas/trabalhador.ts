@@ -221,7 +221,9 @@ const SpreadsheetApp = { openById: (_id: string) => PLANILHA, create: (_n: strin
 
 // ---------- DriveApp / Drive / DocumentApp (arquivos no banco; OCR pelo servidor) ----------
 class Arquivo {
-  constructor(public id: string, private nome: string, private tipo: string) {}
+  constructor(public id: string, private nome: string, private tipo: string, private pasta: string | null = null) {}
+  /** 16/10/2026: vdf_arquivoTemp_ (Seguranca.gs) confere a pasta do arquivo — sem isto, nenhum anexo do formulário subia ao card */
+  getParents() { const l = this.pasta ? [new Pasta(this.pasta)] : []; let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; }
   getId() { return this.id; }
   getName() { return this.nome; }
   setName(n: string) { this.nome = n; sinc('arq.renomear', { id: this.id, nome: n }); return this; }
@@ -233,7 +235,7 @@ class Arquivo {
 }
 function criarArquivo(blob: Blob, pasta?: string) {
   const id = sinc<string>('arq.criar', { nome: blob.nome, tipo: blob.tipo, dados: blob.dados, pasta: pasta || null });
-  return new Arquivo(id, blob.nome, blob.tipo);
+  return new Arquivo(id, blob.nome, blob.tipo, pasta || null);
 }
 class Pasta {
   constructor(public id: string) {}
@@ -241,7 +243,7 @@ class Pasta {
   createFile(blob: Blob) { return criarArquivo(blob, this.id); }
 }
 const DriveApp = {
-  getFileById(id: string) { const r = sinc<{ nome: string; tipo: string } | null>('arq.info', id); if (!r) throw new Error('Arquivo não encontrado: ' + id); return new Arquivo(id, r.nome, r.tipo); },
+  getFileById(id: string) { const r = sinc<{ nome: string; tipo: string; pasta?: string | null } | null>('arq.info', id); if (!r) throw new Error('Arquivo não encontrado: ' + id); return new Arquivo(id, r.nome, r.tipo, r.pasta || null); },
   createFile(blob: Blob) { return criarArquivo(blob); },
   getFolderById(id: string) { return new Pasta(id); },
   createFolder(nome: string) { return new Pasta('pasta-' + createHash('md5').update(nome).digest('hex').slice(0, 12)); },
