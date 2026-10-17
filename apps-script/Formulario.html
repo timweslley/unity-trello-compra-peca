@@ -4472,7 +4472,11 @@ iniciar();
 </style>
 <script>
 (function () {
-  if (!/[?&](srv|v2)=1(&|$)/.test(location.search)) return;     // TESTE (srv=1) e quadros da virada 2.0 (v2=1, Apps Script)
+  /* 17/10/2026 (Weslley: "o app do Trello abre ainda pelo antigo"): o link ✏️/💰 do card (aberto pelo app, sem o Power-Up) não traz
+     v2=1 — sem pu=1, srv=1 nem v2=0, vale a 2.0 quando o principal está na virada (PU_CFG.QUADROS_V2) */
+  window.VD_V2 = /[?&](srv|v2)=1(&|$)/.test(location.search) || (!/[?&](pu=1|v2=0)(&|$)/.test(location.search) && !!(window.PU_CFG && (PU_CFG.QUADROS_V2 || []).indexOf('oH4TbTqb') >= 0));
+  if (!window.VD_V2) return;     // TESTE (srv=1) e quadros da virada 2.0 (v2=1 ou link do card)
+  if (!/\btt\b/.test(document.documentElement.className)) document.documentElement.className += ' tt';
   if (/[?&]v2=0(&|$)/.test(location.search)) return;            // conferência: abre a tela clássica (sem a camada 2.0) para comparar
   /* 09/10/2026 (Weslley): a 2.0 vale também no computador — antes só até 640 px, e no PC sobrava o visual antigo
      (título e Fechar repetidos, anexos numa linha embolada). Em tela larga ganha a classe v2pc (conteúdo centralizado). */
@@ -7590,7 +7594,7 @@ iniciar();
  * Só no quadro TESTE (srv=1). Mostra as fotos anexadas ao card, a capa primeiro, trocando sozinhas a cada 4 s (para quando o mouse
  * ou o foco estão em cima, e não roda para quem pede menos movimento). Clicar abre a foto grande, com "Usar como capa". */
 (function () {
-  if (!/[?&](srv|v2)=1(&|$)/.test(location.search)) return;
+  if (!window.VD_V2) return;
   var html = document.documentElement;
   var css = document.createElement('style');
   css.textContent = [
