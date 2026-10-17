@@ -72,6 +72,10 @@ export function criarApp() {
                     (SELECT tipo FROM trello_acao ORDER BY recebida_em DESC LIMIT 1) AS ultimo_tipo FROM trello_acao`);
           acoes = { recebidas: Number(r.total), ultima: r.ultima, ultimoTipo: r.ultimo_tipo };
           espelho = await resumoEspelho();
+          // 17/10/2026: gravações do principal pelo servidor — o que falhou ao devolver ao Apps Script / à planilha
+          const [pend] = await consulta<{ props: string; planilha: string }>(`SELECT count(*) FILTER (WHERE nome LIKE 'props_pendentes_%')::text AS props,
+            count(*) FILTER (WHERE nome LIKE 'planilha_pendente_%')::text AS planilha FROM guardado`).catch(() => [] as Array<{ props: string; planilha: string }>);
+          if (pend) (espelho as Record<string, unknown>) && Object.assign(espelho as Record<string, unknown>, { pendentesGravacao: { props: Number(pend.props), planilha: Number(pend.planilha) } });
         } catch { /* tabela ainda não existe */ }
       }
     }
