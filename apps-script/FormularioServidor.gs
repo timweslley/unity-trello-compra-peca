@@ -913,13 +913,20 @@ var VDF_LISTA_CHEGAR = 'FALTA CHEGAR';
  */
 /** Peça do pedido citada num texto (código, ou descrição/medida). chaves = [{chave, desc, cod}] */
 function vdf_pecaDoTexto_(texto, chaves) {
-  var alvo = vd_semAcento_(texto).replace(/\s+/g, ' ').trim();
+  /* 17/10/2026 (teste das cópias, BDD2J09): casava pela PRIMEIRA peça cujo código aparecia DENTRO do texto — o código
+   * "0000001" casava com a linha de "00000014 PARABARRO" e a cotação ia para a peça errada. Agora: código inteiro (separado
+   * por espaço/pontuação) ganha; entre vários, o mais longo; só depois código dentro do texto e, por fim, a descrição. */
+  var alvo = vd_semAcento_(texto).replace(/\s+/g, ' ').trim(), melhor = null, nivel = 0;
+  var esc = function (x) { return x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
   for (var i = 0; i < chaves.length; i++) {
-    var k = chaves[i];
-    if (k.cod && k.cod.length >= 4 && alvo.indexOf(k.cod) >= 0) return k;
-    if (!k.cod && k.desc && (alvo === k.desc || alvo.indexOf(k.desc) >= 0)) return k;
+    var k = chaves[i], n = 0, tam = 0;
+    if (k.cod && k.cod.length >= 4) {
+      if (new RegExp('(^|[^A-Z0-9])' + esc(k.cod) + '($|[^A-Z0-9])').test(alvo)) { n = 3; tam = k.cod.length; }
+      else if (alvo.indexOf(k.cod) >= 0) { n = 2; tam = k.cod.length; }
+    } else if (!k.cod && k.desc && (alvo === k.desc || alvo.indexOf(k.desc) >= 0)) { n = 1; tam = k.desc.length; }
+    if (n > nivel || (n && n === nivel && tam > melhor.tam)) { nivel = n; melhor = { k: k, tam: tam }; }
   }
-  return null;
+  return melhor ? melhor.k : null;
 }
 function vdf_chavesPecas_(pecas) {
   return (pecas || []).map(function (p) { return { chave: vd_chavePeca_(p), desc: vd_semAcento_(p.pneu ? 'PNEU ' + p.medida : p.descricao).replace(/\s+/g, ' ').trim(), cod: vd_semAcento_(String(p.codigo || '').replace(/\s+/g, '')) }; });
@@ -999,20 +1006,14 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     var ms = l.match(/^SEM COTA[ÇC][ÃA]O\s+(.+?)\s*:\s*(.+)$/i);
     if (ms) {
       var alvoS = vd_semAcento_(ms[1]).replace(/\s+/g, ' ').trim();
-      for (var is = 0; is < chaves.length; is++) {
-        var ks = chaves[is];
-        if ((ks.cod && ks.cod.length >= 4 && alvoS.indexOf(ks.cod) >= 0) || (!ks.cod && ks.desc && alvoS.indexOf(ks.desc) >= 0)) { out.semCot.push({ chave: ks.chave, texto: ms[2].trim() }); break; }
-      }
+      var ks = vdf_pecaDoTexto_(alvoS, chaves);
+      if (ks) out.semCot.push({ chave: ks.chave, texto: ms[2].trim() });
       return;
     }
     var mo = l.match(/^OBS\s+(.+?)\s*:\s*(.+)$/i);
     if (mo) {
       var alvoO = vd_semAcento_(mo[1]).replace(/\s+/g, ' ').trim(), pecaO = null;
-      for (var io = 0; io < chaves.length && !pecaO; io++) {
-        var ko = chaves[io];
-        if (ko.cod && ko.cod.length >= 4 && alvoO.indexOf(ko.cod) >= 0) pecaO = ko;
-        else if (!ko.cod && ko.desc && alvoO.indexOf(ko.desc) >= 0) pecaO = ko;
-      }
+      pecaO = vdf_pecaDoTexto_(alvoO, chaves);
       if (pecaO) out.obs.push({ chave: pecaO.chave, texto: mo[2].trim() });
       return;
     }
@@ -1038,11 +1039,7 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     if (!m) return;
     var alvo = vd_semAcento_(m[1]).replace(/\s+/g, ' ').trim();
     var peca = pre;
-    for (var i = 0; i < chaves.length && !peca; i++) {
-      var k = chaves[i];
-      if (k.cod && k.cod.length >= 4 && alvo.indexOf(k.cod) >= 0) peca = k;
-      else if (!k.cod && k.desc && (alvo === k.desc || alvo.indexOf(k.desc) >= 0)) peca = k;
-    }
+    if (!peca) peca = vdf_pecaDoTexto_(alvo, chaves);
     if (!peca) return;
     var tm = String(m[2] || '').trim().toUpperCase();
     var tipo = '', marca = tm;
@@ -1282,11 +1279,7 @@ function vd_autorizacoesDaDescricao_(desc, pecas) {
     var m = l.match(/^AUTORIZAD[OA]\s*:\s*(.+?)\s+-\s+(.+)\s+-\s+R?\$?\s*([\d.]+(?:,\d{1,2})?)\s*$/i);
     if (!m) return;
     var alvo = vd_semAcento_(m[2]).replace(/\s+/g, ' ').trim(), peca = null;
-    for (var i = 0; i < chaves.length && !peca; i++) {
-      var k = chaves[i];
-      if (k.cod && k.cod.length >= 4 && alvo.indexOf(k.cod) >= 0) peca = k;
-      else if (!k.cod && k.desc && alvo.indexOf(k.desc) >= 0) peca = k;
-    }
+    peca = vdf_pecaDoTexto_(alvo, chaves);
     if (peca) porChave[peca.chave] = { chave: peca.chave, fornecedor: m[1].trim().toUpperCase(), valor: vd_valorNum_(m[3]), quem: quem, quando: quando };
   });
   return Object.keys(porChave).map(function (k) { return porChave[k]; });
