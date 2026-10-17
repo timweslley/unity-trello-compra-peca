@@ -1362,7 +1362,7 @@ function vdf_autorizar(token, p) {
     // 10/10/2026: toda peça "sem cotação" = nada a autorizar — a saída é decidir por peça (🚫 não comprar) ou devolver
     var semNada = !lidas.length && an.pecas.length > 0;
     faltas.push(parcial ? 'Escolha a cotação de pelo menos uma peça para salvar.'
-      : (semNada ? 'Nenhuma peça deste card tem cotação (o comprador justificou "sem cotação"). Decida por peça: marque 🚫 não comprar com o motivo, ou use ↩️ Devolver para cotação com a orientação para o comprador.'
+      : (semNada ? 'Nenhuma peça deste card tem cotação (ainda não cotada ou o comprador justificou "sem cotação"). Decida por peça: marque 🚫 não comprar com o motivo, ou use ↩️ Devolver para cotação com a orientação para o comprador.'
         : 'Escolha a cotação de pelo menos uma peça (ou marque complemento / não comprar).'));
   }
   if (faltas.length) return { ok: false, faltas: faltas };
@@ -1850,6 +1850,9 @@ function vdf_salvar(token, p) {
   var paisP = String(p.dados.pais || '').toUpperCase();
   if ((paisP === 'PY' || paisP === 'AR') && vd_placaEstrangeira_(d.placa) === paisP) d.pais = paisP;
   var pecas = (p.pecas || []).map(function (x) {
+    // 17/10/2026: pneu que chegou como peça comum sem código ("PNEU HIFLY 195/55R15 …") vira pneu (BDD2J09)
+    var dP = String(x.descricao || '').trim().toUpperCase(), mP = !x.pneu && /^PNEUS?\b/.test(dP) && !/\d{4}/.test(String(x.codigo || '').replace(/[^A-Z0-9]/gi, '')) && dP.match(/\d{3}\s*\/\s*\d{2}\s*Z?R?\s*\d{2}/);
+    if (mP) x = Object.assign({}, x, { pneu: true, medida: mP[0], marca: dP.replace(/^PNEUS?\b/, '').replace(mP[0], ' ').replace(/\s+/g, ' ').trim(), categoria: x.categoria || '' });
     return x.pneu
       ? { pneu: true, medida: String(x.medida || '').trim().toUpperCase().replace(/\s+/g, ''), categoria: x.categoria || '', marca: String(x.marca || '').trim().toUpperCase(), qtd: x.qtd || '' }
       : vd_ehAcessorio_(x.codigo)

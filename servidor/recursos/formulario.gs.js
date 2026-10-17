@@ -2884,7 +2884,7 @@ function vdf_autorizar(token, p) {
     // 10/10/2026: toda peça "sem cotação" = nada a autorizar — a saída é decidir por peça (🚫 não comprar) ou devolver
     var semNada = !lidas.length && an.pecas.length > 0;
     faltas.push(parcial ? 'Escolha a cotação de pelo menos uma peça para salvar.'
-      : (semNada ? 'Nenhuma peça deste card tem cotação (o comprador justificou "sem cotação"). Decida por peça: marque 🚫 não comprar com o motivo, ou use ↩️ Devolver para cotação com a orientação para o comprador.'
+      : (semNada ? 'Nenhuma peça deste card tem cotação (ainda não cotada ou o comprador justificou "sem cotação"). Decida por peça: marque 🚫 não comprar com o motivo, ou use ↩️ Devolver para cotação com a orientação para o comprador.'
         : 'Escolha a cotação de pelo menos uma peça (ou marque complemento / não comprar).'));
   }
   if (faltas.length) return { ok: false, faltas: faltas };
@@ -3348,6 +3348,9 @@ function vdf_salvar(token, p) {
   var paisP = String(p.dados.pais || '').toUpperCase();
   if ((paisP === 'PY' || paisP === 'AR') && vd_placaEstrangeira_(d.placa) === paisP) d.pais = paisP;
   var pecas = (p.pecas || []).map(function (x) {
+    // 17/10/2026: pneu que chegou como peça comum sem código ("PNEU HIFLY 195/55R15 …") vira pneu (BDD2J09)
+    var dP = String(x.descricao || '').trim().toUpperCase(), mP = !x.pneu && /^PNEUS?\b/.test(dP) && !/\d{4}/.test(String(x.codigo || '').replace(/[^A-Z0-9]/gi, '')) && dP.match(/\d{3}\s*\/\s*\d{2}\s*Z?R?\s*\d{2}/);
+    if (mP) x = Object.assign({}, x, { pneu: true, medida: mP[0], marca: dP.replace(/^PNEUS?\b/, '').replace(mP[0], ' ').replace(/\s+/g, ' ').trim(), categoria: x.categoria || '' });
     return x.pneu
       ? { pneu: true, medida: String(x.medida || '').trim().toUpperCase().replace(/\s+/g, ''), categoria: x.categoria || '', marca: String(x.marca || '').trim().toUpperCase(), qtd: x.qtd || '' }
       : vd_ehAcessorio_(x.codigo)
@@ -3771,14 +3774,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:2277
+// FormularioServidor.gs:2280
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:2289
+// FormularioServidor.gs:2292
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -3853,21 +3856,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:2366
+// FormularioServidor.gs:2369
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:2372
+// FormularioServidor.gs:2375
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:2378
+// FormularioServidor.gs:2381
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {
