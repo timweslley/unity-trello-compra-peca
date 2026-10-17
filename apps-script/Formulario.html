@@ -125,6 +125,9 @@
   .cot-lida { font-size:13px; color:var(--texto); padding:5px 0; border-bottom:1px solid var(--borda); }
   .cot-lida b { color:var(--azul); }
   .comprado { display:inline-block; color:#164b35; background:var(--verde2); border-radius:4px; padding:3px 8px; font-size:13px; font-weight:600; margin:2px 0; }
+  .dica.v2-so { display:none; } html.v2 .dica.v2-so { display:block; } html.v2 .indisp .i-enviar { display:none !important; }
+  .aviso-indisp { margin:6px 0 8px; padding:8px 10px; border:1px solid #f5cd47; border-left:4px solid #e56910; border-radius:6px; background:#fff7d6; color:#172b4d; font-size:14px; line-height:20px; }
+  .selo.nova { background:#fff3eb; color:#a54800; border:1px solid #fec195; }
   .opcao-aut { display:block; padding:7px 8px; font-weight:normal; font-size:14px; color:var(--texto); cursor:pointer; border-radius:4px; }
   .opcao-aut:hover { background:var(--lista); }
   .opcao-aut input { width:auto; margin-right:6px; }
@@ -1029,7 +1032,9 @@ function montarAutorizacao(c) {
     var ja = autDe(c, p.chave);
     var h = '<div class="item-topo"><strong>' + (p._n || i + 1) + '. ' + esc(p.nome) + tagPart(p) + (p.tipos && p.tipos.length ? ' <span class="dica">(' + esc(p.tipos.join(' ou ')) + ')</span>' : '') + seloOrc(p) + '</strong></div>';
     h += obsPedido(p);
-    ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
+    var novaQ0 = document.documentElement.classList.contains('v2') && !autDe(c, p.chave) ? lidas.filter(function (q) { return q.chave === p.chave && q.nova; }).slice(-1)[0] : null;
+    var obsNova = novaQ0 ? '(indisponível) ' + novaQ0.nova.no + (novaQ0.nova.motivo ? ': ' + novaQ0.nova.motivo : '') : '';
+    ((c.cotacoes && c.cotacoes.obs) || []).filter(function (o) { return o.chave === p.chave && o.texto !== obsNova; }).forEach(function (o) { h += '<div class="dica">📝 ' + esc(o.texto) + '</div>'; });
     // peça já comprada (PAGAS — ex.: card antigo migrado com a compra feita) não entra na autorização (09/10/2026, TBU8D71)
     var jaPg = (c.pagas || []).filter(function (it) { return semAc(it.nome).indexOf(p.chave) >= 0; })[0];
     if (jaPg) {
@@ -1056,12 +1061,18 @@ function montarAutorizacao(c) {
       }
     }
     var semA = ((c.cotacoes && c.cotacoes.semCot) || []).filter(function (o) { return o.chave === p.chave; });
+    // 16/10/2026 (Weslley, ARW5715): a cotação autorizada ficou indisponível na compra e o comprador trouxe outra — aviso em destaque
+    var novaQ = !ja ? minhas.filter(function (q) { return q.nova; }).slice(-1)[0] : null;
+    if (novaQ && !document.documentElement.classList.contains('v2')) novaQ = null;   // destaque só no 2.0 (TESTE) até a migração
+    if (novaQ) h += '<div class="aviso-indisp" role="note"><b>⚠️ Na compra, a cotação autorizada ficou indisponível:</b> ' + esc(novaQ.nova.no) + (novaQ.nova.motivo ? ' — ' + esc(novaQ.nova.motivo) : '')
+      + (novaQ.nova.quem ? ' <span class="dica">(' + esc(novaQ.nova.quem) + (novaQ.nova.data ? ', ' + esc(novaQ.nova.data) : '') + ')</span>' : '')
+      + '<br><b>Cotação nova do comprador:</b> ' + esc(rotuloCot(novaQ)) + ' — já vem marcada; confira e envie a autorização.</div>';
     if (!minhas.length) h += '<div class="dica ruim">' + (semA.length ? 'Não cotada — motivo do comprador: ' + esc(semA[semA.length - 1].texto) : 'Sem cotação lançada para esta peça.') + '</div>';
     else {
-      var marcada = ja ? minhas.findIndex(function (q) { return mesmaCot(q, ja); }) : 0;
+      var marcada = ja ? minhas.findIndex(function (q) { return mesmaCot(q, ja); }) : (novaQ ? minhas.indexOf(novaQ) : 0);
       var selo = selosPeca(minhas);
       h += minhas.map(function (q, j) {
-        return '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value="' + j + '"' + (j === marcada ? ' checked' : '') + ' onchange="totalAut()"> ' + esc(rotuloCot(q)) + selo(q) + seloEco(p.valorOrc, q.valor) + linkCot(q) + '</label>';
+        return '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value="' + j + '"' + (j === marcada ? ' checked' : '') + ' onchange="totalAut()"> ' + esc(rotuloCot(q)) + (q === novaQ ? '<span class="selo nova">cotação nova</span>' : '') + selo(q) + seloEco(p.valorOrc, q.valor) + linkCot(q) + '</label>';
       }).join('') + '<label class="opcao-aut"><input type="radio" name="aut_' + i + '" value=""' + (marcada < 0 ? ' checked' : '') + ' onchange="totalAut()"> não autorizar</label>';
       div.dataset.cots = JSON.stringify(minhas);
     }
@@ -1550,10 +1561,11 @@ function montarCompra(c) {
           + '<div class="dica" style="margin:8px 0 4px">Cotação nova no lugar (opcional — sem ela o card volta para cotação):</div>'
           + '<div class="cot"><div><label>Fornecedor</label><input type="text" class="i-forn maiusc" list="dlForn" autocomplete="off" onchange="this.value=nomeForn(this.value)"></div>'
           + (pneuI ? '<div><label>Marca do pneu</label><input type="text" class="i-marca maiusc"></div><input type="hidden" class="i-tipo" value="">'
-                   : '<div><label>Tipo</label><select class="i-tipo">' + tiposI.map(function (t) { return '<option value="' + esc(t) + '">' + esc(t) + '</option>'; }).join('') + '</select></div><div><label>Marca (opcional)</label><input type="text" class="i-marca maiusc"></div>')
+                   : '<div><label>Tipo</label><select class="i-tipo">' + tiposI.map(function (t) { return '<option value="' + esc(t) + '"' + (aut.tipo && semAc(t) === semAc(aut.tipo) ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select></div><div><label>Marca (opcional)</label><input type="text" class="i-marca maiusc"></div>')
           + '<div><label>Valor (R$)</label><input type="text" class="i-valor" inputmode="decimal"></div><div><label>Prazo (dias úteis)</label><input type="number" class="i-dias" min="0"></div></div>'
           + '<div style="margin-top:8px"><label>Link do anúncio (compra online — opcional)</label><input type="url" class="i-link" style="width:100%;box-sizing:border-box" placeholder="https://… (Mercado Livre, AliExpress, Shopee…)" onchange="this.value=encurtarLink(this.value)"></div>'
-          + '<div style="margin-top:10px"><button type="button" class="principal" onclick="enviarIndisponivel()">↩️ Enviar para nova autorização</button></div></div>';
+          + '<div class="dica i-como v2-so" style="margin-top:10px">Vai junto no <b>Enviar compra</b>: esta peça volta para a autorização com a cotação nova (sem ela, volta para cotação). As outras peças escolhidas são compradas no mesmo envio.</div>'
+          + '<div class="i-enviar" style="margin-top:10px"><button type="button" class="principal" onclick="enviarIndisponivel()">↩️ Enviar para nova autorização</button></div></div>';
       }
     }
     div.innerHTML = h;
@@ -1756,18 +1768,9 @@ function abrirIndisp(btn) {
   btn.textContent = abrir ? '✖ cancelar (cotação indisponível)' : '⚠️ cotação autorizada indisponível';
 }
 function enviarIndisponivel() {
+  if (document.documentElement.classList.contains('v2')) return enviarCompraIndisp();
   mostrar('erroComprador', false);
-  var itens = [], faltas = [];
-  Array.prototype.forEach.call($('compraItens').querySelectorAll('.indisp:not(.oculto)'), function (box) {
-    var item = box.closest('.item'), aut = JSON.parse(item.dataset.aut), nome = (item.querySelector('.item-topo strong') || {}).textContent;
-    var motivo = box.querySelector('.i-motivo').value.trim();
-    if (!motivo) faltas.push(nome + ': escreva por que a cotação não está disponível');
-    var nova = { fornecedor: box.querySelector('.i-forn').value.trim(), tipo: box.querySelector('.i-tipo').value, marca: box.querySelector('.i-marca').value.trim(), valor: box.querySelector('.i-valor').value.trim(), dias: box.querySelector('.i-dias').value.trim(), link: ((box.querySelector('.i-link') || {}).value || '').trim() };
-    if (nova.fornecedor && !fmtValor(nova.valor)) faltas.push(nome + ': valor da cotação nova inválido');
-    if (nova.link && !/^https?:\/\/\S+$/i.test(nova.link)) faltas.push(nome + ': link da cotação nova inválido — cole o endereço completo, começando com http');
-    if (!nova.fornecedor && nova.valor) faltas.push(nome + ': falta o fornecedor da cotação nova');
-    itens.push({ chave: item.dataset.chave, fornecedor: aut.fornecedor, valor: aut.valor, motivo: motivo, nova: nova.fornecedor ? nova : null });
-  });
+  var faltas = [], itens = itensIndisponivel(faltas);
   if (faltas.length) return errosComprador(faltas);
   if (!itens.length) return errosComprador(['Abra "cotação autorizada indisponível" na peça e escreva o motivo.']);
   mostrar('enviandoCompra', true);
@@ -1776,6 +1779,40 @@ function enviarIndisponivel() {
     if (!r.ok) return errosComprador(r.faltas);
     sucesso('⚠️ Cotação indisponível registrada no card <b>' + esc(r.nome) + '</b> (' + r.n + ' peça(s)).' + (r.nova ? '<br>A cotação nova foi para <b>autorização</b>.' : '<br>Sem cotação nova: o card voltou para cotação.') + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
   }).catch(function (e) { mostrar('enviandoCompra', false); errosComprador([e.message]); });
+}
+function enviarCompraIndisp() {
+  mostrar('erroComprador', false);
+  var faltas = [], itens = itensIndisponivel(faltas), compras = [];
+  if (!itens.length) return errosComprador(['Abra "cotação autorizada indisponível" na peça e escreva o motivo.']);
+  Array.prototype.forEach.call($('compraItens').children, function (item) {
+    if (item.querySelector('.indisp:not(.oculto)')) return;
+    var sel = item.querySelector('.k-sel'), nomeIt = (item.querySelector('.item-topo strong') || {}).textContent || '';
+    if (!sel || !sel.value) return;
+    var q = JSON.parse(item.dataset.cots)[+sel.value];
+    var just = ((item.querySelector('.k-just') || {}).value || '').trim();
+    if (foraDaAut(item, q) && !just) faltas.push(nomeIt + ': compra fora da autorização — escreva o motivo.');
+    var cpl = complDoItem(item, nomeIt); if (cpl && cpl.falta) faltas.push(cpl.falta);
+    var dias = q.dias;
+    if (dias === '' || dias == null) { dias = ((item.querySelector('.k-dias') || {}).value || '').trim(); if (!dias) faltas.push(nomeIt + ': informe o prazo de entrega em dias úteis (a cotação não tinha prazo).'); }
+    compras.push({ chave: item.dataset.chave, fornecedor: q.fornecedor, tipo: q.tipo, marca: q.marca, valor: q.valor, dias: dias, just: just, anexos: COMPRA_ANEXOS[item.dataset.chave] || [], compl: cpl && cpl.status ? cpl.status : '', complPor: cpl && cpl.por ? cpl.por : '' });
+  });
+  if (faltas.length) return errosComprador(faltas);
+  var botoes = [$('btnCompra'), $('btnCompraParcial')], fim = function () { botoes.forEach(function (b) { if (b) b.disabled = false; }); mostrar('enviandoCompra', false); };
+  botoes.forEach(function (b) { if (b) b.disabled = true; }); mostrar('enviandoCompra', true);
+  var comprou = null;
+  (compras.length ? chamar('vdf_salvarCompra', TOKEN, { shortLink: CARD_EDICAO, compras: compras, parcial: true, anexosExtra: [], complementos: [] }) : Promise.resolve(null)).then(function (rc) {
+    if (rc && !rc.ok) { fim(); errosComprador(rc.faltas); return null; }
+    comprou = rc; if (rc) COMPRA_ANEXOS = {};
+    return chamar('vdf_cotacaoIndisponivel', TOKEN, { shortLink: CARD_EDICAO, itens: itens });
+  }).then(function (r) {
+    if (!r) return;
+    fim();
+    if (!r.ok) return errosComprador((comprou ? ['A compra das outras peças foi registrada (' + comprou.pagas + ' item(ns)), mas a cotação indisponível não:'] : []).concat(r.faltas));
+    sucesso((comprou ? '✅ Compra registrada: ' + comprou.pagas + ' item(ns) no checklist PAGAS.<br>' : '')
+      + '⚠️ Cotação indisponível registrada (' + r.n + ' peça(s)) no card <b>' + esc(r.nome) + '</b>.'
+      + (r.nova ? '<br>A cotação nova foi para <b>autorização</b> — depois de autorizada, a peça aparece de novo aqui para comprar.' : '<br>Sem cotação nova: a peça voltou para cotação.')
+      + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+  }).catch(function (e) { fim(); errosComprador([e.message]); });
 }
 function marcarOrdemAut() {
   mostrar('erroComprador', false);
@@ -1806,8 +1843,26 @@ function avisoForaAut(sel) {
   var kd = item.querySelector('.k-dias'); if (kd) mostrar(kd, !!q && (q.dias === '' || q.dias == null));
   if (fora) just.focus();
 }
+/* 16/10/2026 (Weslley, ARW5715): cotação indisponível vai no mesmo "Enviar compra" — primeiro registra o que foi comprado
+ * (como compra parcial, porque a peça indisponível volta para autorização), depois a indisponível com a cotação nova. */
+function itensIndisponivel(faltas) {
+  var itens = [];
+  Array.prototype.forEach.call($('compraItens').querySelectorAll('.indisp:not(.oculto)'), function (box) {
+    var item = box.closest('.item'), aut = JSON.parse(item.dataset.aut), nome = (item.querySelector('.item-topo strong') || {}).textContent;
+    var motivo = box.querySelector('.i-motivo').value.trim();
+    if (!motivo) faltas.push(nome + ': escreva por que a cotação não está disponível');
+    var nova = { fornecedor: box.querySelector('.i-forn').value.trim(), tipo: box.querySelector('.i-tipo').value, marca: box.querySelector('.i-marca').value.trim(), valor: box.querySelector('.i-valor').value.trim(), dias: box.querySelector('.i-dias').value.trim(), link: ((box.querySelector('.i-link') || {}).value || '').trim() };
+    if (nova.fornecedor && !fmtValor(nova.valor)) faltas.push(nome + ': valor da cotação nova inválido');
+    if (nova.dias && !/^\d+$/.test(nova.dias)) faltas.push(nome + ': prazo da cotação nova em dias úteis (só número)');
+    if (nova.link && !/^https?:\/\/\S+$/i.test(nova.link)) faltas.push(nome + ': link da cotação nova inválido — cole o endereço completo, começando com http');
+    if (!nova.fornecedor && nova.valor) faltas.push(nome + ': falta o fornecedor da cotação nova');
+    itens.push({ chave: item.dataset.chave, fornecedor: aut.fornecedor, valor: aut.valor, motivo: motivo, nova: nova.fornecedor ? nova : null });
+  });
+  return itens;
+}
 function enviarCompra(parcial) {
   mostrar('erroComprador', false);
+  if (document.documentElement.classList.contains('v2') && $('compraItens').querySelector('.indisp:not(.oculto)')) return enviarCompraIndisp();   // só no 2.0 (TESTE)
   var compras = [], semJust = [], complementos = [];
   Array.prototype.forEach.call($('compraItens').children, function (item) {
     var sel = item.querySelector('.k-sel'), nomeIt = (item.querySelector('.item-topo strong') || {}).textContent || '';
@@ -6700,7 +6755,8 @@ iniciar();
     });
   }
   function analisarCompra() {
-    var its = $$('#compraItens > .item'), lista = [], pend = [], jaC = 0, agora = 0, semCompra = [], cartao = [];
+    var its = $$('#compraItens > .item'), lista = [], pend = [], jaC = 0, agora = 0, semCompra = [], cartao = [], indOk = 0;
+    var temInd = !!document.querySelector('#compraItens .indisp:not(.oculto)');
     // caixas abertas (alterar prazo/previsão, cancelada, indisponível): obrigatório vazio rosado, preenchido verde (têm botão próprio)
     $$('#compraItens .v2c-caixa:not(.oculto)').forEach(function (bx) { $$('input[aria-required="true"], select[aria-required="true"]', bx).forEach(function (e) { pintarCampo(e, !vl(e), !!vl(e)); }); });
     $$('#compraItens .v2c-caixa.oculto [aria-invalid]').forEach(function (e) { pintarCampo(e, false, false); });
@@ -6711,7 +6767,7 @@ iniciar();
       var ind = it.querySelector('.indisp:not(.oculto)');
       if (ind) {
         var im = ind.querySelector('.i-motivo');
-        fs.push(vl(im) ? { t: 'enviar a cotação indisponível (botão "Enviar para nova autorização")', c: 'indisponível: enviar para nova autorização', el: ind.querySelector('button.principal'), ind: 1 } : { t: 'o motivo da cotação indisponível', c: 'motivo da cotação indisponível', el: im, ind: 1 });
+        if (vl(im)) indOk++; else fs.push({ t: 'o motivo da cotação indisponível', c: 'motivo da cotação indisponível', el: im, ind: 1 });
       } else if (sel && sel.value) {
         agora++;
         var cots = []; try { cots = JSON.parse(it.dataset.cots || '[]'); } catch (e) {}
@@ -6728,7 +6784,8 @@ iniciar();
       } else if (!feito && !ind) {
         // o que o servidor ainda espera comprar (vdf_salvarCompra): peça autorizada sem compra — ou qualquer peça, se o card não tem autorização
         var conta = auts.length ? !!it.dataset.aut : semCotJust.indexOf(it.dataset.chave) < 0;
-        if (conta) semCompra.push({ it: it, sem: !sel });
+        // com peça indisponível o envio é parcial: as peças sem compra esperam (16/10/2026)
+        if (conta && !temInd) semCompra.push({ it: it, sem: !sel });
       }
       // peça que o servidor ainda espera comprar também fica com a faixa vermelha (está na lista do que falta)
       var semC = !!semCompra.length && semCompra[semCompra.length - 1].it === it;
@@ -6740,7 +6797,7 @@ iniciar();
       var sc = semCompra[semCompra.length - 1]; if (sc && sc.it === it) lista.push(faltaHtml(it, [{ t: sc.sem ? 'sem cotação (lance na aba Cotação)' : 'escolher de quem comprar', c: sc.sem ? 'sem cotação' : 'sem compra', el: sc.sem ? it : sel }]));
     });
     if (LISTAS_SEM_COMPRA.map(semAcC).indexOf(listaCard()) >= 0) cartao.push({ it: null, fs: [{ t: 'a autorização ser enviada (o card está em ' + (window.CARD.lista || '') + ')', c: 'card em ' + (window.CARD.lista || '') + ': a compra só depois da autorização', el: null }] });
-    return { its: its, pend: pend, jaC: jaC, agora: agora, semCompra: semCompra, lista: lista, cartao: cartao };
+    return { its: its, pend: pend, jaC: jaC, agora: agora, semCompra: semCompra, lista: lista, cartao: cartao, indOk: indOk };
   }
 
   /* ---------- Recebimento ---------- */
@@ -6922,10 +6979,11 @@ iniciar();
       if (vv.textContent !== t) vv.textContent = t;
     }, 1500);
   }
+  var ROT_PRONTO_COMPRA = '';
   function botaoComp(k, estado, rotFalta) {
     var b = g(ABA_BTN[k][0]); if (!b) return;
     var pronto = estado === 'pronto', neutro = estado === 'neutro';
-    var rot = pronto ? ABA_BTN[k][1] : rotFalta;
+    var rot = pronto ? (k === 'compra' && ROT_PRONTO_COMPRA ? ROT_PRONTO_COMPRA : ABA_BTN[k][1]) : rotFalta;
     var sp = b.querySelector('.v2c-rot'); if (!sp) { b.innerHTML = '<span class="v2c-rot"></span>'; sp = b.querySelector('.v2c-rot'); }
     if (sp.textContent !== rot) { sp.textContent = rot; if (b.offsetParent) anunciar(); }
     if (pronto && b.classList.contains('v2c-pend')) { b.classList.add('v2-ficou-pronto'); setTimeout(function () { b.classList.remove('v2-ficou-pronto'); }, 800); }
@@ -6964,7 +7022,8 @@ iniciar();
       var escC = []; try { $$('#compraItens .item').forEach(function (it) { var sl = it.querySelector('.k-sel'); if (sl && sl.value && it.dataset.cots) { var q = JSON.parse(it.dataset.cots)[+sl.value]; if (q) escC.push({ chave: it.dataset.chave, valor: q.valor }); } }); } catch (x) {}
       var totC = somaTxt(escC), faltam = cp.cartao.map(function (x) { return faltaHtml(x.it, x.fs); }).concat(cp.lista);
       // 15/10 (GPT): conta só a compra pronta — escolhida com algo a corrigir não conta (antes dava "4 de 4" com "Corrija 1 peça")
-      var prontC = Math.max(0, cp.jaC + cp.agora - cp.pend.filter(function (x) { return !(x.fs || []).some(function (f) { return f.ind; }); }).length);
+      var prontC = Math.max(0, cp.jaC + cp.agora + cp.indOk - cp.pend.filter(function (x) { return !(x.fs || []).some(function (f) { return f.ind; }); }).length);
+      ROT_PRONTO_COMPRA = cp.indOk ? (cp.agora ? 'Enviar compra e indisponível' : 'Enviar indisponível') : '';
       e1 = { t: 'Compras', c: nc ? prontC + ' de ' + pecasTxt(nc) + (totC ? ' · ' + totC + ' agora' : '') : '', p: nc ? Math.max(0, cp.jaC + cp.agora - cp.pend.length) / nc : 1, ok: !faltam.length, f: faltam };
       if (!faltam.length) estado = 'pronto';
       rot = cp.cartao.length ? 'Falta a autorização' : cp.pend.length ? 'Corrija ' + pecasTxt(cp.pend.length) + ' →' : (cp.semCompra.length === 1 ? 'Falta comprar 1 peça →' : 'Faltam comprar ' + cp.semCompra.length + ' peças →');

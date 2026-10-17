@@ -932,9 +932,15 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
   if (!resto) return out;
   var chaves = (pecas || []).map(function (p) { return { chave: vd_chavePeca_(p), desc: vd_semAcento_(p.pneu ? 'PNEU ' + p.medida : p.descricao).replace(/\s+/g, ' ').trim(), cod: vd_semAcento_(String(p.codigo || '').replace(/\s+/g, '')) }; });
   var forn = '', obs = '';
+  /* 16/10/2026 (Weslley, ARW5715): bloco "RECOTAÇÃO" = a cotação autorizada ficou indisponível na compra e o comprador já trouxe
+   * outra. As cotações desse bloco saem marcadas (nova = {no: cotação que caiu, motivo, quem, data}) para a autorização mostrar. */
+  var recot = null, caiu = {};
   resto.split('\n').slice(1).forEach(function (raw) {
     var l = vd_limpar_(raw).trim();
     if (!l) return;
+    var mrc = l.match(/^RECOTA[ÇC][ÃA]O\s+(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*-?\s*(.*)$/i);
+    if (mrc) { recot = { data: mrc[1], quem: mrc[2].trim() }; caiu = {}; forn = ''; return; }
+    if (/^COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^DEVOLVIDA PARA COTA/i.test(l)) { recot = null; caiu = {}; }
     // cotação removida pelo cotador / indisponível na hora da compra: sai da lista (a mais recente igual)
     var rm = vdf_lerRemocao_(l, chaves);
     if (rm) {
@@ -943,7 +949,10 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
           var q0 = out.cotacoes[ir];
           if (q0.chave === rm.chave && q0.fornecedor === rm.forn && Math.abs(q0.valor - rm.valor) < 0.005) { out.cotacoes.splice(ir, 1); break; }
         }
-        if (rm.tipo === 'INDISPONIVEL') out.obs.push({ chave: rm.chave, texto: '(indisponível) ' + rm.forn + ' ' + vd_valorBR_(rm.valor) + (rm.motivo ? ': ' + rm.motivo : '') });
+        if (rm.tipo === 'INDISPONIVEL') {
+          out.obs.push({ chave: rm.chave, texto: '(indisponível) ' + rm.forn + ' ' + vd_valorBR_(rm.valor) + (rm.motivo ? ': ' + rm.motivo : '') });
+          if (recot) caiu[rm.chave] = { no: rm.forn + ' ' + vd_valorBR_(rm.valor), motivo: rm.motivo, quem: recot.quem, data: recot.data };
+        }
       }
       forn = '';
       return;
@@ -1002,7 +1011,9 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     var tipo = '', marca = tm;
     var mt = tm.match(/^(GENU[IÍ]NO|ORIGINAL|PARALEL[OA]|USAD[OA])\b\s*(.*)$/i);
     if (mt) { tipo = vd_tipoNorm_(mt[1]); marca = mt[2].trim(); }
-    out.cotacoes.push({ chave: peca.chave, fornecedor: forn, obs: obs, tipo: tipo, marca: marca, valor: vd_valorNum_(m[3]), dias: m[4] !== undefined ? +m[4] : '', data: m[5] || '', link: tl.link });
+    var qn = { chave: peca.chave, fornecedor: forn, obs: obs, tipo: tipo, marca: marca, valor: vd_valorNum_(m[3]), dias: m[4] !== undefined ? +m[4] : '', data: m[5] || '', link: tl.link };
+    if (recot && caiu[peca.chave]) qn.nova = caiu[peca.chave];
+    out.cotacoes.push(qn);
     // 10/10/2026 (revisão): "SEM COTAÇÃO" de bloco anterior cai quando a peça ganha cotação depois — senão a justificativa velha
     // deixava a peça autorizada passar no "Enviar compra" sem compra (vdf_salvarCompra trata naoCotadas como "não espera compra")
     out.semCot = out.semCot.filter(function (s) { return s.chave !== peca.chave; });
@@ -2250,7 +2261,7 @@ function vdf_cotacaoIndisponivel(token, p) {
   var lidas = vd_cotacoesDaDescricao_(card.desc, an.pecas).cotacoes;
   var pagos = []; (card.checklists || []).forEach(function (k) { if (/^PAGAS/i.test(String(k.name || '').trim())) (k.checkItems || []).forEach(function (i) { pagos.push(vd_semAcento_(i.name)); }); });
   var foNome = function (x) { try { return fo_resolver_(x).nome || String(x || '').trim().toUpperCase(); } catch (e) { return String(x || '').trim().toUpperCase(); } };
-  var faltas = [], linhas = [], novas = {}, ordem = [], afetadas = [], evs = [];
+  var faltas = [], linhas = [], novas = {}, ordem = [], afetadas = [], evs = [], resumo = [];
   (p.itens || []).forEach(function (it, i) {
     var peca = porChave[it.chave];
     if (!peca) { faltas.push('item ' + (i + 1) + ': peça não encontrada'); return; }
@@ -2263,6 +2274,7 @@ function vdf_cotacaoIndisponivel(token, p) {
     var e = ev_peca_(peca); e.fornecedor = forn; e.valor = valor; e.detalhe = 'indisponível: ' + motivo; evs.push(e);
     afetadas.push(peca);
     var n = it.nova;
+    var novaTxt = '';
     if (n && String(n.fornecedor || '').trim()) {
       var nf = foNome(n.fornecedor), nv = vd_valorNum_(n.valor), nd = String(n.dias == null ? '' : n.dias).trim(), nt = vd_tipoNorm_(n.tipo || '') || '', nm = String(n.marca || '').trim().toUpperCase();
       if (isNaN(nv) || nv <= 0) { faltas.push(nomeP + ': valor da cotação nova inválido'); return; }
@@ -2272,7 +2284,9 @@ function vdf_cotacaoIndisponivel(token, p) {
       if (!novas[nf]) { novas[nf] = []; ordem.push(nf); }
       novas[nf].push(nomeP + (nt || nm ? ' - ' + [nt, nm].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(nv) + (nd !== '' ? ' - ' + nd + (nd === '1' ? ' dia útil' : ' dias úteis') : '') + (nl ? ' - [🔗 link](' + nl + ')' : ''));
       var e2 = ev_peca_(peca); e2.fornecedor = nf; e2.valor = nv; e2.dias = nd; e2.detalhe = 'cotação nova (no lugar da indisponível)'; evs.push(e2);
+      novaTxt = nf + (nt || nm ? ' · ' + [nt, nm].filter(String).join(' ') : '') + ' · ' + vd_valorBR_(nv) + (nd !== '' ? ' · ' + nd + (nd === '1' ? ' dia útil' : ' dias úteis') : '');
     }
+    resumo.push('- **' + nomeP + '**: ' + forn + ' ' + vd_valorBR_(valor) + ' indisponível — ' + motivo + '\n  ' + (novaTxt ? '↪️ cotação nova: **' + novaTxt + '**' : '↪️ sem cotação nova: volta para cotação'));
   });
   if (!linhas.length && !faltas.length) faltas.push('Marque a peça com cotação indisponível e escreva o motivo.');
   if (faltas.length) return { ok: false, faltas: faltas };
@@ -2298,8 +2312,9 @@ function vdf_cotacaoIndisponivel(token, p) {
     if (temNova) afetadas.forEach(function (x) { if (vdf_pecaParticular_(x, card, an)) us = us.concat(vdf_donosPart_(card, x, criador)); else us = us.concat(sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity')); });
     us = us.filter(function (u, i) { return u && u !== me.username && us.indexOf(u) === i; });
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: us.map(function (u) { return '@' + u + ' '; }).join('') + '⚠️ **COTAÇÃO INDISPONÍVEL** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' +
-      linhas.map(function (l) { return '- ' + l.replace(/^INDISPON[IÍ]VEL:\s*/i, ''); }).join('\n') +
-      (temNova ? '\n↪️ Cotação nova: autorizar de novo.' : '\n↪️ Sem cotação nova: volta para cotação.') } }, token);
+      // 16/10/2026: no quadro TESTE (2.0) o comentário traz a cotação nova; no principal fica o texto de antes até a migração
+      (vd_board_() === VD.BOARD_PADRAO ? resumo.join('\n') + (temNova ? '\n✅ Autorizar de novo pela aba Autorizar (a cotação nova já vem marcada).' : '\n🔁 Sem cotação nova: a peça volta para cotação.')
+        : linhas.map(function (l) { return '- ' + l.replace(/^INDISPON[IÍ]VEL:\s*/i, ''); }).join('\n') + (temNova ? '\n↪️ Cotação nova: autorizar de novo.' : '\n↪️ Sem cotação nova: volta para cotação.')) } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };

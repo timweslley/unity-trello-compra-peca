@@ -86,3 +86,15 @@ da outra, deixar um recado aqui e no commit.
   setas do teclado e "Usar como capa" (troca a capa do card no Trello na hora). Card sem foto: caixa "Sem foto" (abre o botão Capa do pedido).
 - Servidor: vdf_fotosCard (previews do Trello ≥300 px em data URL, cache 6 h, até 12 fotos), vdf_fotoCard (≥1000 px), vdf_definirCapa.
 - Só com srv=1 (quadro TESTE). Teste: /tmp/claude-0/t/fotos/teste.mjs (computador e celular).
+
+## 16/10 21h30 — cotação indisponível na compra (2.0, TESTE) — Weslley: "esse fluxo está confuso"
+- Simulado de ponta a ponta no TESTE (card ZZT9C51, placa fictícia = sem notificar ninguém). Achados: (1) o comentário
+  "COTAÇÃO INDISPONÍVEL" não dizia qual era a cotação nova; (2) na autorização a nova aparecia misturada com as outras, sem
+  ligação com a que caiu (e vinha marcada a mais barata, não a do comprador); (3) eram dois envios separados na compra
+  ("Enviar para nova autorização" + "Enviar compra") e, depois do 1º, o card saía de AUTORIZADO COMPRA e as outras peças
+  autorizadas não podiam mais ser compradas; (4) o tipo da cotação nova vinha sempre GENUÍNO.
+- Feito (só 2.0/TESTE; no principal fica como estava até a migração): um botão só ("Enviar compra e indisponível") — registra
+  primeiro a compra das outras peças (parcial) e depois a indisponível; comentário com peça, cotação que caiu, motivo e a cotação
+  nova; na autorização, aviso amarelo "a cotação autorizada ficou indisponível… cotação nova do comprador…" com a nova já marcada
+  e selo "cotação nova"; tipo da nova já vem o da cotação autorizada. Servidor: vd_cotacoesDaDescricao_ marca q.nova nas cotações
+  do bloco RECOTAÇÃO.
