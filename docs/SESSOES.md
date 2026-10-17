@@ -156,3 +156,16 @@ da outra, deixar um recado aqui e no commit.
   interruptor de emergência: `GRAVACAO_PRINCIPAL=NAO` no Cloud Run). Card PARTICULAR continua exigindo ORDEM AUTORIZADA para a
   compra; dois pneus da mesma medida no card continuam sendo a mesma peça; "ÓLEO ADITIVO …" entra na regra de 🚫 não comprar
   padrão (estoque da oficina), como "ADITIVO …".
+
+## 17/10 09h — robô inteiro no servidor (Weslley 08h52: "quero isso terminado essa semana")
+- Caminho: **não reescrever** — o servidor roda o MESMO código do Apps Script (bundle com `validarDadosPedido`,
+  `verificarAlteracoesDescricao`, `rotinaDiaria`, `relatorioDiario`) num trabalhador `robo` do quadro principal, com as
+  propriedades do robô (espelho + devolução), planilha ao vivo, Drive de verdade só leitura (bases Cilia/HDI/SOMA — pasta
+  `Rotina Unity/Orçamentos` compartilhada com `compra-peca-run@…`), e-mails pelo Apps Script, travas `sg_*` compartilhadas
+  entre robô e formulário.
+- `POST /tarefas/minuto` (Cloud Scheduler a cada minuto: ciclo + log de descrição + diárias 07:00/07:15); `GET /tarefas/robo`
+  mostra cada execução e, em OBSERVAR, as gravações que ele faria.
+- **Chave**: variável `ROBO_SERVIDOR` no workflow do servidor — `OBSERVAR` (só anota) | `ATIVO`. No ATIVO o servidor grava
+  `VD_ROBO_SERVIDOR=SIM` no Apps Script e os acionadores do Google só retornam (reserva). Voltar: `OBSERVAR` e publicar.
+- Plano: sáb/dom OBSERVAR; seg comparar com o Google o dia todo, virar à noite; ter–qua prazos/diárias/bases; qui formulário
+  só servidor; sex Google parado.
