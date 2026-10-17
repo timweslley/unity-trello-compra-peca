@@ -2002,7 +2002,7 @@ function itensIndisponivel(faltas) {
 }
 function enviarCompra(parcial) {
   mostrar('erroComprador', false);
-  if (document.documentElement.classList.contains('v2') && $('compraItens').querySelector('.indisp:not(.oculto)')) return enviarCompraIndisp();   // só no 2.0 (TESTE)
+  if (!parcial && document.documentElement.classList.contains('v2') && $('compraItens').querySelector('.indisp:not(.oculto)')) return enviarCompraIndisp();   // só no 2.0; o Salvar parcial continua salvando só as outras peças
   var compras = [], semJust = [], complementos = [];
   Array.prototype.forEach.call($('compraItens').children, function (item) {
     var sel = item.querySelector('.k-sel'), nomeIt = (item.querySelector('.item-topo strong') || {}).textContent || '';
@@ -4577,6 +4577,7 @@ iniciar();
   /* rodapé do comprador em uma linha (no máximo ~80 px) */
   html.v2toque #comprador .rodape { flex-wrap:nowrap !important; gap:8px !important; padding:10px 12px calc(10px + env(safe-area-inset-bottom)) !important; }
   html.v2toque #comprador .rodape > button { flex:1 1 0; min-width:0; padding:10px 8px !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  html.v2toque #comprador .rodape > button.principal { min-height:48px !important; }   /* 16/10: o .item button (44 px) passava por cima — botões principais do rodapé com 48 px no toque */
   html.v2toque #comprador .rodape > button.v2-curto { flex:0 0 auto; }
   html.v2toque #comprador button.v2-devolver { width:100%; margin:4px 0 12px; }
   /* recebimento: campos da peça só depois de marcar "Chegou" (a previsão fica à vista) */
