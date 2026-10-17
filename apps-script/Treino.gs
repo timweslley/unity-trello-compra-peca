@@ -243,7 +243,7 @@ function vdf_treinoAssinatura(token, p) {
       var x = vd_extrair_(reg.texto);
       var s = JSON.stringify([r.origem, r.cor, r.seguradora, x.modelo, x.ano, (r.oficina || []).map(function (q) { return [q.codigo, q.descricao, q.qtd, q.valorOrc, q.medida || '', q.pneu ? 1 : 0]; }), (r.fo || []).map(function (q) { return [q.codigo, q.descricao, q.qtd, q.valorOrc]; })]);
       sig[k] = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, s)).slice(0, 10);
-      if (det[k]) detalhe[k] = { s: s, trecho: vd_normTexto_(reg.texto).slice(0, 6000) };
+      if (det[k]) detalhe[k] = { s: s, texto: String(reg.texto).slice(0, 80000) };
       total++;
     });
   });
