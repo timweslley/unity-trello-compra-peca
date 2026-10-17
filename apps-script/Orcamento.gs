@@ -61,6 +61,8 @@ function vd_pneuDaDescricao_(desc) {
 function vd_limparDescricao_(d) {
   return String(d || '')
     .replace(/^\(A\)\s*/, '')
+    .replace(/\s+(?:R&I|T|R|P)\s+(?:-|\d+,\d{2})\s.*$/, '')   // 16/10/2026: linha seguinte (operação "R&I 0,50 1FORRO…") vazou na descrição
+    .replace(/^[A-Z0-9]{6,20}(?:GENUINA|ORIGINAL)\s+/, '')   // 16/10/2026: 2º código + tipo colados ("92101R1510GENUINA FAROL")
     .replace(/^(?:\d{3,}\s+)+/, '')              // 2º código numérico do Cilia (ex.: 1632439, 4310)
     .replace(/^\d{5,}(?=[A-Z]{3})/, '')           // 2º código colado na descrição ("951450JOGO DE FAROIS")
     .replace(/^(?:PPOI|PPG|PPC|PPO|PRO|PAR|PG|PO|OR|GE)\s+/, '')   // sigla de tipo do Cilia (PPG/PPC = paralela; PPO = original)

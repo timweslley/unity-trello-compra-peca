@@ -253,6 +253,8 @@ function vd_pneuDaDescricao_(desc) {
 function vd_limparDescricao_(d) {
   return String(d || '')
     .replace(/^\(A\)\s*/, '')
+    .replace(/\s+(?:R&I|T|R|P)\s+(?:-|\d+,\d{2})\s.*$/, '')   // 16/10/2026: linha seguinte (operação "R&I 0,50 1FORRO…") vazou na descrição
+    .replace(/^[A-Z0-9]{6,20}(?:GENUINA|ORIGINAL)\s+/, '')   // 16/10/2026: 2º código + tipo colados ("92101R1510GENUINA FAROL")
     .replace(/^(?:\d{3,}\s+)+/, '')              // 2º código numérico do Cilia (ex.: 1632439, 4310)
     .replace(/^\d{5,}(?=[A-Z]{3})/, '')           // 2º código colado na descrição ("951450JOGO DE FAROIS")
     .replace(/^(?:PPOI|PPG|PPC|PPO|PRO|PAR|PG|PO|OR|GE)\s+/, '')   // sigla de tipo do Cilia (PPG/PPC = paralela; PPO = original)
@@ -270,7 +272,7 @@ function vd_limparDescricao_(d) {
     .slice(0, 70);
 }
 
-// Orcamento.gs:83
+// Orcamento.gs:85
 function vd_tirarRepeticao_(d) {
   var ws = String(d).split(' ');
   for (var i = Math.ceil(ws.length / 2); i < ws.length; i++) {
@@ -280,17 +282,17 @@ function vd_tirarRepeticao_(d) {
   return d;
 }
 
-// Orcamento.gs:93
+// Orcamento.gs:95
 function vd_numOrc_(s) { var n = parseFloat(String(s || '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? NaN : n; }
 
-// Orcamento.gs:95
+// Orcamento.gs:97
 function vd_liquidoOrc_(unit, descPct) {
   var u = vd_numOrc_(unit), d = vd_numOrc_(descPct);
   if (isNaN(u)) return NaN;
   return isNaN(d) || d === 0 || d >= 100 || d <= -100 ? u : u * (1 - d / 100);   // desconto negativo = acréscimo (16/10/2026, JDC7H45)
 }
 
-// Orcamento.gs:106
+// Orcamento.gs:108
 function vd_websomaDetalhado_(corpo, lista, add) {
   var txt = vd_compactarCodigos_(corpo, '\u0001');
   // 08/10/2026 (treino 2025, "Orcamento_Detalhado.pdf" da Porto): mesmo relatório impresso com número no formato inglês
@@ -350,7 +352,7 @@ function vd_websomaDetalhado_(corpo, lista, add) {
   }
 }
 
-// Orcamento.gs:166
+// Orcamento.gs:168
 function vd_compactarCodigos_(txt, marca) {
   return String(txt || '').replace(/\b([A-Z0-9]{2,4})\/ ?([A-Z0-9]{3,8})\/ ?([A-Z0-9]{0,3}) ?\/ ?([A-Z0-9]{0,4})(?=\s|$)/g, function (_, a, b, c, d) {
     var cod = [a, b, c, d].filter(String).join('/');
@@ -358,7 +360,7 @@ function vd_compactarCodigos_(txt, marca) {
   });
 }
 
-// Orcamento.gs:174
+// Orcamento.gs:176
 function vd_secao_(U, inicio, finais) {
   var i = U.search(inicio);
   if (i < 0) return '';
@@ -371,7 +373,7 @@ function vd_secao_(U, inicio, finais) {
   return resto.slice(0, fim);
 }
 
-// Orcamento.gs:186
+// Orcamento.gs:188
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
   var r = { origem: '', oficina: [], fo: [], seguradora: '', cor: '', sinistro: '' };
