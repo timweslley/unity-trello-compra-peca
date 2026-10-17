@@ -12,7 +12,7 @@ import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
 import { retratar, retratarTodos } from './retrato.js';
-import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo, minutoRobo, testeDrive } from './gas/ponte.js';
+import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo, minutoRobo, testeDrive, compararRobo } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -274,6 +274,7 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
   app.post('/tarefas/minuto', async () => minutoRobo());
   /** Confere o acesso ao Drive (bases de orçamento) com a conta do servidor — só nomes e datas. */
   app.get('/tarefas/drive-teste', async () => testeDrive());
+  app.get('/tarefas/robo/comparar', async (req) => compararRobo(Math.min(48, Math.max(1, +((req.query as Record<string, string>)?.horas || 1)))));
   // 17/10/2026: despertador próprio (CPU sempre ligada no Cloud Run, sem Cloud Scheduler) — a cada minuto
   if (process.env.ROBO_TICK === 'SIM') {
     setTimeout(() => setInterval(() => { minutoRobo().catch((e) => console.error('[robô] minuto:', (e as Error).message)); }, 60_000), 20_000);

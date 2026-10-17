@@ -842,6 +842,60 @@ export async function testeDrive(): Promise<unknown> {
   }
   return out;
 }
+/**
+ * Comparação OBSERVAR × robô do Google (17/10/2026): o que o servidor faria (gravações anotadas) e o que o robô do Google fez
+ * de fato (ações do quadro feitas pela conta do robô) nas últimas `horas`, por card e tipo (comentário, coluna, checklist,
+ * anexo, descrição, etiqueta). Sem texto de card na resposta — só ids, tipos e contagens.
+ */
+const tipoEscrita = (m: string, c: string, b: string): string => {
+  if (/\/actions\/comments/.test(c)) return 'comentario';
+  if (/checkItem|checklists/.test(c)) return 'checklist';
+  if (/attachments/.test(c)) return 'anexo';
+  if (/idLabels|labels/.test(c)) return 'etiqueta';
+  if (/^\/cards\/[^/]+$/.test(c) && /idList/.test(b)) return 'coluna';
+  if (/^\/cards\/[^/]+$/.test(c) && /desc/.test(b)) return 'descricao';
+  if (/^\/cards\/[^/]+$/.test(c) && /closed/.test(b)) return 'arquivar';
+  return m.toLowerCase() + ' ' + c.split('/').slice(0, 2).join('/');
+};
+const tipoAcao = (a: { type: string; data?: Record<string, any> }): string => {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  const t = a.type, d = a.data || {};
+  if (t === 'commentCard') return 'comentario';
+  if (/CheckItem|Checklist/.test(t)) return 'checklist';
+  if (/Attachment/.test(t)) return 'anexo';
+  if (/Label/.test(t)) return 'etiqueta';
+  if (t === 'updateCard' && d.listAfter) return 'coluna';
+  if (t === 'updateCard' && d.old && 'desc' in d.old) return 'descricao';
+  if (t === 'updateCard' && d.old && 'closed' in d.old) return 'arquivar';
+  return t;
+};
+export async function compararRobo(horas = 1): Promise<unknown> {
+  const desde = Date.now() - horas * 3600_000;
+  const rs = await consulta<{ valor: any }>(`SELECT valor FROM guardado WHERE nome LIKE 'robo_obs_%' AND em > now() - ($1 || ' hours')::interval`, [String(horas)]);   // eslint-disable-line @typescript-eslint/no-explicit-any
+  const srv = new Map<string, number>();
+  for (const r of rs) for (const e of (r.valor?.escritas || []) as Array<{ m: string; c: string; b: string }>) {
+    if (e.m === 'EMAIL') { srv.set('EMAIL', (srv.get('EMAIL') || 0) + 1); continue; }
+    const card = (e.c.match(/^\/cards\/([A-Za-z0-9]+)/) || [])[1] || (e.c.match(/^\/checklists\/([a-f0-9]{24})/) ? 'checklist:' + e.c.split('/')[2] : '?');
+    const k = card + ' ' + tipoEscrita(e.m, e.c, e.b);
+    srv.set(k, (srv.get(k) || 0) + 1);
+  }
+  const quadro = await idDoQuadroSl(QUADRO_PRINCIPAL_SL);
+  const robo = (await trello<{ id: string }>('/members/me', { query: { fields: 'id' } })).id;
+  const acoes = await trello<Array<{ type: string; date: string; idMemberCreator: string; data?: Record<string, any> }>>(`/boards/${quadro}/actions`, { query: { since: new Date(desde).toISOString(), limit: 1000, fields: 'type,date,idMemberCreator,data' } });   // eslint-disable-line @typescript-eslint/no-explicit-any
+  const ggl = new Map<string, number>();
+  for (const a of acoes) {
+    if (a.idMemberCreator !== robo) continue;
+    const card = a.data?.card?.id || a.data?.card?.shortLink || '?';
+    const k = card + ' ' + tipoAcao(a);
+    ggl.set(k, (ggl.get(k) || 0) + 1);
+  }
+  const chaves = new Set([...srv.keys(), ...ggl.keys()]);
+  const iguais: string[] = [], soServidor: string[] = [], soGoogle: string[] = [];
+  for (const k of chaves) {
+    const a = srv.get(k) || 0, b = ggl.get(k) || 0;
+    if (a && b) iguais.push(k + (a !== b ? ` (servidor ${a} × Google ${b})` : '')); else if (a) soServidor.push(k + ' ×' + a); else soGoogle.push(k + ' ×' + b);
+  }
+  return { horas, execucoesComGravacao: rs.length, servidor: [...srv.values()].reduce((x, y) => x + y, 0), google: [...ggl.values()].reduce((x, y) => x + y, 0), iguais, soServidor, soGoogle };
+}
 export function observacoesRobo(): unknown[] { return obsRobo.slice(-60).reverse(); }
 function anotarEscrita(p: Pedido, ctx: Contexto): Resposta {
   let c = p.url; try { c = new URL(p.url).pathname.replace(/^\/1/, ''); } catch { /* */ }
