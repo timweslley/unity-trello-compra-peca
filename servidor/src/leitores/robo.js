@@ -929,8 +929,10 @@ function pv_lerFornecimento_(texto, alvos, lista) {
     (alvos || []).forEach(function (a) {
       var k = cp_norm_(a.codigo || a.codigoOrc); if (k.length < 5) { semCodigo.push(a); return; }
       var kd = (k.match(/^\d{5,}/) || [k])[0];   // código grudado na descrição ("100260230EMBLEMA"): só os dígitos
-      var r = cilia[k] || cilia[kd];
-      if (r) { usadasC[cilia[k] ? k : kd] = 1; outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, entregue: r.entregue, entregueEm: r.entregueEm }); }
+      var r = cilia[k] || cilia[kd], kr = cilia[k] ? k : kd;
+      // 16/10/2026 (ZZT9B01): o item do card guarda o código com espaço ("71198 T7AJ00 GUIA…") — compara o nome sem espaços
+      if (!r) { var nn = cp_norm_(a.nome || ''); Object.keys(cilia).some(function (kk) { if (kk.length >= 6 && !usadasC[kk] && nn.indexOf(kk) === 0) { r = cilia[kk]; kr = kk; return true; } return false; }); }
+      if (r) { usadasC[kr] = 1; outC.push({ alvo: a, fornecedor: r.fornecedor, previsao: r.previsao, linha: r.linha, entregue: r.entregue, entregueEm: r.entregueEm }); }
       else semCodigo.push(a);
     });
     // peça do card cujo código não está no documento: mesma peça pela descrição = código mudou -> devolve o código novo
@@ -938,7 +940,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
       var melhor = '', nota = 0;
       Object.keys(cilia).forEach(function (kk) {
         if (usadasC[kk]) return;
-        var sim = cp_similar_(a.descricao || a.nome, cilia[kk].descricao);
+        var sim = cp_similar_(String(a.descricao || a.nome || '').replace(/^(?:[A-Z0-9]*\d[A-Z0-9]*\s+)+/, ''), cilia[kk].descricao);   // sem o resto do código ("T7TM01 CONDENSADOR")
         if (sim > nota) { nota = sim; melhor = kk; }
       });
       if (!melhor) return;
@@ -981,7 +983,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:786
+// Previsao.gs:788
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
