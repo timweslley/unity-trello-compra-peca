@@ -14,7 +14,7 @@ const ESCOPO_GRAVAR = 'https://www.googleapis.com/auth/spreadsheets';
 const tokens: Record<string, { valor: string; expira: number }> = {};
 
 /** Token da conta de serviço do Cloud Run (servidor de metadados). Em desenvolvimento: GOOGLE_TOKEN. */
-async function tokenGoogle(escopo = ESCOPO): Promise<string> {
+export async function tokenGoogle(escopo = ESCOPO): Promise<string> {
   if (process.env.GOOGLE_TOKEN) return process.env.GOOGLE_TOKEN;
   const c = tokens[escopo];
   if (c && c.expira > Date.now() + 60_000) return c.valor;

@@ -80,6 +80,16 @@ function vdf_servidorProps(token, op) {
   var p = PropertiesService.getScriptProperties();
   op = op || {};
   if (op.ler) return p.getProperties();
+  // 17/10/2026: e-mails do robô rodando no servidor (alarmes, relatório diário) saem pela conta do robô
+  if (op.emails && op.emails.length) {
+    op.emails.slice(0, 20).forEach(function (m) {
+      var o = { to: String(m.para || ''), subject: String(m.assunto || ''), body: String(m.corpo || '') };
+      if (m.html) o.htmlBody = String(m.html);
+      if (m.nome) o.name = String(m.nome);
+      if (o.to) MailApp.sendEmail(o);
+    });
+    if (!op.set && !op.del && !op.cache) return { ok: true, emails: op.emails.length };
+  }
   // 17/10/2026: licenças das travas do robô gravadas pelo servidor (ck_* = lista de horários, junta com a que já existe)
   if (op.cache) {
     var cs = CacheService.getScriptCache(), ks = Object.keys(op.cache), atual = cs.getAll(ks), nc = 0;

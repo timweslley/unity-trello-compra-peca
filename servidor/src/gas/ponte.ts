@@ -12,7 +12,7 @@ import { randomUUID } from 'node:crypto';
 import { CFG } from '../config.js';
 import { consulta } from '../db.js';
 import { textoDoArquivo, URL_APP } from '../leitores/ocr.js';
-import { lerAbaPlanilha, listarAbasPlanilha, gravarLinhasPlanilha, anexarLinhasPlanilha } from '../google/planilha.js';
+import { tokenGoogle, lerAbaPlanilha, listarAbasPlanilha, gravarLinhasPlanilha, anexarLinhasPlanilha } from '../google/planilha.js';
 import { trello } from '../trello/api.js';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
@@ -225,6 +225,35 @@ async function abaDoPrincipal(nome: string, ex: Execucao | null): Promise<unknow
   return v;
 }
 
+/** 17/10/2026 — Drive (só leitura) com a conta do servidor: bases de orçamento na pasta compartilhada pelo Weslley. */
+const ESCOPO_DRIVE = 'https://www.googleapis.com/auth/drive.readonly';
+const CAMPOS_DRIVE = 'id,name,mimeType,modifiedTime,trashed,parents';
+async function driveApi(caminho: string, q: Record<string, string> = {}, bin = false): Promise<any> {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  const u = new URL('https://www.googleapis.com/drive/v3/' + caminho);
+  for (const [k, v] of Object.entries({ supportsAllDrives: 'true', ...q })) u.searchParams.set(k, v);
+  const r = await fetch(u, { headers: { Authorization: 'Bearer ' + await tokenGoogle(ESCOPO_DRIVE) }, signal: AbortSignal.timeout(60_000) });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error('Drive ' + r.status + ': ' + (await r.text()).slice(0, 200));
+  return bin ? new Uint8Array(await r.arrayBuffer()) : r.json();
+}
+const nomesPasta = new Map<string, string>();
+async function infoDrive(f: { id: string; name: string; mimeType: string; modifiedTime: string; trashed?: boolean; parents?: string[] }) {
+  const pais = [] as Array<{ id: string; nome: string }>;
+  for (const p of f.parents || []) {
+    if (!nomesPasta.has(p)) { const x = await driveApi('files/' + p, { fields: 'id,name' }).catch(() => null); nomesPasta.set(p, x?.name || ''); }
+    pais.push({ id: p, nome: nomesPasta.get(p)! });
+  }
+  return { id: f.id, nome: f.name, tipo: f.mimeType, modificado: f.modifiedTime, lixeira: !!f.trashed, pais };
+}
+async function driveLer(op: string, d: any): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (op === 'drive.info') { const f = await driveApi('files/' + encodeURIComponent(d), { fields: CAMPOS_DRIVE }); return f ? infoDrive(f) : null; }
+  if (op === 'drive.ler') return { dados: await driveApi('files/' + encodeURIComponent(d), { alt: 'media' }, true) };
+  const q = op === 'drive.buscar' ? String(d)
+    : `'${String(d.pai).replace(/'/g, "\\'")}' in parents and name = '${String(d.nome).replace(/'/g, "\\'")}' and trashed = false and mimeType ${d.pasta ? '=' : '!='} 'application/vnd.google-apps.folder'`;
+  const r = await driveApi('files', { q: q.replace(/"([^"]*)"/g, "'$1'"), fields: 'files(' + CAMPOS_DRIVE + ')', pageSize: '100', includeItemsFromAllDrives: 'true', corpora: 'allDrives' });
+  return Promise.all(((r?.files || []) as Array<Parameters<typeof infoDrive>[0]>).map(infoDrive));
+}
+
 async function buscar(p: Pedido, ctx: Contexto) {
   // 17/10/2026 — robô no servidor em OBSERVAR: nenhuma gravação sai; cada uma fica anotada (o que ele faria) e volta uma resposta falsa
   if (ctx.observar && p.metodo !== 'GET' && /api\.trello\.com/.test(p.url)) return anotarEscrita(p, ctx);
@@ -386,7 +415,9 @@ async function abasReais(): Promise<string[]> {
 async function atenderRemoto(op: string, d: any, ctx: Contexto): Promise<unknown> {   // eslint-disable-line @typescript-eslint/no-explicit-any
   switch (op) {
     case 'cache.licenca': { const x = d as { k: string; v: string; seg: number }; ctx.licencas[x.k] = { v: x.v, seg: x.seg }; return null; }
-    case 'email': if (ctx.observar && ctx.atual) (ctx.atual.escritas ||= []).push({ m: 'EMAIL', c: String(d?.para || ''), b: String(d?.assunto || '').slice(0, 200) }); else if (!ctx.observar) console.warn('[robô] e-mail não enviado pelo servidor:', d?.assunto); return null;
+    case 'email': if (ctx.observar) { if (ctx.atual) (ctx.atual.escritas ||= []).push({ m: 'EMAIL', c: String(d?.para || ''), b: String(d?.assunto || '').slice(0, 200) }); }
+      else ctx.emails.push(d);   // o Apps Script (conta do robô) envia no fim da chamada
+      return null;
     case 'props.gravar':
       for (const [k, v] of Object.entries(d as Record<string, string>)) { ctx.pend.set[k] = String(v); ctx.pend.del.delete(k); }
       return null;
@@ -444,6 +475,7 @@ async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   
         await consulta(`INSERT INTO gas_linha (aba, linha, valores) VALUES ($1,$2,$3) ON CONFLICT (aba, linha) DO UPDATE SET valores = EXCLUDED.valores`, [d.nome, +n, JSON.stringify(v)]);
       }
       return null;
+    case 'drive.buscar': case 'drive.info': case 'drive.filhos': case 'drive.ler': return driveLer(op, d);
     case 'arq.criar': {
       const id = 'arq-' + randomUUID();
       await consulta(`INSERT INTO gas_arquivo (id, nome, tipo, dados, pasta) VALUES ($1,$2,$3,$4,$5)`, [id, d.nome, d.tipo, Buffer.from(d.dados), d.pasta]);
@@ -562,6 +594,7 @@ class Contexto {
   tam: Record<string, number> = {};
   bufAbas: Record<string, { fixas: Record<string, unknown[]>; novas: Record<string, unknown[]> }> = {};
   licencas: Record<string, { v: string; seg: number }> = {};
+  emails: Array<Record<string, unknown>> = [];
   constructor(readonly nome: 'teste' | 'principal' | 'retrato' | 'principalGrava' | 'testeRemoto' | 'robo', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false, readonly remoto = false, public observar = false) {}
 
   private fixas(): Record<string, string> {
@@ -622,7 +655,7 @@ class Contexto {
         await this.iniciar();
         let extra: Record<string, unknown> = this.nome === 'principal' ? { props: await propsDoPrincipal() } : {};
         if (this.remoto) {
-          this.pend = { set: {}, del: new Set() }; this.tam = {}; this.bufAbas = {}; this.licencas = {};
+          this.pend = { set: {}, del: new Set() }; this.tam = {}; this.bufAbas = {}; this.licencas = {}; this.emails = [];
           try { extra = { props: await propsParaGravacao(), propsTrocar: true }; } catch (e) { throw new Error('servidor (nada gravado): ' + (e as Error).message); }
           if (this.nome === 'robo') this.observar = process.env.ROBO_SERVIDOR !== 'ATIVO';
         }
@@ -670,6 +703,8 @@ class Contexto {
    * (e só ações com mais de 90 s, desde 17/10/2026). Falhou: segue em segundo plano com as propriedades. */
   private async enviarLicencas(ex: Execucao): Promise<void> {
     const lic = this.licencas; this.licencas = {};
+    const emails = this.emails; this.emails = [];
+    if (emails.length) filaDevolver = filaDevolver.then(() => chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { emails }], 60_000)).catch((e) => console.error('[robô] e-mail:', (e as Error).message));
     if (!Object.keys(lic).length) return;
     const t0 = Date.now();
     try { await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { cache: lic }], 15_000); }

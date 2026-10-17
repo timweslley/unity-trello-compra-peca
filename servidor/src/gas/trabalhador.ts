@@ -255,8 +255,35 @@ class Pasta {
   getId() { return this.id; }
   createFile(blob: Blob) { return criarArquivo(blob, this.id); }
 }
+// 17/10/2026 — Drive de verdade (bases de orçamento do Cilia/HDI/SOMA na pasta compartilhada com a conta do servidor), só leitura
+interface InfoDrive { id: string; nome: string; tipo: string; modificado: string; lixeira: boolean; pais: Array<{ id: string; nome: string }> }
+const iterar = <T>(l: T[]) => { let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; };
+class PastaDrive {
+  constructor(public id: string, private nome = '') {}
+  getId() { return this.id; }
+  getName() { if (!this.nome) this.nome = (sinc<InfoDrive | null>('drive.info', this.id)?.nome) || ''; return this.nome; }
+  getFoldersByName(n: string) { return iterar(sinc<InfoDrive[]>('drive.filhos', { pai: this.id, nome: n, pasta: true }).map((x) => new PastaDrive(x.id, x.nome))); }
+  getFilesByName(n: string) { return iterar(sinc<InfoDrive[]>('drive.filhos', { pai: this.id, nome: n, pasta: false }).map((x) => new ArquivoDrive(x))); }
+  createFile(blob: Blob) { return criarArquivo(blob); }
+}
+class ArquivoDrive {
+  constructor(private i: InfoDrive) {}
+  getId() { return this.i.id; }
+  getName() { return this.i.nome; }
+  getMimeType() { return this.i.tipo; }
+  isTrashed() { return !!this.i.lixeira; }
+  getLastUpdated() { return new Date(this.i.modificado); }
+  getParents() { return iterar(this.i.pais.map((p) => new PastaDrive(p.id, p.nome))); }
+  getBlob() { const r = sinc<{ dados: Uint8Array }>('drive.ler', this.i.id); return new Blob(Buffer.from(r.dados || []), this.i.tipo, this.i.nome); }
+  getSize() { return this.getBlob().dados.length; }
+  getUrl() { return 'https://drive.google.com/file/d/' + this.i.id; }
+  setTrashed() { return this; }   // o servidor só lê o Drive
+}
 const DriveApp = {
-  getFileById(id: string) { const r = sinc<{ nome: string; tipo: string; pasta?: string | null } | null>('arq.info', id); if (!r) throw new Error('Arquivo não encontrado: ' + id); return new Arquivo(id, r.nome, r.tipo, r.pasta || null); },
+  searchFiles(q: string) { return iterar(sinc<InfoDrive[]>('drive.buscar', String(q).replace(/\btitle\b/g, 'name')).map((x) => new ArquivoDrive(x))); },
+  getRootFolder() { return new PastaDrive('root', 'Meu Drive'); },
+  getFileById(id: string) {
+    if (!/^arq-/.test(id)) { const i = sinc<InfoDrive | null>('drive.info', id); if (i) return new ArquivoDrive(i); } const r = sinc<{ nome: string; tipo: string; pasta?: string | null } | null>('arq.info', id); if (!r) throw new Error('Arquivo não encontrado: ' + id); return new Arquivo(id, r.nome, r.tipo, r.pasta || null); },
   createFile(blob: Blob) { return criarArquivo(blob); },
   getFolderById(id: string) { return new Pasta(id); },
   createFolder(nome: string) { return new Pasta('pasta-' + createHash('md5').update(nome).digest('hex').slice(0, 12)); },
@@ -283,7 +310,13 @@ const DocumentApp = {
 // ---------- demais serviços ----------
 const LockService = { getUserLock: () => trava, getScriptLock: () => trava, getDocumentLock: () => trava };
 const trava = { waitLock() {}, tryLock() { return true; }, releaseLock() {}, hasLock() { return true; } };   // um trabalhador = uma execução por vez
-const MailApp = { sendEmail(para: string, assunto: string, corpo: string) { sinc('email', { para, assunto, corpo }); }, getRemainingDailyQuota: () => 100 };
+const MailApp = {
+  sendEmail(para: string | Record<string, unknown>, assunto?: string, corpo?: string, opcoes?: Record<string, unknown>) {
+    const o = typeof para === 'object' && para ? para : { to: para, subject: assunto, body: corpo, ...(opcoes || {}) };
+    sinc('email', { para: String(o.to || ''), assunto: String(o.subject || ''), corpo: String(o.body || ''), html: o.htmlBody ? String(o.htmlBody) : undefined, nome: o.name ? String(o.name) : undefined });
+  },
+  getRemainingDailyQuota: () => 100,
+};
 const gatilhos: Array<{ fn: string }> = [];
 const ScriptApp = {
   getScriptId: () => 'servidor-compra-peca',
