@@ -5485,13 +5485,17 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
     var foFora = cp_foNaOficina_(card, token, usuario ? '@' + usuario : '');
     if (foFora.length) card = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state' } });
   } catch (e) { console.log('FO na oficina: ' + e); }
+  // 17/10/2026 (teste das cópias): sem a descrição completa (só a vitrine) a análise não vê peça nenhuma e o card ia para
+  // ENCERRADO como "sem peça para a oficina comprar". Sem a completa, as regras que leem as peças não valem (próximo ciclo).
+  var semCompleta = vd_ehVitrineSemCompleta_(card.desc);
+  if (semCompleta) console.log('coluna: ' + card.shortLink + ' sem descrição completa — só a regra dos checklists vale');
   var ctx = vd_contexto_(), lista = vdf_nomeLista_(ctx, card.idList);
   var itens = vdf_itensRecebimento_(card), pend = itens.filter(function (i) { return !i.ok; });
   var alvo = '';
   // compra cancelada / peça devolvida ao fornecedor (10/10/2026): peça autorizada sem item PAGAS -> volta para AUTORIZADO COMPRA
   // (só quando quem chamou acabou de cancelar/devolver — opt.semCompra — para não mexer em card antigo com PAGAS fora do padrão)
   var semCompra = false;
-  if (opt.semCompra && (lista === VDF_LISTA_CHEGAR || lista === RC.LISTA_FIM || lista === 'ENTREGUES') && ctx.listas[VDF_LISTA_AUTORIZADO] && !vd_legado_(card.id)) {
+  if (opt.semCompra && !semCompleta && (lista === VDF_LISTA_CHEGAR || lista === RC.LISTA_FIM || lista === 'ENTREGUES') && ctx.listas[VDF_LISTA_AUTORIZADO] && !vd_legado_(card.id)) {
     try {
       var anC = vd_analisar_(card.desc, card.name), autsC = vd_autorizacoesDaDescricao_(card.desc, anC.pecas), pagasC = vdf_itensPagas_(card);
       var naoC = {}; (anC.pecas || []).forEach(function (p) { if (p.naoComprar) naoC[vd_chavePeca_(p)] = 1; });
@@ -5500,7 +5504,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   }
   if (semCompra) alvo = VDF_LISTA_AUTORIZADO;
   else if (lista === VDF_LISTA_CHEGAR && itens.length && !pend.length) alvo = RC.LISTA_FIM;
-  else if (lista === VDF_LISTA_AUTORIZADO) {
+  else if (lista === VDF_LISTA_AUTORIZADO && !semCompleta) {
     // toda peça autorizada já está no PAGAS (ex.: a não autorizada foi removida do pedido)
     var anA = vd_analisar_(card.desc, card.name), autsA = vd_autorizacoesDaDescricao_(card.desc, anA.pecas);
     var pagas = vdf_itensPagas_(card);
@@ -5510,7 +5514,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   // sem peça da oficina para comprar (só FO, ou tudo marcado 🚫 não comprar) em qualquer coluna antes da compra:
   // não tem o que cotar/autorizar -> FALTA CHEGAR (FO pendente) ou ENCERRADO (nada a receber). 05/10/2026 (QPG1B84)
   var soFo = '';
-  if (!alvo && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
+  if (!alvo && !semCompleta && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
       itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista) || i.ok; }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido; PAGAS já recebido não impede (13/10/2026, BBG3844: tudo 🚫 e compras antigas ✔)
     var an = vd_analisar_(card.desc, card.name);
     if (!an.pecas.length && (itens.length || (an.naoComprar || []).length)) {
@@ -5522,7 +5526,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   // toda peça da oficina JÁ COMPRADA (está no PAGAS) e o resto 🚫 não comprar, mas o card voltou para antes da compra
   // (ex.: orçamento complementar trouxe peça nova que a diretoria marcou não comprar — RAM9I31, 13/10/2026):
   // não tem o que cotar -> FALTA CHEGAR (falta receber) ou ENCERRADO (tudo recebido)
-  if (!alvo && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
+  if (!alvo && !semCompleta && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
       itens.length && !vd_legado_(card.id)) {
     try {
       var anJ = vd_analisar_(card.desc, card.name), pagasJ = vdf_itensPagas_(card);
@@ -7456,7 +7460,13 @@ function pz_labelId_(board, nome, cor) {
 // Validacao.gs:2426
 function vd_vitrineLigada_() { return vd_prop_('VD_VITRINE', 'SIM') !== 'NAO'; }
 
-// Validacao.gs:2429
+// Validacao.gs:2430
+function vd_ehVitrineSemCompleta_(desc) {
+  var d = String(desc || '');
+  return /(^|\n)\d+\.\s+\*\*[^*\n]+\*\*/.test(d) && !/(^|\n)\s*\**\s*PE[ÇC]AS\s*\**\s*:/i.test(d);
+}
+
+// Validacao.gs:2435
 function vd_completa_(cardId, vitrine) {
   if (!cardId) return '';
   if (VD_CMP_MEM && Object.prototype.hasOwnProperty.call(VD_CMP_MEM, cardId)) return VD_CMP_MEM[cardId];
@@ -7473,14 +7483,20 @@ function vd_completa_(cardId, vitrine) {
   var txt = '', h = '';
   try {
     var sh = tr_aba_();
-    var cel = sh.getRange('A:A').createTextFinder(cardId).matchEntireCell(true).findNext();
-    if (cel) { var lin = sh.getRange(cel.getRow(), 1, 1, 5).getValues()[0]; h = String(lin[1] || ''); txt = String(lin[4] || ''); }
+    // 17/10/2026 (teste das cópias): card com duas linhas na TRAVA (robô e formulário gravando ao mesmo tempo) — vale a linha
+    // cuja assinatura é a da vitrine atual; senão a primeira com descrição completa (linha só de assinatura não tem)
+    var cels = sh.getRange('A:A').createTextFinder(cardId).matchEntireCell(true).findAll() || [];
+    for (var ic = 0; ic < cels.length; ic++) {
+      var lin = sh.getRange(cels[ic].getRow(), 1, 1, 5).getValues()[0], h1 = String(lin[1] || ''), t1 = String(lin[4] || '');
+      if (hv && h1 === hv && t1) { h = h1; txt = t1; break; }
+      if (!txt && t1) { h = h1; txt = t1; }
+    }
   } catch (e) { console.log('vitrine/ler: ' + e); }
   try { if (txt.length < 90000) cache.put(k, '#' + h + '|' + txt, 21600); } catch (e) {}
   return txt;
 }
 
-// Validacao.gs:2453
+// Validacao.gs:2465
 function vd_completasTodas_() {
   if (VD_CMP_MEM) return VD_CMP_MEM;
   VD_CMP_MEM = {};
@@ -7494,7 +7510,7 @@ function vd_completasTodas_() {
   return VD_CMP_MEM;
 }
 
-// Validacao.gs:2467
+// Validacao.gs:2479
 function vd_trocarPelaCompleta_(r) {
   if (!r) return r;
   if (Array.isArray(r)) {
@@ -7507,13 +7523,13 @@ function vd_trocarPelaCompleta_(r) {
   return r;
 }
 
-// Validacao.gs:2479
+// Validacao.gs:2491
 function vd_tit_(s) { s = String(s || '').toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
 
-// Validacao.gs:2480
+// Validacao.gs:2492
 function vd_md_(s) { return String(s || '').replace(/([\\`*_\[\]#>|~])/g, '\\$1'); }
 
-// Validacao.gs:2486
+// Validacao.gs:2498
 function vd_vitrine_(desc, nome, pagas) {
   if (!vd_vitrineLigada_()) return null;
   if (/^\s*AVISO\b/i.test(nome || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '')) return null;
@@ -7646,7 +7662,7 @@ function vd_vitrine_(desc, nome, pagas) {
   return txt;
 }
 
-// Validacao.gs:2619
+// Validacao.gs:2631
 function vd_textoLegado_(desc) {
   var resto = vd_dividir_(desc).resto;
   if (!resto) return '';

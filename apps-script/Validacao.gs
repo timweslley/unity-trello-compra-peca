@@ -2426,6 +2426,12 @@ var VD_CMP_MEM = null;   // id -> descrição completa (lida uma vez por execuç
 function vd_vitrineLigada_() { return vd_prop_('VD_VITRINE', 'SIM') !== 'NAO'; }
 
 /** Descrição completa guardada de um card ('' se o card ainda não foi convertido). */
+/** Descrição que é a vitrine (lista "1. **PEÇA**") e não a completa (bloco PEÇAS) — a troca pela completa falhou. */
+function vd_ehVitrineSemCompleta_(desc) {
+  var d = String(desc || '');
+  return /(^|\n)\d+\.\s+\*\*[^*\n]+\*\*/.test(d) && !/(^|\n)\s*\**\s*PE[ÇC]AS\s*\**\s*:/i.test(d);
+}
+
 function vd_completa_(cardId, vitrine) {
   if (!cardId) return '';
   if (VD_CMP_MEM && Object.prototype.hasOwnProperty.call(VD_CMP_MEM, cardId)) return VD_CMP_MEM[cardId];
@@ -2442,8 +2448,14 @@ function vd_completa_(cardId, vitrine) {
   var txt = '', h = '';
   try {
     var sh = tr_aba_();
-    var cel = sh.getRange('A:A').createTextFinder(cardId).matchEntireCell(true).findNext();
-    if (cel) { var lin = sh.getRange(cel.getRow(), 1, 1, 5).getValues()[0]; h = String(lin[1] || ''); txt = String(lin[4] || ''); }
+    // 17/10/2026 (teste das cópias): card com duas linhas na TRAVA (robô e formulário gravando ao mesmo tempo) — vale a linha
+    // cuja assinatura é a da vitrine atual; senão a primeira com descrição completa (linha só de assinatura não tem)
+    var cels = sh.getRange('A:A').createTextFinder(cardId).matchEntireCell(true).findAll() || [];
+    for (var ic = 0; ic < cels.length; ic++) {
+      var lin = sh.getRange(cels[ic].getRow(), 1, 1, 5).getValues()[0], h1 = String(lin[1] || ''), t1 = String(lin[4] || '');
+      if (hv && h1 === hv && t1) { h = h1; txt = t1; break; }
+      if (!txt && t1) { h = h1; txt = t1; }
+    }
   } catch (e) { console.log('vitrine/ler: ' + e); }
   try { if (txt.length < 90000) cache.put(k, '#' + h + '|' + txt, 21600); } catch (e) {}
   return txt;

@@ -398,13 +398,17 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
     var foFora = cp_foNaOficina_(card, token, usuario ? '@' + usuario : '');
     if (foFora.length) card = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state' } });
   } catch (e) { console.log('FO na oficina: ' + e); }
+  // 17/10/2026 (teste das cópias): sem a descrição completa (só a vitrine) a análise não vê peça nenhuma e o card ia para
+  // ENCERRADO como "sem peça para a oficina comprar". Sem a completa, as regras que leem as peças não valem (próximo ciclo).
+  var semCompleta = vd_ehVitrineSemCompleta_(card.desc);
+  if (semCompleta) console.log('coluna: ' + card.shortLink + ' sem descrição completa — só a regra dos checklists vale');
   var ctx = vd_contexto_(), lista = vdf_nomeLista_(ctx, card.idList);
   var itens = vdf_itensRecebimento_(card), pend = itens.filter(function (i) { return !i.ok; });
   var alvo = '';
   // compra cancelada / peça devolvida ao fornecedor (10/10/2026): peça autorizada sem item PAGAS -> volta para AUTORIZADO COMPRA
   // (só quando quem chamou acabou de cancelar/devolver — opt.semCompra — para não mexer em card antigo com PAGAS fora do padrão)
   var semCompra = false;
-  if (opt.semCompra && (lista === VDF_LISTA_CHEGAR || lista === RC.LISTA_FIM || lista === 'ENTREGUES') && ctx.listas[VDF_LISTA_AUTORIZADO] && !vd_legado_(card.id)) {
+  if (opt.semCompra && !semCompleta && (lista === VDF_LISTA_CHEGAR || lista === RC.LISTA_FIM || lista === 'ENTREGUES') && ctx.listas[VDF_LISTA_AUTORIZADO] && !vd_legado_(card.id)) {
     try {
       var anC = vd_analisar_(card.desc, card.name), autsC = vd_autorizacoesDaDescricao_(card.desc, anC.pecas), pagasC = vdf_itensPagas_(card);
       var naoC = {}; (anC.pecas || []).forEach(function (p) { if (p.naoComprar) naoC[vd_chavePeca_(p)] = 1; });
@@ -413,7 +417,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   }
   if (semCompra) alvo = VDF_LISTA_AUTORIZADO;
   else if (lista === VDF_LISTA_CHEGAR && itens.length && !pend.length) alvo = RC.LISTA_FIM;
-  else if (lista === VDF_LISTA_AUTORIZADO) {
+  else if (lista === VDF_LISTA_AUTORIZADO && !semCompleta) {
     // toda peça autorizada já está no PAGAS (ex.: a não autorizada foi removida do pedido)
     var anA = vd_analisar_(card.desc, card.name), autsA = vd_autorizacoesDaDescricao_(card.desc, anA.pecas);
     var pagas = vdf_itensPagas_(card);
@@ -423,7 +427,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   // sem peça da oficina para comprar (só FO, ou tudo marcado 🚫 não comprar) em qualquer coluna antes da compra:
   // não tem o que cotar/autorizar -> FALTA CHEGAR (FO pendente) ou ENCERRADO (nada a receber). 05/10/2026 (QPG1B84)
   var soFo = '';
-  if (!alvo && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
+  if (!alvo && !semCompleta && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
       itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista) || i.ok; }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido; PAGAS já recebido não impede (13/10/2026, BBG3844: tudo 🚫 e compras antigas ✔)
     var an = vd_analisar_(card.desc, card.name);
     if (!an.pecas.length && (itens.length || (an.naoComprar || []).length)) {
@@ -435,7 +439,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   // toda peça da oficina JÁ COMPRADA (está no PAGAS) e o resto 🚫 não comprar, mas o card voltou para antes da compra
   // (ex.: orçamento complementar trouxe peça nova que a diretoria marcou não comprar — RAM9I31, 13/10/2026):
   // não tem o que cotar -> FALTA CHEGAR (falta receber) ou ENCERRADO (tudo recebido)
-  if (!alvo && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
+  if (!alvo && !semCompleta && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
       itens.length && !vd_legado_(card.id)) {
     try {
       var anJ = vd_analisar_(card.desc, card.name), pagasJ = vdf_itensPagas_(card);

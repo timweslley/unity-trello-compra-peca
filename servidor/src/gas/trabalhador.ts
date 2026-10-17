@@ -185,6 +185,14 @@ class Range {
           if (inteira ? v === String(t) : v.includes(String(t))) return new Range(self.aba, i + 1, self.c, 1, 1);
         }
         return null;
+      },
+      findAll() {
+        const ls = self.linhas(), out: Range[] = [];
+        for (let i = self.l - 1; i < ls.length; i++) {
+          const v = String(ls[i]?.[self.c - 1] ?? '');
+          if (inteira ? v === String(t) : v.includes(String(t))) out.push(new Range(self.aba, i + 1, self.c, 1, 1));
+        }
+        return out;
       } };
     return f;
   }
