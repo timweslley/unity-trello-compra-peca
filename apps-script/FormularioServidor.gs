@@ -2261,7 +2261,7 @@ function vdf_cotacaoIndisponivel(token, p) {
   var lidas = vd_cotacoesDaDescricao_(card.desc, an.pecas).cotacoes;
   var pagos = []; (card.checklists || []).forEach(function (k) { if (/^PAGAS/i.test(String(k.name || '').trim())) (k.checkItems || []).forEach(function (i) { pagos.push(vd_semAcento_(i.name)); }); });
   var foNome = function (x) { try { return fo_resolver_(x).nome || String(x || '').trim().toUpperCase(); } catch (e) { return String(x || '').trim().toUpperCase(); } };
-  var faltas = [], linhas = [], novas = {}, ordem = [], afetadas = [], evs = [], resumo = [];
+  var faltas = [], linhas = [], novas = {}, ordem = [], afetadas = [], evs = [], resumo = [], semNova = 0;
   (p.itens || []).forEach(function (it, i) {
     var peca = porChave[it.chave];
     if (!peca) { faltas.push('item ' + (i + 1) + ': peça não encontrada'); return; }
@@ -2286,6 +2286,7 @@ function vdf_cotacaoIndisponivel(token, p) {
       var e2 = ev_peca_(peca); e2.fornecedor = nf; e2.valor = nv; e2.dias = nd; e2.detalhe = 'cotação nova (no lugar da indisponível)'; evs.push(e2);
       novaTxt = nf + (nt || nm ? ' · ' + [nt, nm].filter(String).join(' ') : '') + ' · ' + vd_valorBR_(nv) + (nd !== '' ? ' · ' + nd + (nd === '1' ? ' dia útil' : ' dias úteis') : '');
     }
+    if (!novaTxt) semNova++;
     resumo.push('- **' + nomeP + '**: ' + forn + ' ' + vd_valorBR_(valor) + ' indisponível — ' + motivo + '\n  ' + (novaTxt ? '↪️ cotação nova: **' + novaTxt + '**' : '↪️ sem cotação nova: volta para cotação'));
   });
   if (!linhas.length && !faltas.length) faltas.push('Marque a peça com cotação indisponível e escreva o motivo.');
@@ -2304,7 +2305,9 @@ function vdf_cotacaoIndisponivel(token, p) {
   // para onde vai: com cotação nova -> autorização de novo; sem -> volta para EM COTAÇÃO
   var criador = ''; try { criador = vd_criador_(card.id); } catch (e) {}
   var temNova = ordem.length > 0, soPart = afetadas.every(function (x) { return vdf_pecaParticular_(x, card, an); });
-  var destino = !temNova ? VD.LISTA_COTACAO : (soPart ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE);
+  // 16/10/2026: peça sem cotação nova precisa ser cotada antes — o card vai para EM COTAÇÃO mesmo que outra peça tenha trazido nova
+  // (a nova fica guardada e vai para a autorização junto com a cotação que falta)
+  var destino = (!temNova || semNova) ? VD.LISTA_COTACAO : (soPart ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE);
   var movido = '';
   try { movido = vdf_moverPara_(card, ctx, destino, token, me.username); } catch (e) {}
   try {
@@ -2313,11 +2316,11 @@ function vdf_cotacaoIndisponivel(token, p) {
     us = us.filter(function (u, i) { return u && u !== me.username && us.indexOf(u) === i; });
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: us.map(function (u) { return '@' + u + ' '; }).join('') + '⚠️ **COTAÇÃO INDISPONÍVEL** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' +
       // 16/10/2026: no quadro TESTE (2.0) o comentário traz a cotação nova; no principal fica o texto de antes até a migração
-      (vd_board_() === VD.BOARD_PADRAO ? resumo.join('\n') + (temNova ? '\n✅ Autorizar de novo pela aba Autorizar (a cotação nova já vem marcada).' : '\n🔁 Sem cotação nova: a peça volta para cotação.')
+      (vd_board_() === VD.BOARD_PADRAO ? resumo.join('\n') + (!semNova ? '\n✅ Autorizar de novo pela aba Autorizar (a cotação nova já vem marcada).' : temNova ? '\n🔁 Falta cotar ' + (semNova === 1 ? 'a peça sem cotação nova' : 'as peças sem cotação nova') + ' — depois a cotação vai para autorização junto com a nova.' : '\n🔁 Sem cotação nova: volta para cotação.')
         : linhas.map(function (l) { return '- ' + l.replace(/^INDISPON[IÍ]VEL:\s*/i, ''); }).join('\n') + (temNova ? '\n↪️ Cotação nova: autorizar de novo.' : '\n↪️ Sem cotação nova: volta para cotação.')) } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+  return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
 

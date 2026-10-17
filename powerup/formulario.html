@@ -1948,7 +1948,7 @@ function enviarCompraIndisp() {
     if (!r.ok) return errosComprador((comprou ? ['A compra das outras peças foi registrada (' + comprou.pagas + ' item(ns)), mas a cotação indisponível não:'] : []).concat(r.faltas));
     sucesso((comprou ? '✅ Compra registrada: ' + comprou.pagas + ' item(ns) no checklist PAGAS.<br>' : '')
       + '⚠️ Cotação indisponível registrada (' + r.n + ' peça(s)) no card <b>' + esc(r.nome) + '</b>.'
-      + (r.nova ? '<br>A cotação nova foi para <b>autorização</b> — depois de autorizada, a peça aparece de novo aqui para comprar.' : '<br>Sem cotação nova: a peça voltou para cotação.')
+      + (r.nova && !r.semNova ? '<br>A cotação nova foi para <b>autorização</b> — depois de autorizada, a peça aparece de novo aqui para comprar.' : r.nova ? '<br>Falta cotar ' + (r.semNova === 1 ? 'a peça sem cotação nova' : r.semNova + ' peças sem cotação nova') + ': o card voltou para cotação. A cotação nova fica guardada e vai para a autorização junto.' : '<br>Sem cotação nova: a peça voltou para cotação.')
       + (r.lista ? '<br>O card está em <b>' + esc(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
   }).catch(function (e) { fim(); errosComprador([e.message]); });
 }
