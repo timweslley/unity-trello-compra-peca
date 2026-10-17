@@ -616,6 +616,10 @@ class Contexto {
   }
   /** Grava na planilha real o que a chamada juntou (uma chamada por aba para as linhas que mudaram e outra para as novas). */
   private async gravarAbas(ex: Execucao): Promise<void> {
+    const t0 = Date.now(), n = Object.keys(this.bufAbas).length;
+    try { await this.gravarAbas2(ex); } finally { if (n) ex.ops['planilha.fim'] = { n, ms: Date.now() - t0 }; }
+  }
+  private async gravarAbas2(ex: Execucao): Promise<void> {
     for (const [aba, b] of Object.entries(this.bufAbas)) {
       const novas = Object.entries(b.novas).sort((x, y) => +x[0] - +y[0]).map(([, v]) => v);
       try {
