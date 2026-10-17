@@ -1573,6 +1573,11 @@ function ev_registrar_(evento, card, usuario, itens, extra) {
   try {
     extra = extra || {};
     card = card || {};
+    // 17/10/2026 (teste das cópias): card de teste no quadro principal (TST_CARDS, 🧪 ou placa ZZT) não entra nos
+    // eventos — senão as métricas de prazo/compra contam peça que nunca existiu
+    if (/🧪|\bZZT\d/.test(card.name || '')) return;
+    try { var tst = JSON.parse(PropertiesService.getScriptProperties().getProperty('TST_CARDS') || '[]');
+      if (tst.indexOf(card.id) >= 0 || tst.indexOf(card.shortLink) >= 0) return; } catch (e) {}
     var agora = new Date();
     var placa = vd_placaDoTexto_(card.name || '') || '';
     var tipo = extra.tipo || (/\bPARTICULAR\b/i.test(card.name || '') ? 'PARTICULAR' : /\bRETORNO\b/i.test(card.name || '') ? 'RETORNO' : 'SEGURADORA');
@@ -1593,7 +1598,7 @@ function ev_registrar_(evento, card, usuario, itens, extra) {
   } catch (e) { console.log('eventos: ' + e); }
 }
 
-// Eventos.gs:77
+// Eventos.gs:82
 function ev_peca_(p) {
   if (!p) return { peca: '' };
   return { peca: p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + (p.marca ? ' ' + p.marca : '') : vd_nomePeca_(p), particular: !!p.particular };

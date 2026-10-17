@@ -53,6 +53,11 @@ function ev_registrar_(evento, card, usuario, itens, extra) {
   try {
     extra = extra || {};
     card = card || {};
+    // 17/10/2026 (teste das cópias): card de teste no quadro principal (TST_CARDS, 🧪 ou placa ZZT) não entra nos
+    // eventos — senão as métricas de prazo/compra contam peça que nunca existiu
+    if (/🧪|\bZZT\d/.test(card.name || '')) return;
+    try { var tst = JSON.parse(PropertiesService.getScriptProperties().getProperty('TST_CARDS') || '[]');
+      if (tst.indexOf(card.id) >= 0 || tst.indexOf(card.shortLink) >= 0) return; } catch (e) {}
     var agora = new Date();
     var placa = vd_placaDoTexto_(card.name || '') || '';
     var tipo = extra.tipo || (/\bPARTICULAR\b/i.test(card.name || '') ? 'PARTICULAR' : /\bRETORNO\b/i.test(card.name || '') ? 'RETORNO' : 'SEGURADORA');
