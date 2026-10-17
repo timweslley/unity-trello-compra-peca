@@ -79,6 +79,37 @@ function vd_auth_(tokenUsuario) {
 
 /** Chamada à API do Trello. opts: {method, query, payload, multipart}. tokenUsuario opcional. */
 var VD_SEM_MENCOES = false;   // 15/10/2026: execução de teste no quadro TESTE — comentários sem notificar ninguém
+/**
+ * 17/10/2026 (teste das cópias): várias escritas independentes em paralelo (fetchAll, de 10 em 10). Card com 39 peças levava
+ * ~20 s na compra/recebimento (uma escrita de checklist por vez). itens = [{caminho, opts}] — mesmas regras do vd_api_
+ * (licença da trava de checklist antes e depois). Devolve as respostas na ordem; erro em alguma = exceção depois do lote.
+ */
+function vd_apiLote_(itens, tokenUsuario) {
+  var out = [], erro = null;
+  for (var i0 = 0; i0 < itens.length; i0 += 10) {
+    var parte = itens.slice(i0, i0 + 10);
+    var reqs = parte.map(function (it) {
+      var o = it.opts || {}, q = o.query || {};
+      var url = 'https://api.trello.com/1' + it.caminho;
+      var qs = Object.keys(q).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(q[k]); }).join('&');
+      if (qs) url += (url.indexOf('?') < 0 ? '?' : '&') + qs;
+      var r = { url: url, method: o.method || 'get', muteHttpExceptions: true, headers: { Authorization: vd_auth_(tokenUsuario) } };
+      if (o.payload) { r.contentType = 'application/json'; r.payload = JSON.stringify(o.payload); }
+      if (r.method !== 'get' && /checkItem|checklists/i.test(it.caminho)) { try { ck_licenca_(it.caminho.split('?')[0], o.payload); } catch (e) {} }
+      return r;
+    });
+    var rs = qt_fetchAll_(reqs);
+    rs.forEach(function (r, j) {
+      var it = parte[j], code = r.getResponseCode();
+      if (code >= 300) { if (!erro) { erro = new Error('Trello ' + code + ' em ' + it.caminho.split('?')[0] + ': ' + r.getContentText().slice(0, 200)); erro.codigo = code; } out.push(null); return; }
+      if ((it.opts || {}).method && it.opts.method !== 'get' && /checkItem|checklists/i.test(it.caminho)) { try { ck_licenca_(it.caminho.split('?')[0], it.opts.payload); } catch (e) {} }
+      var t = r.getContentText(); out.push(t ? JSON.parse(t) : null);
+    });
+  }
+  if (erro) throw erro;
+  return out;
+}
+
 function vd_api_(caminho, opts, tokenUsuario) {
   opts = opts || {};
   var url = 'https://api.trello.com/1' + caminho;

@@ -267,10 +267,11 @@ function vdf_salvarRecebimento(token, p) {
   // data futura: antes virava "hoje" sem aviso (10/10/2026) — agora é erro
   var dataFutura = itens.filter(function (x) { return x.data && new Date(x.data + 'T12:00:00').getTime() > Date.now() + 864e5; });
   if (dataFutura.length) return { ok: false, faltas: dataFutura.map(function (x) { return pv_curto_(porId[x.id].nome) + ': data da chegada no futuro (' + x.data + ') — confira.'; }) };
+  var marcar = [];   // 17/10/2026: marcar como recebido em paralelo (39 peças = ~20 s uma a uma)
   itens.forEach(function (x) {
     var it = porId[x.id], quando = rc_data_(x.data), obs = String(x.obs || '').replace(/\s*\n\s*/g, ' ').trim(), local = rc_normLocal_(x.local);
     if (!it.ok) {
-      vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'put', payload: { state: 'complete' } }, token);
+      marcar.push({ caminho: '/cards/' + card.id + '/checkItem/' + it.id, opts: { method: 'put', payload: { state: 'complete' } } });
       it.ok = true; feitos++;
     }
     if (local) { try { rc_gravarMarcas_(card.id, it, { local: local, devolvida: '' }, token); locaisNovos.push(local); } catch (e) { console.log('local: ' + e); } }
@@ -285,6 +286,7 @@ function vdf_salvarRecebimento(token, p) {
       previsao: it.due || '', dias: atr === null ? '' : atr,
       detalhe: 'chegou ' + Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM/yyyy') + (atr === null ? '' : ' · atraso ' + atr + ' d.u.') + (local ? ' · local ' + local : '') + (obs ? ' · ' + obs : '') + ' · ' + it.lista });
   });
+  if (marcar.length) vd_apiLote_(marcar, token);
   // local de peça já recebida
   locais.forEach(function (x) {
     var it = porId[x.id], local = rc_normLocal_(x.local);

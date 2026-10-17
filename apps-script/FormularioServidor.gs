@@ -862,7 +862,7 @@ function vd_nomePeca_(p) {
 function vd_checklistPagas_(cardId, compras, token) {
   compras = (compras || []).filter(function (c) { return String(c.fornecedor || '').trim(); });
   if (!compras.length) return 0;
-  var lists = vd_api_('/cards/' + cardId + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name,due' } }, token);
+  var lists = vd_api_('/cards/' + cardId + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name,due,pos' } }, token);
   // PAGAS = peças da seguradora; PAGAS PARTICULAR = peças que o cliente paga (checklists separados)
   var pagasTodas = lists.filter(function (c) { return /^PAGAS/i.test((c.name || '').trim()); });
   var existentes = [];
@@ -877,9 +877,11 @@ function vd_checklistPagas_(cardId, compras, token) {
     porNome[nome] = cl;
     return cl;
   };
-  var n = 0;
+  var n = 0, lote = [], posMax = {};
   compras.forEach(function (c) {
     var cl = lista(!!c.particular, !!c.complemento);
+    // 17/10/2026: itens vão em paralelo (vd_apiLote_) — a posição explícita mantém a ordem das peças
+    if (posMax[cl.id] === undefined) posMax[cl.id] = (cl.checkItems || []).reduce(function (m, i) { return Math.max(m, +i.pos || 0); }, 0);
     var cod = String(c.codigo || '').replace(/\s+/g, '').toUpperCase();
     var desc = String(c.descricao || '').trim().toUpperCase();
     var forn = String(c.fornecedor || '').trim().toUpperCase();
@@ -887,13 +889,15 @@ function vd_checklistPagas_(cardId, compras, token) {
     var nome = (cod ? cod + ' ' : '') + desc + ' - ' + forn + (valor ? ' - ' + valor : '');
     var chave = vd_semAcento_(cod || desc);
     if (chave && existentes.some(function (e) { return vd_casaItem_(e, chave); })) return;
-    var payload = { name: nome, pos: 'bottom' };
+    posMax[cl.id] += 16384;
+    var payload = { name: nome, pos: posMax[cl.id] };
     var due = c.previsao ? vd_dataBR_(c.previsao) : (c.dias !== undefined && c.dias !== '' ? vd_dataMaisDias_(c.dias) : '');
     if (due) payload.due = due;
-    vd_api_('/checklists/' + cl.id + '/checkItems', { method: 'post', payload: payload }, token);
+    lote.push({ caminho: '/checklists/' + cl.id + '/checkItems', opts: { method: 'post', payload: payload } });
     existentes.push(vd_semAcento_(nome));
     n++;
   });
+  if (lote.length) vd_apiLote_(lote, token);
   return n;
 }
 
