@@ -113,3 +113,17 @@ da outra, deixar um recado aqui e no commit.
 - Ciclo real no TESTE pelo servidor (ZZT9B01, orçamento Allianz real): cotação → autorização → duas indisponíveis (uma com
   cotação nova, outra sem → EM COTAÇÃO) → recotação → autorização com a nova destacada → compra com anexo → recebimento →
   fornecimento pelo Status do Pedido → retirada. Anexo do pedido e da compra sobem pelo servidor (`getParents`).
+## 17/10 04h — VIRADA da 2.0 no principal (Weslley 03h57: "1 faça já / 2 sem cobertura não entra pra compra / 3 fazer imediatamente")
+- **Passo 1 ligado** (`9e646f9`): `powerup/config.js` `QUADROS_V2: ['oH4TbTqb']` → o Power-Up abre o formulário com `v2=1`
+  (visual e telas 2.0, gravações no Apps Script); `Validacao.gs` `VD_V2_PRINCIPAL = true` (comportamentos 2.0 do robô no principal).
+  Conferido abrindo ARW5715 (pedido e recebimento) e FMH9I78 (fornecimento) sem gravar. **Voltar:** tirar o principal de
+  QUADROS_V2 e `VD_V2_PRINCIPAL = false`.
+- **SEM COBERTURA**: itens do bloco "ITENS DO TIPO SEM COBERTURA" do Cilia ficam fora da leitura (até o próximo "ITENS DO TIPO"
+  ou "RESUMO GERAL"); 8 orçamentos do corpus conferidos.
+- **Passo 2 construído, desligado** (`8be59c4`, `3c50f05`): gravações do principal pelo servidor com as propriedades e a planilha
+  REAIS do robô do Google — `vdf_servidorProps` (Apps Script, só a conta do robô), trabalhador `principalGrava` (e `testeRemoto`
+  para conferir: `/api?quadro=testeremoto`), cópia das propriedades renovada em segundo plano, devolução em segundo plano e em
+  ordem (a TRAVA só confere descrição com mais de 40 s), planilha ao vivo (linhas novas por append), falha na planilha não
+  interrompe e fica em `guardado` (`planilha_pendente_*`). Formulário: `PU_CFG.GRAVACAO_SERVIDOR` por usuário (vazio). Testado no
+  TESTE (recebimento real: comentário, checklist, descrição e assinatura VD_DESC no Apps Script). **Falta:** planilha como Editor
+  para `compra-peca-run` (hoje Leitor → 403 nas gravações da planilha); depois ligar só para timweslley, conferir e liberar.
