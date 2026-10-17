@@ -606,6 +606,7 @@ class Contexto {
   bufAbas: Record<string, { fixas: Record<string, unknown[]>; novas: Record<string, unknown[]> }> = {};
   licencas: Record<string, { v: string; seg: number }> = {};
   emails: Array<Record<string, unknown>> = [];
+  marcadores = new Map<string, string>();
   constructor(readonly nome: 'teste' | 'principal' | 'retrato' | 'principalGrava' | 'testeRemoto' | 'robo', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false, readonly remoto = false, public observar = false) {}
 
   private fixas(): Record<string, string> {
@@ -669,11 +670,14 @@ class Contexto {
           this.pend = { set: {}, del: new Set() }; this.tam = {}; this.bufAbas = {}; this.licencas = {}; this.emails = [];
           try { extra = { props: await propsParaGravacao(), propsTrocar: true }; } catch (e) { throw new Error('servidor (nada gravado): ' + (e as Error).message); }
           if (this.nome === 'robo') this.observar = process.env.ROBO_SERVIDOR !== 'ATIVO';
+          // OBSERVAR: o robô-sombra anda com os PRÓPRIOS marcadores de ações (senão só veria o que o Google já tratou)
+          if (this.observar && this.marcadores.size) { const pr = (extra as { props: Record<string, string> }).props; for (const [k, v] of this.marcadores) pr[k] = v; }
         }
         const id = ++this.seq;
         let r: unknown;
         try { r = await new Promise((ok, erro) => { this.esperando.set(id, { ok, erro }); this.trabalhador!.postMessage({ id, ...msg, ...extra }); }); }
         finally { if (this.remoto && this.observar) { ex.ops['observar'] = { n: Object.keys(this.pend.set).length + this.pend.del.size, ms: Object.keys(this.bufAbas).length };
+          for (const [k, v] of Object.entries(this.pend.set)) if (/(_ACT|ULTIMA|DESDE|VERIFICACAO)/.test(k)) this.marcadores.set(k, v);
           ex.propsObs = [...Object.keys(this.pend.set), ...[...this.pend.del].map((k) => '-' + k)].slice(0, 60); this.bufAbas = {}; this.licencas = {}; }
           else if (this.remoto) { await this.gravarAbas(ex); await this.enviarLicencas(ex); this.devolverProps(ex); if (this.quadro === QUADRO_PRINCIPAL_SL) marcarGravacaoPrincipal(); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
