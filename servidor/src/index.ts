@@ -161,10 +161,10 @@ export function criarApp() {
       // no TESTE) e ?quadro=principal&grava=1 (principal; o formulário liga por usuário em PU_CFG.GRAVACAO_SERVIDOR)
       if (qy.quadro === 'testeremoto') return await executarTesteRemoto(corpo);
       if ((qy.quadro === 'principal' || pedido.quadro === 'principal') && qy.grava === '1' && !LEITURAS_PRINCIPAL.includes(String(pedido.fn))) {
-        // 17/10/2026 06h40: DESLIGADO até as travas do robô (checklist e coluna) enxergarem as licenças das gravações do servidor.
+        // 17/10/2026: interruptor de emergência — variável GRAVACAO_PRINCIPAL=NAO no Cloud Run desliga (religado 08h35, Weslley).
         // "nada gravado" faz o formulário refazer a chamada pelo Google na hora (navegador com o config.js antigo em cache).
         const slP = String(((pedido as { args?: unknown[] }).args?.[1] as { shortLink?: string } | undefined)?.shortLink || '');
-        if (process.env.GRAVACAO_PRINCIPAL !== 'SIM' && !(await ehCardTesteDoPrincipal(slP))) return JSON.stringify({ ok: false, erro: 'servidor (nada gravado): gravação do principal pelo servidor desligada' });
+        if (process.env.GRAVACAO_PRINCIPAL === 'NAO' && !(await ehCardTesteDoPrincipal(slP))) return JSON.stringify({ ok: false, erro: 'servidor (nada gravado): gravação do principal pelo servidor desligada' });
         return await executarGravacaoPrincipal(corpo);
       }
       if (qy.quadro === 'principal' || pedido.quadro === 'principal') {

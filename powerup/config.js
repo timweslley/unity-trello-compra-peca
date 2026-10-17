@@ -30,7 +30,7 @@ window.PU_CFG = {
   LEITURA_GUARDADA: 'todos',   // 10/10/2026 17:12 — Weslley liberou para a equipe toda (antes: timweslley, christianfarias23)
   /* 17/10/2026 (Weslley 03h57: "fazer imediatamente"): gravações do principal pelo servidor, com as propriedades e a planilha
    * do robô do Google (passo 2 da virada). Primeiro só quem está na lista; depois 'todos'. Desligar: { usuarios: [] }. */
-  GRAVACAO_SERVIDOR: '',   // 17/10 06h40 — DESLIGADO: a trava de checklist/coluna do robô não via as licenças das gravações do servidor e desfazia (ver SESSOES)
+  GRAVACAO_SERVIDOR: 'todos',   // 17/10 08h35 — RELIGADO (Weslley: "fazer já") com as licenças das travas indo ao Apps Script (3bafc2b)
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:

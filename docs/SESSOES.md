@@ -152,3 +152,7 @@ da outra, deixar um recado aqui e no commit.
   TRAVA com linha duplicada usa a linha da vitrine atual.
 - Em aberto (decisão do Weslley): card PARTICULAR precisa da etiqueta ORDEM AUTORIZADA para registrar compra? Dois pneus da mesma
   medida no mesmo card (item + complemento) dividem a mesma chave.
+- 17/10 08h35 — Weslley: "1 fazer já / 2 sim / 3 sim / 4 sim". **Gravação pelo servidor religada** para todos (`GRAVACAO_SERVIDOR: 'todos'`;
+  interruptor de emergência: `GRAVACAO_PRINCIPAL=NAO` no Cloud Run). Card PARTICULAR continua exigindo ORDEM AUTORIZADA para a
+  compra; dois pneus da mesma medida no card continuam sendo a mesma peça; "ÓLEO ADITIVO …" entra na regra de 🚫 não comprar
+  padrão (estoque da oficina), como "ADITIVO …".
