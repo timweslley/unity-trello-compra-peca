@@ -226,6 +226,9 @@ async function abaDoPrincipal(nome: string, ex: Execucao | null): Promise<unknow
 }
 
 /** 17/10/2026 — Drive (só leitura) com a conta do servidor: bases de orçamento na pasta compartilhada pelo Weslley. */
+/** Cache compartilhado entre os trabalhadores (travas sg_* do robô e do formulário). */
+const cacheCompart = new Map<string, { v: string; ate: number }>();
+const cacheObs = new Map<string, { v: string; ate: number }>();
 const ESCOPO_DRIVE = 'https://www.googleapis.com/auth/drive.readonly';
 const CAMPOS_DRIVE = 'id,name,mimeType,modifiedTime,trashed,parents';
 async function driveApi(caminho: string, q: Record<string, string> = {}, bin = false): Promise<any> {   // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -476,6 +479,14 @@ async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   
       }
       return null;
     case 'drive.buscar': case 'drive.info': case 'drive.filhos': case 'drive.ler': return driveLer(op, d);
+    case 'cache.comp': {
+      const cacheComp = ctx.observar ? cacheObs : cacheCompart;   // robô em OBSERVAR não trava o formulário
+      const x = cacheComp.get(d.k);
+      if (d.op === 'get') return x && x.ate > Date.now() ? x.v : null;
+      if (d.op === 'put') cacheComp.set(d.k, { v: d.v, ate: Date.now() + Math.min(+d.seg || 600, 21600) * 1000 }); else cacheComp.delete(d.k);
+      if (cacheComp.size > 2000) for (const [k, y] of cacheComp) if (y.ate < Date.now()) cacheComp.delete(k);
+      return null;
+    }
     case 'arq.criar': {
       const id = 'arq-' + randomUUID();
       await consulta(`INSERT INTO gas_arquivo (id, nome, tipo, dados, pasta) VALUES ($1,$2,$3,$4,$5)`, [id, d.nome, d.tipo, Buffer.from(d.dados), d.pasta]);
