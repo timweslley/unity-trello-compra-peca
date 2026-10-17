@@ -132,3 +132,4 @@ da outra, deixar um recado aqui e no commit.
   Proteção de escrita passou a conferir o quadro do trabalhador (`b28da12`). Primeira gravação real no principal pelo servidor:
   `vdf_definirCapa` no ARW5715 (mesma capa) em 1 s. Próximo: acompanhar as gravações dele em `/tarefas/execucoes`
   (quadro `principalGrava`) e liberar 'todos'.
+- 17/10 04h40 — **liberado para todos** (Weslley 04h35: "já coloca pra todo mundo e não esquece o celular"): `GRAVACAO_SERVIDOR: 'todos'`. Celular conferido (iPhone/Android abrem a 2.0 com `v2=1`). Pendências de devolução aparecem no `/saude` (`pendentesGravacao`). **Desligar:** `GRAVACAO_SERVIDOR: { usuarios: [] }` (1–10 min).
