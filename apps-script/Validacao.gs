@@ -473,6 +473,18 @@ function vd_analisarPeca_(linha, n, opts) {
   if (!nao && !part && /^ADITIVO\b/.test(vd_semAcento_(partes[1] || '')) && !partes.slice(2).join('').trim()) { nao = true; naoMotivo = 'ESTOQUE DA OFICINA (PADRÃO)'; }
   if (part) opts = { codigoOpcional: true };
   if (nao) opts = { codigoOpcional: true };   // não vai ser comprada: não cobra código nem tipo
+  // 17/10/2026 (teste das cópias): pneu que veio do orçamento como peça comum ("S/C | PNEU HIFLY 195/55R15 HF261 85V" ou
+  // " | PNEU …") cobrava "falta o código". Pneu não tem código do Cilia: vira "PNEU | medida | marca/modelo".
+  (function () {
+    var i = /^PNEUS?\b/i.test(partes[0] || '') && !/^PNEUS?$/i.test(partes[0]) ? 0
+      : (partes.length > 1 && !/\d{4}/.test((partes[0] || '').replace(/[^A-Z0-9]/gi, '')) && /^PNEUS?\b/i.test(partes[1] || '') ? 1 : -1);
+    if (i < 0) return;
+    var t = partes[i], mm = t.match(/\d{3}\s*\/\s*\d{2}\s*Z?R?\s*\d{2}/i);
+    if (!mm) return;
+    var resto = t.replace(/^PNEUS?\b/i, '').replace(mm[0], ' ').replace(/\s+/g, ' ').trim();
+    var outros = partes.slice(i + 1);
+    partes = ['PNEU', mm[0].replace(/\s+/g, '').toUpperCase()].concat(outros.length ? outros : (resto ? [resto] : []));
+  })();
   var faltas = [];
   var rot;
   if (/^PNEUS?$/i.test(partes[0] || '')) {
