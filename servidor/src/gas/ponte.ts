@@ -11,8 +11,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { CFG } from '../config.js';
 import { consulta } from '../db.js';
-import { extrairTexto } from '../leitores/texto.js';
-import { melhorLeitura } from '../leitores/leitura.js';
+import { textoDoArquivo, URL_APP } from '../leitores/ocr.js';
 import { lerAbaPlanilha, listarAbasPlanilha } from '../google/planilha.js';
 import { trello } from '../trello/api.js';
 
@@ -334,10 +333,8 @@ async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   
     case 'arq.lixeira': await consulta(`UPDATE gas_arquivo SET lixeira = $2, dados = CASE WHEN $2 THEN NULL ELSE dados END WHERE id = $1`, [d.id, d.lixeira]); return null;
     case 'arq.texto': { const [a] = await consulta<{ texto: string }>(`SELECT texto FROM gas_arquivo WHERE id = $1`, [d]); return a?.texto ?? ''; }
     case 'ocr': {
-      // o Google devolvia UM texto; aqui extraímos as versões e ficamos com a que os leitores aproveitam melhor
-      const tx = await extrairTexto(Buffer.from(d.dados), d.nome || 'arquivo', d.tipo);
-      const m = melhorLeitura(tx.versoes);
-      const texto = m ? tx.versoes[m.versao] : (Object.values(tx.versoes)[0] || '');
+      // 16/10/2026: o MESMO texto do robô (OCR do Google pelo Apps Script), guardado por hash; pdftotext só de reserva
+      const { texto } = await textoDoArquivo(Buffer.from(d.dados), d.nome || 'arquivo', d.tipo);
       const id = 'doc-' + randomUUID();
       await consulta(`INSERT INTO gas_arquivo (id, nome, tipo, texto) VALUES ($1,$2,'application/vnd.google-apps.document',$3)`, [id, d.nome, texto]);
       return id;
@@ -383,8 +380,6 @@ function descrever(msg: Record<string, unknown>): { fn: string; rid?: string } {
 /* Propriedades do quadro PRINCIPAL (10/10/2026, Weslley autorizou): as listas e configurações do robô (locais de estoque, quem
    retira, compradores, autorizadores, feriados extras…) só existem nas Propriedades do Script do Apps Script. O servidor pede a
    ele (vdf_propsServidor — só leitura, só chaves da lista, nunca token) e guarda por 5 min; sem resposta, usa a última que tem. */
-const URL_APP = process.env.URL_APP
-  ?? 'https://script.google.com/macros/s/AKfycbwkTI6PgPTe8OgIcyxzk5oysMvK2BvWwIQEdh5vhOY2n44KlVJvmeHdXTU1HQ3I5BoQew/exec';
 let propsPrinc: { v: Record<string, string>; em: number } | null = null;
 let buscandoProps: Promise<void> | null = null;
 let erroProps = '';

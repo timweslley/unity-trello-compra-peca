@@ -4,12 +4,12 @@
  */
 import { CFG } from '../config.js';
 import { consulta } from '../db.js';
-import { extrairTexto } from './texto.js';
-import { melhorLeitura, lerTexto, rendimento, type Leitura } from './leitura.js';
+import { textoDoArquivo } from './ocr.js';
+import { lerTexto, rendimento, type Leitura } from './leitura.js';
 import * as R from './robo.js';
 
 /** Sobe quando os leitores mudam (robo.js regerado, texto.ts, leitura.ts): as leituras antigas são refeitas. */
-export const VERSAO_LEITOR = 3;
+export const VERSAO_LEITOR = 4;   // 4 (16/10/2026): texto do OCR do Google, como o robô
 const MAX_BYTES = 15 * 1024 * 1024;
 const MAX_ANEXOS_CARD = 6;
 
@@ -38,21 +38,19 @@ export async function lerAnexo(cardId: string, a: AnexoCard, forcar = false): Pr
   try {
     const dados = await baixar(a.url);
     // mesmo arquivo já lido em outro anexo (reenvio, cópia de card): reaproveita
-    const tx = await extrairTexto(dados, a.nome, a.tipo);
-    const melhor = melhorLeitura(tx.versoes);
-    // diagnóstico (sem texto): quanto cada versão do texto rendeu
-    const pontos = Object.fromEntries(Object.entries(tx.versoes).filter(([, t]) => t?.trim()).map(([v, t]) => {
-      const l = lerTexto(t); return [v, { pontos: rendimento(l), cor: l.cor || '', placas: (l.placas || []).length }];
-    }));
-    const leitura = melhor?.leitura ?? null;
+    // 16/10/2026: o MESMO texto do robô (OCR do Google), guardado por hash — ver ocr.ts
+    const tx = await textoDoArquivo(dados, a.nome, a.tipo);
+    const leitura = tx.texto.trim() ? lerTexto(tx.texto) : null;
+    const pontos = leitura ? { [tx.fonte]: { pontos: rendimento(leitura), cor: leitura.cor || '', placas: (leitura.placas || []).length } } : {};
+    const melhor = leitura ? { versao: tx.fonte } : null;
     await consulta(
       `INSERT INTO anexo_leitura (anexo_id, card_id, nome, bytes, hash, tipo, metodo, versao_texto, texto, leitura, versao_leitor, ms, erro, lido_em)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NULL, now())
        ON CONFLICT (anexo_id) DO UPDATE SET card_id=EXCLUDED.card_id, nome=EXCLUDED.nome, bytes=EXCLUDED.bytes, hash=EXCLUDED.hash, tipo=EXCLUDED.tipo,
          metodo=EXCLUDED.metodo, versao_texto=EXCLUDED.versao_texto, texto=EXCLUDED.texto, leitura=EXCLUDED.leitura,
          versao_leitor=EXCLUDED.versao_leitor, ms=EXCLUDED.ms, erro=NULL, lido_em=now()`,
-      [a.id, cardId, a.nome, dados.length, tx.hash, tx.tipo, tx.metodo, melhor?.versao ?? null,
-        melhor ? tx.versoes[melhor.versao] : null, leitura ? JSON.stringify(leitura) : null, VERSAO_LEITOR, Date.now() - t0]);
+      [a.id, cardId, a.nome, dados.length, tx.hash, tx.tipo, tx.fonte === 'google' ? 'google' : 'pdftotext', melhor?.versao ?? null,
+        tx.texto || null, leitura ? JSON.stringify(leitura) : null, VERSAO_LEITOR, Date.now() - t0]);
     return { leitura, doCache: false, pontos };
   } catch (e) {
     const erro = (e as Error).message.slice(0, 300);
