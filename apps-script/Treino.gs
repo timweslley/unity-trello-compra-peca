@@ -222,3 +222,30 @@ function vdf_treinoAvaliar(token, p) {
   });
   return { ok: true, total: total, placar: placar, suspeitos: vistos, casos: casos };
 }
+
+/**
+ * Regressão do leitor (16/10/2026): assinatura curta da leitura de cada texto do treino, para comparar o leitor ANTES e
+ * DEPOIS de uma mudança (publica a função, tira a assinatura, publica a mudança, tira de novo e compara).
+ * p = {detalhe:[chaves]} devolve também a leitura completa (peças) dessas chaves. Só diretoria; só lê.
+ */
+function vdf_treinoAssinatura(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
+  p = p || {}; var est = tr_estado_(); if (!est) return { ok: false, erro: 'sem lista' };
+  var det = {}; (p.detalhe || []).forEach(function (k) { det[k] = 1; });
+  var sig = {}, detalhe = {}, total = 0;
+  est.lotes.forEach(function (id) {
+    var lote; try { lote = JSON.parse(DriveApp.getFileById(id).getBlob().getDataAsString()); } catch (e) { return; }
+    lote.forEach(function (reg, i) {
+      if (!reg.texto) return;
+      var k = (reg.anexo || reg.arquivo || reg.nome || '') + '#' + i;
+      var r; try { r = vd_lerOrcamento_(reg.texto); } catch (e) { r = { origem: 'ERRO', oficina: [], fo: [] }; }
+      var x = vd_extrair_(reg.texto);
+      var s = JSON.stringify([r.origem, r.cor, r.seguradora, x.modelo, x.ano, (r.oficina || []).map(function (q) { return [q.codigo, q.descricao, q.qtd, q.valorOrc, q.medida || '', q.pneu ? 1 : 0]; }), (r.fo || []).map(function (q) { return [q.codigo, q.descricao, q.qtd, q.valorOrc]; })]);
+      sig[k] = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, s)).slice(0, 10);
+      if (det[k]) detalhe[k] = { s: s, trecho: vd_normTexto_(reg.texto).slice(0, 6000) };
+      total++;
+    });
+  });
+  return { ok: true, total: total, sig: sig, detalhe: detalhe };
+}
