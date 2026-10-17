@@ -276,7 +276,7 @@ var VD_SEGURADORAS = [
   ['TOKIO', /\bTOKIO\b/], ['MAPFRE', /\bMAPFRE\b/], ['SURA', /\bSURA\b/], ['ZURICH', /\bZURICH\b/],
   ['SUHAI', /\bSUHAI\b/], ['MITSUI', /\bMITSUI\b/], ['EZZE', /\bEZZE\b/], ['DARWIN', /\bDARWIN\b/],
   ['AMERICAS', /\bAMERICAS\b/], ['SOMPO', /\bSOMPO\b/], ['GENERALI', /\bGENERALI\b/], ['ALFA', /\bALFA SEGURADORA\b/],
-  ['JUSTOS', /\bJUSTOS\b/], ['PORTO', /\bPORTO\b/]
+  ['JUSTOS', /\bJUSTOS\b/], ['PIER', /\bPIER SEGURADORA\b/], ['COONECTA', /\bCOONECTA\b/], ['PORTO', /\bPORTO\b/]
 ];
 
 // Orcamento.gs:27
@@ -369,22 +369,22 @@ var VD_ROT_EXTRA = {
   sinistro: 'SINISTRO|N[ºO°.]*\\s*SINISTRO'
 };
 
-// Validacao.gs:705
+// Validacao.gs:707
 var VD_ANXS = { ABA: 'ANEXOS', SH: null, ROW: null, MAX: 45000 };
 
-// Validacao.gs:780
+// Validacao.gs:782
 var VD_LEITOR_V = 2;
 
-// Validacao.gs:781
+// Validacao.gs:783
 var VD_ANX_V = 3;
 
-// Validacao.gs:969
+// Validacao.gs:971
 var VD_CSS = /\bZACARIAS\b/i;
 
-// Validacao.gs:996
+// Validacao.gs:998
 var TR = { PREFIXO: 'VD_DESC_', ABA: 'TRAVA', ESPERA_MS: 40 * 1000, AVISO_MS: 60 * 60 * 1000 };
 
-// Validacao.gs:1207
+// Validacao.gs:1209
 var DU = {
   FIXOS: {
     '01-01': 'Confraternização Universal', '04-21': 'Tiradentes', '05-01': 'Dia do Trabalho',
@@ -398,10 +398,10 @@ var DU = {
   EXTRAS: { '2026-10-19': 'Aniversário de Campo Mourão (decreto 2026)' }
 };
 
-// Validacao.gs:1219
+// Validacao.gs:1221
 var DU_CACHE = {};
 
-// Validacao.gs:1769
+// Validacao.gs:1771
 var VD_LINK = {
   EDITAR: '✏️ EDITAR/INCLUIR PEÇA',
   COMPRA: '💰 COTAÇÃO/COMPRA/RECEBIMENTO',
@@ -409,7 +409,7 @@ var VD_LINK = {
   RX_COMPRA: /Cota[çc][ãa]o \/ Compra|COTA[ÇC][ÃA]O\/COMPRA/i
 };
 
-// Validacao.gs:2375
+// Validacao.gs:2377
 var VD_CMP_MEM = null;
 
 // Anexos.gs:22
@@ -2824,7 +2824,7 @@ function vdf_autorizar(token, p) {
     var q = lidas.filter(function (x) { return x.chave === e.chave && x.fornecedor === forn && Math.abs(x.valor - valor) < 0.005; })[0];
     if (!q) { faltas.push(vd_nomePeca_(peca) + ': essa cotação (' + forn + ' ' + vd_valorBR_(valor) + ') não está no card'); return; }
     linhas.push('AUTORIZADO: ' + forn + ' - ' + (peca.pneu ? 'PNEU ' + String(peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(peca)) + ' - ' + vd_valorBR_(valor));
-    total += valor;
+    total += valor * (vd_totaisPorQtd_() ? vd_qtdNum_(peca.qtd) : 1);   // 16/10/2026: valor é da unidade (LÍQUIDO 4 × R$ 40 = R$ 160)
     var doPeca = lidas.filter(function (x) { return x.chave === e.chave; }).map(function (x) { return x.valor; });
     var ea = ev_peca_(peca); ea.fornecedor = forn; ea.valor = valor; ea.dias = q.dias;
     ea.detalhe = doPeca.length > 1 ? 'menor ' + vd_valorBR_(Math.min.apply(null, doPeca)) + ' · maior ' + vd_valorBR_(Math.max.apply(null, doPeca)) + ' · ' + doPeca.length + ' cotações' : '1 cotação';
@@ -2898,7 +2898,7 @@ function vdf_autorizar(token, p) {
   }
   if (fechar) {
     // nada novo: fecha o que foi salvo parcialmente — totais passam a ser os de todas as autorizações do card
-    total = autsAgora.reduce(function (sum, a) { return sum + (+a.valor || 0); }, 0);
+    total = autsAgora.reduce(function (sum, a) { var pc = porChave[a.chave] || {}; return sum + (+a.valor || 0) * (vd_totaisPorQtd_() ? vd_qtdNum_(pc.qtd) : 1); }, 0);
     linhas = autsAgora.map(function (a) { return a.chave; });
     evAut = [];
   }
@@ -3973,9 +3973,11 @@ function vd_pneuDaDescricao_(desc) {
 function vd_limparDescricao_(d) {
   return String(d || '')
     .replace(/^\(A\)\s*/, '')
+    .replace(/\s+(?:R&I|T|R|P)\s+(?:-|\d+,\d{2})\s.*$/, '')   // 16/10/2026: linha seguinte (operação "R&I 0,50 1FORRO…") vazou na descrição
+    .replace(/^[A-Z0-9]{6,20}(?:GENUINA|ORIGINAL)\s+/, '')   // 16/10/2026: 2º código + tipo colados ("92101R1510GENUINA FAROL")
     .replace(/^(?:\d{3,}\s+)+/, '')              // 2º código numérico do Cilia (ex.: 1632439, 4310)
     .replace(/^\d{5,}(?=[A-Z]{3})/, '')           // 2º código colado na descrição ("951450JOGO DE FAROIS")
-    .replace(/^(?:PPG|PPC|PPO|PRO|PAR|PG|PO|OR|GE)\s+/, '')   // sigla de tipo do Cilia (PPG/PPC = paralela; PPO = original)
+    .replace(/^(?:PPOI|PPG|PPC|PPO|PRO|PAR|PG|PO|OR|GE)\s+/, '')   // sigla de tipo do Cilia (PPG/PPC = paralela; PPO = original)
     .replace(new RegExp('^(?:PPG|PPC|PPO|PRO|PG|PO|GE)(?=(?:' + VD_PALAVRAS_PECA + ')\\b)'), '')   // sigla colada ("PGCONDENSADOR", 16/10/2026)
     .replace(/^(?:PPG|PPC|PPO|GENUINA|ORIGINAL)(?=[A-Z])/, '')   // sigla/tipo colado na descrição pelo OCR ("PPOFAROL", "GENUINAFAROL") — 08/10/2026
     .replace(/([A-Z]{4,})(DIANT|TRAS|DIR|ESQ|SUP|INF)\b/g, '$1 $2')   // OCR da HDI cola palavras ("PARALAMADIANT DIR", "RODADIANT")
@@ -3990,7 +3992,7 @@ function vd_limparDescricao_(d) {
     .slice(0, 70);
 }
 
-// Orcamento.gs:83
+// Orcamento.gs:85
 function vd_tirarRepeticao_(d) {
   var ws = String(d).split(' ');
   for (var i = Math.ceil(ws.length / 2); i < ws.length; i++) {
@@ -4000,17 +4002,17 @@ function vd_tirarRepeticao_(d) {
   return d;
 }
 
-// Orcamento.gs:93
+// Orcamento.gs:95
 function vd_numOrc_(s) { var n = parseFloat(String(s || '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? NaN : n; }
 
-// Orcamento.gs:95
+// Orcamento.gs:97
 function vd_liquidoOrc_(unit, descPct) {
   var u = vd_numOrc_(unit), d = vd_numOrc_(descPct);
   if (isNaN(u)) return NaN;
   return isNaN(d) || d === 0 || d >= 100 || d <= -100 ? u : u * (1 - d / 100);   // desconto negativo = acréscimo (16/10/2026, JDC7H45)
 }
 
-// Orcamento.gs:106
+// Orcamento.gs:108
 function vd_websomaDetalhado_(corpo, lista, add) {
   var txt = vd_compactarCodigos_(corpo, '\u0001');
   // 08/10/2026 (treino 2025, "Orcamento_Detalhado.pdf" da Porto): mesmo relatório impresso com número no formato inglês
@@ -4070,7 +4072,7 @@ function vd_websomaDetalhado_(corpo, lista, add) {
   }
 }
 
-// Orcamento.gs:166
+// Orcamento.gs:168
 function vd_compactarCodigos_(txt, marca) {
   return String(txt || '').replace(/\b([A-Z0-9]{2,4})\/ ?([A-Z0-9]{3,8})\/ ?([A-Z0-9]{0,3}) ?\/ ?([A-Z0-9]{0,4})(?=\s|$)/g, function (_, a, b, c, d) {
     var cod = [a, b, c, d].filter(String).join('/');
@@ -4078,7 +4080,7 @@ function vd_compactarCodigos_(txt, marca) {
   });
 }
 
-// Orcamento.gs:174
+// Orcamento.gs:176
 function vd_secao_(U, inicio, finais) {
   var i = U.search(inicio);
   if (i < 0) return '';
@@ -4091,7 +4093,7 @@ function vd_secao_(U, inicio, finais) {
   return resto.slice(0, fim);
 }
 
-// Orcamento.gs:186
+// Orcamento.gs:188
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
   var r = { origem: '', oficina: [], fo: [], seguradora: '', cor: '', sinistro: '' };
@@ -4115,6 +4117,17 @@ function vd_lerOrcamento_(texto) {
   else if ((m = U.match(/IMPREGNACAO:? ([A-Z]{3,15})\b/)) && !/^(FABRICACAO|EMPRESA|MODELO|ANO|KM|VERSAO|PLACA|CHASSI|LICENCA|MOTIVO|DATA)$/.test(m[1])) r.cor = m[1];
   // sinistro
   if ((m = U.match(/SINISTRO:? (\d[\d.\-\/]{6,})/))) r.sinistro = m[1];
+  // 16/10/2026: no Cilia o rótulo "Sinistro" sai sem valor (cabeçalho em colunas) e o número vem sozinho numa linha logo
+  // depois de "Orçamento <versão> - <data>" (UBR1C00 434427503, BCB8218 531.26.02497). Só número puro: CNPJ (com /),
+  // quilometragem ("72759.0") e código interno ("0000002") ficam de fora; "a informar" deixa vazio.
+  var ii;
+  if (!r.sinistro && /SINISTRO/.test(U) && (ii = texto.search(/\nOr[çc]amento \n\d+\.\d+ - \d\d\/\d\d\/\d\d/)) >= 0) {
+    var lin = texto.slice(ii).split('\n').slice(2, 40);
+    for (var li = 0; li < lin.length; li++) {
+      var ls = lin[li].trim();
+      if (/^\d[\d.\-]{6,21}$/.test(ls) && !/\.\d$/.test(ls) && !/^0{3}/.test(ls) && ls.replace(/\D/g, '').length >= 8) { r.sinistro = ls; break; }
+    }
+  }
 
   // valor líquido unitário da peça no orçamento (o que a seguradora paga) — 05/10/2026, Weslley: aparece ao lado da peça
   // na cotação/autorização e serve de base para a comparação com a cotação (economia < 20% vermelho, 20–30 amarelo, > 30 verde)
@@ -4216,7 +4229,7 @@ function vd_lerOrcamento_(texto) {
     // antigo sem preço. O tipo pode vir colado ("GENUINAFAROL", "PPOJOGO") — vd_limparDescricao_ tira.
     // 16/10/2026 (BDL9F71, UBR1C00): pintura "P -" (sem horas) também; código colado na descrição pode passar de 20 letras
     var PROX = '\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? \\d{1,3} [A-Z0-9]{4,30}\\b';
-    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:\\d{5,} )?(?:(GENUINA|ORIGINAL)|(PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
+    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:\\d{5,} )?(?:(GENUINA|ORIGINAL)|(PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
       '|(OFICINA|SEGURADORA) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(-?\\d{1,3},\\d{2}) ?%| ?-(?= ?R\\$))?(?: ?R\\$ ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2}))?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
     // código com ponto no fim ("1312791700. BRAÇO OSCILANTE", 14/10/2026, JDC7H45): o item sumia e o preço OFICINA ficava sem dono
     var filaCi = [];
@@ -4617,6 +4630,21 @@ function pv_lerStatusCilia_(texto, lista) {
     }
     var mq = l.match(/^(.+?)\s*QTD$/);   // "FAROL DIREITOQTD" (Google) — descrição antes do código no bloco
     if (mq && /[A-Z]{3}/.test(mq[1]) && !ehCodigo(mq[1])) { pecas.push({ i: i, codigo: '', descricao: mq[1].trim(), forn: '', prev: '', semCodigo: true }); continue; }
+    // 16/10/2026 (BAE2475, OCR do Google): fornecedor sem "/" grudado no rótulo ("DEMAK IMPORTSPREVISÃO DE ENTREGA")
+    var mfg = l.match(/^(.*[A-Z]{3}.*?)\s*PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})?$/);
+    if (mfg && !ehForn(l) && !STATUS.test(mfg[1]) && !LABEL.test(mfg[1].trim()) && !ehCodigo(mfg[1].replace(/\s/g, '')) && !/HTTPS?:|:|\d{1,2}\/\d{1,2}/.test(mfg[1]) && mfg[1].trim().split(' ').length <= 8) {
+      forns.push({ i: i, nome: mfg[1].trim() });
+      if (mfg[2]) prevs.push({ i: i, data: mfg[2] });
+      continue;
+    }
+    // fornecedor sem "/" numa linha sozinha logo antes de "PREVISÃO DE ENTREGA dd/mm" ("KAIZEN RS - VEIULOS E SERVIÇOS LTDA")
+    if (/^PREVISAO DE ENTREGA\s*\d/.test(linhas[i + 1] || '') && /[A-Z]{3}/.test(l) && !STATUS.test(l) && !LABEL.test(l) && !ehCodigo(l.replace(/\s/g, '')) && !/HTTPS?:|:|\d{1,2}\/\d{1,2}|^PREVISAO|ENTREG/.test(l) && l.split(' ').length <= 10) {
+      forns.push({ i: i, nome: l.trim() });
+      continue;
+    }
+    // carimbo de status grudado ("01/10/26 - 15:20:55Entregue RUBRICA"): a peça foi entregue nessa data
+    var mcg = l.match(/^(\d{1,2}\/\d{1,2}\/\d{2,4})\s*-\s*[\d:]+\s*ENTREGUE\b/);
+    if (mcg) { entregas.push({ i: i, data: mcg[1] }); continue; }
     if (ehForn(l)) {
       var md = l.match(/PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/);
       forns.push({ i: i, nome: limpaForn(l) });
@@ -4625,7 +4653,7 @@ function pv_lerStatusCilia_(texto, lista) {
     }
     if (/^FORNECEDOR$/.test(l)) {   // nome na linha seguinte (quando não tem "/")
       var prox = linhas[i + 1] || '';
-      if (/[A-Z]{3}/.test(prox) && !STATUS.test(prox) && !LABEL.test(prox) && !ehCodigo(prox) && !ehForn(prox)) forns.push({ i: i, nome: limpaForn(prox) });
+      if (/[A-Z]{3}/.test(prox) && !STATUS.test(prox) && !LABEL.test(prox) && !ehCodigo(prox) && !ehForn(prox) && limpaForn(prox)) forns.push({ i: i, nome: limpaForn(prox) });
       continue;
     }
     var mp = l.match(/^PREVISAO DE ENTREGA\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/); if (mp) { prevs.push({ i: i, data: mp[1] }); continue; }
@@ -4637,8 +4665,11 @@ function pv_lerStatusCilia_(texto, lista) {
   pecas = pecas.filter(function (p, k) {
     if (!p.semCodigo) return true;
     var prox = pecas[k + 1];
-    if (prox && !prox.semCodigo && prox.i - p.i <= 6) { prox.descricao = p.descricao; return false; }   // a descrição "…QTD" vale mais que o palpite
-    return false;
+    if (prox && !prox.semCodigo && prox.i - p.i <= 6) { prox.descricao = p.descricao; prox.i = p.i; return false; }   // 16/10: o bloco começa na descrição (o fornecedor fica entre ela e o código)   // a descrição "…QTD" vale mais que o palpite
+    // 16/10/2026 (BAE2475, CONDENSADOR): bloco com código curto ("6899") ou sem código — fica; casa pelo código curto ou
+    // pela descrição (peça do card que não achou o código no documento)
+    for (var z = p.i + 1; z < Math.min(p.i + 6, linhas.length); z++) { if (/^[A-Z0-9]{3,5}$/.test(linhas[z]) && /\d{3}/.test(linhas[z])) { p.codigo = linhas[z]; break; } }
+    return pecas.some(function (q) { return !q.semCodigo; });
   });
   if (!pecas.length) return null;
   // valor dominante (o documento costuma ter um fornecedor só; a linha de parecer que escapou não muda a maioria)
@@ -4653,7 +4684,7 @@ function pv_lerStatusCilia_(texto, lista) {
     var ent = noBloco(entregas) || (entregas.length === pecas.length ? entregas[k] : null);
     var d = prev ? pv_datas_(prev) : [];
     var dEnt = ent && ent.data ? pv_datas_(/\/\d{2,4}$/.test(ent.data) ? ent.data : ent.data.replace(/\/?$/, '/' + new Date().getFullYear())) : [];
-    out[cp_norm_(p.codigo)] = {
+    out[cp_norm_(p.codigo) || ('SEMCOD' + k)] = {
       codigo: p.codigo, descricao: p.descricao, fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '',
       previsao: d.length ? d[0].toISOString() : '', entregue: !!ent, entregueEm: dEnt.length ? dEnt[0].toISOString() : '',
       linha: (p.codigo + ' ' + p.descricao).slice(0, 120)
@@ -4662,7 +4693,7 @@ function pv_lerStatusCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:470
+// Previsao.gs:488
 function pv_lerPareceresCilia_(texto) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   var reCab = /FLUXO:\s*\d+\s*\|.*?DATA DE CRIACAO:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/g;
@@ -4718,7 +4749,7 @@ function pv_lerPareceresCilia_(texto) {
   return out;
 }
 
-// Previsao.gs:526
+// Previsao.gs:544
 function pv_ultimaAtualizacaoCilia_(texto) {
   var m = vd_semAcento_(String(texto || '')).match(/ULTIMA ATUALIZACAO\s*\(?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/);
   if (!m) return null;
@@ -4727,7 +4758,7 @@ function pv_ultimaAtualizacaoCilia_(texto) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Previsao.gs:538
+// Previsao.gs:556
 function pv_aplicarPareceres_(achados, texto, alvos) {
   var pareceres = pv_lerPareceresCilia_(texto);
   if (!pareceres.length) return 0;
@@ -4770,7 +4801,7 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
   return n;
 }
 
-// Previsao.gs:591
+// Previsao.gs:609
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
@@ -4857,7 +4888,7 @@ function pv_lerHdiPecas_(texto, lista) {
   return pecas.length ? pecas : null;
 }
 
-// Previsao.gs:677
+// Previsao.gs:695
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
@@ -4948,7 +4979,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:768
+// Previsao.gs:786
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
@@ -4959,7 +4990,7 @@ function pv_enriquecerFo_(texto, fo) {
   return n;
 }
 
-// Previsao.gs:782
+// Previsao.gs:800
 function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   var me = vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state,due' } });
@@ -4973,7 +5004,7 @@ function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   return out;
 }
 
-// Previsao.gs:797
+// Previsao.gs:815
 function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
@@ -4997,7 +5028,7 @@ function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   return out;
 }
 
-// Previsao.gs:821
+// Previsao.gs:839
 function pv_docFornecimento_(texto) {
   var nt = vd_normTexto_(texto);
   if (/STATUS DO PEDIDO|PREVISAO DE ENTREGA|STATUS DAS PECAS/.test(nt)) return 'Status do Pedido Cilia';
@@ -5005,7 +5036,7 @@ function pv_docFornecimento_(texto) {
   return '';
 }
 
-// Previsao.gs:829
+// Previsao.gs:847
 function pv_lerFornecimentoTexto_(card, texto) {
   var itensFo = [];
   (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(i); }); });
@@ -5825,7 +5856,7 @@ function vdf_treinoAssinatura(token, p) {
       var x = vd_extrair_(reg.texto);
       var s = JSON.stringify([r.origem, r.cor, r.seguradora, x.modelo, x.ano, (r.oficina || []).map(function (q) { return [q.codigo, q.descricao, q.qtd, q.valorOrc, q.medida || '', q.pneu ? 1 : 0]; }), (r.fo || []).map(function (q) { return [q.codigo, q.descricao, q.qtd, q.valorOrc]; })]);
       sig[k] = Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, s)).slice(0, 10);
-      if (det[k]) detalhe[k] = { s: s, trecho: vd_normTexto_(reg.texto).slice(0, 6000) };
+      if (det[k]) detalhe[k] = { s: s, texto: String(reg.texto).slice(0, 80000) };
       total++;
     });
   });
@@ -6381,7 +6412,9 @@ function vd_extrair_(texto) {
   while ((m = reRot.exec(U))) { var c = vd_normChassi_(m[1]).slice(0, 17); if (vd_chassiValido_(c) && r.chassis.indexOf(c) < 0) r.chassis.push(c); }
   if (!r.chassis.length) { var reSolto = /\b([A-HJ-NPR-Z0-9]{17})\b/g; while ((m = reSolto.exec(U))) { if (vd_chassiValido_(m[1]) && /^[1-9A-HJ-NPR-Z]/.test(m[1]) && r.chassis.indexOf(m[1]) < 0) r.chassis.push(m[1]); } }
   var reP = /\b([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/g;
-  while ((m = reP.exec(U))) { var p = m[1] + m[2]; if (r.placas.indexOf(p) < 0) r.placas.push(p); }
+  // 16/10/2026: horário ("DAS 8H00 ÀS 20H00") e câmbio + ano ("FLEX AUT 2020") não são placa
+  var naoPlaca = function (a, b) { return (/^(DAS|AS|ATE|DES)$/.test(a) && /^\dH[0-5]\d$/.test(b)) || (/^(AUT|MEC|MAN|ANO|MOD|CVT)$/.test(a) && /^(19|20)\d\d$/.test(b)); };
+  while ((m = reP.exec(U))) { var p = m[1] + m[2]; if (!naoPlaca(m[1], m[2]) && r.placas.indexOf(p) < 0) r.placas.push(p); }
   // placa "com rótulo": logo depois de PLACA (Cilia/HDI/CRLV) ou logo depois do chassi (Websoma "Licença")
   r.placasRot = [];
   var reRotP = /(?:PLACA\s*(?:N[O.]*)?\s*[:.\-]?|\b[A-HJ-NPR-Z0-9]{17}) ?([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/g;
@@ -6421,13 +6454,13 @@ function vd_extrair_(texto) {
   return r;
 }
 
-// Validacao.gs:695
+// Validacao.gs:697
 function vd_anexoLegivel_(a) {
   return !!a && a.isUpload && (a.bytes || 0) <= VD.MAX_BYTES_ANEXO &&
     (/pdf|image\/(jpe?g|png|webp|gif)/i.test(a.mimeType || '') || /\.(pdf|jpe?g|png)$/i.test(a.name || ''));
 }
 
-// Validacao.gs:706
+// Validacao.gs:708
 function vd_anxAba_() {
   if (VD_ANXS.SH) return VD_ANXS.SH;
   var ss = vd_planilhaBackup_().getParent(), sh = ss.getSheetByName(VD_ANXS.ABA);
@@ -6435,7 +6468,7 @@ function vd_anxAba_() {
   return (VD_ANXS.SH = sh);
 }
 
-// Validacao.gs:713
+// Validacao.gs:715
 function vd_anxIdx_() {
   if (VD_ANXS.ROW) return VD_ANXS.ROW;
   var idx = {};
@@ -6446,7 +6479,7 @@ function vd_anxIdx_() {
   return (VD_ANXS.ROW = idx);
 }
 
-// Validacao.gs:723
+// Validacao.gs:725
 function vd_anxGet_(id) {
   if (!id) return null;
   var c = null, k = 'vd_anx_' + id;
@@ -6459,14 +6492,14 @@ function vd_anxGet_(id) {
   return js;
 }
 
-// Validacao.gs:735
+// Validacao.gs:737
 function vd_anxTem_(id) {
   if (!id) return false;
   if (vd_anxIdx_()[id]) return true;
   try { return !!PropertiesService.getScriptProperties().getProperty('VD_ANX3_' + id); } catch (e) { return false; }
 }
 
-// Validacao.gs:741
+// Validacao.gs:743
 function vd_anxSet_(id, js) {
   var sh = vd_anxAba_(), idx = vd_anxIdx_(), lin = idx[id];
   if (lin && String(sh.getRange(lin, 1).getValue()) !== id) lin = 0;   // índice velho: não sobrescreve outro anexo
@@ -6476,7 +6509,7 @@ function vd_anxSet_(id, js) {
   try { var pp = PropertiesService.getScriptProperties(); if (pp.getProperty('VD_ANX3_' + id) !== null) pp.deleteProperty('VD_ANX3_' + id); } catch (e) {}
 }
 
-// Validacao.gs:782
+// Validacao.gs:784
 function vd_lerAnexoTrello_(a, opt) {
   opt = opt || {};
   var cache = vd_anxGet_(a.id);   // aba ANEXOS (16/10/2026; antes VD_ANX3_ nas propriedades)
@@ -6540,7 +6573,7 @@ function vd_lerAnexoTrello_(a, opt) {
   return r;
 }
 
-// Validacao.gs:849
+// Validacao.gs:851
 function vd_placaDosAnexos_(card, prazo) {
   var anexos = (card.attachments || []).filter(function (x) { return vd_anexoLegivel_(x) && !ax_ehNota_(x.name); }).slice(0, VD.MAX_ANEXOS_CARD);   // nota fiscal não é orçamento (10/10/2026)
   var achadas = [], rotuladas = [], origem = '', origemRot = '', lidos = 0;
@@ -6559,7 +6592,7 @@ function vd_placaDosAnexos_(card, prazo) {
   return { placa: achadas.length === 1 ? achadas[0] : '', varias: achadas.length > 1 ? achadas : null, anexo: origem, lidos: lidos };
 }
 
-// Validacao.gs:868
+// Validacao.gs:870
 function vd_lerAnexosCard_(card, placa, prazo, batizar) {
   var anexos = (card.attachments || []).filter(function (x) { return vd_anexoLegivel_(x) && !ax_ehNota_(x.name); }).slice(0, VD.MAX_ANEXOS_CARD);   // nota fiscal não é orçamento (10/10/2026)
 
@@ -6615,7 +6648,7 @@ function vd_lerAnexosCard_(card, placa, prazo, batizar) {
   };
 }
 
-// Validacao.gs:924
+// Validacao.gs:926
 function vd_dicaNorm_(t) {
   var s = vd_semAcento_(t);
   if (/^GENU/.test(s)) return 'GENUÍNO';
@@ -6626,7 +6659,7 @@ function vd_dicaNorm_(t) {
   return '';
 }
 
-// Validacao.gs:935
+// Validacao.gs:937
 function vd_avisosTipo_(pecas, orcamento) {
   if (!orcamento || !orcamento.oficina || !orcamento.oficina.length) return [];
   var porCod = {}, porDesc = {};
@@ -6651,29 +6684,29 @@ function vd_avisosTipo_(pecas, orcamento) {
   return avisos;
 }
 
-// Validacao.gs:960
+// Validacao.gs:962
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
 
-// Validacao.gs:970
+// Validacao.gs:972
 function vd_cardCss_(nomeCard) { return VD_CSS.test(String(nomeCard || '')); }
 
-// Validacao.gs:972
+// Validacao.gs:974
 function vd_pecaParaFo_(x, forn) {
   return x.pneu ? { pneu: true, medida: x.medida || '', marca: x.marca || x.categoria || '', qtd: x.qtd || '', fornecedor: forn || '' }
     : { pneu: false, codigo: String(x.codigo || '').trim(), descricao: String(x.descricao || '').trim(), qtd: x.qtd || '', valorOrc: x.valorOrc || '', fornecedor: forn || '' };
 }
 
-// Validacao.gs:977
+// Validacao.gs:979
 function vd_orcCss_(orc, nomeCard) {
   if (!orc || !vd_cardCss_(nomeCard) || !(orc.oficina || []).length) return orc;
   return { origem: orc.origem, oficina: [], fo: (orc.fo || []).concat(orc.oficina.map(function (x) { return vd_pecaParaFo_(x, 'ZACARIAS'); })) };
 }
 
-// Validacao.gs:982
+// Validacao.gs:984
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4
@@ -6682,7 +6715,7 @@ function vd_orcExpandir_(lista) {
   });
 }
 
-// Validacao.gs:998
+// Validacao.gs:1000
 function tr_hash_(desc) {
   var s = String(desc || '').replace(/\s+$/, '');
   var h = 0;
@@ -6690,7 +6723,7 @@ function tr_hash_(desc) {
   return (h >>> 0) + ':' + s.length;
 }
 
-// Validacao.gs:1005
+// Validacao.gs:1007
 function tr_aba_() {
   var sh0 = vd_planilhaBackup_();
   var ss = sh0.getParent();
@@ -6703,7 +6736,7 @@ function tr_aba_() {
   return sh;
 }
 
-// Validacao.gs:1018
+// Validacao.gs:1020
 function tr_guardarLote_(itens) {
   if (!itens.length) return;
   var sh = tr_aba_();
@@ -6732,7 +6765,7 @@ function tr_guardarLote_(itens) {
   itens.forEach(function (it) { if (!it.base) tr_marcarRecente_(it.id, props[TR.PREFIXO + it.id]); });
 }
 
-// Validacao.gs:1048
+// Validacao.gs:1050
 function tr_marcarRecente_(cardId, h) {
   try {
     var cache = CacheService.getScriptCache(), k = 'tr_rec_' + cardId, lista = [];
@@ -6742,10 +6775,10 @@ function tr_marcarRecente_(cardId, h) {
   } catch (e) { console.log('trava/recentes: ' + e); }
 }
 
-// Validacao.gs:1062
+// Validacao.gs:1064
 function tr_guardar_(cardId, desc) { tr_guardarLote_([{ id: cardId, desc: desc }]); }
 
-// Validacao.gs:1075
+// Validacao.gs:1077
 function vd_gravarDesc_(cardId, desc, token, extra) {
   var payload = extra || {};
   var vit = null, jaTinha = '';
@@ -6789,7 +6822,7 @@ function vd_gravarDesc_(cardId, desc, token, extra) {
   }
 }
 
-// Validacao.gs:1119
+// Validacao.gs:1121
 function vd_avisarDescGrande_(cardId, tam) {
   var cache = CacheService.getScriptCache(), k = 'vd_grande_' + cardId;
   if (cache.get(k)) return;
@@ -6800,20 +6833,20 @@ function vd_avisarDescGrande_(cardId, tam) {
     'Acima disso o salvamento passa a falhar. Caminho: arquivar o histórico antigo de cotações do card (ou abrir um card novo para o que falta).');
 }
 
-// Validacao.gs:1130
+// Validacao.gs:1132
 function vd_redesenhar_(cardId, token) {
   var desc = vd_completa_(cardId);
   if (!desc) desc = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'desc' } }).desc || '';
   vd_gravarDesc_(cardId, desc, token);
 }
 
-// Validacao.gs:1221
+// Validacao.gs:1223
 function du_pad_(n) { return (n < 10 ? '0' : '') + n; }
 
-// Validacao.gs:1222
+// Validacao.gs:1224
 function du_chave_(d) { return d.getFullYear() + '-' + du_pad_(d.getMonth() + 1) + '-' + du_pad_(d.getDate()); }
 
-// Validacao.gs:1225
+// Validacao.gs:1227
 function du_pascoa_(a) {
   var b = Math.floor(a / 100), c = a % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
   var g = Math.floor((b - f + 1) / 3), h = (19 * (a % 19) + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4;
@@ -6822,7 +6855,7 @@ function du_pascoa_(a) {
   return new Date(a, mes - 1, dia, 12);
 }
 
-// Validacao.gs:1233
+// Validacao.gs:1235
 function du_lerProp_(nome) {
   var out = [];
   String(vd_prop_(nome, '') || '').split(/[,;\s]+/).forEach(function (t) {
@@ -6833,7 +6866,7 @@ function du_lerProp_(nome) {
   return out;
 }
 
-// Validacao.gs:1244
+// Validacao.gs:1246
 function du_feriados_(ano) {
   if (DU_CACHE[ano]) return DU_CACHE[ano];
   var f = {};
@@ -6847,14 +6880,14 @@ function du_feriados_(ano) {
   return f;
 }
 
-// Validacao.gs:1257
+// Validacao.gs:1259
 function du_ehUtil_(d) {
   var w = d.getDay();
   if (w === 0 || w === 6) return false;
   return !du_feriados_(d.getFullYear())[du_chave_(d)];
 }
 
-// Validacao.gs:1264
+// Validacao.gs:1266
 function du_somarUteis_(dias, base) {
   var n = parseInt(dias, 10) || 0, h = base ? new Date(base) : new Date();
   if (isNaN(h.getTime())) h = new Date();
@@ -6865,7 +6898,7 @@ function du_somarUteis_(dias, base) {
   return d.toISOString();
 }
 
-// Validacao.gs:1288
+// Validacao.gs:1290
 function vd_planilhaBackup_() {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty('VD_PLANILHA_BACKUP');
@@ -6878,12 +6911,12 @@ function vd_planilhaBackup_() {
   return sh;
 }
 
-// Validacao.gs:1300
+// Validacao.gs:1302
 function vd_backup_(card, motivo) {
   vd_planilhaBackup_().appendRow([new Date(), vd_board_(), card.name, card.shortUrl || card.url, motivo, card.desc]);
 }
 
-// Validacao.gs:1325
+// Validacao.gs:1327
 function vd_criador_(cardId) {
   // quem criou o card não muda: cache de 6 h (06/10/2026 — era 1 chamada a cada abertura do formulário e a cada comentário do robô)
   var cache = null, k = 'vd_criador_' + cardId;
@@ -6925,7 +6958,7 @@ function vd_criador_(cardId) {
   return quem;
 }
 
-// Validacao.gs:1366
+// Validacao.gs:1368
 function vd_membroPorNome_(nome) {
   var alvo = vd_semAcento_(nome).replace(/\s+/g, ' ').trim();
   if (!alvo) return '';
@@ -6939,7 +6972,7 @@ function vd_membroPorNome_(nome) {
   return m ? m[1] : '';
 }
 
-// Validacao.gs:1382
+// Validacao.gs:1384
 function vd_agruparTipo_(faltas) {
   var nums = [], outras = [];
   faltas.forEach(function (f) {
@@ -6950,19 +6983,19 @@ function vd_agruparTipo_(faltas) {
   return outras.concat(['falta marcar o tipo de peça (GENUÍNO, ORIGINAL, PARALELO ou USADO) nos itens ' + nums.join(', ')]);
 }
 
-// Validacao.gs:1392
+// Validacao.gs:1394
 function vd_anosSeCruzam_(a, b) {
   var x = String(a || '').match(/(19|20)\d\d/g) || [], y = String(b || '').match(/(19|20)\d\d/g) || [];
   if (!x.length || !y.length) return true;
   return x.some(function (v) { return y.indexOf(v) >= 0; });
 }
 
-// Validacao.gs:1398
+// Validacao.gs:1400
 function vd_comentar_(card, txt) {
   vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } });
 }
 
-// Validacao.gs:1402
+// Validacao.gs:1404
 function vd_mover_(card, idLista, pos) {
   var de = card.idList;
   try { st_permitir_(card.id, idLista); } catch (e) {}   // antes do PUT: a trava de colunas não desfaz
@@ -6974,7 +7007,7 @@ function vd_mover_(card, idLista, pos) {
   } catch (e) {}
 }
 
-// Validacao.gs:1414
+// Validacao.gs:1416
 function vd_conferirCard_(card, ctx) {
   var props = PropertiesService.getScriptProperties();
   var nome = card.name || '';
@@ -7144,7 +7177,7 @@ function vd_conferirCard_(card, ctx) {
   return res;
 }
 
-// Validacao.gs:1590
+// Validacao.gs:1592
 function vd_importarOrcamento_(card, an, lido, ctx) {
   var o = lido.orcamento;
   var d = an.dados;
@@ -7186,7 +7219,7 @@ function vd_importarOrcamento_(card, an, lido, ctx) {
   return { texto: texto, titulo: titulo };
 }
 
-// Validacao.gs:1636
+// Validacao.gs:1638
 function vd_conferirPosCotacao_(card, ctx) {
   var props = PropertiesService.getScriptProperties();
   var res = { card: card.name, url: card.shortUrl, acao: '', faltas: [], preenchido: [], avisos: [] };
@@ -7279,7 +7312,7 @@ function vd_conferirPosCotacao_(card, ctx) {
   return res;
 }
 
-// Validacao.gs:1728
+// Validacao.gs:1730
 function vd_contexto_() {
   var board = vd_board_();
   var url = vd_prop_('VD_URL_FORM', VD.URL_FORM);
@@ -7292,7 +7325,7 @@ function vd_contexto_() {
   };
 }
 
-// Validacao.gs:1760
+// Validacao.gs:1762
 function vd_marcar_(card) {
   try { cf_sincronizar_(card.id); } catch (e) {}   // campos personalizados antes de marcar (a gravação mexe na atividade)
   try {
@@ -7301,7 +7334,7 @@ function vd_marcar_(card) {
   } catch (e) {}
 }
 
-// Validacao.gs:1889
+// Validacao.gs:1891
 function vd_fixarTopo_(idLista, token) {
   try {
     var g = String(PropertiesService.getScriptProperties().getProperty('VD_FIXO') || '').split('|');
@@ -7309,7 +7342,7 @@ function vd_fixarTopo_(idLista, token) {
   } catch (e) { console.log('fixar topo: ' + e); }
 }
 
-// Validacao.gs:2103
+// Validacao.gs:2105
 function pz_labelId_(board, nome, cor) {
   var cache = CacheService.getScriptCache();
   var k = 'pz_lbl_' + board + '_' + nome;
@@ -7322,10 +7355,10 @@ function pz_labelId_(board, nome, cor) {
   return l.id;
 }
 
-// Validacao.gs:2377
+// Validacao.gs:2379
 function vd_vitrineLigada_() { return vd_prop_('VD_VITRINE', 'SIM') !== 'NAO'; }
 
-// Validacao.gs:2380
+// Validacao.gs:2382
 function vd_completa_(cardId, vitrine) {
   if (!cardId) return '';
   if (VD_CMP_MEM && Object.prototype.hasOwnProperty.call(VD_CMP_MEM, cardId)) return VD_CMP_MEM[cardId];
@@ -7349,7 +7382,7 @@ function vd_completa_(cardId, vitrine) {
   return txt;
 }
 
-// Validacao.gs:2404
+// Validacao.gs:2406
 function vd_completasTodas_() {
   if (VD_CMP_MEM) return VD_CMP_MEM;
   VD_CMP_MEM = {};
@@ -7363,7 +7396,7 @@ function vd_completasTodas_() {
   return VD_CMP_MEM;
 }
 
-// Validacao.gs:2418
+// Validacao.gs:2420
 function vd_trocarPelaCompleta_(r) {
   if (!r) return r;
   if (Array.isArray(r)) {
@@ -7376,13 +7409,13 @@ function vd_trocarPelaCompleta_(r) {
   return r;
 }
 
-// Validacao.gs:2430
+// Validacao.gs:2432
 function vd_tit_(s) { s = String(s || '').toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
 
-// Validacao.gs:2431
+// Validacao.gs:2433
 function vd_md_(s) { return String(s || '').replace(/([\\`*_\[\]#>|~])/g, '\\$1'); }
 
-// Validacao.gs:2437
+// Validacao.gs:2439
 function vd_vitrine_(desc, nome, pagas) {
   if (!vd_vitrineLigada_()) return null;
   if (/^\s*AVISO\b/i.test(nome || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '')) return null;
@@ -7515,7 +7548,7 @@ function vd_vitrine_(desc, nome, pagas) {
   return txt;
 }
 
-// Validacao.gs:2570
+// Validacao.gs:2572
 function vd_textoLegado_(desc) {
   var resto = vd_dividir_(desc).resto;
   if (!resto) return '';

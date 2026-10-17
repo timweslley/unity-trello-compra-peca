@@ -1305,7 +1305,7 @@ function vdf_autorizar(token, p) {
     var q = lidas.filter(function (x) { return x.chave === e.chave && x.fornecedor === forn && Math.abs(x.valor - valor) < 0.005; })[0];
     if (!q) { faltas.push(vd_nomePeca_(peca) + ': essa cotação (' + forn + ' ' + vd_valorBR_(valor) + ') não está no card'); return; }
     linhas.push('AUTORIZADO: ' + forn + ' - ' + (peca.pneu ? 'PNEU ' + String(peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(peca)) + ' - ' + vd_valorBR_(valor));
-    total += valor;
+    total += valor * (vd_totaisPorQtd_() ? vd_qtdNum_(peca.qtd) : 1);   // 16/10/2026: valor é da unidade (LÍQUIDO 4 × R$ 40 = R$ 160)
     var doPeca = lidas.filter(function (x) { return x.chave === e.chave; }).map(function (x) { return x.valor; });
     var ea = ev_peca_(peca); ea.fornecedor = forn; ea.valor = valor; ea.dias = q.dias;
     ea.detalhe = doPeca.length > 1 ? 'menor ' + vd_valorBR_(Math.min.apply(null, doPeca)) + ' · maior ' + vd_valorBR_(Math.max.apply(null, doPeca)) + ' · ' + doPeca.length + ' cotações' : '1 cotação';
@@ -1379,7 +1379,7 @@ function vdf_autorizar(token, p) {
   }
   if (fechar) {
     // nada novo: fecha o que foi salvo parcialmente — totais passam a ser os de todas as autorizações do card
-    total = autsAgora.reduce(function (sum, a) { return sum + (+a.valor || 0); }, 0);
+    total = autsAgora.reduce(function (sum, a) { var pc = porChave[a.chave] || {}; return sum + (+a.valor || 0) * (vd_totaisPorQtd_() ? vd_qtdNum_(pc.qtd) : 1); }, 0);
     linhas = autsAgora.map(function (a) { return a.chave; });
     evAut = [];
   }
