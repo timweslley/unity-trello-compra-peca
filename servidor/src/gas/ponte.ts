@@ -397,7 +397,8 @@ export async function ehCardTesteDoPrincipal(ref: string): Promise<boolean> {
 }
 async function propsParaGravacao(): Promise<Record<string, string>> {
   const idade = espelhoProps ? Date.now() - espelhoProps.em : Infinity;
-  if (idade > 5 * 60_000) await renovarProps();
+  // 17/10/2026: Apps Script lento/fora → segue com a cópia que tem (até 30 min); sem cópia nenhuma, aí sim falha
+  if (idade > 5 * 60_000) { try { await renovarProps(); } catch (e) { if (!espelhoProps || idade > 30 * 60_000) throw e; console.warn('[props] usando cópia de', Math.round(idade / 1000), 's:', (e as Error).message); } }
   else if (idade > 15_000) renovarProps().catch((e) => console.error('props (segundo plano):', (e as Error).message));
   return { ...espelhoProps!.v };
 }
