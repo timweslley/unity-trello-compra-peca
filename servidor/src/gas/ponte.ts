@@ -581,6 +581,20 @@ async function propsDoPrincipal(): Promise<Record<string, string>> {
   }
   return propsPrinc?.v || {};   // nunca espera: sem cópia ainda, usa o padrão do código (como antes)
 }
+/** 19/10/2026 — tamanho das Propriedades do Script do robô (só nomes/tamanhos por prefixo, nunca os valores). */
+export async function tamanhoProps(): Promise<unknown> {
+  const v = await propsParaGravacao();
+  let tot = 0; const por: Record<string, { n: number; kb: number }> = {}; const maiores: Array<[string, number]> = [];
+  for (const [k, val] of Object.entries(v)) {
+    const t = k.length + String(val).length; tot += t;
+    const pre = (k.match(/^[A-Z]+_[A-Z0-9]*_?/) || [k])[0];
+    (por[pre] ||= { n: 0, kb: 0 }).n++; por[pre].kb += t / 1024;
+    maiores.push([k.replace(/[0-9a-f]{24}/g, '<id>'), t]);
+  }
+  maiores.sort((a, b) => b[1] - a[1]);
+  const top = Object.entries(por).sort((a, b) => b[1].kb - a[1].kb).slice(0, 25).map(([p, x]) => ({ p, n: x.n, kb: Math.round(x.kb * 10) / 10 }));
+  return { ok: true, chaves: Object.keys(v).length, kb: Math.round(tot / 1024), idadeSeg: espelhoProps ? Math.round((Date.now() - espelhoProps.em) / 1000) : null, porPrefixo: top, maiores: maiores.slice(0, 15).map(([k, t]) => ({ k, kb: Math.round(t / 102.4) / 10 })) };
+}
 export function estadoPropsPrincipal() {
   return { chaves: propsPrinc ? Object.keys(propsPrinc.v) : [], idadeSeg: propsPrinc ? Math.round((Date.now() - propsPrinc.em) / 1000) : null, erro: erroProps || null };
 }
