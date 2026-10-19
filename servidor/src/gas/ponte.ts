@@ -866,8 +866,10 @@ export async function minutoRobo(): Promise<Record<string, unknown>> {
   for (const d of diarias) {
     if (hhmm < d.hhmm) continue;
     const k = 'robo_diaria_' + String(out.modo) + '_' + d.fn;
-    const [g] = await consulta<{ valor: unknown }>(`SELECT valor FROM guardado WHERE nome = $1`, [k]).catch(() => []);
-    if (g && String((g.valor as { dia?: string })?.dia) === hoje) continue;
+    // 19/10/2026 (virada às 19h33): a diária que já rodou hoje em qualquer modo (OBSERVAR = junto com o Google) não roda de novo —
+    // senão o relatório de exceções saía 2× no dia da virada
+    const gs = await consulta<{ valor: unknown }>(`SELECT valor FROM guardado WHERE nome = ANY($1)`, [['robo_diaria_ATIVO_' + d.fn, 'robo_diaria_OBSERVAR_' + d.fn]]).catch(() => []);
+    if (gs.some((g) => String((g.valor as { dia?: string })?.dia) === hoje)) continue;
     await consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`, [k, JSON.stringify({ dia: hoje })]).catch(() => null);
     out[d.fn] = await rodarRobo(d.fn);
   }
