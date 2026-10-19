@@ -31,6 +31,9 @@ window.PU_CFG = {
   /* 17/10/2026 (Weslley 03h57: "fazer imediatamente"): gravações do principal pelo servidor, com as propriedades e a planilha
    * do robô do Google (passo 2 da virada). Primeiro só quem está na lista; depois 'todos'. Desligar: { usuarios: [] }. */
   GRAVACAO_SERVIDOR: 'todos',   // 17/10 08h35 — RELIGADO (Weslley: "fazer já") com as licenças das travas indo ao Apps Script (3bafc2b)
+  /* 19/10/2026: botões "📋 Copiar lista para WhatsApp" (Cotação) e "Pedidos por fornecedor" (Compra) — só leitura.
+   * 'teste' = só no quadro TESTE; 'todos' = liga no principal (com OK do Weslley); qualquer outro valor desliga. */
+  COPIAR_WHATS: 'teste',
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:

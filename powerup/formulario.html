@@ -7984,5 +7984,198 @@ document.addEventListener('input', function (e) {
   var it = t.closest('.item'); var d = it && it.querySelector('.sem-cod'); if (d) d.style.display = t.value.trim() ? 'none' : '';
 });
 </script>
+
+<script>
+/* 19/10/2026 (Weslley, pedido do comprador: "para cotar precisa copiar item por item do formulário") — 2.0:
+ * aba 💰 Cotação: lista para WhatsApp por tipo de fornecedor (CSS/concessionária, lataria, mecânica, pneu) com caixinhas por
+ * peça + 📋 em cada peça; aba 🛒 Compra: um pedido por fornecedor (cotação escolhida/autorizada, ainda não comprada).
+ * Só leitura: não grava nada. Liga por PU_CFG.COPIAR_WHATS: 'teste' (só no TESTE, srv=1) | 'todos' | desligado. */
+(function () {
+  if (!document.documentElement.classList.contains('v2')) return;
+  var cfg = window.PU_CFG && PU_CFG.COPIAR_WHATS;
+  var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  var FIM_COT = 'Favor informar valor, marca e prazo de entrega.';
+  var FIM_COMPRA = 'Favor confirmar o pedido, a disponibilidade e o prazo de entrega.';
+  var st = document.createElement('style');
+  st.textContent = '.wz-bar{margin:0 0 12px;padding:10px 12px;border:1px solid var(--borda,#d0d7de);border-radius:10px;background:var(--fundo2,#f6f8fa)}'
+    + '.wz-bar .wz-bts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}'
+    + '.wz-bar textarea{width:100%!important;box-sizing:border-box;margin-top:8px;font:13px/1.4 ui-monospace,Consolas,monospace!important;height:150px!important;min-height:150px!important;resize:vertical}'
+    + '.wz-forn{margin-top:10px;padding-top:10px;border-top:1px dashed var(--borda,#d0d7de)}.wz-forn:first-child{border-top:0;margin-top:4px;padding-top:0}'
+    + '.wz-ok{color:#1a7f37;font-size:13px}.wz-um{border:0;background:none;cursor:pointer;font-size:14px;padding:0 4px;opacity:.7}.wz-um:hover{opacity:1}'
+    + '.wz-chip{display:inline-block!important;visibility:visible!important;padding:4px 10px;border-radius:14px;border:1px solid var(--borda,#d0d7de);background:#fff;cursor:pointer;font-size:13px}'
+    + '.wz-chip.on{border-color:#0c66e4;background:#e9f2ff;font-weight:600}'
+    + '.wz-zap{display:inline-flex!important;align-items:center;gap:4px;padding:6px 12px;border-radius:6px;border:1px solid #25d366;background:#fff;color:#128c4b;font-weight:600;cursor:pointer}.wz-zap:hover{background:#e9fbf0}'
+    + '.wz-pecas label{display:block;margin:2px 0;cursor:pointer}';
+  document.head.appendChild(st);
+
+  function cab(c, titulo) {
+    var d = c.dados || {}, t = c.titulo || {};
+    var carro = [d.modelo || t.carro, d.ano, d.motor].filter(function (x) { return x && String(x).trim(); }).join(' · ');
+    var l = ['*' + titulo + (carro ? ' — ' + carro : '') + '*'];
+    var id = [d.placa ? 'Placa: ' + d.placa : '', d.chassi ? 'Chassi: ' + d.chassi : ''].filter(String).join(' · ');
+    if (id) l.push(id);
+    return l;
+  }
+  function nomePeca(p) {
+    if (p.pneu) return ['PNEU ' + (p.medida || ''), [p.marca, p.categoria].filter(function (x) { return x && String(x).trim(); }).join(' / ')].filter(function (x) { return x && x.trim(); }).join(' — ');
+    var desc = p.descricao || p.nome || '';
+    return p.codigo ? p.codigo + ' — ' + desc : desc;
+  }
+  function numQtd(p) { return parseFloat(String(p.qtd || '1').replace(',', '.')) || 1; }
+  function qtd(p) { return numQtd(p) + ' un'; }
+  function linhaCot(p, n) {
+    var tipos = !p.pneu && p.tipos && p.tipos.length ? ' (' + p.tipos.join(' ou ') + ')' : '';
+    return n + '. ' + nomePeca(p) + ' — ' + qtd(p) + tipos;
+  }
+  function copiar(texto, onde) {
+    var ok = function () { if (onde) { onde.textContent = '✔ copiado — é só colar no WhatsApp'; setTimeout(function () { onde.textContent = ''; }, 4000); } };
+    var reserva = function () {
+      var ta = document.createElement('textarea'); ta.value = texto; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta);
+      ta.select(); var r = false; try { r = document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta);
+      if (r) ok(); else if (onde) onde.textContent = 'Não consegui copiar sozinho: selecione o texto abaixo e copie (Ctrl+C).';
+    };
+    try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(texto).then(ok, reserva); return; } } catch (e) {}
+    reserva();
+  }
+  function whats(texto) { window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank'); }
+  function barraWz(id, html) { var b = document.createElement('div'); b.id = id; b.className = 'wz-bar'; b.innerHTML = html; return b; }
+
+  /* ----- Cotação por tipo de fornecedor ----- */
+  /* Weslley 19/10: CSS/concessionária cota tudo menos pneu; mecânica só mecânica; pneu só pneu; lataria nem mecânica nem pneu.
+   * O sistema não guarda o tipo da peça: separa pelo nome e o comprador ajusta nas caixinhas. Arrefecimento vale para os dois. */
+  var RE_MEC = /\b(AMORTEC|BIELET|BUCHA|PIVO|BANDEJA|TERMINAL|BARRA (DE )?(DIRE|ESTAB|AXIAL|LIGA)|BRACO (OSCIL|TENSOR|SUSP|AXIAL)|CUBO|ROLAMENTO|EIXO|HOMOCIN|SEMI.?EIXO|MANGA|COXIM|MOLA|BATENTE|COIFA|CAIXA (DE )?DIRE|SETOR|BOMBA|COMPRESSOR|FILTRO|OLEO|FLUIDO|CORREIA|TENSOR|POLIA|VELA|BOBINA|SONDA|ALTERNADOR|MOTOR DE PARTIDA|ARRANQUE|BATERIA|EMBREAG|PLATO|CAMBIO|DISCO DE FREIO|TAMBOR|PASTILHA|LONA DE FREIO|PINCA|CILINDRO|FLEXIVEL|CABO DE (FREIO|EMBREAG|ACELER)|JUNTA|CABECOTE|CARTER|VALVULA|INJETOR|BICO INJ|TURBINA|INTERCOOLER|ESCAPAMENTO|SILENCIOSO|CATALIS|COLETOR|AGREGADO|QUADRO DO MOTOR|BERCO|SUSPENS|CORRENTE|TERMOSTAT|SENSOR DE (TEMPERATURA|ROTACAO|OXIGENIO|FASE|DETONA)|RADIADOR|CONDENSADOR|VENTOINHA|ELETROVENT|RESERVATORIO|MANGUEIRA)/;
+  var RE_AMBOS = /\b(RADIADOR|CONDENSADOR|VENTOINHA|ELETROVENT|RESERVATORIO DE (EXPANSAO|AGUA)|SUPORTE DO RADIADOR)/;
+  var GRUPOS = [
+    { id: 'css', rot: 'CSS / concessionária', dica: 'tudo menos pneu', quer: function (p) { return !p.pneu; } },
+    { id: 'lat', rot: 'Lataria', dica: 'sem mecânica e sem pneu', quer: function (p) { var d = semAc(nomePeca(p)); return !p.pneu && (!RE_MEC.test(d) || RE_AMBOS.test(d)); } },
+    { id: 'mec', rot: 'Mecânica', dica: 'só mecânica', quer: function (p) { return !p.pneu && RE_MEC.test(semAc(nomePeca(p))); } },
+    { id: 'pneu', rot: 'Pneu', dica: 'só pneu', quer: function (p) { return !!p.pneu; } },
+    { id: 'tudo', rot: 'Todas', dica: 'lista inteira', quer: function () { return true; } }
+  ];
+  function textoCotDe(c, lista) {
+    if (!lista.length) return '';
+    return cab(c, 'Cotação de peças').concat([''], lista.map(function (p, i) { return linhaCot(p, i + 1); }), ['', FIM_COT]).join('\n');
+  }
+  function desenharCot(b) {
+    var c = window.CARD, gp = GRUPOS.filter(function (x) { return x.id === b._grupo; })[0] || GRUPOS[0];
+    var jaCot = b.querySelector('[data-a=jacot]').checked, com = {};
+    ((c.cotacoes && c.cotacoes.cotacoes) || []).forEach(function (q) { com[q.chave] = 1; });
+    var todas = pecasOficina(c);
+    if (!b._marcas) { b._marcas = {}; todas.forEach(function (p) { b._marcas[p.chave] = gp.quer(p) && (jaCot || !com[p.chave]); }); }
+    Array.prototype.forEach.call(b.querySelectorAll('.wz-chip'), function (x) { x.classList.toggle('on', x.dataset.g === gp.id); });
+    var alvo = b.querySelector('.wz-pecas'), ta = b.querySelector('textarea');
+    alvo.innerHTML = '';
+    var escolhidas = function () { return todas.filter(function (p) { return b._marcas[p.chave]; }); };
+    var atualizarTxt = function () { var t = textoCotDe(c, escolhidas()); ta.value = t || 'Nenhuma peça marcada para este fornecedor.'; return t; };
+    todas.forEach(function (p) {
+      var l = document.createElement('label');
+      l.innerHTML = '<input type="checkbox"' + (b._marcas[p.chave] ? ' checked' : '') + '> ' + esc(nomePeca(p)) + (com[p.chave] ? ' <span class="dica">(já cotada)</span>' : '');
+      l.querySelector('input').onchange = function () { b._marcas[p.chave] = this.checked; atualizarTxt(); };
+      alvo.appendChild(l);
+    });
+    b._texto = atualizarTxt;
+    atualizarTxt();
+  }
+  function montarCot(c) {
+    var box = document.getElementById('cotItens'); if (!box) return;
+    var b = document.getElementById('wzCot');
+    if (!b) {
+      b = barraWz('wzCot', '<div class="wz-bts"><b>📋 Lista para WhatsApp — fornecedor de:</b></div>'
+        + '<div class="wz-bts wz-grupos" style="margin-top:6px"></div>'
+        + '<div class="wz-pecas" style="margin-top:8px;font-size:13px"></div>'
+        + '<label style="font-size:13px;display:block;margin-top:6px"><input type="checkbox" data-a="jacot"> incluir peças que já têm cotação</label>'
+        + '<div class="wz-bts" style="margin-top:8px"><button type="button" class="principal" data-a="copiar">📋 Copiar lista</button>'
+        + '<button type="button" class="wz-zap" data-a="whats">💬 Abrir no WhatsApp</button> <span class="wz-ok"></span></div>'
+        + '<textarea readonly></textarea>');
+      box.parentNode.insertBefore(b, box);
+      b._grupo = 'css';
+      var gr = b.querySelector('.wz-grupos');
+      GRUPOS.forEach(function (gp) {
+        var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'wz-chip'; bt.dataset.g = gp.id;
+        bt.innerHTML = esc(gp.rot) + ' <span class="dica">· ' + esc(gp.dica) + '</span>';
+        bt.onclick = function () { b._grupo = gp.id; b._marcas = null; desenharCot(b); };
+        gr.appendChild(bt);
+      });
+      b.querySelector('[data-a=jacot]').onchange = function () { b._marcas = null; desenharCot(b); };
+      b.querySelector('[data-a=copiar]').onclick = function () { var t = b._texto(); if (t) copiar(t, b.querySelector('.wz-ok')); };
+      b.querySelector('[data-a=whats]').onclick = function () { var t = b._texto(); if (t) whats(t); };
+    }
+    b._marcas = null;
+    desenharCot(b);
+    var porChave = {}; pecasOficina(c).forEach(function (p) { porChave[p.chave] = p; });
+    Array.prototype.forEach.call(box.querySelectorAll('.item'), function (it) {
+      var p = porChave[it.dataset.chave], forte = it.querySelector('.item-topo strong');
+      if (!p || !forte || forte.querySelector('.wz-um')) return;
+      var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'wz-um'; bt.title = 'Copiar esta peça para o WhatsApp'; bt.textContent = '📋';
+      bt.onclick = function (e) { e.preventDefault(); e.stopPropagation(); copiar(cab(window.CARD, 'Cotação de peça').concat(['', linhaCot(p, 1), '', FIM_COT]).join('\n'), b.querySelector('.wz-ok')); };
+      forte.appendChild(bt);
+    });
+  }
+
+  /* ----- Compra: um pedido por fornecedor ----- */
+  function pedidos(c) {
+    var porChave = {}; pecasOficina(c).forEach(function (p) { porChave[p.chave] = p; });
+    var grupos = {}, ordem = [];
+    Array.prototype.forEach.call(document.querySelectorAll('#compraItens .item'), function (it) {
+      var sel = it.querySelector('.k-sel'), p = porChave[it.dataset.chave];
+      if (!sel || !p || sel.value === '') return;   // já comprada ou "ainda não comprar"
+      var cots = []; try { cots = JSON.parse(it.dataset.cots || '[]'); } catch (e) {}
+      var q = cots[+sel.value]; if (!q) return;
+      var f = String(q.fornecedor || 'SEM FORNECEDOR').trim();
+      if (!grupos[f]) { grupos[f] = []; ordem.push(f); }
+      grupos[f].push({ p: p, q: q });
+    });
+    return ordem.map(function (f) {
+      var tot = 0, linhas = grupos[f].map(function (x, i) {
+        var v = lerValorBR(x.q.valor), n = numQtd(x.p);
+        if (!isNaN(v)) tot += v * n;
+        var tm = [x.q.tipo, x.q.marca].filter(function (y) { return y && String(y).trim() && !(x.p.pneu && semAc(y) === semAc(x.p.marca)); }).join(' ');
+        return (i + 1) + '. ' + nomePeca(x.p) + ' — ' + qtd(x.p) + (tm ? ' — ' + tm : '') + (isNaN(v) ? '' : ' — ' + fmtValor(v) + (n > 1 ? ' cada' : ''));
+      });
+      var txt = cab(c, 'Pedido de compra').concat(['Fornecedor: ' + f, ''], linhas, tot ? ['', 'Total: ' + fmtValor(tot)] : [], ['', FIM_COMPRA]).join('\n');
+      return { forn: f, n: linhas.length, texto: txt };
+    });
+  }
+  function montarCompraWz(c) {
+    var box = document.getElementById('compraItens'); if (!box) return;
+    var b = document.getElementById('wzCompra');
+    var desenhar = function () {
+      var l = pedidos(window.CARD), alvo = b.querySelector('.wz-lista'), ok = b.querySelector('.wz-ok');
+      if (!l.length) { alvo.innerHTML = '<div class="dica">Nenhuma peça escolhida para comprar ainda (as autorizadas já aparecem marcadas; peça já comprada não entra).</div>'; return; }
+      alvo.innerHTML = '';
+      l.forEach(function (g) {
+        var d = document.createElement('div'); d.className = 'wz-forn';
+        d.innerHTML = '<div class="wz-bts"><b>' + esc(g.forn) + '</b> <span class="dica">' + g.n + ' peça(s)</span>'
+          + '<button type="button" class="principal" data-a="copiar">📋 Copiar pedido</button><button type="button" class="wz-zap" data-a="whats">💬 Abrir no WhatsApp</button></div>'
+          + '<textarea readonly></textarea>';
+        d.querySelector('textarea').value = g.texto;
+        d.querySelector('[data-a=copiar]').onclick = function () { copiar(g.texto, ok); };
+        d.querySelector('[data-a=whats]').onclick = function () { whats(g.texto); };
+        alvo.appendChild(d);
+      });
+    };
+    if (!b) {
+      b = barraWz('wzCompra', '<div class="wz-bts"><b>📋 Pedidos por fornecedor (WhatsApp)</b> <span class="wz-ok"></span></div><div class="wz-lista"></div>');
+      box.parentNode.insertBefore(b, box);
+      box.addEventListener('change', function () { if (b._desenhar) b._desenhar(); });
+    }
+    b._desenhar = desenhar;
+    desenhar();
+  }
+
+  var cardVisto = null;
+  setInterval(function () {
+    var c = window.CARD; if (!c || !c.pecas) return;
+    var cot = document.getElementById('cotItens');
+    // remonta quando o formulário redesenha as abas (card novo, depois de salvar)
+    var precisa = c !== cardVisto || (cot && cot.querySelector('.item') && !cot.querySelector('.wz-um'));
+    if (!precisa) return;
+    cardVisto = c;
+    try { montarCot(c); } catch (e) { console.log('wz/cot', e); }
+    try { montarCompraWz(c); } catch (e) { console.log('wz/compra', e); }
+  }, 800);
+})();
+</script>
 </body>
 </html>
