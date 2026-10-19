@@ -1868,6 +1868,9 @@ function vdf_salvar(token, p) {
   // placa estrangeira confirmada no formulário (13/10/2026): "ABCD123 (PY)" — só quando o formato bate com o país
   var paisP = String(p.dados.pais || '').toUpperCase();
   if ((paisP === 'PY' || paisP === 'AR') && vd_placaEstrangeira_(d.placa) === paisP) d.pais = paisP;
+  // 19/10/2026: texto com acento quebrado (UTF-8 lido como cp1252) vem consertado; card aberto pela Rotina não leva serviço como peça
+  (p.pecas || []).forEach(function (x) { if (x) { x.descricao = vd_consertarAcentos_(x.descricao); x.marca = vd_consertarAcentos_(x.marca); } });
+  if (p.rotina && !p.shortLink) p.pecas = (p.pecas || []).filter(function (x) { return !x || x.pneu || !vd_ehServico_(vd_semAcento_(String(x.descricao || '')).toUpperCase()); });
   var pecas = (p.pecas || []).map(function (x) {
     // 17/10/2026: pneu que chegou como peça comum sem código ("PNEU HIFLY 195/55R15 …") vira pneu (BDD2J09)
     var dP = String(x.descricao || '').trim().toUpperCase(), mP = !x.pneu && /^PNEUS?\b/.test(dP) && !/\d{4}/.test(String(x.codigo || '').replace(/[^A-Z0-9]/gi, '')) && dP.match(/\d{3}\s*\/\s*\d{2}\s*Z?R?\s*\d{2}/);

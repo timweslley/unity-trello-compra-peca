@@ -26,9 +26,26 @@ function vd_codigoInterno_(c) {
 /** 1ª palavra comum de descrição de peça (separa código colado na descrição, 16/10/2026). */
 var VD_PALAVRAS_PECA = 'SENSOR|SILENCIOSO|PARACHOQUE|PARABARRO|PARALAMA|PARABRISA|FAROL|FAROLETE|LANTERNA|GRADE|MOLDURA|SUPORTE|EMBLEMA|FRISO|GUIA|PORTA|CAPO|TAMPA|ESPELHO|RETROVISOR|PAINEL|ABSORVEDOR|ALMA|REFORCO|BORRACHA|ACABAMENTO|APLIQUE|DEFLETOR|COBERTURA|CAPA|TRAVA|FECHADURA|MACANETA|VIDRO|RADIADOR|CONDENSADOR|ELETROVENTILADOR|PROTETOR|COXIM|BRACO|AMORTECEDOR|BANDEJA|PNEU|RODA|CALOTA|LONGARINA|COLUNA|SOLEIRA|CAIXA|TUBO|MANGUEIRA|RESERVATORIO|PALHETA|BOCAL|TRILHO|DOBRADICA|BATENTE|PARAFUSO|PORCA|GRAMPO|ETIQUETA|ADESIVO|SPOILER|ESTRIBO|CHICOTE|LAMPADA|INTERCOOLER|VIGA|TRAVESSA|ESTRUTURA|LATERAL|CARCACA|ALOJAMENTO|FORRO|REVESTIMENTO|BAGAGEIRO|ANTENA|BUZINA|MODULO|CENTRAL|CONJUNTO|JOGO|KIT|CJ';
 
+/**
+ * 19/10/2026 (cards abertos pela Rotina em 17/10: "CAPÃ”", "AFERIÃ‡ÃƑO"): texto UTF-8 lido como Windows-1252 — desfaz.
+ * Só mexe quando o texto tem o padrão típico (Ã/Â seguido de caractere da faixa 0x80–0xBF em cp1252).
+ */
+function vd_consertarAcentos_(s) {
+  s = String(s == null ? '' : s);
+  if (!/[ÃÂ][\u0080-\u00bf\u0152\u0153\u0160\u0161\u0178\u017d\u017e\u0192\u02c6\u02dc\u2013\u2014\u2018-\u201e\u2020-\u2022\u2026\u2030\u2039\u203a\u20ac\u2122]/.test(s)) return s;
+  var cp = { 0x20ac: 0x80, 0x201a: 0x82, 0x0192: 0x83, 0x201e: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02c6: 0x88, 0x2030: 0x89, 0x0160: 0x8a, 0x2039: 0x8b, 0x0152: 0x8c, 0x017d: 0x8e,
+    0x0191: 0x83, 0x2018: 0x91, 0x2019: 0x92, 0x201c: 0x93, 0x201d: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02dc: 0x98, 0x2122: 0x99, 0x0161: 0x9a, 0x203a: 0x9b, 0x0153: 0x9c, 0x017e: 0x9e, 0x0178: 0x9f };
+  var bytes = [];
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    if (c < 0x100) bytes.push(c); else if (cp[c] !== undefined) bytes.push(cp[c]); else return s;   // caractere fora do cp1252: não era isso
+  }
+  try { return decodeURIComponent(bytes.map(function (b) { return '%' + (b < 16 ? '0' : '') + b.toString(16); }).join('')); } catch (e) { return s; }
+}
+
 /** Serviços e itens que não são peça (ficam fora do formulário). */
 function vd_ehServico_(desc) {
-  return /TAXA|ASSESSORIA|BORRACHARIA|BORRACHEIR|GEOMETRIA|ALINHAMENTO|BALANCEAMENTO|PRESILHA|MAO DE OBRA|LAVAGEM|POLIMENTO|HIGIENIZA|GUINCHO|REBOQUE|DIAGNOSTICO|SCANNER|RECARGA|FRETE|\bMARKUP\b/.test(desc);
+  return /TAXA|ASSES+ORIA|AFERI[CÇ]|BORRACHARIA|BORRACHEIR|GEOMETRIA|ALINHAMENTO|BALANCEAMENTO|PRESILHA|MAO DE OBRA|LAVAGEM|POLIMENTO|HIGIENIZA|GUINCHO|REBOQUE|DIAGNOSTICO|SCANNER|RECARGA|FRETE|\bMARKUP\b/.test(desc);
 }
 
 function vd_tipoOrcamento_(t) {

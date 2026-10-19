@@ -5356,6 +5356,9 @@ function vdf_salvar(token, p) {
   // placa estrangeira confirmada no formulário (13/10/2026): "ABCD123 (PY)" — só quando o formato bate com o país
   var paisP = String(p.dados.pais || '').toUpperCase();
   if ((paisP === 'PY' || paisP === 'AR') && vd_placaEstrangeira_(d.placa) === paisP) d.pais = paisP;
+  // 19/10/2026: texto com acento quebrado (UTF-8 lido como cp1252) vem consertado; card aberto pela Rotina não leva serviço como peça
+  (p.pecas || []).forEach(function (x) { if (x) { x.descricao = vd_consertarAcentos_(x.descricao); x.marca = vd_consertarAcentos_(x.marca); } });
+  if (p.rotina && !p.shortLink) p.pecas = (p.pecas || []).filter(function (x) { return !x || x.pneu || !vd_ehServico_(vd_semAcento_(String(x.descricao || '')).toUpperCase()); });
   var pecas = (p.pecas || []).map(function (x) {
     // 17/10/2026: pneu que chegou como peça comum sem código ("PNEU HIFLY 195/55R15 …") vira pneu (BDD2J09)
     var dP = String(x.descricao || '').trim().toUpperCase(), mP = !x.pneu && /^PNEUS?\b/.test(dP) && !/\d{4}/.test(String(x.codigo || '').replace(/[^A-Z0-9]/gi, '')) && dP.match(/\d{3}\s*\/\s*\d{2}\s*Z?R?\s*\d{2}/);
@@ -5783,14 +5786,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:2299
+// FormularioServidor.gs:2302
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:2311
+// FormularioServidor.gs:2314
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5865,21 +5868,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:2388
+// FormularioServidor.gs:2391
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:2394
+// FormularioServidor.gs:2397
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:2400
+// FormularioServidor.gs:2403
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {
@@ -6312,12 +6315,26 @@ function vd_codigoInterno_(c) {
   return /^0{2,}\d+$/.test(c) || /^SOMA\d+$/.test(c);
 }
 
-// Orcamento.gs:30
-function vd_ehServico_(desc) {
-  return /TAXA|ASSESSORIA|BORRACHARIA|BORRACHEIR|GEOMETRIA|ALINHAMENTO|BALANCEAMENTO|PRESILHA|MAO DE OBRA|LAVAGEM|POLIMENTO|HIGIENIZA|GUINCHO|REBOQUE|DIAGNOSTICO|SCANNER|RECARGA|FRETE|\bMARKUP\b/.test(desc);
+// Orcamento.gs:33
+function vd_consertarAcentos_(s) {
+  s = String(s == null ? '' : s);
+  if (!/[ÃÂ][\u0080-\u00bf\u0152\u0153\u0160\u0161\u0178\u017d\u017e\u0192\u02c6\u02dc\u2013\u2014\u2018-\u201e\u2020-\u2022\u2026\u2030\u2039\u203a\u20ac\u2122]/.test(s)) return s;
+  var cp = { 0x20ac: 0x80, 0x201a: 0x82, 0x0192: 0x83, 0x201e: 0x84, 0x2026: 0x85, 0x2020: 0x86, 0x2021: 0x87, 0x02c6: 0x88, 0x2030: 0x89, 0x0160: 0x8a, 0x2039: 0x8b, 0x0152: 0x8c, 0x017d: 0x8e,
+    0x0191: 0x83, 0x2018: 0x91, 0x2019: 0x92, 0x201c: 0x93, 0x201d: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97, 0x02dc: 0x98, 0x2122: 0x99, 0x0161: 0x9a, 0x203a: 0x9b, 0x0153: 0x9c, 0x017e: 0x9e, 0x0178: 0x9f };
+  var bytes = [];
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i);
+    if (c < 0x100) bytes.push(c); else if (cp[c] !== undefined) bytes.push(cp[c]); else return s;   // caractere fora do cp1252: não era isso
+  }
+  try { return decodeURIComponent(bytes.map(function (b) { return '%' + (b < 16 ? '0' : '') + b.toString(16); }).join('')); } catch (e) { return s; }
 }
 
-// Orcamento.gs:34
+// Orcamento.gs:47
+function vd_ehServico_(desc) {
+  return /TAXA|ASSES+ORIA|AFERI[CÇ]|BORRACHARIA|BORRACHEIR|GEOMETRIA|ALINHAMENTO|BALANCEAMENTO|PRESILHA|MAO DE OBRA|LAVAGEM|POLIMENTO|HIGIENIZA|GUINCHO|REBOQUE|DIAGNOSTICO|SCANNER|RECARGA|FRETE|\bMARKUP\b/.test(desc);
+}
+
+// Orcamento.gs:51
 function vd_tipoOrcamento_(t) {
   t = String(t || '').toUpperCase();
   if (/^GENU|^GE$/.test(t)) return 'GENUÍNA';   // Cilia abrevia: GE = genuína, OR = original (AYI7869, 08/10/2026)
@@ -6326,7 +6343,7 @@ function vd_tipoOrcamento_(t) {
   return t;
 }
 
-// Orcamento.gs:43
+// Orcamento.gs:60
 function vd_pneuDaDescricao_(desc) {
   var d = String(desc || '');
   if (!/\bPNEU/.test(d)) return null;
@@ -6345,7 +6362,7 @@ function vd_pneuDaDescricao_(desc) {
   return { pneu: true, medida: medida, marca: marca, categoria: categoria };
 }
 
-// Orcamento.gs:61
+// Orcamento.gs:78
 function vd_limparDescricao_(d) {
   return String(d || '')
     .replace(/^\(A\)\s*/, '')
@@ -6368,7 +6385,7 @@ function vd_limparDescricao_(d) {
     .slice(0, 70);
 }
 
-// Orcamento.gs:85
+// Orcamento.gs:102
 function vd_tirarRepeticao_(d) {
   var ws = String(d).split(' ');
   for (var i = Math.ceil(ws.length / 2); i < ws.length; i++) {
@@ -6378,17 +6395,17 @@ function vd_tirarRepeticao_(d) {
   return d;
 }
 
-// Orcamento.gs:95
+// Orcamento.gs:112
 function vd_numOrc_(s) { var n = parseFloat(String(s || '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? NaN : n; }
 
-// Orcamento.gs:97
+// Orcamento.gs:114
 function vd_liquidoOrc_(unit, descPct) {
   var u = vd_numOrc_(unit), d = vd_numOrc_(descPct);
   if (isNaN(u)) return NaN;
   return isNaN(d) || d === 0 || d >= 100 || d <= -100 ? u : u * (1 - d / 100);   // desconto negativo = acréscimo (16/10/2026, JDC7H45)
 }
 
-// Orcamento.gs:108
+// Orcamento.gs:125
 function vd_websomaDetalhado_(corpo, lista, add) {
   var txt = vd_compactarCodigos_(corpo, '\u0001');
   // 08/10/2026 (treino 2025, "Orcamento_Detalhado.pdf" da Porto): mesmo relatório impresso com número no formato inglês
@@ -6448,7 +6465,7 @@ function vd_websomaDetalhado_(corpo, lista, add) {
   }
 }
 
-// Orcamento.gs:168
+// Orcamento.gs:185
 function vd_compactarCodigos_(txt, marca) {
   return String(txt || '').replace(/\b([A-Z0-9]{2,4})\/ ?([A-Z0-9]{3,8})\/ ?([A-Z0-9]{0,3}) ?\/ ?([A-Z0-9]{0,4})(?=\s|$)/g, function (_, a, b, c, d) {
     var cod = [a, b, c, d].filter(String).join('/');
@@ -6456,7 +6473,7 @@ function vd_compactarCodigos_(txt, marca) {
   });
 }
 
-// Orcamento.gs:176
+// Orcamento.gs:193
 function vd_secao_(U, inicio, finais) {
   var i = U.search(inicio);
   if (i < 0) return '';
@@ -6469,7 +6486,7 @@ function vd_secao_(U, inicio, finais) {
   return resto.slice(0, fim);
 }
 
-// Orcamento.gs:188
+// Orcamento.gs:205
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
   // 17/10/2026 (Weslley: "sem cobertura não entra pra compra"): no Cilia, os itens do bloco "ITENS DO TIPO SEM COBERTURA" (até
