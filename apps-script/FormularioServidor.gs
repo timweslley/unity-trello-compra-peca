@@ -23,7 +23,7 @@ function doGet(e) {
 /* ---------- API JSON para o formulário hospedado no GitHub Pages (powerup/formulario.html) ----------
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
-var VDF_API = ['vdf_servidorProps', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
+var VDF_API = ['vdf_servidorProps', 'vdf_limparCardRotina', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
   'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor'];
 
 function doPost(e) {
@@ -407,6 +407,33 @@ function vdf_unidadeDoCard_(c) {
 function vdf_gravarUnidade_(card, idOpcao) {
   if (!idOpcao || vdf_unidadeDoCard_(card) === idOpcao) return false;
   return cf_gravarUnidade_(card.id, idOpcao);
+}
+
+/**
+ * 19/10/2026 (Weslley: "pode limpar os erros dos cards"): card aberto pela Rotina Unity com serviço como peça (TAXA,
+ * ASSESORIA, GEOMETRIA, PRESILHA, BORRACHEIRO, AFERIÇÃO…) e acento quebrado. Tira os serviços, conserta os acentos e
+ * grava pelo mesmo caminho do formulário (vdf_salvar). Só diretoria; só card com o comentário "Card aberto pela Rotina".
+ * p = {shortLink, simular}
+ */
+function vdf_limparCardRotina(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) throw new Error('Só a diretoria.');
+  var acs = vd_api_('/cards/' + p.shortLink + '/actions', { query: { filter: 'commentCard', limit: 1000, fields: 'data' } }) || [];
+  if (!acs.some(function (a) { return /Card aberto pela Rotina Unity/.test(((a.data || {}).text) || ''); })) return { ok: false, faltas: ['Este card não foi aberto pela Rotina.'] };
+  var c = vdf_carregarCard(token, p.shortLink);
+  var tirar = [], pecas = [];
+  (c.pecas || []).forEach(function (x) {
+    var d = vd_consertarAcentos_(x.descricao || '');
+    if (!x.pneu && vd_ehServico_(vd_semAcento_(d).toUpperCase())) { tirar.push(d); return; }
+    pecas.push({ pneu: x.pneu, codigo: x.codigo, descricao: d, tipos: x.tipos || [], medida: x.medida, categoria: x.categoria, marca: vd_consertarAcentos_(x.marca || ''),
+      qtd: x.qtd, particular: x.particular, partPor: x.partPor, complemento: x.complemento, compData: x.compData, naoComprar: x.naoComprar, naoMotivo: x.naoMotivo, valorOrc: x.valorOrc, obs: x.obs });
+  });
+  var acento = (c.pecas || []).filter(function (x) { return vd_consertarAcentos_(x.descricao || '') !== (x.descricao || ''); }).length;
+  if (p.simular || (!tirar.length && !acento)) return { ok: true, simulado: !!p.simular, tirar: tirar, acentos: acento, ficam: pecas.length };
+  var t = c.titulo || {};
+  var r = vdf_salvar(token, { shortLink: p.shortLink, dados: Object.assign({}, c.dados || {}, { ordem: c.ordem || '' }), pecas: pecas, obs: c.obs || '', fileIds: [], capaId: '', orcamento: null,
+    novo: { tipo: c.tipo, carro: t.carro, cor: t.cor || (c.dados || {}).cor, seguradora: t.seguradora || (c.dados || {}).seguradora, sinistro: (c.dados || {}).sinistro || '', unidade: c.unidadeId || '' } });
+  return { ok: !!(r && r.ok !== false), tirar: tirar, acentos: acento, ficam: pecas.length, resultado: r && r.ok === false ? r.faltas : (r && r.lista) };
 }
 
 function vdf_carregarCard(token, shortLink) {

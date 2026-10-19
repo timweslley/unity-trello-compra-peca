@@ -2307,6 +2307,12 @@ var REL = {
 };
 
 function rel_unidade_(card) {
+  // 19/10/2026: card aberto pela Rotina tem o campo Unidade mas não a etiqueta — valia "SEM UNIDADE"
+  try {
+    var cf = card && card.customFieldItems ? cf_unidadeDoCard_(card) : '';
+    var mapa = { TOLEDO: 'TOLEDO', RONDON: 'MARECHAL RONDON', CASCAVEL: 'CASCAVEL', 'MOURÃO': 'CAMPO MOURÃO' };
+    if (cf && mapa[cf]) return mapa[cf];
+  } catch (e) {}
   var nomes = (card.labels || []).map(function (l) { return l.name || ''; }).join(' ');
   for (var i = 0; i < REL.UNIDADES.length; i++) if (REL.UNIDADES[i][1].test(nomes)) return REL.UNIDADES[i][0];
   return 'SEM UNIDADE';
@@ -2321,7 +2327,7 @@ function rel_coletar_() {
   var listas = vd_listas_(board);
   var nomeLista = {}; Object.keys(listas).forEach(function (n) { nomeLista[listas[n]] = n; });
   var cards = vd_api_('/boards/' + board + '/cards', { query: {
-    fields: 'name,idList,labels,due,dateLastActivity,shortUrl',
+    fields: 'name,idList,labels,due,dateLastActivity,shortUrl', customFieldItems: 'true',
     checklists: 'all', checklist_fields: 'name', checkItem_fields: 'state,due,name'
   } });
   var hoje = pz_hoje_();

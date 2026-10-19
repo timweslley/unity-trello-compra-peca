@@ -272,6 +272,12 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
   app.post('/tarefas/robo', async (req) => rodarRobo(String((req.query as Record<string, string>)?.fn || 'validarDadosPedido')));
   app.get('/tarefas/robo', async () => ({ ok: true, execucoes: observacoesRobo() }));
   app.post('/tarefas/minuto', async () => minutoRobo());
+  /** 19/10/2026: limpa card aberto pela Rotina (serviço como peça, acento quebrado) — pela conta do robô, via vdf_limparCardRotina. */
+  app.post('/tarefas/limpar-rotina', async (req) => {
+    const q = (req.query as Record<string, string>) || {};
+    if (!/^[A-Za-z0-9]{8}$/.test(q.sl || '')) return { ok: false, erro: 'sl inválido' };
+    return JSON.parse(await executarGravacaoPrincipal(JSON.stringify({ fn: 'vdf_limparCardRotina', args: [CFG.trello.token, { shortLink: q.sl, simular: q.simular === '1' }] })));
+  });
   /** Confere o acesso ao Drive (bases de orçamento) com a conta do servidor — só nomes e datas. */
   app.get('/tarefas/drive-teste', async () => testeDrive());
   app.get('/tarefas/robo/comparar', async (req) => compararRobo(Math.min(48, Math.max(1, +((req.query as Record<string, string>)?.horas || 1)))));
