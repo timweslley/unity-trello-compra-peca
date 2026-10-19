@@ -860,7 +860,7 @@ function pv_lerHdiPecas_(texto, lista) {
     // cabeçalho de coluna sozinho na linha (layout em colunas): diz de que coluna são as linhas seguintes
     if (/^(ENTREGA|FORNECEDOR|TEL\.?|E-?MAIL)$/.test(u) && pecas.length) { colunaAtual = u.replace(/\W/g, ''); continue; }
     if (cab.test(u)) continue;
-    if (/^(FORNECIDO PELA OFICINA\s*)+$/.test(u)) { (u.match(/FORNECIDO PELA OFICINA/g) || []).forEach(function () { fornecedores.push({ oficina: true }); }); continue; }
+    if (/^FORNECIDO PELA OFICINA$/.test(u)) { fornecedores.push({ oficina: true }); continue; }
     // 19/10/2026 (FOB8723): linha só com nomes de fornecedor e datas (coluna Fornecedor do print) não é peça
     var semDatasU = u.replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, ' ').replace(/\s+/g, ' ').trim();
     if (semDatasU && pv_soFornecedor_(semDatasU, lista)) continue;
