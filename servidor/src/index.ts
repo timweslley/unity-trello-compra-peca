@@ -285,7 +285,7 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
   });
   /** Confere o acesso ao Drive (bases de orçamento) com a conta do servidor — só nomes e datas. */
   app.get('/tarefas/drive-teste', async () => testeDrive());
-  app.get('/tarefas/robo/comparar', async (req) => compararRobo(Math.min(48, Math.max(1, +((req.query as Record<string, string>)?.horas || 1)))));
+  app.get('/tarefas/robo/comparar', async (req) => compararRobo(Math.min(48, Math.max(1, +((req.query as Record<string, string>)?.horas || 1))), String((req.query as Record<string, string>)?.detalhe || '')));
   app.get('/tarefas/robo/props', async () => tamanhoProps());
   // 17/10/2026: despertador próprio (CPU sempre ligada no Cloud Run, sem Cloud Scheduler) — a cada minuto
   if (process.env.ROBO_TICK === 'SIM') {

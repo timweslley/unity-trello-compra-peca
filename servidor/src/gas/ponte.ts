@@ -887,7 +887,7 @@ const tipoAcao = (a: { type: string; data?: Record<string, any> }): string => { 
   if (t === 'updateCard' && d.old && 'closed' in d.old) return 'arquivar';
   return t;
 };
-export async function compararRobo(horas = 1): Promise<unknown> {
+export async function compararRobo(horas = 1, detalhe = ''): Promise<unknown> {
   const desde = Date.now() - horas * 3600_000;
   const rs = await consulta<{ valor: any }>(`SELECT valor FROM guardado WHERE nome LIKE 'robo_obs_%' AND em > now() - ($1 || ' hours')::interval`, [String(horas)]);   // eslint-disable-line @typescript-eslint/no-explicit-any
   const srv = new Map<string, number>();
@@ -906,6 +906,11 @@ export async function compararRobo(horas = 1): Promise<unknown> {
     const card = a.data?.card?.id || a.data?.card?.shortLink || '?';
     const k = card + ' ' + tipoAcao(a);
     ggl.set(k, (ggl.get(k) || 0) + 1);
+  }
+  if (detalhe) {   // 19/10/2026: o que o servidor teria gravado (corpo curto, sem token) — para avaliar a virada
+    const lista: unknown[] = [];
+    for (const r of rs) for (const e of (r.valor?.escritas || []) as Array<{ m: string; c: string; b: string }>) if (!/^[a-z0-9]+$/i.test(detalhe) || detalhe === 'tudo' || e.c.includes(detalhe)) lista.push({ em: r.valor?.em, fn: r.valor?.fn, m: e.m, c: e.c, b: String(e.b || '').slice(0, 400) });
+    return { horas, escritas: lista };
   }
   const chaves = new Set([...srv.keys(), ...ggl.keys()]);
   const iguais: string[] = [], soServidor: string[] = [], soGoogle: string[] = [];
