@@ -812,7 +812,16 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
   return n;
 }
 
-// Previsao.gs:615
+// Previsao.gs:616
+function pv_soFornecedor_(u, lista) {
+  u = vd_semAcento_(String(u || '')).toUpperCase().replace(/\s+/g, ' ').trim();
+  if (!u) return false;
+  if (/\b(VEICULOS|AUTOMOVEIS|DISTRIBUIDORA|CONCESSIONARIA|COMERCIO|LTDA|S\/?A|EIRELI|AUTO ?PECAS|AUTOPECAS|MOTORS)\b/.test(u) && !/\b(PARACHOQUE|PARALAMA|FAROL|LANTERNA|PORTA|TAMPA|GRADE|ESPELHO|MOLDURA|EMBLEMA|FRISO|VIDRO|CAPO|SUPORTE)\b/.test(u)) return true;
+  if (/^\(?[A-Z ]+\)?( \([A-Z ]+\))?$/.test(u)) { try { var f = pv_fornecedorCurto_(u, lista); if (f && u.indexOf(vd_semAcento_(f).toUpperCase()) === 0 && u.length <= f.length + 12) return true; } catch (e) {} }
+  return false;
+}
+
+// Previsao.gs:624
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
@@ -852,7 +861,10 @@ function pv_lerHdiPecas_(texto, lista) {
     // cabeçalho de coluna sozinho na linha (layout em colunas): diz de que coluna são as linhas seguintes
     if (/^(ENTREGA|FORNECEDOR|TEL\.?|E-?MAIL)$/.test(u) && pecas.length) { colunaAtual = u.replace(/\W/g, ''); continue; }
     if (cab.test(u)) continue;
-    if (/^FORNECIDO PELA OFICINA$/.test(u)) { fornecedores.push({ oficina: true }); continue; }
+    if (/^(FORNECIDO PELA OFICINA\s*)+$/.test(u)) { (u.match(/FORNECIDO PELA OFICINA/g) || []).forEach(function () { fornecedores.push({ oficina: true }); }); continue; }
+    // 19/10/2026 (FOB8723): linha só com nomes de fornecedor e datas (coluna Fornecedor do print) não é peça
+    var semDatasU = u.replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, ' ').replace(/\s+/g, ' ').trim();
+    if (semDatasU && pv_soFornecedor_(semDatasU, lista)) continue;
     var datas = l.match(reData) || [];
     var soDatas = datas.length && l.replace(reData, '').replace(/[\s\-]/g, '') === '';
     if (soDatas) {
@@ -899,7 +911,7 @@ function pv_lerHdiPecas_(texto, lista) {
   return pecas.length ? pecas : null;
 }
 
-// Previsao.gs:701
+// Previsao.gs:713
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
@@ -992,7 +1004,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:794
+// Previsao.gs:806
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
@@ -1138,4 +1150,4 @@ function vd_orcExpandir_(lista) {
   });
 }
 
-export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_PALAVRAS_PECA, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };
+export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_PALAVRAS_PECA, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_soFornecedor_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };

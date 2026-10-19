@@ -612,6 +612,15 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
  * depois as datas soltas, depois os fornecedores na mesma ordem). Devolve [{descricao, previsao, entregueEm, entregue,
  * fornecedor, oficina, linha}] ou null quando não é esse documento.
  */
+/** 19/10/2026: o texto é só nome(s) de fornecedor (coluna Fornecedor do print: "FLORENCA (FIAT) BARIGUI VEICULOS")? */
+function pv_soFornecedor_(u, lista) {
+  u = vd_semAcento_(String(u || '')).toUpperCase().replace(/\s+/g, ' ').trim();
+  if (!u) return false;
+  if (/\b(VEICULOS|AUTOMOVEIS|DISTRIBUIDORA|CONCESSIONARIA|COMERCIO|LTDA|S\/?A|EIRELI|AUTO ?PECAS|AUTOPECAS|MOTORS)\b/.test(u) && !/\b(PARACHOQUE|PARALAMA|FAROL|LANTERNA|PORTA|TAMPA|GRADE|ESPELHO|MOLDURA|EMBLEMA|FRISO|VIDRO|CAPO|SUPORTE)\b/.test(u)) return true;
+  if (/^\(?[A-Z ]+\)?( \([A-Z ]+\))?$/.test(u)) { try { var f = pv_fornecedorCurto_(u, lista); if (f && u.indexOf(vd_semAcento_(f).toUpperCase()) === 0 && u.length <= f.length + 12) return true; } catch (e) {} }
+  return false;
+}
+
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
@@ -651,7 +660,10 @@ function pv_lerHdiPecas_(texto, lista) {
     // cabeçalho de coluna sozinho na linha (layout em colunas): diz de que coluna são as linhas seguintes
     if (/^(ENTREGA|FORNECEDOR|TEL\.?|E-?MAIL)$/.test(u) && pecas.length) { colunaAtual = u.replace(/\W/g, ''); continue; }
     if (cab.test(u)) continue;
-    if (/^FORNECIDO PELA OFICINA$/.test(u)) { fornecedores.push({ oficina: true }); continue; }
+    if (/^(FORNECIDO PELA OFICINA\s*)+$/.test(u)) { (u.match(/FORNECIDO PELA OFICINA/g) || []).forEach(function () { fornecedores.push({ oficina: true }); }); continue; }
+    // 19/10/2026 (FOB8723): linha só com nomes de fornecedor e datas (coluna Fornecedor do print) não é peça
+    var semDatasU = u.replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, ' ').replace(/\s+/g, ' ').trim();
+    if (semDatasU && pv_soFornecedor_(semDatasU, lista)) continue;
     var datas = l.match(reData) || [];
     var soDatas = datas.length && l.replace(reData, '').replace(/[\s\-]/g, '') === '';
     if (soDatas) {
@@ -881,8 +893,15 @@ function pv_lerFornecimentoTexto_(card, texto) {
     orc.fo.forEach(function (p) { var k = cp_norm_(p.codigo); if (k.length >= 4 && !ja(k)) extras.push(cp_nome_(p)); });
   } else if (hdiL) {
     // "Peças do sinistro" da HDI: FO do documento que não bate com nenhuma peça do card (pela descrição)
-    var descsCard = alvos.map(function (a) { return a.descricao || a.nome; }).concat(vd_analisar_(card.desc, card.name).pecas.map(function (p) { return p.descricao || ''; }));
-    hdiL.forEach(function (p) { if (p.oficina) return; if (!descsCard.some(function (d) { return cp_similar_(d, p.descricao) > 0; })) extras.push(p.descricao + (p.fornecedor ? ' (' + p.fornecedor + ')' : '')); });
+    var anC = vd_analisar_(card.desc, card.name);
+    var descsCard = alvos.map(function (a) { return a.descricao || a.nome; }).concat(anC.pecas.concat(anC.naoComprar || []).map(function (p) { return p.descricao || ''; }));
+    hdiL.forEach(function (p) {
+      if (p.oficina) return;
+      var dU = vd_semAcento_(p.descricao).toUpperCase();
+      // 19/10/2026 (FOB8723): "REFATURAMENTO VALOR DA LANTERNA…" é cobrança, não peça; nome de fornecedor também não
+      if (/REFATURA|\bVALOR\b|DIFERENCA|\bTAXA\b|MAO DE OBRA/.test(dU) || vd_ehServico_(dU) || pv_soFornecedor_(dU, foLista)) return;
+      if (!descsCard.some(function (d) { return cp_similar_(d, p.descricao) > 0; })) extras.push(p.descricao + (p.fornecedor ? ' (' + p.fornecedor + ')' : ''));
+    });
   } else {
     String(texto).split('\n').forEach(function (l) {
       if (!pv_datas_(l).length) return;
