@@ -27,13 +27,24 @@ var ST = {
 function st_ligado_() { return vd_prop_('ST_TRAVA', 'SIM') !== 'NAO'; }
 
 /** Licença para o próximo movimento deste card para esta coluna (robô / formulário). */
+/* 19/10/2026 (RHR9A41, 10h20): a licença era um "1" por card+coluna, gasta no 1º movimento julgado. O robô devolveu o card
+ * para PENDENTE AUTORIZAR (licença dele), o formulário enviou a cotação para a MESMA coluna 1 min depois (mesma chave,
+ * sobrescreveu o "1") e o ciclo seguinte gastou a licença no movimento do robô — o envio da cotação ficou sem licença e foi
+ * desfeito. Agora a licença é um CONTADOR: cada movimento permitido soma 1 e cada movimento julgado gasta 1. */
 function st_permitir_(cardId, idLista) {
   if (!cardId || !idLista) return;
-  try { CacheService.getScriptCache().put(ST.PREFIXO_OK + cardId + '_' + idLista, '1', 240); } catch (e) {}   // 4 min: o ciclo é de 1 min
-  var lp = {}; lp[ST.PREFIXO_OK + cardId + '_' + idLista] = '1'; lic_espelhar_(lp, 240);
+  var k = ST.PREFIXO_OK + cardId + '_' + idLista, n = 1;
+  try { var c = CacheService.getScriptCache(); n = (parseInt(c.get(k), 10) || 0) + 1; c.put(k, String(n), 240); } catch (e) {}   // 4 min: o ciclo é de 1 min
+  var lp = {}; lp[k] = String(n); lic_espelhar_(lp, 240);
 }
 function st_temLicenca_(cardId, idLista) {
-  try { return CacheService.getScriptCache().get(ST.PREFIXO_OK + cardId + '_' + idLista) === '1'; } catch (e) { return false; }
+  try { return (parseInt(CacheService.getScriptCache().get(ST.PREFIXO_OK + cardId + '_' + idLista), 10) || 0) > 0; } catch (e) { return false; }
+}
+function st_gastarLicenca_(cardId, idLista) {
+  try {
+    var c = CacheService.getScriptCache(), k = ST.PREFIXO_OK + cardId + '_' + idLista, n = (parseInt(c.get(k), 10) || 0) - 1;
+    if (n > 0) c.put(k, String(n), 240); else c.remove(k);
+  } catch (e) {}
 }
 
 /** Ciclo de 1 minuto: desfaz movimentos manuais fora da regra. Devolve quantos desfez. */
@@ -71,7 +82,7 @@ function st_executar_() {
     // passagem seguinte. Agora: saiu da ESPERA por qualquer caminho aceito = marca apagada; entrou na ESPERA vindo de
     // coluna livre = marca apagada.
     var tiraMarca = function () { try { props.deleteProperty(kEsp); } catch (e) {} };
-    if (st_temLicenca_(cardId, para)) { try { CacheService.getScriptCache().remove(ST.PREFIXO_OK + cardId + '_' + para); } catch (e) {} if (nDe === ESP) tiraMarca(); return; }
+    if (st_temLicenca_(cardId, para)) { st_gastarLicenca_(cardId, para); if (nDe === ESP) tiraMarca(); return; }
     if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
     // card estacionado em ESPERA: guarda de onde veio; pode voltar só para lá
     if (nPara === ESP) { if (ST.TRAVADAS[nDe]) props.setProperty(kEsp, nDe); else tiraMarca(); return; }

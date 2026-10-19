@@ -98,6 +98,8 @@ function vdf_servidorProps(token, op) {
       var x = op.cache[k] || {}, v = String(x.v || '');
       if (/^(ck_|tr_rec_)/.test(k)) { var a1 = [], a2 = []; try { a1 = JSON.parse(atual[k] || '[]'); } catch (e) {} try { a2 = JSON.parse(v || '[]'); } catch (e) {}
         v = JSON.stringify(a1.concat(a2).filter(function (t, i, arr) { return arr.indexOf(t) === i; }).slice(/^ck_/.test(k) ? -40 : -12)); }
+      // 19/10/2026: licença de coluna é contador — a do servidor SOMA à que já está aqui (a do robô não se perde)
+      if (/^st_ok_/.test(k)) v = String((parseInt(atual[k], 10) || 0) + 1);
       cs.put(k, v, Math.min(+x.seg || 600, 21600)); nc++;
     });
     if (!op.set && !op.del) return { ok: true, cache: nc };

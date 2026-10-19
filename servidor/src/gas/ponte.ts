@@ -817,7 +817,8 @@ async function trazerLicencasDoGoogle(): Promise<void> {
     if (!Array.isArray(par) || !(par[1] > agora) || !/^(ck_|st_ok_|tr_rec_)/.test(k)) continue;
     const atual = cacheCompart.get(k);
     let v = String(par[0]);
-    if (atual && atual.ate > agora && /^(ck_|tr_rec_)/.test(k)) {
+    if (atual && atual.ate > agora && /^st_ok_/.test(k)) v = String(Math.max(parseInt(atual.v, 10) || 0, parseInt(v, 10) || 0));   // contador
+    else if (atual && atual.ate > agora && /^(ck_|tr_rec_)/.test(k)) {
       try { const a = JSON.parse(atual.v) as unknown[], b = JSON.parse(v) as unknown[]; v = JSON.stringify([...new Set([...a, ...b])].slice(-40)); } catch { /* fica o do Google */ }
     }
     cacheCompart.set(k, { v, ate: Math.max(par[1], atual?.ate || 0) });
