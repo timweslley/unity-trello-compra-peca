@@ -1831,7 +1831,10 @@ function vd_garantirLinks_(forcar) {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
   var ultimo = +(props.getProperty('VD_LINKS_EM') || 0);
-  if (!forcar && Date.now() - ultimo < 60 * 60 * 1000) return 0;   // o formulário já anexa os links ao criar o card
+  // 19/10/2026: uma passada já, fora da hora, para trocar os links do TESTE (servidor.html) que o robô no servidor pôs no principal
+  var corrigir = props.getProperty('VD_LINKS_V') !== '2';
+  if (!forcar && !corrigir && Date.now() - ultimo < 60 * 60 * 1000) return 0;   // o formulário já anexa os links ao criar o card
+  if (corrigir) props.setProperty('VD_LINKS_V', '2');
   props.setProperty('VD_LINKS_EM', String(Date.now()));
   var urlForm = vd_prop_('VD_URL_FORM', VD.URL_FORM);
   if (!urlForm) return 0;
@@ -1849,6 +1852,9 @@ function vd_garantirLinks_(forcar) {
         if (!ed && !co) return;
         // nome antigo ("Editar peças (formulário)" / "Cotação / Compra (formulário)"): troca pelo nome novo
         if ((ed && a.name !== VD_LINK.EDITAR) || (co && a.name !== VD_LINK.COMPRA)) { vd_api_('/cards/' + c.id + '/attachments/' + a.id, { method: 'delete' }); return; }
+        // link apontando para outro formulário (ex.: o servidor.html do TESTE num card do principal): troca pelo deste quadro
+        var base = String(urlForm).replace(/[?#].*$/, '');
+        if (a.url && /\/servidor\.html\?/.test(String(a.url)) && !/\/servidor\.html$/.test(base)) { vd_api_('/cards/' + c.id + '/attachments/' + a.id, { method: 'delete' }); return; }
         if (ed) temEditar = true; else temCompra = true;
       });
       if (!temEditar) { vd_api_('/cards/' + c.id + '/attachments', { method: 'post', payload: { url: urlForm + '?card=' + c.shortLink, name: VD_LINK.EDITAR, setCover: false } }); n++; }
