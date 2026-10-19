@@ -228,7 +228,7 @@ var ST = {
 var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, REPETIR_FATURAR_DU: 5, LIMITE_MS: 40 * 1000, RESUMO_MAX: 120 };
 
 // FormularioServidor.gs:26
-var VDF_API = ['vdf_servidorProps', 'vdf_limparCardRotina', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
+var VDF_API = ['vdf_servidorProps', 'vdf_limparCardRotina', 'vdf_rotinaPecasBase', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
   'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor'];
 
 // FormularioServidor.gs:68
@@ -5374,7 +5374,41 @@ function vd_comprasDaDescricao_(desc) {
   return out;
 }
 
-// FormularioServidor.gs:1895
+// FormularioServidor.gs:1897
+function vdf_pecasDaBase_(placa, sinistro) {
+  if (!placa) return null;
+  var sin = String(sinistro || '').replace(/\D/g, ''), melhor = null;
+  CL_BASES.forEach(function (B) {
+    if (!cl_ligadoBase_(B)) return;
+    var j; try { if (!cl_arquivo_(B)) return; j = cl_json_(B); } catch (e) { return; }
+    Object.keys(j.orcamentos || {}).forEach(function (casa) {
+      (j.orcamentos[casa] || []).forEach(function (o) {
+        if (!o || !o.dispara_compra || !o.pecas || !o.pecas.length || !vd_mesmaPlaca_(o.placa, placa)) return;
+        if (B.id === 'CILIA' && cl_seguradora_(o.seguradora) === 'HDI') return;   // sinistro HDI: vale o laudo do portal HDI
+        var bateSin = sin.length >= 5 && String(o.sinistro || '').replace(/\D/g, '').indexOf(sin) >= 0;
+        var data = String((o.conclusao_detalhe && o.conclusao_detalhe.data) || o.detalhe_em || '');
+        var nota = (bateSin ? 'B' : 'A') + data;
+        if (!melhor || nota > melhor.nota) melhor = { nota: nota, o: o, B: B };
+      });
+    });
+  });
+  if (!melhor) return null;
+  var orc = cl_pecasParaOrc_(melhor.o.pecas);
+  var paraPeca = function (x) {
+    return x.pneu ? { pneu: true, medida: x.medida || '', categoria: x.categoria || '', marca: x.marca || '', qtd: x.qtd || '1' }
+      : { codigo: x.codigo || '', descricao: x.descricao || '', tipos: [], qtd: x.qtd || '1', valorOrc: x.valorOrc };
+  };
+  return { oficina: orc.oficina.map(paraPeca), fo: orc.fo.map(function (x) { return { codigo: x.codigo || '', descricao: x.pneu ? 'PNEU ' + x.medida : x.descricao, qtd: x.qtd || '1' }; }),
+    origem: melhor.B.org, rot: melhor.B.rot + ' ' + cl_rotVersao_(melhor.B, melhor.o.versao_baixada || '') };
+}
+
+// FormularioServidor.gs:1925
+function vdf_rotinaPecasBase(token, p) {
+  if (!vdf_ehAutorizador_(vdf_usuario_(token))) throw new Error('Só a diretoria.');
+  return { ok: true, base: vdf_pecasDaBase_(p.placa, p.sinistro) };
+}
+
+// FormularioServidor.gs:1930
 function vdf_salvar(token, p) {
   var trocasPart = { paraPart: [], paraSeg: [] };
   // 💾 Salvar parcial (13/10/2026, Weslley): grava o que já tem mesmo com dado faltando — o robô põe o card em FALTA DADOS e
@@ -5396,6 +5430,21 @@ function vdf_salvar(token, p) {
   if ((paisP === 'PY' || paisP === 'AR') && vd_placaEstrangeira_(d.placa) === paisP) d.pais = paisP;
   // 19/10/2026: texto com acento quebrado (UTF-8 lido como cp1252) vem consertado; card aberto pela Rotina não leva serviço como peça
   (p.pecas || []).forEach(function (x) { if (x) { x.descricao = vd_consertarAcentos_(x.descricao); x.marca = vd_consertarAcentos_(x.marca); } });
+  // 19/10/2026 (Weslley: "ajuste a skill e a rotina pra isso, dado que o robô já faz"): card aberto pela Rotina leva as peças
+  // da MESMA base de orçamentos que o robô usa (Cilia/HDI, só TROCA, sem serviço) — a lista que a Rotina mandou só vale quando
+  // a placa não está na base (SOMA, orçamento manual). O fornecedor/previsão das FO que a Rotina leu no portal continuam.
+  if (p.rotina && !p.shortLink) {
+    var daBase = null;
+    try { daBase = vdf_pecasDaBase_(p.dados && p.dados.placa, (p.novo || {}).sinistro); } catch (eB) { console.log('rotina/base: ' + eB); }
+    if (daBase) {
+      p.pecas = daBase.oficina;
+      var foRot = ((p.orcamento || {}).fo || []), chFo = function (x) { return String((x && x.codigo) || '').toUpperCase().replace(/[^A-Z0-9]/g, '') || vd_semAcento_(String((x && x.descricao) || '')).toUpperCase(); };
+      var porCod = {}; foRot.forEach(function (x) { if (x) porCod[chFo(x)] = x; });
+      p.orcamento = Object.assign({}, p.orcamento || {}, { origem: (p.orcamento || {}).origem || daBase.origem,
+        fo: daBase.fo.map(function (x) { var r = porCod[chFo(x)]; return r ? Object.assign({}, x, { fornecedor: r.fornecedor || '', previsao: r.previsao || '', entregue: r.entregue }) : x; }) });
+      p.baseOrcamento = daBase.rot;
+    }
+  }
   if (p.rotina && !p.shortLink) p.pecas = (p.pecas || []).filter(function (x) { return !x || x.pneu || !vd_ehServico_(vd_semAcento_(String(x.descricao || '')).toUpperCase()); });
   // 19/10/2026: a Rotina só abre peça de TROCA. Com o campo operacao (do Cilia: "T", "R&I", "R", "P", "T P"…), linha sem T
   // (só remover/instalar, reparar ou pintar) não é compra e não entra.
@@ -5829,14 +5878,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:2350
+// FormularioServidor.gs:2400
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:2362
+// FormularioServidor.gs:2412
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5911,21 +5960,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:2439
+// FormularioServidor.gs:2489
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:2445
+// FormularioServidor.gs:2495
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:2451
+// FormularioServidor.gs:2501
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {
