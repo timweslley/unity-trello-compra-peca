@@ -630,7 +630,8 @@ class Contexto {
       TRELLO_KEY: CFG.trello.chave, TRELLO_TOKEN: CFG.trello.token, VD_PLANILHA_BACKUP: 'planilha-servidor',
       VD_BOARD: this.quadro,
       // links ✏️/💰: no TESTE o atalho que abre o formulário com srv=1; no principal o formulário de sempre
-      VD_URL_FORM: (this.nome === 'principal' || this.nome === 'principalGrava') ? 'https://timweslley.github.io/unity-trello-compra-peca/powerup/formulario.html'
+      VD_URL_FORM: (this.nome === 'principal' || this.nome === 'principalGrava' || this.nome === 'robo') ?   // 19/10/2026: o robô do principal (ATIVO) punha o link do TESTE (servidor.html) nos cards
+        'https://timweslley.github.io/unity-trello-compra-peca/powerup/formulario.html'
         : 'https://timweslley.github.io/unity-trello-compra-peca/powerup/servidor.html',
     };
   }
