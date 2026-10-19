@@ -30,6 +30,29 @@
     html:not([data-color-mode="light"]) body, html:not([data-color-mode="light"]) .resumo b { color: #b6c2cf; }
     html:not([data-color-mode="light"]) .resumo { color: #9fadbc; }
   }
+  /* 19/10/2026 (Weslley: "já fazemos todas as que faltaram") — padrão 2.0 só no quadro TESTE (classe v2s no <html>):
+   * botões com ícone de traço no lugar do emoji, a tarefa que a coluna espera em azul com o selo "agora" e o resumo com a
+   * coluna em etiqueta. Mesmos botões e mesmas ações. */
+  .v2s body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  .v2s .botoes { gap: 6px; }
+  .v2s button { border-radius: 8px; padding: 7px 10px; font-family: inherit; min-height: 36px; font-size: 14px; font-weight: 600; border: 1px solid #c1c7d0; background: #fff; color: #172b4d; gap: 6px; }
+  .v2s button:hover { background: #f1f2f4; }
+  .v2s button:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #0c66e4; }
+  .v2s button svg { width: 16px; height: 16px; flex: none; }
+  .v2s .destaque { background: #0c66e4; border-color: #0c66e4; color: #fff; box-shadow: none; }
+  .v2s .destaque:hover { background: #0055cc; }
+  .v2s .agora { font-size: 11px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; background: #fff; color: #0c66e4; border-radius: 6px; padding: 1px 6px; }
+  .v2s .principal.novo { background: #0c66e4; border-color: #0c66e4; color: #fff; }
+  .v2s .resumo { margin-top: 10px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; }
+  .v2s .resumo .chip { display: inline-block; padding: 1px 8px; border-radius: 10px; background: #e9f2ff; color: #0055cc; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+  .v2s .resumo .chip.alerta { background: #fff7d6; color: #7f5f01; }
+  .v2s .resumo .sep { color: #c1c7d0; }
+  html.v2s[data-color-mode="dark"] button { background: #22272b; border-color: #454f59; color: #b6c2cf; }
+  html.v2s[data-color-mode="dark"] button:hover { background: #2c333a; }
+  html.v2s[data-color-mode="dark"] .destaque, html.v2s[data-color-mode="dark"] .principal.novo { background: #579dff; border-color: #579dff; color: #1d2125; }
+  html.v2s[data-color-mode="dark"] .resumo .chip { background: #1c2b41; color: #85b8ff; }
+  html.v2s[data-color-mode="dark"] .resumo .chip.alerta { background: #533f04; color: #f8e6a0; }
+  html.v2s[data-color-mode="dark"] .agora { background: #1d2125; color: #85b8ff; }
 </style>
 </head>
 <body>
@@ -41,6 +64,26 @@
 var cfg = window.PU_CFG;
 var t = TrelloPowerUp.iframe({ appKey: cfg.CHAVE, appName: cfg.NOME });
 var base = location.href.replace(/[^\/]*$/, '');
+/* 19/10/2026: visual 2.0 da seção só no quadro TESTE (id longo do ZX4gRmnX); o principal fica como está até o OK do Weslley */
+var V2S = (function () { try { return (t.getContext() || {}).board === '6ab56213225639419520b700' || (cfg.SECAO_V2 === 'todos'); } catch (e) { return false; } })();
+if (V2S) document.documentElement.classList.add('v2s');
+var ICS = {
+  '': '<path d="M12 20h9"/><path d="M16.38 3.62a1 1 0 0 1 3 3L7.37 18.64a2 2 0 0 1-.86.5l-2.87.84a.5.5 0 0 1-.62-.62l.84-2.87a2 2 0 0 1 .5-.86z"/>',
+  cot: '<circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/>',
+  aut: '<path d="M20 6 9 17l-5-5"/>',
+  compra: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  rec: '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"/>',
+  forn: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+  novo: '<path d="M5 12h14"/><path d="M12 5v14"/>'
+};
+function svgS(k) { return '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (ICS[k] || '') + '</svg>'; }
+function botaoV2(k, texto, classe, agora, acao) {
+  var b = document.createElement('button'); b.className = classe; b.onclick = acao;
+  b.innerHTML = svgS(k) + '<span></span>' + (agora ? '<span class="agora">agora</span>' : '');
+  b.querySelector('span').textContent = texto;
+  if (agora) b.setAttribute('aria-label', texto + ' — é a próxima tarefa deste card');
+  return b;
+}
 
 /* 07/10/2026 (BXZ4J84 abriu AUX4331): o Trello reaproveita este iframe ao trocar de card e só muda o "#contexto" do
  * endereço — a página não recarrega e a biblioteca guarda o contexto (card) lido na abertura. Resultado: botões e
@@ -106,14 +149,19 @@ function desenhar() {
     var res = $('resumo'); res.innerHTML = '';
 
     if (ehCardFixo(card.name)) {
-      bts.appendChild(botao('➕ Novo pedido de peça', 'principal', function () {
+      if (V2S) bts.appendChild(botaoV2('novo', 'Novo pedido de peça', 'principal novo', false, function () { return abrir('', 'novo', '➕ Novo pedido de peça'); }));
+      else bts.appendChild(botao('➕ Novo pedido de peça', 'principal', function () {
         return abrir('', 'novo', '➕ Novo pedido de peça');
       }));
       res.textContent = 'Abre o formulário para criar um card novo de pedido de peça.';
     } else {
       // um botão por tarefa; a tarefa que a coluna está esperando fica em destaque
       var prox = tarefaDaColuna(lista && lista.name);
-      [['', '✏️ EDITAR/INCLUIR PEÇA'], ['cot', '💰 COTAÇÃO'], ['aut', '✅ AUTORIZAR'], ['compra', '🛒 COMPRA'], ['rec', '📦 RECEBIMENTO'], ['forn', '🚚 FORNECIMENTO']].forEach(function (x) {
+      if (V2S) [['', 'Editar/incluir peça', '✏️ EDITAR/INCLUIR PEÇA'], ['cot', 'Cotação', '💰 COTAÇÃO'], ['aut', 'Autorizar', '✅ AUTORIZAR'], ['compra', 'Compra', '🛒 COMPRA'], ['rec', 'Recebimento', '📦 RECEBIMENTO'], ['forn', 'Fornecimento', '🚚 FORNECIMENTO']].forEach(function (x) {
+        var ag = !!(x[0] && x[0] === prox) || (x[0] === '' && /FALTA DADOS/i.test((lista && lista.name) || ''));   // falta dado: a tarefa é completar o pedido
+        bts.appendChild(botaoV2(x[0], x[1], ag ? 'destaque' : '', ag, function () { return abrir(card.shortLink, x[0], x[2]); }));
+      });
+      else [['', '✏️ EDITAR/INCLUIR PEÇA'], ['cot', '💰 COTAÇÃO'], ['aut', '✅ AUTORIZAR'], ['compra', '🛒 COMPRA'], ['rec', '📦 RECEBIMENTO'], ['forn', '🚚 FORNECIMENTO']].forEach(function (x) {
         var cls = x[0] === '' ? 'principal' : (x[0] === prox ? 'destaque' : 'secundario');
         bts.appendChild(botao(x[1] + (x[0] && x[0] === prox ? ' ◀' : ''), cls, function () { return abrir(card.shortLink, x[0], x[1]); }));
       });
@@ -122,7 +170,12 @@ function desenhar() {
       partes.push('<b>' + n + '</b> peça' + (n === 1 ? '' : 's') + ' na descrição');
       if (lista && lista.name) partes.push('coluna <b>' + lista.name.replace(/</g, '&lt;') + '</b>');
       if (atualizado) partes.push('última alteração pelo formulário <b>' + dataBr(atualizado) + '</b>');
-      res.innerHTML = partes.join(' · ');
+      if (V2S) {
+        var pv = ['<span><b>' + n + '</b> peça' + (n === 1 ? '' : 's') + ' no pedido</span>'];
+        if (lista && lista.name) pv.unshift('<span class="chip' + (/FALTA DADOS/i.test(lista.name) ? ' alerta' : '') + '">' + lista.name.replace(/</g, '&lt;') + '</span>');
+        if (atualizado) pv.push('<span>alterado pelo formulário em <b>' + dataBr(atualizado) + '</b></span>');
+        res.innerHTML = pv.join('<span class="sep" aria-hidden="true">·</span>');
+      } else res.innerHTML = partes.join(' · ');
     }
     return t.sizeTo('#raiz').catch(function () {});
   });

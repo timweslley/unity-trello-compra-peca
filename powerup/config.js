@@ -34,6 +34,9 @@ window.PU_CFG = {
   /* 19/10/2026: botões "📋 Copiar lista para WhatsApp" (Cotação) e "Pedidos por fornecedor" (Compra) — só leitura.
    * 'teste' = só no quadro TESTE; 'todos' = liga no principal (com OK do Weslley); qualquer outro valor desliga. */
   COPIAR_WHATS: 'teste',
+  /* 19/10/2026: telas que faltavam no padrão 2.0 — resultado do envio, carregando, erro ao abrir e login.
+   * 'teste' = só no quadro TESTE; 'todos' = liga no principal (com OK do Weslley); qualquer outro valor desliga. */
+  TELAS_FINAIS: 'teste',
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:

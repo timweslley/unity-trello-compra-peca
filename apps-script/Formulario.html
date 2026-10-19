@@ -4575,7 +4575,7 @@ iniciar();
     var etapa = '';
     if (visivel(g('comprador'))) { var a = document.querySelector('.aba.marcada .rotulo'); etapa = a ? a.textContent : ''; }
     else if (visivel(g('form'))) etapa = window.CARD_EDICAO ? 'Editar pedido' : 'Pedido novo';
-    else if (visivel(g('telaSucesso'))) { etapa = 'Enviado'; lista = window.LISTA_ENVIADO || ''; }   // 16/10: a coluna de antes do envio já não vale (F2)
+    else if (visivel(g('telaSucesso'))) { etapa = window.V2R_ETAPA || 'Enviado'; lista = window.LISTA_ENVIADO || ''; }   // 16/10: a coluna de antes do envio já não vale (F2)
     html.classList.toggle('v2-diretoria', !!(window.CARD && window.CARD.diretoria));
     var hT = (g('v2topo') || {}).offsetHeight || 0; if (hT && html.style.getPropertyValue('--v2topoH') !== hT + 'px') html.style.setProperty('--v2topoH', hT + 'px');
     var compTopo = PC && visivel(g('comprador'));   // 14/10/2026: telas do comprador com a mesma barra única do pedido
@@ -8030,6 +8030,275 @@ document.addEventListener('input', function (e) {
     try { montarCot(c); } catch (e) { console.log('wz/cot', e); }
     try { montarCompraWz(c); } catch (e) { console.log('wz/compra', e); }
   }, 800);
+})();
+</script>
+
+<script>
+/* 19/10/2026 (Weslley, print do QAX3J48: "esses avisos estão feios… passou pelas diretrizes?" → "já fazemos todas as que faltaram")
+ * — 2.0: as telas que ficaram fora da revisão de 14–15/10, no mesmo padrão das telas do comprador:
+ *   • resultado do envio (as ~25 mensagens de "Card atualizado", "Cotação lançada", "Registrado no card"…) vira um cartão:
+ *     título, card, coluna onde o card está agora, próximo passo, avisos e o que foi feito — e um conjunto só de botões;
+ *   • carregando, erro ao abrir e login: cartão centrado no lugar do texto solto (e sem a placa "NOVO" no topo);
+ *   • o aviso verde "Enviado ✓" no topo não aparece em cima da tela de resultado (cobria o Fechar no celular).
+ * Só muda a aparência: os textos vêm das mesmas mensagens e os botões são os mesmos (linkCard/linkNovo/v2fornAgora).
+ * Liga por PU_CFG.TELAS_FINAIS: 'teste' (só no TESTE, srv=1) | 'todos' | qualquer outro valor desliga. */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('v2')) return;
+  var cfg = window.PU_CFG && PU_CFG.TELAS_FINAIS;
+  var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  html.classList.add('v2r');
+  function g(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function vis(el) { return !!el && !el.classList.contains('oculto') && el.offsetParent !== null; }
+  var PCx = !html.classList.contains('v2toque');
+  var I = {
+    ok: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+    save: '<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5 5.5 5.5 0 0 1-5.5 5.5H11"/>',
+    x: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+    alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    seta: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+    truck: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.62l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
+    ext: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+    refresh: '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+    wifi: '<path d="M12 20h.01"/><path d="M8.5 16.43a5 5 0 0 1 7 0"/><path d="M2 8.82a15 15 0 0 1 4.17-2.65"/><path d="M10.66 5c4.01-.36 8.14.9 11.34 3.76"/><path d="M16.85 11.25a10 10 0 0 1 2.22 1.68"/><path d="M5 13a10 10 0 0 1 5.24-2.76"/><path d="m2 2 20 20"/>',
+    lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'
+  };
+  function ico(n, cls) { return '<svg class="v2r-i' + (cls ? ' ' + cls : '') + '" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + I[n] + '</svg>'; }
+
+  var st = document.createElement('style');
+  st.textContent = [
+    /* cartão base (resultado, carregando, erro, login) */
+    '.v2r .v2r-cx{background:#fff;border:1px solid #dcdfe4;border-radius:12px;box-shadow:0 1px 2px rgba(9,30,66,.06);padding:24px 24px 20px;max-width:620px;margin:24px auto;box-sizing:border-box;color:#172b4d;font-size:15px;line-height:22px;text-align:left}',
+    '.v2r .v2r-i{width:20px;height:20px;flex:none}',
+    '.v2r .v2r-cab{display:flex;gap:14px;align-items:flex-start}',
+    '.v2r .v2r-selo{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}',
+    '.v2r .v2r-selo .v2r-i{width:24px;height:24px}',
+    '.v2r .t-ok .v2r-selo{background:#dcfff1;color:#1f845a}.v2r .t-info .v2r-selo{background:#e9f2ff;color:#0c66e4}',
+    '.v2r .t-alerta .v2r-selo{background:#fff7d6;color:#a54800}.v2r .t-neutro .v2r-selo{background:#f1f2f4;color:#44546f}.v2r .t-erro .v2r-selo{background:#ffeceb;color:#c9372c}',
+    '.v2r .v2r-tit{margin:0;font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.01em;color:#172b4d}',
+    '.v2r .v2r-tit:focus, .v2r .v2r-tit:focus-visible{outline:none !important;box-shadow:none !important}',
+    '.v2r .v2r-card{margin:2px 0 0;color:#44546f;font-size:14px;line-height:20px;word-break:break-word}',
+    '.v2r .v2r-card b{color:#172b4d;font-weight:600}',
+    '.v2r .v2r-col{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:18px 0 0;padding:12px 0 0;border-top:1px solid #ebecf0;font-size:14px;color:#44546f}',
+    '.v2r .v2r-chip{display:inline-flex;align-items:center;padding:2px 10px;border-radius:12px;font-size:12px;line-height:20px;font-weight:700;letter-spacing:.02em;background:#e9f2ff;color:#0055cc;white-space:nowrap}',
+    '.v2r .v2r-chip.c-alerta{background:#fff7d6;color:#7f5f01}.v2r .v2r-chip.c-ok{background:#dcfff1;color:#216e4e}.v2r .v2r-chip.c-neutro{background:#f1f2f4;color:#44546f}',
+    '.v2r .v2r-prox{display:flex;gap:10px;align-items:flex-start;margin:14px 0 0;padding:12px 14px;border-radius:8px;background:#f0f6ff;color:#172b4d;font-size:15px;line-height:22px}',
+    '.v2r .v2r-prox .v2r-i{color:#0c66e4;margin-top:1px}',
+    '.v2r .v2r-prox b{display:block;font-size:12px;line-height:16px;text-transform:uppercase;letter-spacing:.04em;color:#0055cc;margin-bottom:2px}',
+    '.v2r .v2r-avs{margin:12px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}',
+    '.v2r .v2r-avs li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:8px;background:#fff7d6;color:#533f04;font-size:14px;line-height:20px}',
+    '.v2r .v2r-avs li .v2r-i{color:#a54800;width:18px;height:18px;margin-top:1px}',
+    '.v2r .v2r-det{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:20px;color:#172b4d}',
+    '.v2r .v2r-det li{display:flex;gap:8px;align-items:flex-start}',
+    '.v2r .v2r-det li .v2r-i{width:16px;height:16px;color:#1f845a;margin-top:2px}',
+    '.v2r .v2r-det-t{margin:16px 0 0;font-size:12px;line-height:16px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#626f86}',
+    '.v2r .v2r-det-t + .v2r-det{margin-top:6px}',
+    '.v2r .v2r-extra{margin:16px 0 0;padding:12px 14px;border:1px dashed #c1c7d0;border-radius:8px;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:14px;color:#44546f}',
+    '.v2r .v2r-extra p{margin:0;flex:1 1 220px}',
+    '.v2r .v2r-acoes{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 0}',
+    '.v2r .v2r-bt{display:inline-flex !important;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 16px;border-radius:8px;font:600 15px/20px inherit;font-family:inherit;text-decoration:none !important;cursor:pointer;box-sizing:border-box;border:1px solid transparent;transition:background 120ms}',
+    '.v2r .v2r-bt .v2r-i{width:18px;height:18px}',
+    '.v2r .v2r-bt.p{background:#0c66e4;color:#fff !important;border-color:#0c66e4}.v2r .v2r-bt.p:hover{background:#0055cc}',
+    '.v2r .v2r-bt.s{background:#fff;color:#172b4d !important;border-color:#c1c7d0}.v2r .v2r-bt.s:hover{background:#f1f2f4}',
+    '.v2r .v2r-bt:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px #0c66e4}',
+    /* tela de resultado: o cartão novo no lugar da faixa verde (a mensagem original fica no DOM, escondida) */
+    '.v2r #telaSucesso.v2r-on > section{background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 !important}',
+    '.v2r #telaSucesso.v2r-on #msgSucesso, .v2r #telaSucesso.v2r-on .rodape{display:none !important}',
+    '.v2r.v2r-res #v2toast{display:none !important}',
+    '.v2r.v2r-res #btnFechar{display:none !important}',
+    /* carregando / erro / login */
+    '.v2r #telaCarregando.v2r-on, .v2r #telaLogin.v2r-on{padding:0 !important;background:transparent !important}',
+    '.v2r .v2r-cx.v2r-centro{text-align:center;max-width:460px;margin-top:40px}',
+    '.v2r .v2r-centro .v2r-selo{margin:0 auto 12px}',
+    '.v2r .v2r-centro p{margin:6px 0 0;color:#44546f;font-size:15px;line-height:22px}',
+    '.v2r .v2r-centro .v2r-acoes{justify-content:center}',
+    '.v2r .v2r-gira{width:36px;height:36px;margin:4px auto 14px;border-radius:50%;border:3px solid #dcdfe4;border-top-color:#0c66e4;animation:v2rgira .8s linear infinite}',
+    '@keyframes v2rgira{to{transform:rotate(360deg)}}',
+    '@media (prefers-reduced-motion:reduce){.v2r .v2r-gira{animation:none;border-top-color:#dcdfe4}}',
+    '.v2r .v2r-demora{margin-top:10px !important;font-size:14px !important;color:#626f86 !important}',
+    '.v2r .v2r-errtxt{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:#ffeceb;color:#5d1f1a;font-size:14px;line-height:20px;text-align:left;word-break:break-word}',
+    '.v2r.v2r-pre #v2topo{display:none !important}',
+    /* celular / toque: cartão sem margem lateral, botões grandes, ações presas no rodapé */
+    '.v2toque.v2r .v2r-cx{margin:12px 0;padding:20px 16px 16px;border-radius:12px}',
+    '.v2toque.v2r .v2r-tit{font-size:19px;line-height:25px}',
+    '.v2toque.v2r .v2r-bt{min-height:48px;font-size:16px;flex:1 1 100%}',
+    '.v2toque.v2r #telaSucesso .v2r-acoes{position:sticky;bottom:0;background:#fff;margin:16px -16px -16px;padding:12px 16px 16px;border-top:1px solid #ebecf0;border-radius:0 0 12px 12px}',
+    '.v2toque.v2r .v2r-cx.v2r-centro{margin-top:24px}',
+    /* tema escuro do Trello não chega aqui (formulário claro); impressão: sem botões */
+    '@media print{.v2r .v2r-acoes,.v2r .v2r-extra{display:none}}'
+  ].join('\n');
+  document.head.appendChild(st);
+
+  /* ---------- resultado do envio ---------- */
+  var PROX = {
+    'FALTA DADOS PARA COTAÇÃO': 'Falta completar o pedido: abra EDITAR/INCLUIR PEÇA e preencha o que está marcado. O robô comenta no card o que falta.',
+    'EM COTAÇÃO': 'Agora o comprador cota as peças. Você não precisa fazer mais nada.',
+    'COTAÇÃO FINALIZADA': 'Agora é a autorização: quem autoriza escolhe as cotações na aba Autorizar.',
+    'PENDENTE AUTORIZAR': 'Agora é a autorização: quem autoriza escolhe as cotações na aba Autorizar.',
+    'AUTORIZADO COMPRA': 'Agora o comprador faz a compra na aba Compra.',
+    'FALTA CHEGAR': 'Agora é esperar a peça chegar. Quando chegar, marque na aba Recebimento.',
+    'ENTREGUES': 'Peças entregues. Falta o faturamento conferir e fechar o card.',
+    'ENCERRADO COMPRAS/FORNEC.': 'Tudo certo: todas as peças chegaram. Nada mais a fazer neste card.'
+  };
+  function normLista(s) {
+    s = String(s || '').replace(/\s+/g, ' ').trim().replace(/\.{2,}$/, '.');
+    if (/^FALTA DADOS/i.test(s)) return 'FALTA DADOS PARA COTAÇÃO';
+    if (/^ENCERRADO/i.test(s)) return 'ENCERRADO COMPRAS/FORNEC.';
+    return s.replace(/\.$/, '').toUpperCase();
+  }
+  function corLista(l) { return /FALTA DADOS/.test(l) ? 'c-alerta' : /ENCERRADO|ENTREGUES/.test(l) ? 'c-ok' : /CANCEL/.test(l) ? 'c-neutro' : ''; }
+  var RE_EMO = /^(?:\s|[☀-➿⭐⭕←-⇿⏩-⏺️]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDD00-\uDFFF])+/;
+  function semEmoji(s) { return String(s).replace(RE_EMO, ''); }
+  function emojiDe(s) { var m = String(s).replace(/^\s+/, '').match(RE_EMO); return m ? m[0].replace(/\s|️/g, '') : ''; }
+
+  /* divide a mensagem original em linhas (<br>), guardando o HTML de cada uma (os <b> continuam) */
+  function linhas(el) {
+    var cl = el.cloneNode(true);
+    ['#v2agora', '#v2fornAgora', '[data-v2emo]'].forEach(function (s) { Array.prototype.forEach.call(cl.querySelectorAll(s), function (x) { if (s === '[data-v2emo]') x.replaceWith(document.createTextNode(x.textContent)); else x.remove(); }); });
+    return cl.innerHTML.split(/<br\s*\/?>/i).map(function (h) { return h.trim(); }).filter(function (h) { return h && h.replace(/<[^>]+>/g, '').trim(); });
+  }
+  function texto(h) { var d = document.createElement('div'); d.innerHTML = h; return d.textContent.replace(/\s+/g, ' ').trim(); }
+
+  /* "3 peça(s)" → "3 peças", "1 cotação(ões)" → "1 cotação", "2 item(ns)" → "2 itens" (o número mais perto, antes da palavra) */
+  function plural(h) {
+    return String(h).replace(/([A-Za-zÀ-ú]+)\((s|es|ões|ns)\)/g, function (tudo, p, suf, pos, str) {
+      var antes = str.slice(0, pos).replace(/<[^>]+>/g, ''), m = antes.match(/(\d+)(?:[^\d]{0,40})$/);
+      var n = m ? parseInt(m[1], 10) : 2;
+      if (n === 1) return p;
+      if (suf === 'ões') return p.replace(/ão$/, 'ões');
+      if (suf === 'ns') return p.replace(/m$/, 'ns');
+      return p + suf;
+    });
+  }
+  function montarResultado() {
+    var tela = g('telaSucesso'), msg = g('msgSucesso');
+    if (!tela || !msg || !vis(tela)) return;
+    var ls = linhas(msg); if (!ls.length) return;
+    var chave = ls.join('|'); if (tela.dataset.v2r === chave && g('v2res')) return; tela.dataset.v2r = chave;
+    var prim = ls.shift(), emo = emojiDe(texto(prim)), primH = semEmoji(prim.replace(/^\s+/, ''));
+    // título / card / primeiro detalhe: "Cotação parcial salva no card <b>X</b>: 3 cotações." · "Card atualizado: <b>X</b>"
+    var titulo = '', card = '', det1 = '';
+    var m = primH.match(/^([\s\S]*?)\s+no card\s+<b>([\s\S]*?)<\/b>\s*([\s\S]*)$/i) || primH.match(/^([^:<]*?):\s*<b>([\s\S]*?)<\/b>\s*([\s\S]*)$/);
+    if (m) { titulo = texto(m[1]); card = texto(m[2]); det1 = m[3].replace(/^[:.,]\s*/, '').replace(/^\(([\s\S]*)\)\.?$/, '$1').trim(); }
+    else { var p2 = primH.split(/:\s+/); titulo = texto(p2.shift()); det1 = p2.join(': '); }
+    titulo = titulo.replace(/[.:]\s*$/, '');
+    if (/^Card criado$/i.test(titulo)) titulo = 'Pedido criado'; else if (/^Card atualizado$/i.test(titulo)) titulo = 'Pedido atualizado';
+    else if (/^Registrado$/i.test(titulo)) titulo = /recebida/i.test(texto(det1)) ? 'Recebimento registrado' : /devolvida|recusada/i.test(texto(det1)) ? 'Devolução registrada' : 'Registrado';
+    var tom = /❌/.test(emo) ? 'neutro' : /⚠/.test(emo) ? 'alerta' : /↩/.test(emo) ? 'info' : /💾/.test(emo) ? 'info' : /^Nada para gravar/i.test(titulo) ? 'neutro' : 'ok';
+    var selo = { ok: 'ok', info: /↩/.test(emo) ? 'undo' : 'save', alerta: 'alert', neutro: /❌/.test(emo) ? 'x' : 'info' }[tom];
+    // coluna, avisos e detalhes
+    var lista = '', avisos = [], dets = [];
+    var proxCard = '';
+    if (det1) {   // "com 2 observações" / "para @fulano" continuam o título; o resto começa com maiúscula
+      if (/^(com|para|sem)\s/.test(texto(det1))) det1 = esc(titulo) + ' ' + det1;
+      else det1 = det1.replace(/^([a-zà-ú])/, function (c) { return c.toUpperCase(); });
+      dets.push(det1);
+    }
+    ls.forEach(function (h) {
+      var t0 = texto(h), e = emojiDe(t0), t = semEmoji(t0), hs = semEmoji(h.replace(/^\s+/, ''));
+      var mc = t.match(/^O card (?:está|continua|fica|voltou para|foi para) (?:em )?([A-ZÇÃÕÁÉÍÓÚÂÊ\/. ]{4,}?)(?:\.|,| e | até |$)/);
+      if (mc) {
+        lista = normLista(mc[1]);
+        var resto = t.slice(mc[0].length).replace(/^\s*(?:e|até)\s+/, '').replace(/^\.\s*/, '').trim();
+        if (/^O card fica em FALTA/.test(t)) { /* a coluna (em amarelo) e o próximo passo já dizem isso */ }
+        else if (/voltou para/.test(t)) dets.unshift('O card voltou para ' + lista + '.');
+        else if (/^Quando terminar/i.test(resto)) proxCard = resto;   // instrução do próprio envio vale como próximo passo
+        else if (resto) dets.push(resto.charAt(0).toUpperCase() + resto.slice(1));
+        return;
+      }
+      var mc2 = t.match(/(?:o card (?:continua|fica) em|coluna \()\s*([A-ZÇÃÕÁÉÍÓÚ\/. ]{4,}?)[).]/i);
+      if (mc2 && !lista) lista = normLista(mc2[1]);
+      if (/⚠|⏳/.test(e) || /^(Ainda|Falta)\b|\bainda (sem|falta)\b/i.test(t)) avisos.push(hs); else dets.push(hs);
+    });
+    if (!lista && window.LISTA_ENVIADO) lista = normLista(window.LISTA_ENVIADO);
+    var prox = PROX[lista] || '';
+    if (/parcial/i.test(titulo)) prox = proxCard || 'Quando terminar, volte ao card e clique em Enviar para o card seguir.';
+    else if (proxCard) prox = proxCard;
+    var agora = g('v2agora'); if (!prox && agora) prox = semEmoji(agora.textContent.trim()).replace(/[\u2600-\u27BF]\uFE0F?\s*|\uD83C[\uDC00-\uDFFF]\s*|\uD83D[\uDC00-\uDFFF]\s*/g, '');
+    // botões: os mesmos de antes (abrir no Trello / fazer outro / fechar)
+    var lc = g('linkCard'), ln = g('linkNovo');
+    var acoes = [];
+    if (lc && !lc.classList.contains('oculto') && lc.getAttribute('href') && lc.getAttribute('href') !== '#') acoes.push('<a class="v2r-bt p" data-r="card" href="' + esc(lc.href) + '" target="_blank" rel="noopener">' + ico('ext') + 'Abrir o card no Trello</a>');
+    if (ln && !ln.classList.contains('oculto')) acoes.push('<a class="v2r-bt ' + (acoes.length ? 's' : 'p') + '" data-r="novo" href="' + esc(ln.getAttribute('href') || '#') + '">' + esc(ln.textContent.trim() || 'Fechar') + '</a>');
+    var forn = g('v2fornAgora');
+    if (forn && /não precisa fazer mais nada/.test(prox)) prox = prox.replace(/\s*Você não precisa fazer mais nada\.?/, ' Se você já tem o Status do Pedido, lance o fornecimento abaixo.');
+    // topo: salvamento parcial não é "Enviado"
+    window.V2R_ETAPA = /parcial/i.test(titulo) ? 'Salvo (parcial)' : '';
+    var et = g('v2etapa'), etb = et && et.querySelector('b');
+    if (etb && window.V2R_ETAPA && /^Enviado/.test(etb.textContent)) etb.firstChild.nodeValue = window.V2R_ETAPA;
+    var h = '<div class="v2r-cx t-' + tom + '">'
+      + '<div class="v2r-cab"><div class="v2r-selo">' + ico(selo) + '</div><div><h2 class="v2r-tit" id="v2resTit" tabindex="-1">' + esc(titulo || 'Pronto') + '</h2>'
+      + (card ? '<p class="v2r-card">Card <b>' + esc(card) + '</b></p>' : '') + '</div></div>'
+      + (lista ? '<div class="v2r-col">O card está em <span class="v2r-chip ' + corLista(lista) + '">' + esc(lista) + '</span></div>' : '')
+      + (prox ? '<div class="v2r-prox">' + ico('seta') + '<div><b>Próximo passo</b>' + esc(prox) + '</div></div>' : '')
+      + (avisos.length ? '<ul class="v2r-avs">' + avisos.map(function (a) { return '<li>' + ico(/^(Ainda|Falta)\b|ainda (sem|falta)|parcial/i.test(texto(a)) ? 'clock' : 'alert') + '<span>' + plural(a) + '</span></li>'; }).join('') + '</ul>' : '')
+      + (dets.length ? '<p class="v2r-det-t">O que foi feito</p><ul class="v2r-det">' + dets.map(function (d) { return '<li>' + ico('check') + '<span>' + plural(d) + '</span></li>'; }).join('') + '</ul>' : '')
+      + (forn ? '<div class="v2r-extra"><p>Já tem o Status do Pedido, as peças do sinistro da HDI ou um print do portal? Lance agora o fornecedor e a previsão das peças da seguradora.</p><button type="button" class="v2r-bt s" data-r="forn">' + ico('truck') + 'Lançar fornecimento</button></div>' : '')
+      + (acoes.length ? '<div class="v2r-acoes">' + acoes.join('') + '</div>' : '')
+      + '</div>';
+    var box = g('v2res'); if (!box) { box = document.createElement('div'); box.id = 'v2res'; tela.insertBefore(box, tela.firstChild); }
+    box.innerHTML = h;
+    var bn = box.querySelector('[data-r=novo]'); if (bn && ln) bn.onclick = function (e) { e.preventDefault(); ln.click(); };
+    var bf = box.querySelector('[data-r=forn]'); if (bf && forn) bf.onclick = function () { var b = forn.querySelector('button'); if (b) b.click(); };
+    if (!tela.classList.contains('v2r-on')) tela.classList.add('v2r-on'); html.classList.add('v2r-res');
+    setTimeout(function () { var t = g('v2resTit'); if (t && vis(tela)) try { t.focus({ preventScroll: true }); } catch (e) {} }, 30);
+  }
+  var agendado = 0;
+  function agendar() { clearTimeout(agendado); agendado = setTimeout(function () { try { montarResultado(); } catch (e) { console.log('v2r', e && e.message); } }, 40); }
+  var msgS = g('msgSucesso'); if (msgS) new MutationObserver(agendar).observe(msgS, { childList: true, subtree: true, characterData: true });
+
+  /* ---------- carregando / erro ao abrir / login ---------- */
+  function telaCarregando() {
+    var t = g('telaCarregando'); if (!t) return;
+    var erro = t.querySelector('.aviso.erro');
+    if (erro && !t.querySelector('.v2r-cx')) {
+      var msg = erro.textContent.replace(/^Não deu para abrir o formulário:\s*/i, '');
+      var semRede = /tempo|timeout|network|fetch|rede|conex/i.test(msg);
+      t.innerHTML = '<div class="v2r-cx v2r-centro t-erro" role="alert"><div class="v2r-selo">' + ico(semRede ? 'wifi' : 'alert') + '</div>'
+        + '<h2 class="v2r-tit">Não deu para abrir o formulário</h2>'
+        + '<p>' + (semRede ? 'O servidor demorou para responder. Confira a internet e tente de novo.' : 'Aconteceu um erro ao carregar o card. Tente de novo; se continuar, mande um print desta tela para o Weslley.') + '</p>'
+        + '<div class="v2r-errtxt">' + esc(msg) + '</div>'
+        + '<div class="v2r-acoes"><button type="button" class="v2r-bt p" onclick="location.reload()">' + ico('refresh') + 'Tentar de novo</button></div></div>';
+      if (!t.classList.contains('v2r-on')) t.classList.add('v2r-on');
+      return;
+    }
+    if (!erro && !t.querySelector('.v2r-cx') && /Carregando/.test(t.textContent)) {
+      t.innerHTML = '<div class="v2r-cx v2r-centro" role="status" aria-live="polite"><div class="v2r-gira" aria-hidden="true"></div>'
+        + '<h2 class="v2r-tit">Abrindo o pedido…</h2><p class="v2r-msgc">Buscando o card no Trello.</p><p class="v2r-demora" hidden>Está demorando mais que o normal. Se não abrir em alguns segundos, feche e abra de novo.</p></div>';
+      if (!t.classList.contains('v2r-on')) t.classList.add('v2r-on');
+      setTimeout(function () { var d = t.querySelector('.v2r-demora'); if (d && vis(t)) d.hidden = false; }, 12000);
+    }
+  }
+  function telaLogin() {
+    var t = g('telaLogin'); if (!t || t.querySelector('.v2r-cx')) return;
+    var bt = g('btnLogin'); if (!bt) return;
+    var cx = document.createElement('div'); cx.className = 'v2r-cx v2r-centro t-info';
+    cx.innerHTML = '<div class="v2r-selo">' + ico('lock') + '</div><h2 class="v2r-tit">Entre com o Trello</h2>'
+      + '<p>Para fazer ou alterar um pedido, entre com a sua conta do Trello. O card fica no seu nome.</p><div class="v2r-acoes"></div>';
+    bt.className = 'v2r-bt p'; bt.textContent = 'Entrar com o Trello';
+    cx.querySelector('.v2r-acoes').appendChild(bt);
+    Array.prototype.forEach.call(t.childNodes, function (n) { if (n.nodeType === 1 && n !== bt) n.style.display = 'none'; });
+    t.appendChild(cx); if (!t.classList.contains('v2r-on')) t.classList.add('v2r-on');
+  }
+  function estado() {
+    var pre = vis(g('telaLogin')) || vis(g('telaCarregando'));
+    html.classList.toggle('v2r-pre', pre && !(window.CARD && window.CARD.dados));
+    if (!vis(g('telaSucesso'))) { html.classList.remove('v2r-res'); var ts = g('telaSucesso'); if (ts && ts.classList.contains('v2r-on')) ts.classList.remove('v2r-on'); }   // remover classe ausente também gera mutação (laço)
+    else agendar();
+    if (vis(g('telaCarregando'))) telaCarregando();
+    if (vis(g('telaLogin'))) telaLogin();
+  }
+  ['telaLogin', 'telaCarregando', 'telaSucesso'].forEach(function (id) {
+    var el = g(id); if (!el) return;
+    new MutationObserver(estado).observe(el, { attributes: true, attributeFilter: ['class'], childList: true });
+  });
+  estado();
 })();
 </script>
 </body>
