@@ -617,7 +617,6 @@ function pv_soFornecedor_(u, lista) {
   u = vd_semAcento_(String(u || '')).toUpperCase().replace(/\s+/g, ' ').trim();
   if (!u) return false;
   if (/\b(VEICULOS|AUTOMOVEIS|DISTRIBUIDORA|CONCESSIONARIA|COMERCIO|LTDA|S\/?A|EIRELI|AUTO ?PECAS|AUTOPECAS|MOTORS)\b/.test(u) && !/\b(PARACHOQUE|PARALAMA|FAROL|LANTERNA|PORTA|TAMPA|GRADE|ESPELHO|MOLDURA|EMBLEMA|FRISO|VIDRO|CAPO|SUPORTE)\b/.test(u)) return true;
-  if (/^\(?[A-Z ]+\)?( \([A-Z ]+\))?$/.test(u)) { try { var f = pv_fornecedorCurto_(u, lista); if (f && u.indexOf(vd_semAcento_(f).toUpperCase()) === 0 && u.length <= f.length + 12) return true; } catch (e) {} }
   return false;
 }
 
