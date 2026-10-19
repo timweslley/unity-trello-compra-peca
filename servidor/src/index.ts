@@ -283,6 +283,12 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
     const q = (req.query as Record<string, string>) || {};
     return JSON.parse(await executarGravacaoPrincipal(JSON.stringify({ fn: 'vdf_rotinaPecasBase', args: [CFG.trello.token, { placa: q.placa || '', sinistro: q.sinistro || '' }] })));
   });
+  /** 19/10/2026: diagnóstico — lê um anexo de fornecimento (print/PDF) do card como o botão "Ler" da aba 🚚 Fornecimento. */
+  app.get('/tarefas/ler-forn', async (req) => {
+    const q = (req.query as Record<string, string>) || {};
+    if (!/^[A-Za-z0-9]{8}$/.test(q.sl || '') || !/^[0-9a-f]{24}$/.test(q.id || '')) return { ok: false, erro: 'sl/id inválido' };
+    return JSON.parse(await executarGravacaoPrincipal(JSON.stringify({ fn: 'vdf_lerFornecimentoAnexo', args: [CFG.trello.token, q.sl, q.id] })));
+  });
   /** Confere o acesso ao Drive (bases de orçamento) com a conta do servidor — só nomes e datas. */
   app.get('/tarefas/drive-teste', async () => testeDrive());
   app.get('/tarefas/robo/comparar', async (req) => compararRobo(Math.min(48, Math.max(1, +((req.query as Record<string, string>)?.horas || 1))), String((req.query as Record<string, string>)?.detalhe || '')));

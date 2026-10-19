@@ -5567,7 +5567,8 @@ iniciar();
           + (e === maisNovo ? '<span class="v2-tag v2-tag-novo" title="Orçamento anexado por último neste card">📌 mais recente</span>' : antigo ? '<span class="v2-tag" title="Há um orçamento anexado depois deste">anterior</span>' : '')
           + (jaLido ? '<span class="v2-jalido" title="O sistema já importou este orçamento e as peças dele já estão no pedido">✓ importado<span class="v2-jl-extra"> · peças no pedido</span></span>' : '')
           // 13/10/2026: foto do carro não tem "Ler" (quase nunca é documento) — só abrir
-          + (e.foto ? '' : PC && box.id !== 'anexosCard' ? '<button type="button" class="secundario" data-i="' + e.i + '" aria-label="Ler o fornecimento de ' + txt(e.nome) + '">' + (e.de ? 'Ler de novo' : 'Ler') + '</button>'   // 14/10/2026: no fornecimento o botão lê o Status do Pedido (não importa peças) — só no computador
+          // 19/10/2026 (Weslley, FOB8723): no FORNECIMENTO a imagem costuma ser o print do Status do Pedido/portal — ganha "Ler"
+          + (e.foto && box.id === 'anexosCard' ? '' : PC && box.id !== 'anexosCard' ? '<button type="button" class="secundario" data-i="' + e.i + '" aria-label="Ler o fornecimento de ' + txt(e.nome) + '">' + (e.de ? 'Ler de novo' : 'Ler') + '</button>'   // 14/10/2026: no fornecimento o botão lê o Status do Pedido (não importa peças) — só no computador
             : '<button type="button" class="' + (e.orc && !jaLido && !antigo ? 'principal' : 'secundario') + '" data-i="' + e.i + '">' + (e.orc ? (e.de || jaLido ? '🔄 Importar de novo' : '📥 Importar peças') : (e.de ? '🔄 Ler de novo' : '📖 Ler')) + '</button>')
           + '</div>';
         (e.foto ? fotos : (antigo && box.id === 'anexosCard' ? antigos : docs)).push(h);   // 16/10: celular também recolhe os anteriores
