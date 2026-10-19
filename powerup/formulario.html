@@ -8007,7 +8007,9 @@ document.addEventListener('input', function (e) {
     + '.wz-chip{display:inline-block!important;visibility:visible!important;padding:4px 10px;border-radius:14px;border:1px solid var(--borda,#d0d7de);background:#fff;cursor:pointer;font-size:13px}'
     + '.wz-chip.on{border-color:#0c66e4;background:#e9f2ff;font-weight:600}'
     + '.wz-zap{display:inline-flex!important;align-items:center;gap:4px;padding:6px 12px;border-radius:6px;border:1px solid #25d366;background:#fff;color:#128c4b;font-weight:600;cursor:pointer}.wz-zap:hover{background:#e9fbf0}'
-    + '.wz-pecas label{display:block;margin:2px 0;cursor:pointer}';
+    + '.wz-pecas label{display:block;margin:2px 0;cursor:pointer}'
+    + '.wz-bar{padding:6px 10px}.wz-abre{display:inline-flex!important;visibility:visible!important;align-items:center;gap:6px;border:0;background:none;cursor:pointer;font-weight:600;font-size:14px;padding:4px 0;color:inherit}'
+    + '.wz-abre::after{content:"▸";margin-left:4px;transition:transform .15s}.wz-abre.on::after{transform:rotate(90deg)}.wz-corpo[hidden]{display:none!important}';
   document.head.appendChild(st);
 
   function cab(c, titulo) {
@@ -8045,12 +8047,17 @@ document.addEventListener('input', function (e) {
   /* ----- Cotação por tipo de fornecedor ----- */
   /* Weslley 19/10: CSS/concessionária cota tudo menos pneu; mecânica só mecânica; pneu só pneu; lataria nem mecânica nem pneu.
    * O sistema não guarda o tipo da peça: separa pelo nome e o comprador ajusta nas caixinhas. Arrefecimento vale para os dois. */
-  var RE_MEC = /\b(AMORTEC|BIELET|BUCHA|PIVO|BANDEJA|TERMINAL|BARRA (DE )?(DIRE|ESTAB|AXIAL|LIGA)|BRACO (OSCIL|TENSOR|SUSP|AXIAL)|CUBO|ROLAMENTO|EIXO|HOMOCIN|SEMI.?EIXO|MANGA|COXIM|MOLA|BATENTE|COIFA|CAIXA (DE )?DIRE|SETOR|BOMBA|COMPRESSOR|FILTRO|OLEO|FLUIDO|CORREIA|TENSOR|POLIA|VELA|BOBINA|SONDA|ALTERNADOR|MOTOR DE PARTIDA|ARRANQUE|BATERIA|EMBREAG|PLATO|CAMBIO|DISCO DE FREIO|TAMBOR|PASTILHA|LONA DE FREIO|PINCA|CILINDRO|FLEXIVEL|CABO DE (FREIO|EMBREAG|ACELER)|JUNTA|CABECOTE|CARTER|VALVULA|INJETOR|BICO INJ|TURBINA|INTERCOOLER|ESCAPAMENTO|SILENCIOSO|CATALIS|COLETOR|AGREGADO|QUADRO DO MOTOR|BERCO|SUSPENS|CORRENTE|TERMOSTAT|SENSOR DE (TEMPERATURA|ROTACAO|OXIGENIO|FASE|DETONA)|RADIADOR|CONDENSADOR|VENTOINHA|ELETROVENT|RESERVATORIO|MANGUEIRA)/;
-  var RE_AMBOS = /\b(RADIADOR|CONDENSADOR|VENTOINHA|ELETROVENT|RESERVATORIO DE (EXPANSAO|AGUA)|SUPORTE DO RADIADOR)/;
+  /* 19/10/2026 (2ª versão, Weslley: "classificou EMBLEMA como mecânica"): vale o NOME PRINCIPAL da peça (começo da descrição).
+   * "EMBLEMA DA GRADE DO RADIADOR" é emblema (lataria); "PONTA ESQ DO EIXO" / "PROTETOR DO CARTER" são mecânica. */
+  var RE_MEC = /^(AMORTEC|BIELET|BUCHA|PIVO|BANDEJA|TERMINAL|BARRA (DE |DA )?(DIRE|ESTAB|AXIAL|LIGA|TENSORA)|BRACO|CUBO|ROLAMENTO|EIXO|HOMOCIN|JUNTA HOMOCIN|SEMI.?EIXO|MANGA|COXIM|MOLA|BATENTE|COIFA|CAIXA (DE |DA )?DIRE|SETOR|BOMBA|COMPRESSOR|FILTRO|OLEO|FLUIDO|CORREIA|TENSOR|POLIA|VELA|BOBINA|SONDA|ALTERNADOR|MOTOR (DE |DO )?(PARTIDA|ARRANQUE)|ARRANQUE|BATERIA|EMBREAG|KIT EMBREAG|PLATO|CAMBIO|DISCO DE FREIO|TAMBOR|PASTILHA|LONA|PINCA|CILINDRO|FLEXIVEL|CABO (DE |DO )?(FREIO|EMBREAG|ACELER)|JUNTA|CABECOTE|CARTER|VALVULA|INJETOR|BICO|TURBINA|INTERCOOLER|ESCAPAMENTO|SILENCIOSO|CATALIS|COLETOR|AGREGADO|QUADRO (DO |DA )?(MOTOR|SUSP)|BERCO|CORRENTE|TERMOSTAT|SENSOR (DE |DO )?(TEMPERATURA|ROTACAO|OXIGENIO|FASE|DETONA|ABS)|RADIADOR|CONDENSADOR|VENTOINHA|ELETROVENT|RESERVATORIO|MANGUEIRA|TUBO|CARCACA|POLIA|ESTABILIZADOR|ARTICULACAO|ATUADOR|CORPO (DE )?BORBOLETA)/;
+  var RE_MEC_COMPL = /^(PONTA|SUPORTE|PROTETOR|PROTECAO|COXIM|TAMPA|PARAFUSO|PORCA|ANEL|RETENTOR|CAPA)\b.*\b(EIXO|MOTOR|CAMBIO|SUSPENS|FREIO|DIRECAO|ESCAP|CARTER|AMORTEC|RODA DIANT|RODA TRAS)\b/;
+  var RE_AMBOS = /^(RADIADOR|CONDENSADOR|VENTOINHA|ELETROVENT|RESERVATORIO DE (EXPANSAO|AGUA)|SUPORTE DO RADIADOR|DEFLETOR DO RADIADOR)/;
+  function descDe(p) { return semAc(String(p.descricao || p.nome || '').replace(/^\S*\d\S*\s+/, '')).replace(/^\s+/, ''); }
+  function ehMec(p) { var d = descDe(p); return RE_MEC.test(d) || RE_MEC_COMPL.test(d); }
   var GRUPOS = [
     { id: 'css', rot: 'CSS / concessionária', dica: 'tudo menos pneu', quer: function (p) { return !p.pneu; } },
-    { id: 'lat', rot: 'Lataria', dica: 'sem mecânica e sem pneu', quer: function (p) { var d = semAc(nomePeca(p)); return !p.pneu && (!RE_MEC.test(d) || RE_AMBOS.test(d)); } },
-    { id: 'mec', rot: 'Mecânica', dica: 'só mecânica', quer: function (p) { return !p.pneu && RE_MEC.test(semAc(nomePeca(p))); } },
+    { id: 'lat', rot: 'Lataria', dica: 'sem mecânica e sem pneu', quer: function (p) { return !p.pneu && (!ehMec(p) || RE_AMBOS.test(descDe(p))); } },
+    { id: 'mec', rot: 'Mecânica', dica: 'só mecânica', quer: function (p) { return !p.pneu && ehMec(p); } },
     { id: 'pneu', rot: 'Pneu', dica: 'só pneu', quer: function (p) { return !!p.pneu; } },
     { id: 'tudo', rot: 'Todas', dica: 'lista inteira', quer: function () { return true; } }
   ];
@@ -8059,12 +8066,24 @@ document.addEventListener('input', function (e) {
     return cab(c, 'Cotação de peças').concat([''], lista.map(function (p, i) { return linhaCot(p, i + 1); }), ['', FIM_COT]).join('\n');
   }
   function desenharCot(b) {
-    var c = window.CARD, gp = GRUPOS.filter(function (x) { return x.id === b._grupo; })[0] || GRUPOS[0];
+    var c = window.CARD, todas0 = pecasOficina(c);
+    var validos = GRUPOS.filter(function (x) { return todas0.filter(x.quer).length; });
+    var gp = validos.filter(function (x) { return x.id === b._grupo; })[0] || validos[0] || GRUPOS[4];
+    if (gp.id !== b._grupo) { b._grupo = gp.id; b._marcas = null; }
     var jaCot = b.querySelector('[data-a=jacot]').checked, com = {};
     ((c.cotacoes && c.cotacoes.cotacoes) || []).forEach(function (q) { com[q.chave] = 1; });
     var todas = pecasOficina(c);
     if (!b._marcas) { b._marcas = {}; todas.forEach(function (p) { b._marcas[p.chave] = gp.quer(p) && (jaCot || !com[p.chave]); }); }
-    Array.prototype.forEach.call(b.querySelectorAll('.wz-chip'), function (x) { x.classList.toggle('on', x.dataset.g === gp.id); });
+    // só os tipos que têm peça neste card, com a quantidade (sem pneu no card = sem botão Pneu)
+    var gr = b.querySelector('.wz-grupos'); gr.innerHTML = '';
+    GRUPOS.forEach(function (g2) {
+      var n = todas.filter(g2.quer).length;
+      if (!n || (g2.id === 'tudo' && GRUPOS.filter(function (x) { return x.id !== 'tudo' && todas.filter(x.quer).length === n; }).length)) return;
+      var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'wz-chip' + (g2.id === gp.id ? ' on' : ''); bt.dataset.g = g2.id;
+      bt.innerHTML = esc(g2.rot) + ' <b>' + n + '</b> <span class="dica">· ' + esc(g2.dica) + '</span>';
+      bt.onclick = function () { b._grupo = g2.id; b._marcas = null; desenharCot(b); };
+      gr.appendChild(bt);
+    });
     var alvo = b.querySelector('.wz-pecas'), ta = b.querySelector('textarea');
     alvo.innerHTML = '';
     var escolhidas = function () { return todas.filter(function (p) { return b._marcas[p.chave]; }); };
@@ -8082,22 +8101,17 @@ document.addEventListener('input', function (e) {
     var box = document.getElementById('cotItens'); if (!box) return;
     var b = document.getElementById('wzCot');
     if (!b) {
-      b = barraWz('wzCot', '<div class="wz-bts"><b>📋 Lista para WhatsApp — fornecedor de:</b></div>'
+      b = barraWz('wzCot', '<button type="button" class="wz-abre" data-a="abre">📋 Lista para WhatsApp <span class="dica">— separar por tipo de fornecedor</span></button>'
+        + '<div class="wz-corpo" hidden><div class="wz-bts" style="margin-top:8px"><b>Fornecedor de:</b></div>'
         + '<div class="wz-bts wz-grupos" style="margin-top:6px"></div>'
         + '<div class="wz-pecas" style="margin-top:8px;font-size:13px"></div>'
         + '<label style="font-size:13px;display:block;margin-top:6px"><input type="checkbox" data-a="jacot"> incluir peças que já têm cotação</label>'
         + '<div class="wz-bts" style="margin-top:8px"><button type="button" class="principal" data-a="copiar">📋 Copiar lista</button>'
         + '<button type="button" class="wz-zap" data-a="whats">💬 Abrir no WhatsApp</button> <span class="wz-ok"></span></div>'
-        + '<textarea readonly></textarea>');
+        + '<textarea readonly></textarea></div>');
       box.parentNode.insertBefore(b, box);
+      b.querySelector('[data-a=abre]').onclick = function () { var cp = b.querySelector('.wz-corpo'); cp.hidden = !cp.hidden; this.classList.toggle('on', !cp.hidden); };
       b._grupo = 'css';
-      var gr = b.querySelector('.wz-grupos');
-      GRUPOS.forEach(function (gp) {
-        var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'wz-chip'; bt.dataset.g = gp.id;
-        bt.innerHTML = esc(gp.rot) + ' <span class="dica">· ' + esc(gp.dica) + '</span>';
-        bt.onclick = function () { b._grupo = gp.id; b._marcas = null; desenharCot(b); };
-        gr.appendChild(bt);
-      });
       b.querySelector('[data-a=jacot]').onchange = function () { b._marcas = null; desenharCot(b); };
       b.querySelector('[data-a=copiar]').onclick = function () { var t = b._texto(); if (t) copiar(t, b.querySelector('.wz-ok')); };
       b.querySelector('[data-a=whats]').onclick = function () { var t = b._texto(); if (t) whats(t); };
@@ -8157,8 +8171,10 @@ document.addEventListener('input', function (e) {
       });
     };
     if (!b) {
-      b = barraWz('wzCompra', '<div class="wz-bts"><b>📋 Pedidos por fornecedor (WhatsApp)</b> <span class="wz-ok"></span></div><div class="wz-lista"></div>');
+      b = barraWz('wzCompra', '<button type="button" class="wz-abre" data-a="abre">📋 Pedidos por fornecedor <span class="dica">— para mandar no WhatsApp</span></button>'
+        + '<div class="wz-corpo" hidden><div class="wz-bts" style="margin-top:6px"><span class="wz-ok"></span></div><div class="wz-lista"></div></div>');
       box.parentNode.insertBefore(b, box);
+      b.querySelector('[data-a=abre]').onclick = function () { var cp = b.querySelector('.wz-corpo'); cp.hidden = !cp.hidden; this.classList.toggle('on', !cp.hidden); };
       box.addEventListener('change', function () { if (b._desenhar) b._desenhar(); });
     }
     b._desenhar = desenhar;
