@@ -8389,7 +8389,7 @@ document.addEventListener('input', function (e) {
     if (lc && !lc.classList.contains('oculto') && lc.getAttribute('href') && lc.getAttribute('href') !== '#') acoes.push('<a class="v2r-bt p" data-r="card" href="' + esc(lc.href) + '" target="_blank" rel="noopener">' + ico('ext') + 'Abrir o card no Trello</a>');
     if (ln && !ln.classList.contains('oculto')) acoes.push('<a class="v2r-bt ' + (acoes.length ? 's' : 'p') + '" data-r="novo" href="' + esc(ln.getAttribute('href') || '#') + '">' + esc(ln.textContent.trim() || 'Fechar') + '</a>');
     var forn = g('v2fornAgora');
-    if (forn && /não precisa fazer mais nada/.test(prox)) prox = prox.replace(/\s*Você não precisa fazer mais nada\.?/, ' Se você já tem o Status do Pedido, lance o fornecimento abaixo.');
+    if (forn && /não precisa fazer mais nada/.test(prox)) prox = prox.replace(/\s*Você não precisa fazer mais nada\.?/, '');   // a caixa do fornecimento logo abaixo fala do resto
     // topo: salvamento parcial não é "Enviado"
     window.V2R_ETAPA = /parcial/i.test(titulo) ? 'Salvo (parcial)' : '';
     var et = g('v2etapa'), etb = et && et.querySelector('b');
@@ -8442,7 +8442,7 @@ document.addEventListener('input', function (e) {
     var bt = g('btnLogin'); if (!bt) return;
     var cx = document.createElement('div'); cx.className = 'v2r-cx v2r-centro t-info';
     cx.innerHTML = '<div class="v2r-selo">' + ico('lock') + '</div><h2 class="v2r-tit">Entre com o Trello</h2>'
-      + '<p>Para fazer ou alterar um pedido, entre com a sua conta do Trello. O card fica no seu nome.</p><div class="v2r-acoes"></div>';
+      + '<p>Para fazer ou alterar um pedido, entre com a sua conta do Trello. O card fica no seu nome. Você só precisa fazer isso uma vez.</p><div class="v2r-acoes"></div>';
     bt.className = 'v2r-bt p'; bt.textContent = 'Entrar com o Trello';
     cx.querySelector('.v2r-acoes').appendChild(bt);
     Array.prototype.forEach.call(t.childNodes, function (n) { if (n.nodeType === 1 && n !== bt) n.style.display = 'none'; });

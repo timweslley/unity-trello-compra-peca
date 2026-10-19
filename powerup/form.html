@@ -36,7 +36,7 @@
   .v2f #tIco svg { width: 24px; height: 24px; }
   .v2f #tIco.gira { background: none; border: 3px solid #dcdfe4; border-top-color: #0c66e4; width: 36px; height: 36px; box-sizing: border-box; animation: v2fgira .8s linear infinite; }
   @keyframes v2fgira { to { transform: rotate(360deg); } }
-  @media (prefers-reduced-motion: reduce) { .v2f #tIco.gira { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .v2f #tIco.gira { animation: none; border-top-color: #dcdfe4; } }
   .v2f #tIco.alerta { background: #ffeceb; color: #c9372c; }
 </style>
 </head>
@@ -49,10 +49,10 @@
     <button onclick="fechar()">Fechar</button>
   </div>
   <div id="tela">
-    <div class="cx" role="status" aria-live="polite">
+    <div class="cx">
       <div id="tIco" aria-hidden="true" hidden></div>
       <h2 id="tTitulo">Carregando…</h2>
-      <p id="tTexto">Um instante.</p>
+      <p id="tTexto" role="status" aria-live="polite">Um instante.</p>
       <button id="btnEntrar" class="oculto" onclick="entrar()">Entrar com o Trello</button>
       <div id="tErro" class="erro oculto" role="alert"></div>
     </div>
@@ -81,7 +81,7 @@ function icoTela(titulo, mostrarBotao) {
 if (V2F) { $('tTitulo').textContent = 'Abrindo o pedido…'; $('tTexto').textContent = 'Um instante.'; icoTela('Carregando'); }
 function tela(titulo, texto, mostrarBotao, erro) {
   // mesmo título e texto do login do formulário 2.0
-  if (V2F && titulo === 'Precisamos do seu login do Trello') { titulo = 'Entre com o Trello'; texto = 'Para fazer ou alterar um pedido, entre com a sua conta do Trello. O card fica no seu nome (só na primeira vez).'; }
+  if (V2F && titulo === 'Precisamos do seu login do Trello') { titulo = 'Entre com o Trello'; texto = 'Para fazer ou alterar um pedido, entre com a sua conta do Trello. O card fica no seu nome. Você só precisa fazer isso uma vez.'; }
   icoTela(titulo, mostrarBotao);
   $('tTitulo').textContent = titulo; $('tTexto').textContent = texto;
   $('btnEntrar').classList.toggle('oculto', !mostrarBotao);
