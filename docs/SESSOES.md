@@ -169,3 +169,10 @@ da outra, deixar um recado aqui e no commit.
   `VD_ROBO_SERVIDOR=SIM` no Apps Script e os acionadores do Google só retornam (reserva). Voltar: `OBSERVAR` e publicar.
 - Plano: sáb/dom OBSERVAR; seg comparar com o Google o dia todo, virar à noite; ter–qua prazos/diárias/bases; qui formulário
   só servidor; sex Google parado.
+
+## 19/10/2026 — cards abertos pela Rotina com peças a mais
+- A Rotina mandou todas as linhas do Cilia (R&I, reparação, pintura, serviço) como peça: BDD2J09 com 35 itens para 2 de troca.
+  Limpos com `manter=` (só troca, conferido no PDF): BDD2J09, AXB4A04, ANO6F74, SFL9F03; IWQ5486 com o pneu repetido.
+- Correção: `vdf_salvar` com `rotina:true` pega as peças e as FO da base do robô (CILIA-HOJE/HDI-HOJE, `vdf_pecasDaBase_`,
+  mesmo filtro `cl_pecasParaOrc_`), mantendo fornecedor/previsão que a Rotina leu no portal. Fora da base: só linhas com `operacao` T.
+  Prévia: `GET /tarefas/rotina-base?placa=&sinistro=`. Propriedades do script: 202 KB (alerta de 16/10 era 386 KB, antes da aba ANEXOS).
