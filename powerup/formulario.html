@@ -8042,6 +8042,60 @@ document.addEventListener('input', function (e) {
     reserva();
   }
   function whats(texto) { window.open('https://wa.me/?text=' + encodeURIComponent(texto), '_blank'); }
+  /* ----- foto de capa (19/10/2026, Weslley: "enviar também a foto de capa"): o link do WhatsApp só leva texto.
+   * Celular: tela de compartilhar (foto + texto juntos). Computador: copia a foto; no WhatsApp Web cola a foto e o texto vai na legenda. */
+  var FOTO = { sl: '', p: null };
+  function fotoCapa() {
+    var c = window.CARD, sl = c && c.shortLink;
+    if (!sl) return Promise.reject(new Error('Card sem link.'));
+    if (FOTO.sl === sl && FOTO.p) return FOTO.p;
+    FOTO.sl = sl;
+    FOTO.p = chamar('vdf_fotosCard', TOKEN, sl).then(function (r) {
+      var fs = (r && r.fotos) || [], id = (r && r.capa) || (fs[0] && fs[0].id);
+      if (!id) throw new Error('Este card não tem foto de capa.');
+      return chamar('vdf_fotoCard', TOKEN, sl, id).then(function (f) { var src = f && f.src || (fs.filter(function (x) { return x.id === id; })[0] || {}).src; if (!src) throw new Error('Não consegui baixar a foto de capa.'); return src; });
+    }).then(function (src) {
+      return new Promise(function (ok, erro) {   // PNG: é o único formato de imagem que o Chrome aceita copiar
+        var im = new Image(); im.onload = function () {
+          var cv = document.createElement('canvas'); cv.width = im.naturalWidth; cv.height = im.naturalHeight;
+          cv.getContext('2d').drawImage(im, 0, 0); cv.toBlob(function (bl) { bl ? ok(bl) : erro(new Error('Não consegui preparar a foto.')); }, 'image/png');
+        }; im.onerror = function () { erro(new Error('Não consegui abrir a foto.')); }; im.src = src;
+      });
+    });
+    FOTO.p.catch(function () { FOTO.p = null; });
+    return FOTO.p;
+  }
+  function placaArq() { var d = (window.CARD && window.CARD.dados) || {}; return 'capa-' + String(d.placa || 'carro').replace(/\W/g, '') + '.png'; }
+  function podeCompartilhar() { try { return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [new File([new Blob(['x'], { type: 'image/png' })], 'a.png', { type: 'image/png' })] })); } catch (e) { return false; } }
+  function copiarFoto(onde) {
+    if (onde) onde.textContent = '⏳ preparando a foto…';
+    fotoCapa().then(function (bl) {
+      if (!(window.ClipboardItem && navigator.clipboard && navigator.clipboard.write)) throw new Error('bloqueado');
+      return navigator.clipboard.write([new ClipboardItem({ 'image/png': bl })]);
+    }).then(function () { if (onde) { onde.textContent = '✔ foto copiada — no WhatsApp cole com Ctrl+V; depois clique em Copiar (lista ou pedido) e cole o texto na legenda da foto'; setTimeout(function () { onde.textContent = ''; }, 8000); } })
+      .catch(function (e) {
+        if (!onde) return;
+        if (/bloqueado|NotAllowed|denied|permission/i.test(String(e && (e.name + ' ' + e.message)))) {
+          onde.innerHTML = 'O Trello não deixou copiar a foto aqui dentro. <a href="' + esc(location.href) + '" target="_blank" rel="noopener">Abrir o formulário numa aba própria</a> e tentar de novo.';
+        } else onde.textContent = e.message || 'Não consegui copiar a foto.';
+      });
+  }
+  function compartilhar(texto, onde) {
+    if (onde) onde.textContent = '⏳ preparando a foto…';
+    fotoCapa().then(function (bl) {
+      var f = new File([bl], placaArq(), { type: 'image/png' });
+      return navigator.share({ files: [f], text: texto });
+    }).then(function () { if (onde) onde.textContent = ''; })
+      .catch(function (e) {
+        if (!onde) return;
+        if (e && e.name === 'AbortError') { onde.textContent = ''; return; }
+        onde.innerHTML = 'Não deu para compartilhar com foto aqui (' + esc(e && e.message || 'bloqueado') + '). <a href="' + esc(location.href) + '" target="_blank" rel="noopener">Abrir numa aba própria</a> ou use "Copiar foto".';
+      });
+  }
+  function botoesFoto() {
+    return '<button type="button" class="wz-zap" data-a="foto">📷 Copiar foto de capa</button>'
+      + (podeCompartilhar() ? '<button type="button" class="wz-zap" data-a="share">📤 Enviar com foto</button>' : '');
+  }
   function barraWz(id, html) { var b = document.createElement('div'); b.id = id; b.className = 'wz-bar'; b.innerHTML = html; return b; }
 
   /* ----- Cotação por tipo de fornecedor ----- */
@@ -8107,7 +8161,7 @@ document.addEventListener('input', function (e) {
         + '<div class="wz-pecas" style="margin-top:8px;font-size:13px"></div>'
         + '<label style="font-size:13px;display:block;margin-top:6px"><input type="checkbox" data-a="jacot"> incluir peças que já têm cotação</label>'
         + '<div class="wz-bts" style="margin-top:8px"><button type="button" class="principal" data-a="copiar">📋 Copiar lista</button>'
-        + '<button type="button" class="wz-zap" data-a="whats">💬 Abrir no WhatsApp</button> <span class="wz-ok"></span></div>'
+        + '<button type="button" class="wz-zap" data-a="whats">💬 Abrir no WhatsApp</button>' + botoesFoto() + ' <span class="wz-ok"></span></div>'
         + '<textarea readonly></textarea></div>');
       box.parentNode.insertBefore(b, box);
       b.querySelector('[data-a=abre]').onclick = function () { var cp = b.querySelector('.wz-corpo'); cp.hidden = !cp.hidden; this.classList.toggle('on', !cp.hidden); };
@@ -8115,6 +8169,8 @@ document.addEventListener('input', function (e) {
       b.querySelector('[data-a=jacot]').onchange = function () { b._marcas = null; desenharCot(b); };
       b.querySelector('[data-a=copiar]').onclick = function () { var t = b._texto(); if (t) copiar(t, b.querySelector('.wz-ok')); };
       b.querySelector('[data-a=whats]').onclick = function () { var t = b._texto(); if (t) whats(t); };
+      b.querySelector('[data-a=foto]').onclick = function () { copiarFoto(b.querySelector('.wz-ok')); };
+      var shC = b.querySelector('[data-a=share]'); if (shC) shC.onclick = function () { var t = b._texto(); if (t) compartilhar(t, b.querySelector('.wz-ok')); };
     }
     b._marcas = null;
     desenharCot(b);
@@ -8162,11 +8218,13 @@ document.addEventListener('input', function (e) {
       l.forEach(function (g) {
         var d = document.createElement('div'); d.className = 'wz-forn';
         d.innerHTML = '<div class="wz-bts"><b>' + esc(g.forn) + '</b> <span class="dica">' + g.n + ' peça(s)</span>'
-          + '<button type="button" class="principal" data-a="copiar">📋 Copiar pedido</button><button type="button" class="wz-zap" data-a="whats">💬 Abrir no WhatsApp</button></div>'
+          + '<button type="button" class="principal" data-a="copiar">📋 Copiar pedido</button><button type="button" class="wz-zap" data-a="whats">💬 Abrir no WhatsApp</button>' + botoesFoto() + '</div>'
           + '<textarea readonly></textarea>';
         d.querySelector('textarea').value = g.texto;
         d.querySelector('[data-a=copiar]').onclick = function () { copiar(g.texto, ok); };
         d.querySelector('[data-a=whats]').onclick = function () { whats(g.texto); };
+        d.querySelector('[data-a=foto]').onclick = function () { copiarFoto(ok); };
+        var shP = d.querySelector('[data-a=share]'); if (shP) shP.onclick = function () { compartilhar(g.texto, ok); };
         alvo.appendChild(d);
       });
     };
