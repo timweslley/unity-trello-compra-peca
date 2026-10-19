@@ -12,7 +12,7 @@ import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
 import { retratar, retratarTodos } from './retrato.js';
-import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo, minutoRobo, testeDrive, compararRobo, tamanhoProps } from './gas/ponte.js';
+import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo, minutoRobo, testeDrive, compararRobo, tamanhoProps, pedirCicloRapido, estadoCicloRapido, batidaNoGoogle } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
@@ -46,7 +46,7 @@ function trelloPronto(): boolean {
 const INICIO = Date.now();
 const VERSAO = process.env.GIT_SHA || process.env.K_REVISION || 'dev';
 /** o que aconteceu na subida (aparece no /saude) */
-const ESTADO = { migracao: 'não rodou', webhook: 'não configurado' };
+const ESTADO = { migracao: 'não rodou', webhook: 'não configurado', webhookRobo: 'não configurado' };
 /** resolve quando as migrações terminam (a /api espera: o trabalhador lê tabelas criadas por elas) */
 let bancoPronto!: () => void;
 const BANCO_PRONTO = new Promise<void>((ok) => { bancoPronto = ok; });
@@ -124,6 +124,21 @@ export function criarApp() {
     }
     return { ok: true };
   });
+
+  /**
+   * 19/10/2026: webhook do quadro PRINCIPAL só para acordar o robô (não guarda a ação nem o conteúdo do card).
+   * Responde na hora; o ciclo roda depois (CPU sempre ligada no Cloud Run).
+   */
+  app.head('/trello/robo', async (_req, resp) => { resp.code(200).send(); });
+  app.post('/trello/robo', async (req, resp) => {
+    const corpo = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
+    const url = CFG.urlPublica.replace(/\/$/, '') + '/trello/robo';
+    if (!assinaturaValida(corpo, url, req.headers['x-trello-webhook'] as string | undefined, CFG.trello.segredo)) return resp.code(401).send({ ok: false });
+    try { const a = (JSON.parse(corpo) as { action?: AcaoTrello }).action; if (a?.data?.card?.id) pedirCicloRapido(); } catch { /* corpo inválido: ignora */ }
+    return { ok: true };
+  });
+  app.get('/tarefas/robo/rapido', async () => ({ ok: true, webhook: ESTADO.webhookRobo, ...estadoCicloRapido() }));
+  app.get('/tarefas/robo/batida', async () => batidaNoGoogle());
 
   /**
    * Retrato completo do quadro (+ histórico de ações com ?historico=1). Só LÊ o Trello e grava no banco;
@@ -361,6 +376,13 @@ async function principal() {
     } catch (e) {
       ESTADO.webhook = 'erro: ' + (e as Error).message;
       app.log.error(e, 'não consegui garantir o webhook do Trello');
+    }
+    // 19/10/2026: com o robô do principal ATIVO no servidor, um webhook do principal acorda o ciclo na hora
+    if (process.env.ROBO_SERVIDOR === 'ATIVO') {
+      try {
+        const w = await garantirWebhook('oH4TbTqb', CFG.urlPublica, true, '/trello/robo', 'robô no servidor');
+        ESTADO.webhookRobo = (w.novo ? 'criado ' : 'ativo ') + w.id;
+      } catch (e) { ESTADO.webhookRobo = 'erro: ' + (e as Error).message.slice(0, 200); app.log.error(e, 'webhook do robô'); }
     }
   }
 }

@@ -40,6 +40,33 @@ function sd_parte_(nome, fn) {
   }
 }
 
+/**
+ * 19/10/2026 (Weslley: "aviso de robô parado"): com o robô rodando no servidor, o acionador de 1 min do Google só vigia.
+ * O servidor devolve a SD_ULTIMO_CICLO a cada ciclo; sem batida há mais de 10 min → e-mail (repete de hora em hora
+ * enquanto durar) e, quando a batida voltar, e-mail de "voltou". Não liga o robô do Google sozinho (dois robôs ao mesmo
+ * tempo duplicariam comentários): voltar para o Google é ROBO_SERVIDOR: OBSERVAR no workflow do servidor.
+ */
+function sd_vigiaServidor_() {
+  var p = PropertiesService.getScriptProperties(), agora = Date.now();
+  var ult = +(p.getProperty('SD_ULTIMO_CICLO') || 0), av = +(p.getProperty('SD_VIGIA_AV') || 0);
+  var min = Math.round((agora - ult) / 60000), hora = function (t) { return Utilities.formatDate(new Date(t), 'America/Sao_Paulo', 'dd/MM HH:mm'); };
+  var painel = 'https://compra-peca-858550421734.southamerica-east1.run.app/tarefas/robo';
+  if (ult && agora - ult > 10 * 60000) {
+    if (agora - av < 60 * 60000) return;
+    MailApp.sendEmail(SD.EMAIL, 'ALERTA Trello: robô do servidor parado há ' + min + ' min',
+      'O robô do quadro Compra de Peça (rodando no servidor) não completa um ciclo desde ' + hora(ult) + ' (' + min + ' min).\n\n' +
+      'Enquanto isso, nada é conferido no quadro (travas, fornecimento, prazos, etiquetas).\n\n' +
+      'Ver o que o servidor está fazendo: ' + painel + '\n' +
+      'Para o Google voltar a rodar o robô: no GitHub, workflow do servidor, ROBO_SERVIDOR: OBSERVAR (o Google retoma no minuto seguinte à publicação).\n\n' +
+      'Este aviso repete a cada hora enquanto o robô estiver parado.');
+    p.setProperty('SD_VIGIA_AV', String(agora));
+  } else if (av && ult > av) {
+    MailApp.sendEmail(SD.EMAIL, 'Trello: robô do servidor voltou a rodar',
+      'O robô do servidor voltou a completar ciclos (último às ' + hora(ult) + ').');
+    p.deleteProperty('SD_VIGIA_AV');
+  }
+}
+
 /** Marca que o ciclo de 1 min rodou (o diário confere). */
 function sd_batida_() { PropertiesService.getScriptProperties().setProperty('SD_ULTIMO_CICLO', String(Date.now())); }
 

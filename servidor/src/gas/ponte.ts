@@ -824,10 +824,10 @@ async function trazerLicencasDoGoogle(): Promise<void> {
     cacheCompart.set(k, { v, ate: Math.max(par[1], atual?.ate || 0) });
   }
 }
-export async function rodarRobo(fn: string): Promise<Record<string, unknown>> {
+export async function rodarRobo(fn: string, rapido = false): Promise<Record<string, unknown>> {
   if (!/^(validarDadosPedido|verificarAlteracoesDescricao|rotinaDiaria|relatorioDiario|sd_diario|es_sincronizar|axPadronizarQuadro)$/.test(fn)) return { ok: false, erro: 'função não permitida' };
   if (roboRodando) return { ok: false, erro: 'já rodando' };
-  if (fn === 'validarDadosPedido' && Date.now() - roboUltimo < 40_000) return { ok: false, erro: 'rodou há menos de 40 s' };
+  if (fn === 'validarDadosPedido' && Date.now() - roboUltimo < (rapido ? INTERVALO_RAPIDO_MS : 40_000)) return { ok: false, erro: 'rodou há pouco' };
   roboRodando = true; if (fn === 'validarDadosPedido') roboUltimo = Date.now();
   const t0 = Date.now();
   let erro = '';
@@ -835,7 +835,7 @@ export async function rodarRobo(fn: string): Promise<Record<string, unknown>> {
   try { await ROBO.chamar(fn, []); } catch (e) { erro = (e as Error).message.slice(0, 300); }
   finally { roboRodando = false; }
   const ex = execucoes.filter((e) => e.quadro === 'robo').pop();
-  const reg = { em: new Date(t0).toISOString(), fn, ms: Date.now() - t0, modo: ROBO.observar ? 'OBSERVAR' : 'ATIVO', erro: erro || undefined,
+  const reg = { em: new Date(t0).toISOString(), fn, ms: Date.now() - t0, modo: ROBO.observar ? 'OBSERVAR' : 'ATIVO', erro: erro || undefined, rapido: rapido || undefined,
     escritas: ex?.escritas || [], props: ex?.propsObs,  abas: ex?.ops?.observar?.ms, rede: ex?.rede };
   obsRobo.push(reg); if (obsRobo.length > 120) obsRobo.shift();
   if ((reg.escritas as unknown[]).length) consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`,
@@ -853,12 +853,41 @@ async function alinharChaveGoogle(): Promise<string> {
   console.log('[robô] chave do Google VD_ROBO_SERVIDOR =', quer);
   return quer;
 }
+/**
+ * 19/10/2026 (Weslley, item 1 das otimizações): webhook do quadro principal → ciclo do robô em segundos, sem esperar o minuto.
+ * Junta as ações de uma rajada (espera 4 s de silêncio), respeita um intervalo mínimo de 15 s entre ciclos e só roda com o
+ * robô ATIVO e a chave do Google confirmada no último minuto. O despertador de 1 min continua como rede de segurança.
+ * As gravações do próprio robô também chegam pelo webhook: geram no máximo um ciclo a mais, que não acha nada a fazer.
+ */
+const INTERVALO_RAPIDO_MS = 15_000, SILENCIO_MS = 4_000;
+let chaveOkEm = 0, rapidoTimer: ReturnType<typeof setTimeout> | null = null;
+const estRapido = { pedidos: 0, ciclos: 0, ultimo: '' };
+export function estadoCicloRapido(): Record<string, unknown> { return { ...estRapido, agendado: !!rapidoTimer }; }
+export function pedirCicloRapido(): void {
+  if (process.env.ROBO_SERVIDOR !== 'ATIVO') return;
+  estRapido.pedidos++;
+  if (rapidoTimer) clearTimeout(rapidoTimer);
+  const espera = Math.max(SILENCIO_MS, roboUltimo + INTERVALO_RAPIDO_MS - Date.now());
+  rapidoTimer = setTimeout(() => { rapidoTimer = null; cicloRapido().catch((e) => console.error('[robô] ciclo rápido:', (e as Error).message)); }, espera);
+}
+async function cicloRapido(): Promise<void> {
+  if (Date.now() - chaveOkEm > 3 * 60_000) return;   // chave do Google não confirmada: só o despertador de 1 min roda
+  if (roboRodando || Date.now() - roboUltimo < INTERVALO_RAPIDO_MS) { pedirCicloRapido(); estRapido.pedidos--; return; }
+  const r = await rodarRobo('validarDadosPedido', true);
+  if (r.ok !== false || !r.erro) { estRapido.ciclos++; estRapido.ultimo = new Date().toISOString(); await rodarRobo('verificarAlteracoesDescricao', true); }
+}
+/** Batida do ciclo como o Google a vê (SD_ULTIMO_CICLO) — confere que o aviso de robô parado tem o que vigiar. */
+export async function batidaNoGoogle(): Promise<unknown> {
+  const v = await propsAoVivo();
+  const t = +(v.SD_ULTIMO_CICLO || 0);
+  return { ok: true, ultimoCiclo: t ? new Date(t).toISOString() : null, segundos: t ? Math.round((Date.now() - t) / 1000) : null, avisoPendente: v.SD_VIGIA_AV || null, chave: v.VD_ROBO_SERVIDOR || null };
+}
 const diarias: Array<{ fn: string; hhmm: string }> = [{ fn: 'rotinaDiaria', hhmm: '07:00' }, { fn: 'relatorioDiario', hhmm: '07:15' }];
 /** Agendador (Cloud Scheduler, a cada minuto): ciclo do robô, log de descrição e as rotinas diárias na hora. */
 export async function minutoRobo(): Promise<Record<string, unknown>> {
   if (roboRodando) return { ok: true, pulado: 'robô ainda rodando' };
   const out: Record<string, unknown> = { modo: process.env.ROBO_SERVIDOR === 'ATIVO' ? 'ATIVO' : 'OBSERVAR' };
-  try { out.chaveGoogle = await alinharChaveGoogle(); } catch (e) { out.chaveGoogle = 'erro: ' + (e as Error).message.slice(0, 120); if (out.modo === 'ATIVO') return { ok: false, ...out, erro: 'não consegui parar o robô do Google — nada rodado' }; }
+  try { out.chaveGoogle = await alinharChaveGoogle(); chaveOkEm = Date.now(); } catch (e) { out.chaveGoogle = 'erro: ' + (e as Error).message.slice(0, 120); if (out.modo === 'ATIVO') return { ok: false, ...out, erro: 'não consegui parar o robô do Google — nada rodado' }; }
   out.ciclo = await rodarRobo('validarDadosPedido');
   out.log = await rodarRobo('verificarAlteracoesDescricao');
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(new Date()).map((x) => [x.type, x.value]));

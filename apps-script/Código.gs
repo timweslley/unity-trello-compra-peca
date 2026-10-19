@@ -438,8 +438,20 @@ function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
   if (!idEnc || !idEntregues || !idFaltaChegar) return 0;
   var cards = api_('/lists/' + idEnc + '/cards', { fields: 'name', checklists: 'all', checkItem_fields: 'state' });
   var n = 0;
+  // 19/10/2026 (Weslley: "rotina diária mais rápida"): o histórico de colunas de todos os cards vem em paralelo, de 10 em 10
+  // (antes, uma chamada por card em fila: ~13 s); cada lote que falhar cai na leitura antiga, card a card
+  var cr = cred_(), hist = {};
+  for (var i0 = 0; i0 < cards.length; i0 += 10) {
+    var lote = cards.slice(i0, i0 + 10);
+    try {
+      var rs = qt_fetchAll_(lote.map(function (c) {
+        return { url: 'https://api.trello.com/1/cards/' + c.id + '/actions?filter=updateCard:idList&limit=50&key=' + cr.key + '&token=' + cr.token, muteHttpExceptions: true };
+      }));
+      rs.forEach(function (r, j) { if (r.getResponseCode() === 200) { try { hist[lote[j].id] = JSON.parse(r.getContentText()); } catch (e) {} } });
+    } catch (e) { if (qt_ehErroDeCota_(e)) throw e; }
+  }
   cards.forEach(function (c) {
-    var acs = api_('/cards/' + c.id + '/actions', { filter: 'updateCard:idList', limit: 50 });
+    var acs = hist[c.id] || api_('/cards/' + c.id + '/actions', { filter: 'updateCard:idList', limit: 50 });
     var entrada = null;
     for (var i = 0; i < acs.length; i++) {
       var a = acs[i];

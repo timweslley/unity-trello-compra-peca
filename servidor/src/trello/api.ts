@@ -66,14 +66,14 @@ export function conferirQuadroPermitido(quadro: { id?: string; shortLink?: strin
  * Webhooks do Trello: cria um para o quadro apontando para <urlPublica>/trello/webhook, se ainda não existir.
  * `quadro` pode ser o código curto do link (ZX4gRmnX) ou o id longo: o Trello só aceita o id longo no webhook.
  */
-export async function garantirWebhook(quadro: string, urlPublica: string, permitirPrincipal = false): Promise<{ id: string; novo: boolean; quadroId: string }> {
+export async function garantirWebhook(quadro: string, urlPublica: string, permitirPrincipal = false, caminho = '/trello/webhook', rotulo = 'servidor próprio'): Promise<{ id: string; novo: boolean; quadroId: string }> {
   const b = await trello<{ id: string; shortLink: string; name: string }>('/boards/' + encodeURIComponent(quadro), { query: { fields: 'id,shortLink,name' } });
   conferirQuadroPermitido(b, permitirPrincipal);
   const quadroId = b.id;
-  const url = urlPublica.replace(/\/$/, '') + '/trello/webhook';
+  const url = urlPublica.replace(/\/$/, '') + caminho;
   const existentes = await trello<Array<{ id: string; idModel: string; callbackURL: string; active: boolean }>>('/tokens/' + CFG.trello.token + '/webhooks');
   const ja = existentes.find((w) => w.callbackURL === url && w.idModel === quadroId);
   if (ja) return { id: ja.id, novo: false, quadroId };
-  const novo = await trello<{ id: string }>('/webhooks', { method: 'POST', body: { idModel: quadroId, callbackURL: url, description: 'Compra de Peça — servidor próprio (' + b.name + ')' } });
+  const novo = await trello<{ id: string }>('/webhooks', { method: 'POST', body: { idModel: quadroId, callbackURL: url, description: 'Compra de Peça — ' + rotulo + ' (' + b.name + ')' } });
   return { id: novo.id, novo: true, quadroId };
 }

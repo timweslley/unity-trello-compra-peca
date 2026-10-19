@@ -2013,7 +2013,7 @@ function vd_roboNoServidor_() {
 }
 
 function validarDadosPedido() {
-  if (vd_roboNoServidor_()) return;
+  if (vd_roboNoServidor_()) { try { sd_vigiaServidor_(); } catch (e) {} return; }   // Google de reserva: só vigia o servidor (Saude.gs)
   if (qt_pausada_()) { console.log('ciclo pulado: ' + qt_resumoPausa_()); return; }   // cota estourada: não gasta chamada nem tempo
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return;

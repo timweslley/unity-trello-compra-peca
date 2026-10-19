@@ -107,10 +107,10 @@ var LBL_CONFERIR = 'CONFERIR FATURAMENTO';
 // Código.gs:315
 var MENCAO = '@financeirounity @christianfarias23';
 
-// Código.gs:470
+// Código.gs:482
 var EMAIL_ALERTA = 'weslley.santos@unitycs.com.br';
 
-// Código.gs:471
+// Código.gs:483
 var LIMITE_FALHAS = 2;
 
 // Complemento.gs:16
@@ -425,13 +425,13 @@ var SD = { EMAIL: 'weslley.santos@unitycs.com.br', FALHAS: 5, REPETE_MS: 6 * 360
 // Saude.gs:14
 var SD_TEMPOS = [];
 
-// Saude.gs:133
+// Saude.gs:160
 var SD_PREF_CARD = /^(?:VD_PK2_|VD_AT_|VD_SIG_|VD_NOVAS_|VD_DESC_AV_|PZ_AT_|PZ_COL_|PZ_SEMPREV_|PZ_FOAV_|ST_ESP_|FO_REV_)([0-9a-f]{24})$|^SLA_([0-9a-f]{24})_/;
 
-// Saude.gs:137
+// Saude.gs:164
 var SD_PREF_ANEXO = /^VD_ANX3_([0-9a-f]{24})$/, SD_PREF_ITEM = /^SLA_I_([0-9a-f]{24})_\d{4}-\d{2}-\d{2}/;
 
-// Saude.gs:139
+// Saude.gs:166
 var SD_PREF_LEGADO_USA = /^(?:SLA_|PZ_COL_)/;
 
 // Seguranca.gs:9
@@ -1877,8 +1877,20 @@ function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
   if (!idEnc || !idEntregues || !idFaltaChegar) return 0;
   var cards = api_('/lists/' + idEnc + '/cards', { fields: 'name', checklists: 'all', checkItem_fields: 'state' });
   var n = 0;
+  // 19/10/2026 (Weslley: "rotina diária mais rápida"): o histórico de colunas de todos os cards vem em paralelo, de 10 em 10
+  // (antes, uma chamada por card em fila: ~13 s); cada lote que falhar cai na leitura antiga, card a card
+  var cr = cred_(), hist = {};
+  for (var i0 = 0; i0 < cards.length; i0 += 10) {
+    var lote = cards.slice(i0, i0 + 10);
+    try {
+      var rs = qt_fetchAll_(lote.map(function (c) {
+        return { url: 'https://api.trello.com/1/cards/' + c.id + '/actions?filter=updateCard:idList&limit=50&key=' + cr.key + '&token=' + cr.token, muteHttpExceptions: true };
+      }));
+      rs.forEach(function (r, j) { if (r.getResponseCode() === 200) { try { hist[lote[j].id] = JSON.parse(r.getContentText()); } catch (e) {} } });
+    } catch (e) { if (qt_ehErroDeCota_(e)) throw e; }
+  }
   cards.forEach(function (c) {
-    var acs = api_('/cards/' + c.id + '/actions', { filter: 'updateCard:idList', limit: 50 });
+    var acs = hist[c.id] || api_('/cards/' + c.id + '/actions', { filter: 'updateCard:idList', limit: 50 });
     var entrada = null;
     for (var i = 0; i < acs.length; i++) {
       var a = acs[i];
@@ -1904,7 +1916,7 @@ function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
   return n;
 }
 
-// Código.gs:473
+// Código.gs:485
 function comAlarme_(nome, fn) {
   var p = props_();
   var chave = 'FALHAS_' + nome;
@@ -1935,13 +1947,13 @@ function comAlarme_(nome, fn) {
   } finally { qt_parte_(''); try { qt_registrar_(nome); } catch (x) {} }
 }
 
-// Código.gs:503
+// Código.gs:515
 function verificarAlteracoesDescricao() {
   if (vd_roboNoServidor_()) return;
   comAlarme_('log de descrição', verificarAlteracoesDescricaoNucleo_);
 }
 
-// Código.gs:508
+// Código.gs:520
 function rotinaDiaria() {
   if (vd_roboNoServidor_()) return;
   comAlarme_('rotina diária', rotinaDiariaNucleo_);
@@ -8217,10 +8229,32 @@ function sd_parte_(nome, fn) {
   }
 }
 
-// Saude.gs:44
+// Saude.gs:49
+function sd_vigiaServidor_() {
+  var p = PropertiesService.getScriptProperties(), agora = Date.now();
+  var ult = +(p.getProperty('SD_ULTIMO_CICLO') || 0), av = +(p.getProperty('SD_VIGIA_AV') || 0);
+  var min = Math.round((agora - ult) / 60000), hora = function (t) { return Utilities.formatDate(new Date(t), 'America/Sao_Paulo', 'dd/MM HH:mm'); };
+  var painel = 'https://compra-peca-858550421734.southamerica-east1.run.app/tarefas/robo';
+  if (ult && agora - ult > 10 * 60000) {
+    if (agora - av < 60 * 60000) return;
+    MailApp.sendEmail(SD.EMAIL, 'ALERTA Trello: robô do servidor parado há ' + min + ' min',
+      'O robô do quadro Compra de Peça (rodando no servidor) não completa um ciclo desde ' + hora(ult) + ' (' + min + ' min).\n\n' +
+      'Enquanto isso, nada é conferido no quadro (travas, fornecimento, prazos, etiquetas).\n\n' +
+      'Ver o que o servidor está fazendo: ' + painel + '\n' +
+      'Para o Google voltar a rodar o robô: no GitHub, workflow do servidor, ROBO_SERVIDOR: OBSERVAR (o Google retoma no minuto seguinte à publicação).\n\n' +
+      'Este aviso repete a cada hora enquanto o robô estiver parado.');
+    p.setProperty('SD_VIGIA_AV', String(agora));
+  } else if (av && ult > av) {
+    MailApp.sendEmail(SD.EMAIL, 'Trello: robô do servidor voltou a rodar',
+      'O robô do servidor voltou a completar ciclos (último às ' + hora(ult) + ').');
+    p.deleteProperty('SD_VIGIA_AV');
+  }
+}
+
+// Saude.gs:71
 function sd_batida_() { PropertiesService.getScriptProperties().setProperty('SD_ULTIMO_CICLO', String(Date.now())); }
 
-// Saude.gs:46
+// Saude.gs:73
 function sd_instalarSeFaltar_() {
   var p = PropertiesService.getScriptProperties();
   if (p.getProperty('SD_DIARIO_OK') === 'SIM') return;
@@ -8229,7 +8263,7 @@ function sd_instalarSeFaltar_() {
   p.setProperty('SD_DIARIO_OK', 'SIM');
 }
 
-// Saude.gs:54
+// Saude.gs:81
 function sd_diario() {
   var p = PropertiesService.getScriptProperties(), prob = [];
   var acs = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); });
@@ -8265,7 +8299,7 @@ function sd_diario() {
   return prob;
 }
 
-// Saude.gs:90
+// Saude.gs:117
 function sd_backupSemanal_() {
   var p = PropertiesService.getScriptProperties();
   var hoje = new Date(), semana = Utilities.formatDate(hoje, 'America/Sao_Paulo', 'YYYY-ww');
@@ -8276,7 +8310,7 @@ function sd_backupSemanal_() {
   return nome;
 }
 
-// Saude.gs:100
+// Saude.gs:127
 function sd_backupAgora() {
   var ss = vd_planilhaBackup_().getParent();
   var arq = DriveApp.getFileById(ss.getId());
@@ -8293,7 +8327,7 @@ function sd_backupAgora() {
   return nome;
 }
 
-// Saude.gs:117
+// Saude.gs:144
 function sd_propriedades() {
   var all = PropertiesService.getScriptProperties().getProperties(), tot = 0, por = {}, maior = ['', 0];
   Object.keys(all).forEach(function (k) {
@@ -8307,7 +8341,7 @@ function sd_propriedades() {
   return tot;
 }
 
-// Saude.gs:140
+// Saude.gs:167
 function sd_limparPropriedades_() {
   var p = PropertiesService.getScriptProperties(), all = p.getProperties(), abertos = {}, anexos = {}, itens = {};
   vd_api_('/boards/' + vd_board_() + '/cards', { cru: true, query: { fields: 'id', attachments: 'true', attachment_fields: 'id', checklists: 'all', checkItem_fields: 'id' } }).forEach(function (c) {
@@ -10763,7 +10797,7 @@ function vd_roboNoServidor_() {
 
 // Validacao.gs:2015
 function validarDadosPedido() {
-  if (vd_roboNoServidor_()) return;
+  if (vd_roboNoServidor_()) { try { sd_vigiaServidor_(); } catch (e) {} return; }   // Google de reserva: só vigia o servidor (Saude.gs)
   if (qt_pausada_()) { console.log('ciclo pulado: ' + qt_resumoPausa_()); return; }   // cota estourada: não gasta chamada nem tempo
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(5000)) return;
