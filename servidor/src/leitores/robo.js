@@ -155,13 +155,13 @@ function cp_similar_(descA, descB) {
   return n >= 0.5 ? n : 0;
 }
 
-// FormularioServidor.gs:814
+// FormularioServidor.gs:841
 function vd_dataCurta_(s) {
   var iso = vd_dataBR_(s);
   return iso ? Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM') : String(s || '');
 }
 
-// FormularioServidor.gs:820
+// FormularioServidor.gs:847
 function vd_dataBR_(s) {
   var iso = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3], 12, 0, 0).toISOString();
@@ -173,7 +173,7 @@ function vd_dataBR_(s) {
   return isNaN(d.getTime()) ? '' : d.toISOString();
 }
 
-// FormularioServidor.gs:832
+// FormularioServidor.gs:859
 function vd_valorNum_(s) {
   s = String(s == null ? '' : s).replace(/R\$/i, '').replace(/\s/g, '');
   if (!s) return NaN;
@@ -182,7 +182,7 @@ function vd_valorNum_(s) {
   return parseFloat(s);
 }
 
-// FormularioServidor.gs:841
+// FormularioServidor.gs:868
 function vd_valorBR_(v) {
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   if (isNaN(n)) return '';
@@ -216,12 +216,12 @@ function vd_codigoInterno_(c) {
   return /^0{2,}\d+$/.test(c) || /^SOMA\d+$/.test(c);
 }
 
-// Orcamento.gs:47
+// Orcamento.gs:48
 function vd_ehServico_(desc) {
-  return /TAXA|ASSES+ORIA|AFERI[CÇ]|BORRACHARIA|BORRACHEIR|GEOMETRIA|ALINHAMENTO|BALANCEAMENTO|PRESILHA|MAO DE OBRA|LAVAGEM|POLIMENTO|HIGIENIZA|GUINCHO|REBOQUE|DIAGNOSTICO|SCANNER|RECARGA|FRETE|\bMARKUP\b/.test(desc);
+  return /TAXA|ASSES+ORIA|AFERI[CÇ]|VISTORIA|REM\s*\/\s*INST|BORRACHARIA|BORRACHEIR|GEOMETRIA|ALINHAMENTO|BALANCEAMENTO|PRESILHA|MAO DE OBRA|LAVAGEM|POLIMENTO|HIGIENIZA|GUINCHO|REBOQUE|DIAGNOSTICO|SCANNER|RECARGA|FRETE|\bMARKUP\b/.test(desc);
 }
 
-// Orcamento.gs:51
+// Orcamento.gs:52
 function vd_tipoOrcamento_(t) {
   t = String(t || '').toUpperCase();
   if (/^GENU|^GE$/.test(t)) return 'GENUÍNA';   // Cilia abrevia: GE = genuína, OR = original (AYI7869, 08/10/2026)
@@ -230,7 +230,7 @@ function vd_tipoOrcamento_(t) {
   return t;
 }
 
-// Orcamento.gs:60
+// Orcamento.gs:61
 function vd_pneuDaDescricao_(desc) {
   var d = String(desc || '');
   if (!/\bPNEU/.test(d)) return null;
@@ -249,7 +249,7 @@ function vd_pneuDaDescricao_(desc) {
   return { pneu: true, medida: medida, marca: marca, categoria: categoria };
 }
 
-// Orcamento.gs:78
+// Orcamento.gs:79
 function vd_limparDescricao_(d) {
   return String(d || '')
     .replace(/^\(A\)\s*/, '')
@@ -272,7 +272,7 @@ function vd_limparDescricao_(d) {
     .slice(0, 70);
 }
 
-// Orcamento.gs:102
+// Orcamento.gs:103
 function vd_tirarRepeticao_(d) {
   var ws = String(d).split(' ');
   for (var i = Math.ceil(ws.length / 2); i < ws.length; i++) {
@@ -282,17 +282,17 @@ function vd_tirarRepeticao_(d) {
   return d;
 }
 
-// Orcamento.gs:112
+// Orcamento.gs:113
 function vd_numOrc_(s) { var n = parseFloat(String(s || '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? NaN : n; }
 
-// Orcamento.gs:114
+// Orcamento.gs:115
 function vd_liquidoOrc_(unit, descPct) {
   var u = vd_numOrc_(unit), d = vd_numOrc_(descPct);
   if (isNaN(u)) return NaN;
   return isNaN(d) || d === 0 || d >= 100 || d <= -100 ? u : u * (1 - d / 100);   // desconto negativo = acréscimo (16/10/2026, JDC7H45)
 }
 
-// Orcamento.gs:125
+// Orcamento.gs:126
 function vd_websomaDetalhado_(corpo, lista, add) {
   var txt = vd_compactarCodigos_(corpo, '\u0001');
   // 08/10/2026 (treino 2025, "Orcamento_Detalhado.pdf" da Porto): mesmo relatório impresso com número no formato inglês
@@ -352,7 +352,7 @@ function vd_websomaDetalhado_(corpo, lista, add) {
   }
 }
 
-// Orcamento.gs:185
+// Orcamento.gs:186
 function vd_compactarCodigos_(txt, marca) {
   return String(txt || '').replace(/\b([A-Z0-9]{2,4})\/ ?([A-Z0-9]{3,8})\/ ?([A-Z0-9]{0,3}) ?\/ ?([A-Z0-9]{0,4})(?=\s|$)/g, function (_, a, b, c, d) {
     var cod = [a, b, c, d].filter(String).join('/');
@@ -360,7 +360,7 @@ function vd_compactarCodigos_(txt, marca) {
   });
 }
 
-// Orcamento.gs:193
+// Orcamento.gs:194
 function vd_secao_(U, inicio, finais) {
   var i = U.search(inicio);
   if (i < 0) return '';
@@ -373,7 +373,7 @@ function vd_secao_(U, inicio, finais) {
   return resto.slice(0, fim);
 }
 
-// Orcamento.gs:205
+// Orcamento.gs:206
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
   // 17/10/2026 (Weslley: "sem cobertura não entra pra compra"): no Cilia, os itens do bloco "ITENS DO TIPO SEM COBERTURA" (até

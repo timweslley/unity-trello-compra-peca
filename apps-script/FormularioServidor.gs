@@ -419,7 +419,7 @@ function vdf_limparCardRotina(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) throw new Error('Só a diretoria.');
   var acs = vd_api_('/cards/' + p.shortLink + '/actions', { query: { filter: 'commentCard', limit: 1000, fields: 'data' } }) || [];
-  if (!acs.some(function (a) { return /Card aberto pela Rotina Unity/.test(((a.data || {}).text) || ''); })) return { ok: false, faltas: ['Este card não foi aberto pela Rotina.'] };
+  if (!p.forcar && !acs.some(function (a) { return /Card aberto pela Rotina Unity/.test(((a.data || {}).text) || ''); })) return { ok: false, faltas: ['Este card não foi aberto pela Rotina.'] };
   var c = vdf_carregarCard(token, p.shortLink);
   var tirar = [], pecas = [];
   (c.pecas || []).forEach(function (x) {
