@@ -30,6 +30,7 @@ function ck_licenca_(caminho, payload) {
       l.push(agora); novo['ck_' + i] = JSON.stringify(l.slice(-40));
     });
     c.putAll(novo, 1800);
+    lic_espelhar_(novo, 1800);
   } catch (e) { console.log('licença checklist: ' + e); }
 }
 
@@ -187,4 +188,20 @@ function ck_executar_() {
   ck_retratar_(tocados.slice(0, 30));
   if (n) console.log('trava de checklist: ' + n + ' alteração(ões) desfeita(s)');
   return n;
+}
+
+/* 19/10/2026 — robô no servidor: licença gravada AQUI (formulário caiu no Google porque o servidor falhou) também tem de valer
+ * para o robô do servidor, que não enxerga este cache. Com VD_ROBO_SERVIDOR=SIM, a licença vai também para a propriedade
+ * LIC_SRV ({chave: [valor, vence_em_ms]}, só as que valem); o servidor copia para o cache dele a cada ciclo. */
+function lic_espelhar_(par, seg) {
+  try {
+    if (!vd_roboNoServidor_()) return;
+    var p = PropertiesService.getScriptProperties(), agora = Date.now(), m = {};
+    try { m = JSON.parse(p.getProperty('LIC_SRV') || '{}'); } catch (e) {}
+    Object.keys(m).forEach(function (k) { if (!m[k] || m[k][1] < agora) delete m[k]; });
+    Object.keys(par).forEach(function (k) { m[k] = [String(par[k]), agora + (seg || 600) * 1000]; });
+    var js = JSON.stringify(m);
+    if (js.length > 8000) return;   // nunca passa disso na prática (licença dura minutos); se passar, fica só no cache daqui
+    p.setProperty('LIC_SRV', js);
+  } catch (e) { console.log('licença/servidor: ' + e); }
 }

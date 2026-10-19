@@ -30,6 +30,7 @@ function st_ligado_() { return vd_prop_('ST_TRAVA', 'SIM') !== 'NAO'; }
 function st_permitir_(cardId, idLista) {
   if (!cardId || !idLista) return;
   try { CacheService.getScriptCache().put(ST.PREFIXO_OK + cardId + '_' + idLista, '1', 240); } catch (e) {}   // 4 min: o ciclo é de 1 min
+  var lp = {}; lp[ST.PREFIXO_OK + cardId + '_' + idLista] = '1'; lic_espelhar_(lp, 240);
 }
 function st_temLicenca_(cardId, idLista) {
   try { return CacheService.getScriptCache().get(ST.PREFIXO_OK + cardId + '_' + idLista) === '1'; } catch (e) { return false; }

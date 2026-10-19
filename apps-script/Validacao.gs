@@ -1100,6 +1100,7 @@ function tr_marcarRecente_(cardId, h) {
     try { lista = JSON.parse(cache.get(k) || '[]'); } catch (e) {}
     lista = lista.filter(function (x) { return x !== h; }).concat([h]).slice(-12);
     cache.put(k, JSON.stringify(lista), 21600);
+    var lp = {}; lp[k] = JSON.stringify(lista); lic_espelhar_(lp, 21600);
   } catch (e) { console.log('trava/recentes: ' + e); }
 }
 

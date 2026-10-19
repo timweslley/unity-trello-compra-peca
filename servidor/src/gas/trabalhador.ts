@@ -82,11 +82,14 @@ const PropertiesService = { getScriptProperties: () => propriedades, getUserProp
 // ---------- CacheService (memória do trabalhador, com validade) ----------
 const CACHE = new Map<string, { v: string; ate: number }>();
 // 17/10/2026: travas por card/seção (sg_*) valem entre o robô e o formulário, que rodam em trabalhadores diferentes
-const COMP = /^sg_/;
+// 19/10/2026: as licenças das travas (ck_* checklist, st_ok_* coluna, tr_rec_*) também — sem isso o robô no servidor não via
+// a licença da gravação do formulário e "desfazia" o checklist FORNECIMENTO e a coluna de card recém-aberto (comparação 19/10)
+const COMP = /^(sg_|ck_|st_ok_|tr_rec_)/;
+const LIC = /^(ck_|st_ok_|tr_rec_)/;
 const cache = {
   get(k: string) { if (COMP.test(k)) return sinc<string | null>('cache.comp', { op: 'get', k }); const x = CACHE.get(k); if (!x) return null; if (x.ate < Date.now()) { CACHE.delete(k); return null; } return x.v; },
   put(k: string, v: string, seg = 600) {
-    if (COMP.test(k)) { sinc('cache.comp', { op: 'put', k, v: String(v), seg }); return; }
+    if (COMP.test(k)) { sinc('cache.comp', { op: 'put', k, v: String(v), seg }); if (LIC.test(k)) sinc('cache.licenca', { k, v: String(v), seg }); return; }
     if (String(v).length > 100_000) throw new Error('Argument too large: value');
     CACHE.set(k, { v: String(v), ate: Date.now() + Math.min(seg, 21600) * 1000 });
     // 17/10/2026: licenças das travas do robô (checklist ck_*, coluna st_ok_*) precisam chegar ao cache do Apps Script
@@ -95,7 +98,7 @@ const cache = {
   remove(k: string) { if (COMP.test(k)) { sinc('cache.comp', { op: 'del', k }); return; } CACHE.delete(k); },
   getAll(ks: string[]) { const o: Record<string, string> = {}; ks.forEach((k) => { const v = cache.get(k); if (v !== null) o[k] = v; }); return o; },
   putAll(o: Record<string, string>, seg?: number) { Object.entries(o).forEach(([k, v]) => cache.put(k, v, seg)); },
-  removeAll(ks: string[]) { ks.forEach((k) => CACHE.delete(k)); },
+  removeAll(ks: string[]) { ks.forEach((k) => cache.remove(k)); },
 };
 const CacheService = { getScriptCache: () => cache, getUserCache: () => cache, getDocumentCache: () => cache };
 

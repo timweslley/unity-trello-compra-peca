@@ -482,7 +482,8 @@ async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   
     case 'drive.buscar': case 'drive.info': case 'drive.filhos': case 'drive.ler': return driveLer(op, d);
     case 'cache.comp': {
       const cacheComp = ctx.observar ? cacheObs : cacheCompart;   // robô em OBSERVAR não trava o formulário
-      const x = cacheComp.get(d.k);
+      // 19/10/2026: em OBSERVAR o robô também LÊ o que é real (licenças e travas gravadas pelo formulário), só não escreve lá
+      const x = cacheComp.get(d.k) || (ctx.observar && d.op === 'get' ? cacheCompart.get(d.k) : undefined);
       if (d.op === 'get') return x && x.ate > Date.now() ? x.v : null;
       if (d.op === 'put') cacheComp.set(d.k, { v: d.v, ate: Date.now() + Math.min(+d.seg || 600, 21600) * 1000 }); else cacheComp.delete(d.k);
       if (cacheComp.size > 2000) for (const [k, y] of cacheComp) if (y.ate < Date.now()) cacheComp.delete(k);
@@ -804,6 +805,24 @@ const ROBO = new Contexto('robo', false, QUADRO_PRINCIPAL_SL, true, true, true);
 const obsRobo: Array<Record<string, unknown>> = [];
 let roboRodando = false, roboUltimo = 0;
 /** Roda uma função do robô no servidor (gatilho do agendador). Uma por vez; no máximo 1 a cada 40 s. */
+/** 19/10/2026: licenças das travas gravadas no Apps Script (gravação que caiu no Google) → cache compartilhado daqui,
+ *  antes de cada ciclo do robô. ck_/tr_rec_ são listas JSON (junta as duas); st_ok_ é '1'. */
+async function trazerLicencasDoGoogle(): Promise<void> {
+  const js = (await propsParaGravacao()).LIC_SRV;
+  if (!js) return;
+  let m: Record<string, [string, number]> = {};
+  try { m = JSON.parse(js); } catch { return; }
+  const agora = Date.now();
+  for (const [k, par] of Object.entries(m)) {
+    if (!Array.isArray(par) || !(par[1] > agora) || !/^(ck_|st_ok_|tr_rec_)/.test(k)) continue;
+    const atual = cacheCompart.get(k);
+    let v = String(par[0]);
+    if (atual && atual.ate > agora && /^(ck_|tr_rec_)/.test(k)) {
+      try { const a = JSON.parse(atual.v) as unknown[], b = JSON.parse(v) as unknown[]; v = JSON.stringify([...new Set([...a, ...b])].slice(-40)); } catch { /* fica o do Google */ }
+    }
+    cacheCompart.set(k, { v, ate: Math.max(par[1], atual?.ate || 0) });
+  }
+}
 export async function rodarRobo(fn: string): Promise<Record<string, unknown>> {
   if (!/^(validarDadosPedido|verificarAlteracoesDescricao|rotinaDiaria|relatorioDiario|sd_diario|es_sincronizar|axPadronizarQuadro)$/.test(fn)) return { ok: false, erro: 'função não permitida' };
   if (roboRodando) return { ok: false, erro: 'já rodando' };
@@ -811,6 +830,7 @@ export async function rodarRobo(fn: string): Promise<Record<string, unknown>> {
   roboRodando = true; if (fn === 'validarDadosPedido') roboUltimo = Date.now();
   const t0 = Date.now();
   let erro = '';
+  try { await trazerLicencasDoGoogle(); } catch { /* sem cópia das propriedades: segue com o cache daqui */ }
   try { await ROBO.chamar(fn, []); } catch (e) { erro = (e as Error).message.slice(0, 300); }
   finally { roboRodando = false; }
   const ex = execucoes.filter((e) => e.quadro === 'robo').pop();
