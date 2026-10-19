@@ -378,11 +378,18 @@ async function principal() {
       app.log.error(e, 'não consegui garantir o webhook do Trello');
     }
     // 19/10/2026: com o robô do principal ATIVO no servidor, um webhook do principal acorda o ciclo na hora
+    // (o Trello confere a URL na criação: logo na partida o tráfego ainda vai para a revisão anterior → tenta de novo, de minuto em minuto)
     if (process.env.ROBO_SERVIDOR === 'ATIVO') {
-      try {
-        const w = await garantirWebhook('oH4TbTqb', CFG.urlPublica, true, '/trello/robo', 'robô no servidor');
-        ESTADO.webhookRobo = (w.novo ? 'criado ' : 'ativo ') + w.id;
-      } catch (e) { ESTADO.webhookRobo = 'erro: ' + (e as Error).message.slice(0, 200); app.log.error(e, 'webhook do robô'); }
+      const tentar = async (n: number): Promise<void> => {
+        try {
+          const w = await garantirWebhook('oH4TbTqb', CFG.urlPublica, true, '/trello/robo', 'robô no servidor');
+          ESTADO.webhookRobo = (w.novo ? 'criado ' : 'ativo ') + w.id;
+        } catch (e) {
+          ESTADO.webhookRobo = 'erro (tentativa ' + n + '): ' + (e as Error).message.slice(0, 200);
+          if (n < 10) setTimeout(() => { tentar(n + 1).catch(() => null); }, 60_000);
+        }
+      };
+      setTimeout(() => { tentar(1).catch(() => null); }, 45_000);
     }
   }
 }
