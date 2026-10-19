@@ -431,7 +431,7 @@ function vdf_limparCardRotina(token, p) {
   var acento = (c.pecas || []).filter(function (x) { return vd_consertarAcentos_(x.descricao || '') !== (x.descricao || ''); }).length;
   if (p.simular || (!tirar.length && !acento)) return { ok: true, simulado: !!p.simular, tirar: tirar, acentos: acento, ficam: pecas.length };
   var t = c.titulo || {};
-  var r = vdf_salvar(token, { shortLink: p.shortLink, dados: Object.assign({}, c.dados || {}, { ordem: c.ordem || '' }), pecas: pecas, obs: c.obs || '', fileIds: [], capaId: '', orcamento: null,
+  var r = vdf_salvar(token, { shortLink: p.shortLink, limpezaRotina: true, dados: Object.assign({}, c.dados || {}, { ordem: c.ordem || '' }), pecas: pecas, obs: c.obs || '', fileIds: [], capaId: '', orcamento: null,
     novo: { tipo: c.tipo, carro: t.carro, cor: t.cor || (c.dados || {}).cor, seguradora: t.seguradora || (c.dados || {}).seguradora, sinistro: (c.dados || {}).sinistro || '', unidade: c.unidadeId || '' } });
   return { ok: !!(r && r.ok !== false), tirar: tirar, acentos: acento, ficam: pecas.length, resultado: r && r.ok === false ? r.faltas : (r && r.lista) };
 }
@@ -2076,7 +2076,9 @@ function vdf_salvar(token, p) {
   // com peça da oficina o card nasce em FALTA DADOS PARA COTAR para o consultor completar; só FO -> o robô leva a FALTA CHEGAR.
   var rotina = !!p.rotina && vdf_ehAutorizador_(me) && !p.shortLink;
   var faltasRotina = [];
-  if (rotina) { faltasRotina = faltas.filter(function (f) { return /falta o tipo de pe|falta o c[óo]digo|fora do padr/i.test(f); }); faltas = faltas.filter(function (f) { return faltasRotina.indexOf(f) < 0; }); }
+  // 19/10/2026: limpeza de card que a Rotina abriu (vdf_limparCardRotina) tolera o mesmo que a Rotina tolerou ao abrir
+  var limpezaRotina = !!p.limpezaRotina && vdf_ehAutorizador_(me) && !!p.shortLink;
+  if (rotina || limpezaRotina) { faltasRotina = faltas.filter(function (f) { return /falta o tipo de pe|falta o c[óo]digo|fora do padr/i.test(f); }); faltas = faltas.filter(function (f) { return faltasRotina.indexOf(f) < 0; }); }
   if (parcial) faltas = faltas.filter(function (f) { return /^placa|^carro \(nome/i.test(f); });
   if (faltas.length) return { ok: false, faltas: faltas };
 

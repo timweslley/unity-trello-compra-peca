@@ -3987,7 +3987,7 @@ function vdf_limparCardRotina(token, p) {
   var acento = (c.pecas || []).filter(function (x) { return vd_consertarAcentos_(x.descricao || '') !== (x.descricao || ''); }).length;
   if (p.simular || (!tirar.length && !acento)) return { ok: true, simulado: !!p.simular, tirar: tirar, acentos: acento, ficam: pecas.length };
   var t = c.titulo || {};
-  var r = vdf_salvar(token, { shortLink: p.shortLink, dados: Object.assign({}, c.dados || {}, { ordem: c.ordem || '' }), pecas: pecas, obs: c.obs || '', fileIds: [], capaId: '', orcamento: null,
+  var r = vdf_salvar(token, { shortLink: p.shortLink, limpezaRotina: true, dados: Object.assign({}, c.dados || {}, { ordem: c.ordem || '' }), pecas: pecas, obs: c.obs || '', fileIds: [], capaId: '', orcamento: null,
     novo: { tipo: c.tipo, carro: t.carro, cor: t.cor || (c.dados || {}).cor, seguradora: t.seguradora || (c.dados || {}).seguradora, sinistro: (c.dados || {}).sinistro || '', unidade: c.unidadeId || '' } });
   return { ok: !!(r && r.ok !== false), tirar: tirar, acentos: acento, ficam: pecas.length, resultado: r && r.ok === false ? r.faltas : (r && r.lista) };
 }
@@ -5559,7 +5559,9 @@ function vdf_salvar(token, p) {
   // com peça da oficina o card nasce em FALTA DADOS PARA COTAR para o consultor completar; só FO -> o robô leva a FALTA CHEGAR.
   var rotina = !!p.rotina && vdf_ehAutorizador_(me) && !p.shortLink;
   var faltasRotina = [];
-  if (rotina) { faltasRotina = faltas.filter(function (f) { return /falta o tipo de pe|falta o c[óo]digo|fora do padr/i.test(f); }); faltas = faltas.filter(function (f) { return faltasRotina.indexOf(f) < 0; }); }
+  // 19/10/2026: limpeza de card que a Rotina abriu (vdf_limparCardRotina) tolera o mesmo que a Rotina tolerou ao abrir
+  var limpezaRotina = !!p.limpezaRotina && vdf_ehAutorizador_(me) && !!p.shortLink;
+  if (rotina || limpezaRotina) { faltasRotina = faltas.filter(function (f) { return /falta o tipo de pe|falta o c[óo]digo|fora do padr/i.test(f); }); faltas = faltas.filter(function (f) { return faltasRotina.indexOf(f) < 0; }); }
   if (parcial) faltas = faltas.filter(function (f) { return /^placa|^carro \(nome/i.test(f); });
   if (faltas.length) return { ok: false, faltas: faltas };
 
@@ -5808,14 +5810,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:2329
+// FormularioServidor.gs:2331
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:2341
+// FormularioServidor.gs:2343
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5890,21 +5892,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:2418
+// FormularioServidor.gs:2420
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:2424
+// FormularioServidor.gs:2426
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:2430
+// FormularioServidor.gs:2432
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {
