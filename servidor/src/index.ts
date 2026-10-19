@@ -276,7 +276,7 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
   app.post('/tarefas/limpar-rotina', async (req) => {
     const q = (req.query as Record<string, string>) || {};
     if (!/^[A-Za-z0-9]{8}$/.test(q.sl || '')) return { ok: false, erro: 'sl inválido' };
-    return JSON.parse(await executarGravacaoPrincipal(JSON.stringify({ fn: 'vdf_limparCardRotina', args: [CFG.trello.token, { shortLink: q.sl, simular: q.simular === '1', forcar: q.forcar === '1' }] })));
+    return JSON.parse(await executarGravacaoPrincipal(JSON.stringify({ fn: 'vdf_limparCardRotina', args: [CFG.trello.token, { shortLink: q.sl, simular: q.simular === '1', forcar: q.forcar === '1', manter: q.manter ? String(q.manter).split(',').filter(Boolean) : undefined }] })));
   });
   /** Confere o acesso ao Drive (bases de orçamento) com a conta do servidor — só nomes e datas. */
   app.get('/tarefas/drive-teste', async () => testeDrive());

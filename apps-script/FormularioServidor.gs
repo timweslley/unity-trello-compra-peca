@@ -428,6 +428,22 @@ function vdf_limparCardRotina(token, p) {
     pecas.push({ pneu: x.pneu, codigo: x.codigo, descricao: d, tipos: x.tipos || [], medida: x.medida, categoria: x.categoria, marca: vd_consertarAcentos_(x.marca || ''),
       qtd: x.qtd, particular: x.particular, partPor: x.partPor, complemento: x.complemento, compData: x.compData, naoComprar: x.naoComprar, naoMotivo: x.naoMotivo, valorOrc: x.valorOrc, obs: x.obs });
   });
+  // 19/10/2026 (Weslley: "BDD2J09 puxou errado tbm as peças"): a Rotina mandou TODAS as linhas do Cilia (R&I, reparação,
+  // pintura) como peça. p.manter = códigos das peças de TROCA pela oficina (conferidas no PDF); 'PNEU' mantém um pneu por medida.
+  if (p.manter && p.manter.length) {
+    var norm = function (x) { return String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); };
+    var keep = p.manter.map(norm), pneuVisto = {}, ficaM = [];
+    // pneu: um por medida, de preferência o que já tem marca
+    pecas.filter(function (x) { return x.pneu; }).forEach(function (x) { var m = norm(x.medida); if (!pneuVisto[m] || (!pneuVisto[m].marca && x.marca)) pneuVisto[m] = x; });
+    pecas.forEach(function (x) {
+      var ok = x.pneu ? (keep.indexOf('PNEU') >= 0 && pneuVisto[norm(x.medida)] === x) : !!(x.codigo && keep.indexOf(norm(x.codigo)) >= 0);
+      if (ok) ficaM.push(x); else tirar.push(x.pneu ? 'PNEU ' + (x.medida || '') + ' ' + (x.marca || '') : x.descricao);
+    });
+    var travadas = (c.pecas || []).filter(function (x) { return x.travada; }).length;
+    var temCot = ((c.cotacoes || {}).cotacoes || []).length;
+    if (travadas || temCot) return { ok: false, faltas: ['O card já tem cotação/autorização — conferir à mão.'] };
+    pecas = ficaM;
+  }
   var acento = (c.pecas || []).filter(function (x) { return vd_consertarAcentos_(x.descricao || '') !== (x.descricao || ''); }).length;
   if (p.simular || (!tirar.length && !acento)) return { ok: true, simulado: !!p.simular, tirar: tirar, acentos: acento, ficam: pecas.length };
   var t = c.titulo || {};
@@ -1898,6 +1914,9 @@ function vdf_salvar(token, p) {
   // 19/10/2026: texto com acento quebrado (UTF-8 lido como cp1252) vem consertado; card aberto pela Rotina não leva serviço como peça
   (p.pecas || []).forEach(function (x) { if (x) { x.descricao = vd_consertarAcentos_(x.descricao); x.marca = vd_consertarAcentos_(x.marca); } });
   if (p.rotina && !p.shortLink) p.pecas = (p.pecas || []).filter(function (x) { return !x || x.pneu || !vd_ehServico_(vd_semAcento_(String(x.descricao || '')).toUpperCase()); });
+  // 19/10/2026: a Rotina só abre peça de TROCA. Com o campo operacao (do Cilia: "T", "R&I", "R", "P", "T P"…), linha sem T
+  // (só remover/instalar, reparar ou pintar) não é compra e não entra.
+  if (p.rotina && !p.shortLink) p.pecas = (p.pecas || []).filter(function (x) { return !x || x.operacao == null || /(^|\s)T(ROCA)?(\s|$)/.test(String(x.operacao).toUpperCase().replace(/R&I/g, ' ')); });
   var pecas = (p.pecas || []).map(function (x) {
     // 17/10/2026: pneu que chegou como peça comum sem código ("PNEU HIFLY 195/55R15 …") vira pneu (BDD2J09)
     var dP = String(x.descricao || '').trim().toUpperCase(), mP = !x.pneu && /^PNEUS?\b/.test(dP) && !/\d{4}/.test(String(x.codigo || '').replace(/[^A-Z0-9]/gi, '')) && dP.match(/\d{3}\s*\/\s*\d{2}\s*Z?R?\s*\d{2}/);
