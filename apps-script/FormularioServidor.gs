@@ -361,7 +361,19 @@ function vdf_buscarPlaca(token, placa, chassi) {
   }).map(function (c) {
     var pc = vd_placaDoTexto_(c.name) || '';
     return { shortLink: c.shortLink, nome: c.name, lista: nomeLista[c.idList] || '', porChassi: !(vd_placaValida_(placa) && vd_mesmaPlaca_(pc || vd_analisar_(c.desc, c.name).dados.placa, placa)) };
-  });
+  }).concat(vdf_arquivadosDaPlaca_(placa));
+}
+
+/** 20/10/2026 (Weslley, GHG2A24): retorno de carro cujo card já foi arquivado — a busca só via card aberto, então não havia
+ *  de onde copiar o carro. Traz até 5 cards ARQUIVADOS da placa (busca do Trello), só para o botão de retorno (não para editar). */
+function vdf_arquivadosDaPlaca_(placa) {
+  if (!vd_placaValida_(placa)) return [];
+  try {
+    var r = vd_api_('/search', { query: { query: placa + ' is:archived', idBoards: vd_board_(), modelTypes: 'cards', card_fields: 'name,shortLink,closed,dateLastActivity', cards_limit: 10, partial: 'true' } });
+    return ((r && r.cards) || []).filter(function (c) { return c.closed && !vdf_cardProtegido_(c.name) && vd_mesmaPlaca_(vd_placaDoTexto_(c.name) || '', placa); })
+      .sort(function (a, b) { return String(b.dateLastActivity || '').localeCompare(String(a.dateLastActivity || '')); })
+      .slice(0, 5).map(function (c) { return { shortLink: c.shortLink, nome: c.name, lista: 'arquivado', arquivado: true, porChassi: false }; });
+  } catch (e) { console.log('busca arquivados: ' + e); return []; }
 }
 
 /** Compra só com a etiqueta ORDEM AUTORIZADA no card (ordem de serviço liberada). */
@@ -2178,7 +2190,7 @@ function vdf_salvar(token, p) {
   // card NOVO com placa que já tem card aberto no quadro: só cria com confirmação explícita (criarMesmoAssim)
   if (!p.shortLink && !p.criarMesmoAssim) {
     var jaTem = [];
-    try { jaTem = vdf_buscarPlaca(token, d.placa, d.chassi); } catch (e) { jaTem = []; }
+    try { jaTem = vdf_buscarPlaca(token, d.placa, d.chassi).filter(function (c) { return !c.arquivado; }); } catch (e) { jaTem = []; }
     if (jaTem.length) return { ok: false, duplicado: jaTem, placa: d.placa, faltas: ['Já existe card aberto com esta placa/chassi: ' + jaTem.map(function (c) { return c.nome + ' (' + c.lista + (c.porChassi ? ', mesmo chassi' : '') + ')'; }).join('; ') + '. Atualize esse card ou confirme que quer criar outro.'] };
   }
 

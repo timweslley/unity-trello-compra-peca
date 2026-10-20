@@ -2123,9 +2123,14 @@ function aoMudarPlaca() {
   $('dicaPlaca').textContent = 'Procurando cards desta placa…'; $('dicaPlaca').className = 'dica';
   chamar('vdf_buscarPlaca', TOKEN, p).then(function (lista) {
     lista = lista.filter(function (c) { return c.shortLink !== CARD_EDICAO; });
-    if (!lista.length) { $('dicaPlaca').textContent = CARD_EDICAO ? '' : 'Nenhum card aberto com esta placa — será criado um card novo.'; $('dicaPlaca').className = 'dica boa'; return; }
+    // 20/10/2026 (GHG2A24): card arquivado da placa só serve para abrir RETORNO (copiar o carro), nunca para atualizar
+    var arq = lista.filter(function (c) { return c.arquivado; }); lista = lista.filter(function (c) { return !c.arquivado; });
+    if (!lista.length && !arq.length) { $('dicaPlaca').textContent = CARD_EDICAO ? '' : 'Nenhum card aberto com esta placa — será criado um card novo.'; $('dicaPlaca').className = 'dica boa'; return; }
     $('dicaPlaca').textContent = '';
-    var h = '<div class="aviso info">Já existe card com esta placa. Quer atualizar um deles?<div class="escolha">';
+    var h = '<div class="aviso info">' + (lista.length ? 'Já existe card com esta placa. Quer atualizar um deles?' : 'Esta placa só tem card <b>arquivado</b>. É retorno?') + '<div class="escolha">';
+    arq.forEach(function (c) {
+      h += '<button type="button" class="secundario" onclick="copiarCarro(\'' + esc(c.shortLink) + '\')">🔁 Card novo de retorno com os dados do card arquivado: <b>' + esc(c.nome) + '</b></button>';
+    });
     lista.forEach(function (c) {
       h += '<button type="button" class="secundario" onclick="carregarCard(\'' + esc(c.shortLink) + '\')">Atualizar: <b>' + esc(c.nome) + '</b> — ' + esc(c.lista) + '</button>';
     });
@@ -2145,6 +2150,7 @@ function aoMudarPlaca() {
 function puxarCarroDaPlaca(placa, meuSl) {
   chamar('vdf_buscarPlaca', TOKEN, placa).then(function (lista) {
     lista = lista.filter(function (x) { return x.shortLink !== meuSl; });
+    lista.sort(function (a, b) { return (a.arquivado ? 1 : 0) - (b.arquivado ? 1 : 0); });   // aberto primeiro; arquivado também serve (GHG2A24)
     if (!lista.length) return;
     var i = 0;
     var tentar = function () {

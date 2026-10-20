@@ -243,7 +243,7 @@ function tst_saude() {
  *    autorização, com motivo) -> previsão alterada -> recebimento -> ENCERRADO. Card: TST9A99. */
 function tst_cenario9() {
   var tk = tst_tk_();
-  var ex = vdf_buscarPlaca(tk, 'TST9A99');
+  var ex = vdf_buscarPlaca(tk, 'TST9A99').filter(function (x) { return !x.arquivado; });
   var sl = ex && ex.length ? ex[0].shortLink : '';
   if (!sl) {
     var r = tst_log_('Novo: pedido particular', vdf_salvar(tk, { shortLink: '', dados: { placa: 'TST9A99', modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '9BWAG45U0LT000001' },
@@ -313,7 +313,7 @@ function tst_demo() {
   var out = {};
   [['DEM1A01', 1], ['DEM2A02', 2], ['DEM3A03', 3], ['DEM4A04', 4]].forEach(function (d) {
     var placa = d[0], ate = d[1];
-    var ex = vdf_buscarPlaca(tk, placa), sl = ex && ex.length ? ex[0].shortLink : '';
+    var ex = vdf_buscarPlaca(tk, placa).filter(function (x) { return !x.arquivado; }), sl = ex && ex.length ? ex[0].shortLink : '';
     if (!sl) sl = vdf_salvar(tk, { shortLink: '', dados: { placa: placa, modelo: 'VW GOL 1.0', ano: '2020/2021', motor: '1.0', chassi: '9BWAG45U0LT00000' + ate },
       pecas: pecas, obs: 'card de demonstração', fileIds: [], capaId: '', orcamento: null,
       novo: { tipo: 'PARTICULAR', carro: 'GOL', cor: 'BRANCO', seguradora: '', sinistro: '', unidade: '' } }).shortLink;
@@ -357,7 +357,7 @@ function tst_principal() {
     var pdf = Utilities.newBlob(html, 'text/html', 'orcamento.html').getAs('application/pdf');
     var up = passo('Anexo: orçamento PDF enviado', function () { return vdf_subirArquivo(tk, Utilities.base64Encode(pdf.getBytes()), 'application/pdf', 'ORCAMENTO-TESTE-' + TSTP.PLACA + '.pdf'); });
     // 2) pedido novo
-    var ex = vdf_buscarPlaca(tk, TSTP.PLACA); sl = ex && ex.length ? ex[0].shortLink : '';
+    var ex = vdf_buscarPlaca(tk, TSTP.PLACA).filter(function (x) { return !x.arquivado; }); sl = ex && ex.length ? ex[0].shortLink : '';
     var unid = cf_opcoesUnidade_();
     var uTol = (unid.filter(function (l) { return /TOLEDO/i.test(l.name); })[0] || {}).id, uRon = (unid.filter(function (l) { return /RONDON/i.test(l.name); })[0] || {}).id;
     if (!sl) {

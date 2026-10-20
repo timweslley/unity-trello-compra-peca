@@ -253,35 +253,35 @@ var VD_MARCAS = ['CHEVROLET', 'CHEV', 'GM', 'VOLKSWAGEN', 'VW', 'FORD', 'FIAT', 
   'JEEP', 'PEUGEOT', 'CITROEN', 'MITSUBISHI', 'KIA', 'BMW', 'AUDI', 'MERCEDES-BENZ', 'MERCEDES', 'BENZ', 'M.BENZ', 'LAND', 'ROVER',
   'VOLVO', 'CAOA', 'CHERY', 'BYD', 'GWM', 'RAM', 'DODGE', 'SUZUKI', 'SUBARU', 'JAC', 'LIFAN', 'PORSCHE', 'MINI', 'IVECO', 'SCANIA', 'I', 'IMP'];
 
-// FormularioServidor.gs:368
+// FormularioServidor.gs:380
 var VDF_ETIQ_ORDEM = 'ORDEM AUTORIZADA';
 
-// FormularioServidor.gs:383
+// FormularioServidor.gs:395
 var VDF_CAMPO_ORDEM = 'Nº Ordem';
 
-// FormularioServidor.gs:517
+// FormularioServidor.gs:529
 var VD_CORES = ['BRANCO', 'BRANCA', 'PRETO', 'PRETA', 'PRATA', 'CINZA', 'VERMELHO', 'VERMELHA', 'AZUL', 'VERDE', 'AMARELO', 'AMARELA',
   'BEGE', 'MARROM', 'DOURADO', 'DOURADA', 'LARANJA', 'VINHO', 'GRAFITE', 'ROXO', 'ROXA', 'BRONZE', 'CHAMPAGNE'];
 
-// FormularioServidor.gs:521
+// FormularioServidor.gs:533
 var VD_LIXO_TITULO = ['TOL', 'TOLEDO', 'MCR', 'RONDON', 'MARECHAL', 'CVEL', 'CASCAVEL', 'CM', 'CMO', 'MOURAO', 'CAMPO', 'IMAGE', 'PNG', 'JPG', 'JPEG', 'PDF', 'RETORNO', 'INTERNO', 'RETRABALHO', 'GARANTIA'];
 
-// FormularioServidor.gs:973
+// FormularioServidor.gs:985
 var VDF_LISTA_PENDENTE = 'PENDENTE AUTORIZAR';
 
-// FormularioServidor.gs:974
+// FormularioServidor.gs:986
 var VDF_LISTA_FINALIZADA = 'COTAÇÃO FINALIZADA';
 
-// FormularioServidor.gs:975
+// FormularioServidor.gs:987
 var VDF_LISTA_CHEGAR = 'FALTA CHEGAR';
 
-// FormularioServidor.gs:1006
+// FormularioServidor.gs:1018
 var VDF_RX_REMOVE = /^(REMOVIDA|INDISPON[IÍ]VEL)\s*:\s*(.+?)\s+-\s+(.+)\s+-\s+R?\$?\s*([\d.]+(?:,\d{1,2})?)(?:\s+-\s+(.*))?\s*$/i;
 
-// FormularioServidor.gs:1329
+// FormularioServidor.gs:1341
 var VDF_ETIQUETA_PARCIAL = 'COTAÇÃO PARCIAL';
 
-// FormularioServidor.gs:1367
+// FormularioServidor.gs:1379
 var VDF_LISTA_AUTORIZADO = 'AUTORIZADO COMPRA';
 
 // Fornecedores.gs:10
@@ -3949,25 +3949,36 @@ function vdf_buscarPlaca(token, placa, chassi) {
   }).map(function (c) {
     var pc = vd_placaDoTexto_(c.name) || '';
     return { shortLink: c.shortLink, nome: c.name, lista: nomeLista[c.idList] || '', porChassi: !(vd_placaValida_(placa) && vd_mesmaPlaca_(pc || vd_analisar_(c.desc, c.name).dados.placa, placa)) };
-  });
+  }).concat(vdf_arquivadosDaPlaca_(placa));
 }
 
 // FormularioServidor.gs:369
+function vdf_arquivadosDaPlaca_(placa) {
+  if (!vd_placaValida_(placa)) return [];
+  try {
+    var r = vd_api_('/search', { query: { query: placa + ' is:archived', idBoards: vd_board_(), modelTypes: 'cards', card_fields: 'name,shortLink,closed,dateLastActivity', cards_limit: 10, partial: 'true' } });
+    return ((r && r.cards) || []).filter(function (c) { return c.closed && !vdf_cardProtegido_(c.name) && vd_mesmaPlaca_(vd_placaDoTexto_(c.name) || '', placa); })
+      .sort(function (a, b) { return String(b.dateLastActivity || '').localeCompare(String(a.dateLastActivity || '')); })
+      .slice(0, 5).map(function (c) { return { shortLink: c.shortLink, nome: c.name, lista: 'arquivado', arquivado: true, porChassi: false }; });
+  } catch (e) { console.log('busca arquivados: ' + e); return []; }
+}
+
+// FormularioServidor.gs:381
 function vdf_temOrdemAut_(card) {
   return (card.labels || []).some(function (l) { return vd_semAcento_(String(l.name || '')).toUpperCase().indexOf(VDF_ETIQ_ORDEM) >= 0; });
 }
 
-// FormularioServidor.gs:373
+// FormularioServidor.gs:385
 function vdf_ehPosCotacao_(nomeLista) {
   return VD.LISTAS_FORA.indexOf(vd_nomeColuna_(nomeLista)) < 0;
 }
 
-// FormularioServidor.gs:378
+// FormularioServidor.gs:390
 function vdf_cardProtegido_(nome) {
   return /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '') || /^\s*AVISO\b/i.test(nome || '');
 }
 
-// FormularioServidor.gs:384
+// FormularioServidor.gs:396
 function vdf_ordemDoCard_(c) {
   try {
     var d = cf_defs_()[VDF_CAMPO_ORDEM]; if (!d) return '';
@@ -3976,7 +3987,7 @@ function vdf_ordemDoCard_(c) {
   } catch (e) { return ''; }
 }
 
-// FormularioServidor.gs:392
+// FormularioServidor.gs:404
 function vdf_gravarOrdem_(cardId, ordem) {
   ordem = String(ordem || '').replace(/\D/g, '');
   if (!ordem) return false;
@@ -3986,7 +3997,7 @@ function vdf_gravarOrdem_(cardId, ordem) {
   return true;
 }
 
-// FormularioServidor.gs:401
+// FormularioServidor.gs:413
 function vdf_unidadeDoCard_(c) {
   try {
     var d = cf_defs_()['Unidade']; if (!d) return '';
@@ -3995,13 +4006,13 @@ function vdf_unidadeDoCard_(c) {
   } catch (e) { return ''; }
 }
 
-// FormularioServidor.gs:409
+// FormularioServidor.gs:421
 function vdf_gravarUnidade_(card, idOpcao) {
   if (!idOpcao || vdf_unidadeDoCard_(card) === idOpcao) return false;
   return cf_gravarUnidade_(card.id, idOpcao);
 }
 
-// FormularioServidor.gs:420
+// FormularioServidor.gs:432
 function vdf_limparCardRotina(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) throw new Error('Só a diretoria.');
@@ -4039,7 +4050,7 @@ function vdf_limparCardRotina(token, p) {
   return { ok: !!(r && r.ok !== false), tirar: tirar, acentos: acento, ficam: pecas.length, resultado: r && r.ok === false ? r.faltas : (r && r.lista) };
 }
 
-// FormularioServidor.gs:457
+// FormularioServidor.gs:469
 function vdf_carregarCard(token, shortLink) {
   var me = vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
@@ -4050,7 +4061,7 @@ function vdf_carregarCard(token, shortLink) {
   return vdf_montarCard_(c, lista, me);
 }
 
-// FormularioServidor.gs:468
+// FormularioServidor.gs:480
 function vdf_montarCard_(c, lista, me) {
   if (vdf_cardProtegido_(c.name)) throw new Error('Este é o card fixo do quadro — não pode ser usado como pedido. Faça um pedido novo.');
   try { var cmp = vd_completa_(c.id); if (cmp) c.desc = cmp; } catch (e) {}   // vitrine -> descrição completa
@@ -4100,7 +4111,7 @@ function vdf_montarCard_(c, lista, me) {
   };
 }
 
-// FormularioServidor.gs:523
+// FormularioServidor.gs:535
 function vdf_partesTitulo_(nome, dados) {
   dados = dados || {};
   var estrIni = /^\s*([A-Z]{4}\d{3}|[A-Z]{2}\d{3}[A-Z]{2})\b/.exec(vd_semAcento_(nome));   // placa estrangeira no começo do título (13/10/2026)
@@ -4123,14 +4134,14 @@ function vdf_partesTitulo_(nome, dados) {
   return r;
 }
 
-// FormularioServidor.gs:548
+// FormularioServidor.gs:560
 function vdf_ocrServidor(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime || 'application/pdf', nome || 'arquivo');
   return { texto: vd_ocr_(blob, nome || 'arquivo') };
 }
 
-// FormularioServidor.gs:557
+// FormularioServidor.gs:569
 function vdf_fotosDoCard_(token, shortLink) {
   vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
@@ -4143,7 +4154,7 @@ function vdf_fotosDoCard_(token, shortLink) {
   return { card: c, fotos: fotos };
 }
 
-// FormularioServidor.gs:569
+// FormularioServidor.gs:581
 function vdf_urlPreview_(a, min) {
   var ps = (a.previews || []).filter(function (p) { return p && p.url && p.width; }).sort(function (x, y) { return x.width - y.width; });
   var p = ps.filter(function (x) { return x.width >= min; })[0] || ps[ps.length - 1];
@@ -4151,7 +4162,7 @@ function vdf_urlPreview_(a, min) {
   return (a.bytes || 0) <= 400000 ? a.url : '';
 }
 
-// FormularioServidor.gs:575
+// FormularioServidor.gs:587
 function vdf_baixarFotos_(lista, min, pref) {
   var cache = CacheService.getScriptCache(), out = {}, falta = [];
   lista.forEach(function (a) {
@@ -4174,7 +4185,7 @@ function vdf_baixarFotos_(lista, min, pref) {
   return out;
 }
 
-// FormularioServidor.gs:597
+// FormularioServidor.gs:609
 function vdf_fotosCard(token, shortLink) {
   var x = vdf_fotosDoCard_(token, shortLink), lista = x.fotos.slice(0, 12);
   var srcs = vdf_baixarFotos_(lista, 300, 'vdf_mini_');
@@ -4186,7 +4197,7 @@ function vdf_fotosCard(token, shortLink) {
   };
 }
 
-// FormularioServidor.gs:608
+// FormularioServidor.gs:620
 function vdf_fotoCard(token, shortLink, idAnexo) {
   var x = vdf_fotosDoCard_(token, shortLink);
   var a = x.fotos.filter(function (f) { return f.id === idAnexo; })[0];
@@ -4195,7 +4206,7 @@ function vdf_fotoCard(token, shortLink, idAnexo) {
   return { id: a.id, src: srcs[a.id] || '' };
 }
 
-// FormularioServidor.gs:616
+// FormularioServidor.gs:628
 function vdf_definirCapa(token, shortLink, idAnexo) {
   var x = vdf_fotosDoCard_(token, shortLink);
   if (!x.fotos.some(function (f) { return f.id === idAnexo; })) throw new Error('Essa foto não está mais no card.');
@@ -4203,7 +4214,7 @@ function vdf_definirCapa(token, shortLink, idAnexo) {
   return { ok: true, capa: idAnexo };
 }
 
-// FormularioServidor.gs:626
+// FormularioServidor.gs:638
 function vdf_anexosDoCard_(attachments) {
   var props = PropertiesService.getScriptProperties();
   return (attachments || []).filter(vd_anexoLegivel_).map(function (a) {
@@ -4211,7 +4222,7 @@ function vdf_anexosDoCard_(attachments) {
   });
 }
 
-// FormularioServidor.gs:634
+// FormularioServidor.gs:646
 function vdf_todosAnexos_(attachments, urlForm) {
   return (attachments || []).filter(function (a) {
     if (VD_LINK.RX_EDITAR.test(a.name || '') || VD_LINK.RX_COMPRA.test(a.name || '')) return false;
@@ -4224,7 +4235,7 @@ function vdf_todosAnexos_(attachments, urlForm) {
   });
 }
 
-// FormularioServidor.gs:647
+// FormularioServidor.gs:659
 function vdf_lerAnexoCard(token, shortLink, idAnexo, placa) {
   vdf_usuario_(token);
   var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
@@ -4252,7 +4263,7 @@ function vdf_lerAnexoCard(token, shortLink, idAnexo, placa) {
   return out;
 }
 
-// FormularioServidor.gs:675
+// FormularioServidor.gs:687
 function vdf_textoAnexo(token, shortLink, idAnexo) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) throw new Error('Só a diretoria.');
@@ -4266,7 +4277,7 @@ function vdf_textoAnexo(token, shortLink, idAnexo) {
   return { nome: a.name, texto: String(texto).slice(0, 30000), normalizado: vd_normTexto_(texto).slice(0, 30000), orcamento: { origem: orc.origem, oficina: orc.oficina, fo: orc.fo } };
 }
 
-// FormularioServidor.gs:693
+// FormularioServidor.gs:705
 function vdf_valoresOrcamento(token, shortLink) {
   var me = vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard,shortLink', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
@@ -4299,7 +4310,7 @@ function vdf_valoresOrcamento(token, shortLink) {
   return { ok: true, preenchidas: atual.length };
 }
 
-// FormularioServidor.gs:727
+// FormularioServidor.gs:739
 function vdf_lerDocumento(token, base64, mime, nome, placa) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
@@ -4317,7 +4328,7 @@ function vdf_lerDocumento(token, base64, mime, nome, placa) {
   return out;
 }
 
-// FormularioServidor.gs:745
+// FormularioServidor.gs:757
 function vdf_respostaLeitura_(r, orc, placa) {
   var placasDoc = (r.placas || []).slice(0, 5);
   var confere = !placa || placasDoc.some(function (p) { return vd_mesmaPlaca_(p, placa); });
@@ -4345,7 +4356,7 @@ function vdf_respostaLeitura_(r, orc, placa) {
   };
 }
 
-// FormularioServidor.gs:772
+// FormularioServidor.gs:784
 function vdf_pastaTemp_() {
   var props = PropertiesService.getScriptProperties();
   var id = props.getProperty('VD_PASTA_TEMP');
@@ -4355,7 +4366,7 @@ function vdf_pastaTemp_() {
   return p;
 }
 
-// FormularioServidor.gs:786
+// FormularioServidor.gs:798
 function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
   if (!fo || !fo.length) return 0;
   nomeLista = nomeLista || 'FORNECIMENTO';
@@ -4421,19 +4432,19 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
   return n;
 }
 
-// FormularioServidor.gs:852
+// FormularioServidor.gs:864
 function vdf_foColado_(norm, cod) {
   var n = String(norm || '').toUpperCase(), c = vd_semAcento_(String(cod || '')).toUpperCase().replace(/\s+/g, '');
   return c.length >= 6 && n.indexOf(c) === 0 && /^[A-Z]{3}/.test(n.slice(c.length));
 }
 
-// FormularioServidor.gs:859
+// FormularioServidor.gs:871
 function vd_dataCurta_(s) {
   var iso = vd_dataBR_(s);
   return iso ? Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM') : String(s || '');
 }
 
-// FormularioServidor.gs:865
+// FormularioServidor.gs:877
 function vd_dataBR_(s) {
   var iso = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3], 12, 0, 0).toISOString();
@@ -4445,7 +4456,7 @@ function vd_dataBR_(s) {
   return isNaN(d.getTime()) ? '' : d.toISOString();
 }
 
-// FormularioServidor.gs:877
+// FormularioServidor.gs:889
 function vd_valorNum_(s) {
   s = String(s == null ? '' : s).replace(/R\$/i, '').replace(/\s/g, '');
   if (!s) return NaN;
@@ -4454,7 +4465,7 @@ function vd_valorNum_(s) {
   return parseFloat(s);
 }
 
-// FormularioServidor.gs:886
+// FormularioServidor.gs:898
 function vd_valorBR_(v) {
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   if (isNaN(n)) return '';
@@ -4462,19 +4473,19 @@ function vd_valorBR_(v) {
   return 'R$ ' + s[0].replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ',' + s[1];
 }
 
-// FormularioServidor.gs:895
+// FormularioServidor.gs:907
 function vd_dataMaisDias_(dias) {
   return du_somarUteis_(dias);
 }
 
-// FormularioServidor.gs:900
+// FormularioServidor.gs:912
 function vd_chavePeca_(p) {
   if (p.pneu) return vd_semAcento_('PNEU ' + String(p.medida || '').replace(/\s+/g, ''));
   var cod = String(p.codigo || '').replace(/\s+/g, '');
   return vd_semAcento_(cod || p.descricao || '').replace(/\s+/g, ' ').trim();
 }
 
-// FormularioServidor.gs:908
+// FormularioServidor.gs:920
 function vd_casaItem_(nomeItem, k) {
   k = String(k || '').replace(/\s+/g, ' ').trim();
   if (!k) return false;
@@ -4485,14 +4496,14 @@ function vd_casaItem_(nomeItem, k) {
   return n.indexOf(k + ' - ') === 0 || n.indexOf(k + ' (X') === 0;
 }
 
-// FormularioServidor.gs:919
+// FormularioServidor.gs:931
 function vd_nomePeca_(p) {
   if (p.pneu) return ('PNEU ' + String(p.medida || '').replace(/\s+/g, '') + ' ' + (p.marca || p.categoria || '')).trim();
   var cod = String(p.codigo || '').replace(/\s+/g, '');
   return ((cod ? cod + ' ' : '') + String(p.descricao || '').trim()).toUpperCase();
 }
 
-// FormularioServidor.gs:929
+// FormularioServidor.gs:941
 function vd_checklistPagas_(cardId, compras, token) {
   compras = (compras || []).filter(function (c) { return String(c.fornecedor || '').trim(); });
   if (!compras.length) return 0;
@@ -4535,7 +4546,7 @@ function vd_checklistPagas_(cardId, compras, token) {
   return n;
 }
 
-// FormularioServidor.gs:986
+// FormularioServidor.gs:998
 function vdf_pecaDoTexto_(texto, chaves) {
   /* 17/10/2026 (teste das cópias, BDD2J09): casava pela PRIMEIRA peça cujo código aparecia DENTRO do texto — o código
    * "0000001" casava com a linha de "00000014 PARABARRO" e a cotação ia para a peça errada. Agora: código inteiro (separado
@@ -4553,7 +4564,7 @@ function vdf_pecaDoTexto_(texto, chaves) {
   return melhor ? melhor.k : null;
 }
 
-// FormularioServidor.gs:1007
+// FormularioServidor.gs:1019
 function vdf_lerRemocao_(l, chaves) {
   var m = l.match(VDF_RX_REMOVE);
   if (!m) return null;
@@ -4561,7 +4572,7 @@ function vdf_lerRemocao_(l, chaves) {
   return { tipo: /^REM/i.test(m[1]) ? 'REMOVIDA' : 'INDISPONIVEL', forn: m[2].trim().toUpperCase(), chave: k ? k.chave : '', valor: vd_valorNum_(m[4]), motivo: (m[5] || '').trim() };
 }
 
-// FormularioServidor.gs:1015
+// FormularioServidor.gs:1027
 function vdf_linkCot_(s) {
   s = String(s || '').trim();
   if (!s) return '';
@@ -4570,7 +4581,7 @@ function vdf_linkCot_(s) {
   return s.length > 1500 ? null : s;
 }
 
-// FormularioServidor.gs:1026
+// FormularioServidor.gs:1038
 function vdf_encurtarLink_(u) {
   try {
     var m;
@@ -4584,13 +4595,13 @@ function vdf_encurtarLink_(u) {
   } catch (e) { return u; }
 }
 
-// FormularioServidor.gs:1039
+// FormularioServidor.gs:1051
 function vdf_tirarLinkCot_(l) {
   var m = l.match(/^(.*?)\s+-\s+(?:\[[^\]]*\]\()?(https?:\/\/[^\s)]+)\)?\s*$/i);
   return m ? { linha: m[1], link: m[2] } : { linha: l, link: '' };
 }
 
-// FormularioServidor.gs:1044
+// FormularioServidor.gs:1056
 function vd_cotacoesDaDescricao_(desc, pecas) {
   var out = { cotacoes: [], nt: [], obs: [], semCot: [] };
   var resto = vd_dividir_(desc).resto;
@@ -4684,14 +4695,14 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
   return out;
 }
 
-// FormularioServidor.gs:1137
+// FormularioServidor.gs:1149
 function vdf_nomeLista_(ctx, id) {
   var n = '';
   Object.keys(ctx.listas).forEach(function (k) { if (ctx.listas[k] === id) n = k; });
   return n;
 }
 
-// FormularioServidor.gs:1143
+// FormularioServidor.gs:1155
 function vdf_moverPara_(card, ctx, nomeLista, token, usuario) {
   var id = ctx.listas[nomeLista];
   if (!id) return '';
@@ -4705,7 +4716,7 @@ function vdf_moverPara_(card, ctx, nomeLista, token, usuario) {
   return nomeLista;
 }
 
-// FormularioServidor.gs:1157
+// FormularioServidor.gs:1169
 function vdf_linkComprador_(card, ctx, token) {
   try {
     var ans = vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,url' } });
@@ -4714,7 +4725,7 @@ function vdf_linkComprador_(card, ctx, token) {
   } catch (e) {}
 }
 
-// FormularioServidor.gs:1170
+// FormularioServidor.gs:1182
 function vdf_salvarCotacao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -4839,7 +4850,7 @@ function vdf_salvarCotacao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length };
 }
 
-// FormularioServidor.gs:1295
+// FormularioServidor.gs:1307
 function vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem) {
   var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
   var ordem = [], grupos = {};
@@ -4861,7 +4872,7 @@ function vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem) {
   return div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n' + L.join('\n');
 }
 
-// FormularioServidor.gs:1317
+// FormularioServidor.gs:1329
 function vdf_coberturaCotacao_(desc, pecas) {
   var lidas = vd_cotacoesDaDescricao_(desc, pecas);
   var faltam = [], sem = [];
@@ -4874,7 +4885,7 @@ function vdf_coberturaCotacao_(desc, pecas) {
   return { faltam: faltam, semCot: sem };
 }
 
-// FormularioServidor.gs:1331
+// FormularioServidor.gs:1343
 function vdf_etiquetaParcial_(card, por, token) {
   var id = pz_labelId_(card.idBoard, VDF_ETIQUETA_PARCIAL, 'orange');
   var tem = (card.labels || []).some(function (l) { return l.id === id; });
@@ -4882,7 +4893,7 @@ function vdf_etiquetaParcial_(card, por, token) {
   if (!por && tem) vd_api_('/cards/' + card.id + '/idLabels/' + id, { method: 'delete' }, token);
 }
 
-// FormularioServidor.gs:1344
+// FormularioServidor.gs:1356
 function vd_autorizacoesDaDescricao_(desc, pecas) {
   var resto = vd_dividir_(desc).resto;
   if (!resto) return [];
@@ -4906,7 +4917,7 @@ function vd_autorizacoesDaDescricao_(desc, pecas) {
   return Object.keys(porChave).map(function (k) { return porChave[k]; });
 }
 
-// FormularioServidor.gs:1374
+// FormularioServidor.gs:1386
 function vdf_autorizar(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5060,7 +5071,7 @@ function vdf_autorizar(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, aguarda: aguarda, marcas: marcadas.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:1528
+// FormularioServidor.gs:1540
 function vdf_linhasObs_(p, porChave, rotulo) {
   var linhas = [], txt = [];
   (p.obs || []).forEach(function (o) {
@@ -5075,7 +5086,7 @@ function vdf_linhasObs_(p, porChave, rotulo) {
   return { linhas: linhas, n: linhas.length, texto: txt.length ? '\n📝 ' + txt.map(function (t) { return t.replace(/^- /, ''); }).join(' · ') : '' };
 }
 
-// FormularioServidor.gs:1548
+// FormularioServidor.gs:1560
 function vdf_devolverCotacao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5115,7 +5126,7 @@ function vdf_devolverCotacao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: obsL.n, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:1588
+// FormularioServidor.gs:1600
 function vd_ultimaDevolucao_(desc) {
   var resto = vd_dividir_(desc).resto || '', dev = null;
   resto.split('\n').forEach(function (raw) {
@@ -5127,7 +5138,7 @@ function vd_ultimaDevolucao_(desc) {
   return dev;
 }
 
-// FormularioServidor.gs:1603
+// FormularioServidor.gs:1615
 function vdf_marcarOrdemAutorizada(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5148,7 +5159,7 @@ function vdf_marcarOrdemAutorizada(token, p) {
   return { ok: true, nome: card.name, url: card.shortUrl };
 }
 
-// FormularioServidor.gs:1627
+// FormularioServidor.gs:1639
 function vdf_avisarSolicitante(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5175,7 +5186,7 @@ function vdf_avisarSolicitante(token, p) {
   return { ok: true, nome: card.name, url: card.shortUrl, quem: quem };
 }
 
-// FormularioServidor.gs:1657
+// FormularioServidor.gs:1669
 function vdf_salvarCompra(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5345,7 +5356,7 @@ function vdf_salvarCompra(token, p) {
   return { ok: true, parcial: parcial, url: card.shortUrl, nome: card.name, pagas: n, pendentes: pendentes, foraAut: foraAut, anexos: axC.anexados, repetidos: axC.repetidos, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:1832
+// FormularioServidor.gs:1844
 function vdf_anexarCompra_(card, arqs, token) {
   var out = { anexados: [], repetidos: [] };
   if (!arqs || !arqs.length) return out;
@@ -5373,7 +5384,7 @@ function vdf_anexarCompra_(card, arqs, token) {
   return out;
 }
 
-// FormularioServidor.gs:1858
+// FormularioServidor.gs:1870
 function vdf_txtAnexosCompra_(ax) {
   var t = '';
   if (ax.anexados.length) t += '\n📎 Negociação/pagamento: ' + ax.anexados.join(' · ');
@@ -5381,7 +5392,7 @@ function vdf_txtAnexosCompra_(ax) {
   return t;
 }
 
-// FormularioServidor.gs:1867
+// FormularioServidor.gs:1879
 function vd_pecasSemCotacao_(card) {
   var desc = card.desc || '', an = vd_analisar_(desc, card.name || '');
   var cot = { cotacoes: [], semCot: [] }, auts = [], compras = [];
@@ -5398,7 +5409,7 @@ function vd_pecasSemCotacao_(card) {
   }).map(vd_nomePeca_);
 }
 
-// FormularioServidor.gs:1883
+// FormularioServidor.gs:1895
 function vd_comprasDaDescricao_(desc) {
   var out = [];
   vd_limpar_(desc).split('\n').forEach(function (l) {
@@ -5413,7 +5424,7 @@ function vd_comprasDaDescricao_(desc) {
   return out;
 }
 
-// FormularioServidor.gs:1907
+// FormularioServidor.gs:1919
 function vdf_pecasDaBase_(placa, sinistro) {
   if (!placa) return null;
   var sin = String(sinistro || '').replace(/\D/g, ''), melhor = null;
@@ -5441,13 +5452,13 @@ function vdf_pecasDaBase_(placa, sinistro) {
     origem: melhor.B.org, rot: melhor.B.rot + ' ' + cl_rotVersao_(melhor.B, melhor.o.versao_baixada || '') };
 }
 
-// FormularioServidor.gs:1935
+// FormularioServidor.gs:1947
 function vdf_rotinaPecasBase(token, p) {
   if (!vdf_ehAutorizador_(vdf_usuario_(token))) throw new Error('Só a diretoria.');
   return { ok: true, base: vdf_pecasDaBase_(p.placa, p.sinistro) };
 }
 
-// FormularioServidor.gs:1940
+// FormularioServidor.gs:1952
 function vdf_salvar(token, p) {
   var trocasPart = { paraPart: [], paraSeg: [] };
   // 💾 Salvar parcial (13/10/2026, Weslley): grava o que já tem mesmo com dado faltando — o robô põe o card em FALTA DADOS e
@@ -5689,7 +5700,7 @@ function vdf_salvar(token, p) {
   // card NOVO com placa que já tem card aberto no quadro: só cria com confirmação explícita (criarMesmoAssim)
   if (!p.shortLink && !p.criarMesmoAssim) {
     var jaTem = [];
-    try { jaTem = vdf_buscarPlaca(token, d.placa, d.chassi); } catch (e) { jaTem = []; }
+    try { jaTem = vdf_buscarPlaca(token, d.placa, d.chassi).filter(function (c) { return !c.arquivado; }); } catch (e) { jaTem = []; }
     if (jaTem.length) return { ok: false, duplicado: jaTem, placa: d.placa, faltas: ['Já existe card aberto com esta placa/chassi: ' + jaTem.map(function (c) { return c.nome + ' (' + c.lista + (c.porChassi ? ', mesmo chassi' : '') + ')'; }).join('; ') + '. Atualize esse card ou confirme que quer criar outro.'] };
   }
 
@@ -5917,14 +5928,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:2410
+// FormularioServidor.gs:2422
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:2422
+// FormularioServidor.gs:2434
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5999,21 +6010,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:2499
+// FormularioServidor.gs:2511
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:2505
+// FormularioServidor.gs:2517
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:2511
+// FormularioServidor.gs:2523
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {
