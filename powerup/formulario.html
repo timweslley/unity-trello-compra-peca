@@ -8422,6 +8422,11 @@ document.addEventListener('input', function (e) {
     var erro = t.querySelector('.aviso.erro');
     if (erro && !t.querySelector('.v2r-cx')) {
       var msg = erro.textContent.replace(/^Não deu para abrir o formulário:\s*/i, '');
+      // 19/10/2026 (RHM2H41): link do TESTE (srv=1) num card do quadro principal — abre o formulário do principal sozinho
+      if (/não é do quadro do formulário/i.test(msg) && /[?&]srv=1(&|$)/.test(location.search)) {   // sem srv=1 no endereço novo: não volta para cá
+        location.replace(location.pathname.replace(/servidor\.html$/, 'formulario.html') + location.search.replace(/([?&])srv=1(&|$)/, function (x, a, b) { return b ? a : ''; }) + location.hash);
+        return;
+      }
       var semRede = /tempo|timeout|network|fetch|rede|conex/i.test(msg);
       t.innerHTML = '<div class="v2r-cx v2r-centro t-erro" role="alert"><div class="v2r-selo">' + ico(semRede ? 'wifi' : 'alert') + '</div>'
         + '<h2 class="v2r-tit">Não deu para abrir o formulário</h2>'
