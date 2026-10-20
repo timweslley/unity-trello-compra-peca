@@ -8312,7 +8312,7 @@ document.addEventListener('input', function (e) {
     'COTAÇÃO FINALIZADA': 'Agora quem autoriza escolhe as cotações na aba Autorizar.',
     'PENDENTE AUTORIZAR': 'Agora quem autoriza escolhe as cotações na aba Autorizar.',
     'AUTORIZADO COMPRA': 'Agora o comprador faz a compra na aba Compra.',
-    'FALTA CHEGAR': 'Agora é esperar a peça chegar. Quando chegar, registre na aba Recebimento.',
+    'FALTA CHEGAR': 'Agora é esperar as peças chegarem. Conforme chegarem, registre na aba Recebimento.',
     'ENTREGUES': 'Peças entregues. Falta o faturamento conferir e fechar o card.',
     'ENCERRADO COMPRAS/FORNEC.': 'Todas as peças chegaram. Nada mais a fazer neste card.'
   };
@@ -8411,8 +8411,18 @@ document.addEventListener('input', function (e) {
     // peça devolvida no recebimento: o card volta para a compra — "todas as peças chegaram" não vale
     if (/AUTORIZADO COMPRA/.test(lista) && dets.some(function (d) { return /devoluç/i.test(texto(d)); })) {
       dets = dets.filter(function (d) { return !/^Todas as peças chegaram/i.test(texto(d)); });
-      prox = 'Agora o comprador compra de novo a peça devolvida, na aba Compra.';
+      prox = 'Agora o comprador registra uma compra nova da peça devolvida, na aba Compra. Se o preço ou o fornecedor mudar, use "Cotação autorizada indisponível".';
     }
+    // rodada GPT/Gemini do fluxo completo (19/10/2026): pendências paralelas (peças da seguradora) e caminhos de volta
+    var temFO = dets.some(function (d) { return /FORNECIMENTO/i.test(texto(d)); });
+    if (/^Pedido (criado|atualizado)$/.test(titulo) && temFO) {
+      if (/EM COTAÇÃO/.test(lista)) prox = 'Agora o comprador cota as peças da oficina. Para as peças da seguradora, lance fornecedor e previsão no botão abaixo.';
+      else if (/FALTA CHEGAR/.test(lista)) prox = 'Lance fornecedor e previsão da peça nova da seguradora no botão abaixo e continue registrando as chegadas na aba Recebimento.';
+    }
+    if (/^Compra cancelada$/.test(titulo)) prox = 'Agora o comprador registra uma compra nova da peça na aba Compra. Se o preço ou o fornecedor mudar, use "Cotação autorizada indisponível".';
+    if (/^Cotação indisponível registrada$/.test(titulo) && dets.some(function (d) { return /cotação nova foi para/i.test(texto(d)); })) titulo = 'Cotação nova enviada para autorização';
+    if (/^Cotação indisponível registrada$/.test(titulo) && /EM COTAÇÃO/.test(lista)) prox = 'Cote a peça de novo na aba Cotação (sem cotação nova, ela voltou para cotação).';
+    if (/^Compra parcial salva$/.test(titulo) && /para o card seguir/.test(prox)) prox = prox.replace(/\s*para o card seguir\.?$/, ' — o card segue para FALTA CHEGAR.');
     if (/^Cotação devolvida/i.test(titulo)) prox = 'O comprador revisa a cotação conforme a sua observação e envia de novo.';
     if (proxCard && /abra de novo e clique em Enviar cotação/i.test(proxCard)) prox = 'Para concluir, abra o formulário de novo e clique em Enviar cotação.';
     // detalhe que repete o próximo passo ("Todas as peças chegaram.") sai da lista
