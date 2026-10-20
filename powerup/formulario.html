@@ -3912,6 +3912,8 @@ iniciar();
   .v2pc #comprador.v2c .v2c-lin .c-forn { overflow-wrap:anywhere; }
   .v2pc #comprador.v2c .v2c-lin .c-forn b { font-weight:600; }
   .v2pc #comprador.v2c .v2c-lin .c-tipo { color:#44546f; font-size:13px; }
+  .v2pc #comprador.v2c .v2c-lin .c-tipo .v2c-foratipo { display:block; margin-top:2px; color:#a54800; font-weight:600; font-size:12px; }
+  .v2pc #comprador.v2c .v2c-foradica { margin-top:4px; color:#a54800; font-size:12px; font-weight:600; }
   .v2pc #comprador.v2c .v2c-lin .c-valor { font-weight:600; font-variant-numeric:tabular-nums; text-align:right; }
   .v2pc #comprador.v2c .v2c-lin .c-prazo { color:#44546f; font-size:13px; font-variant-numeric:tabular-nums; }
   .v2pc #comprador.v2c .v2c-lin .c-selos { display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
@@ -6680,7 +6682,8 @@ iniciar();
     linha.innerHTML = ''; linha.classList.add('v2c-lin');
     var c = function (cl, h) { var d = document.createElement('span'); d.className = cl; if (h != null) d.innerHTML = h; linha.appendChild(d); return d; };
     c('c-forn', '<b>' + txt(q.fornecedor) + '</b>');
-    c('c-tipo', tipoMarcaHtml(q));
+    var foraC = tipoForaDoPedido(it, q);
+    c('c-tipo', tipoMarcaHtml(q) + (foraC ? '<span class="v2c-foratipo">⚠ fora do pedido · pedido: ' + txt(foraC) + '</span>' : ''));
     var cv = c('c-valor', txt(fmtValor(q.valor)));
     c('c-prazo', txt(prazoTxt(q)));
     var s = c('c-selos'); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); if (link) { linkCurto(link, q); s.appendChild(link); } if (autz) s.appendChild(autz); selosCelula(cv); juntarSelos(s); tituloSelos(s);
@@ -6789,6 +6792,44 @@ iniciar();
     return { its: its, pend: pend, duras: duras, cartao: cartao };
   }
 
+  /* 20/10/2026 (Weslley, porta C1BZ5820125A): o comprador pode cotar tipo diferente do pedido — o seletor de tipo mostra todos
+   * os tipos (os do pedido primeiro; os outros marcados «fora do pedido»); na autorização a cotação fora do pedido ganha aviso. */
+  function tipoForaDoPedido(it, q) {
+    if (!q || !q.tipo || !it || it.dataset.pneu === '1') return '';
+    var p = (pecasOficina(window.CARD) || []).filter(function (x) { return x.chave === it.dataset.chave; })[0];
+    var pedidos = (p && p.tipos) || [];
+    if (!pedidos.length || pedidos.some(function (t) { return semAc(t) === semAc(q.tipo); })) return '';
+    return pedidos.join(' ou ');
+  }
+  function todosOsTipos(sel, pedidos) {
+    if (!sel || !window.CFG || !CFG.tipos) return;
+    var tem = $$('option', sel).map(function (o) { return semAc(o.value); });
+    CFG.tipos.forEach(function (t) {
+      if (tem.indexOf(semAc(t)) >= 0) return;
+      var o = document.createElement('option'); o.value = t; o.textContent = t + ' (fora do pedido)'; sel.appendChild(o);
+    });
+    var dica = function () {
+      var fora = pedidos.length && !pedidos.some(function (t) { return semAc(t) === semAc(sel.value); });
+      var d = sel.parentNode.querySelector('.v2c-foradica');
+      if (fora && !d) { d = document.createElement('div'); d.className = 'v2c-foradica'; sel.parentNode.appendChild(d); }
+      if (d) { d.textContent = fora ? 'Pedido: ' + pedidos.join(' ou ') + ' — o autorizador vai ver o aviso.' : ''; d.hidden = !fora; }
+    };
+    sel.addEventListener('change', dica); dica();
+  }
+  if (typeof window.novaCot === 'function' && !window.novaCot.v2tipos) {
+    var _novaCot = window.novaCot;
+    window.novaCot = function (item, pre) {
+      var r = _novaCot.apply(this, arguments);
+      try {
+        var rows = item.querySelectorAll('.cot-novas .cot'), row = rows[rows.length - 1], sel = row && row.querySelector('select.q-tipo');
+        var p = (pecasOficina(window.CARD) || []).filter(function (x) { return x.chave === item.dataset.chave; })[0] || {};
+        if (sel) { todosOsTipos(sel, p.tipos || []); if (pre && pre.tipo) sel.value = pre.tipo; sel.dispatchEvent(new Event('change')); }
+      } catch (e) {}
+      return r;
+    };
+    window.novaCot.v2tipos = true;
+  }
+
   /* ---------- Autorizar ---------- */
   function opcaoAut(it, lab) {
     if (lab.dataset.v2c) return;
@@ -6802,7 +6843,8 @@ iniciar();
     lab.innerHTML = '';
     var c = function (cl, h) { var d = document.createElement('span'); d.className = cl; d.innerHTML = h; lab.appendChild(d); return d; };
     var f = c('c-forn', ''); f.appendChild(r); f.insertAdjacentHTML('beforeend', '<b>' + txt(q.fornecedor) + '</b>');
-    var ct = c('c-tipo', tipoMarcaHtml(q)); idDe(ct, 'v2cat');
+    var foraP = tipoForaDoPedido(it, q);
+    var ct = c('c-tipo', tipoMarcaHtml(q) + (foraP ? '<span class="v2c-foratipo">⚠ fora do pedido · pedido: ' + txt(foraP) + '</span>' : '')); idDe(ct, 'v2cat');
     var cv = c('c-valor', txt(fmtValor(q.valor))); c('c-prazo', txt(prazoTxt(q)));
     var s = c('c-selos', ''); selos.forEach(function (x) { (x.classList.contains('selo-eco') ? cv : s).appendChild(x); }); selosCelula(cv); juntarSelos(s); tituloSelos(s); idDe(s, 'v2cas'); idDe(cv, 'v2cav');
     var tqA = totQtd(it, q.valor); if (tqA) cv.insertAdjacentHTML('beforeend', totQtdHtml(it, q.valor));
