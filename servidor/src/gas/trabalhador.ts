@@ -48,7 +48,12 @@ const Utilities = {
   formatDate(d: Date, fuso: string, padrao: string) {
     const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: fuso || 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(d)).map((x) => [x.type, x.value]));
-    return String(padrao).replace(/yyyy|yy|MM|dd|HH|mm|ss|'([^']*)'/g, (t, lit) => lit !== undefined ? lit
+    // 20/10/2026: 'H' (hora sem zero), 'u' (dia da semana ISO, 1 = segunda) e 'YYYY-ww' (semana ISO) — antes saíam como texto:
+    // o 'H' do sla_executar_ virava NaN e a regra "só das 8h às 18h" não valia (lembretes de faturamento de madrugada)
+    const iso = () => { const dl = new Date(Date.UTC(+p.year, +p.month - 1, +p.day)); const dw = dl.getUTCDay() || 7; dl.setUTCDate(dl.getUTCDate() + 4 - dw);
+      const y0 = new Date(Date.UTC(dl.getUTCFullYear(), 0, 1)); return { ano: String(dl.getUTCFullYear()), sem: String(Math.ceil(((+dl - +y0) / 864e5 + 1) / 7)).padStart(2, '0'), dia: String(dw) }; };
+    return String(padrao).replace(/yyyy|YYYY|yy|MM|dd|HH|H|mm|ss|ww|u|'([^']*)'/g, (t, lit) => lit !== undefined ? lit
+      : t === 'YYYY' ? iso().ano : t === 'ww' ? iso().sem : t === 'u' ? iso().dia : t === 'H' ? String(+p.hour)
       : ({ yyyy: p.year, yy: p.year.slice(2), MM: p.month, dd: p.day, HH: p.hour, mm: p.minute, ss: p.second } as Record<string, string>)[t]);
   },
   sleep(ms: number) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.max(0, Math.min(ms, 30_000))); },
