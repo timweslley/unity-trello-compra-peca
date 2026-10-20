@@ -237,6 +237,9 @@ function sla_executar_(forcar) {
         try { cpP = vd_complPendentes_(vd_analisar_(c.desc, c.name)); } catch (e) {}
         resumoFat.push({ nome: c.name, url: c.shortUrl, dias: dias, compl: cpP.length > 0 });
       }
+      // 20/10/2026 (Weslley: "lembrar só os novos"): card que entrou em ENTREGUES antes do corte não recebe mais lembrete no card
+      // (continua no resumo diário). Mudar o corte: propriedade SLA_FAT_DESDE (ISO); vazio = sem corte.
+      if (et.quem === 'faturar') { var desde = String(vd_prop_('SLA_FAT_DESDE', '2026-10-20T15:30:00.000Z') || ''); if (desde && String(ent) < desde) return; }
       var chave = 'SLA_' + c.id + '_' + idL + '_' + ent.slice(0, 16);
       if (!sla_podeAvisar_(props, chave, hoje)) return;
       var mencao, txt;
