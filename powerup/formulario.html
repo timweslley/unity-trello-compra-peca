@@ -8853,5 +8853,44 @@ document.addEventListener('input', function (e) {
   estado();
 })();
 </script>
+<script>
+/* 20/10/2026 (Weslley, AGL5650): peça que já está comprada (item no PAGAS) e com cotação no card aparece na aba Cotação
+ * fechada — "✔ Já comprada · fornecedor · valor" — para o comprador não cotar de novo quando chega orçamento complementar.
+ * Camada 2.0: só embrulha montarCotacao (a tela clássica não muda). */
+(function () {
+  if (/[?&]v2=0(&|$)/.test(location.search)) return;
+  var orig = window.montarCotacao; if (typeof orig !== 'function') return;
+  var norm = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim(); };
+  var st = document.createElement('style');
+  st.textContent = '#cotItens > .item.v2c-comprada > :not(.item-topo):not(.v2c-compradaaviso):not(.v2c-compradaver) { display:none !important; }'
+    + '#cotItens > .item.v2c-comprada.v2c-vercot > * { display:revert !important; }'
+    + '#cotItens > .item.v2c-comprada .item-topo button { display:none !important; }'
+    + '#cotItens > .item.v2c-comprada { opacity:.85; }'
+    + '.v2c-compradaaviso { color:#1b6b2f; font-weight:600; margin:2px 0 6px; }'
+    + '.v2c-compradaver { font-size:13px; margin-bottom:6px; }';
+  document.head.appendChild(st);
+  window.montarCotacao = function (c) {
+    var r = orig.apply(this, arguments);
+    try {
+      var pagas = (c && c.pagas) || [];
+      Array.prototype.forEach.call(document.querySelectorAll('#cotItens > .item'), function (it) {
+        var k = norm(it.dataset.chave);
+        if (!k || !it.querySelector('.cot-lida')) return;   // sem cotação no card: fica como está (a regra de "sem cotação" não muda)
+        var pg = pagas.filter(function (x) { var n = norm(x.nome); return n === k || n.indexOf(k + ' ') === 0; })[0];
+        if (!pg) return;
+        var partes = String(pg.nome).split(/\s+-\s+/);
+        it.classList.add('v2c-comprada');
+        var av = document.createElement('div'); av.className = 'v2c-compradaaviso';
+        av.textContent = '✔ Já comprada' + (partes[1] ? ' · ' + partes[1] : '') + (partes[2] ? ' · ' + partes[2] : '') + (pg.ok ? ' · recebida' : '') + ' — não precisa cotar de novo.';
+        var ver = document.createElement('a'); ver.href = '#'; ver.className = 'v2c-compradaver'; ver.textContent = 'ver cotações';
+        ver.onclick = function (e) { e.preventDefault(); it.classList.toggle('v2c-vercot'); ver.textContent = it.classList.contains('v2c-vercot') ? 'fechar' : 'ver cotações'; };
+        var topo = it.querySelector('.item-topo');
+        if (topo) { topo.insertAdjacentElement('afterend', ver); topo.insertAdjacentElement('afterend', av); }
+      });
+    } catch (e) { console.log('comprada na cotação: ' + e); }
+    return r;
+  };
+})();
+</script>
 </body>
 </html>
