@@ -135,7 +135,7 @@ function chamarGoogle(fn, args) {
     function disparar() {
       if (fim || disparadas >= maxTent) return;
       disparadas++;
-      if (disparadas > 1) avisoLento('O servidor do Google demorou a responder. Tentando de novo (' + disparadas + '/' + maxTent + ')…');
+      if (disparadas > 1) avisoLento('O servidor ' + (typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR ? '' : 'do Google ') + 'demorou a responder. Tentando de novo (' + disparadas + '/' + maxTent + ')…');
       var ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
       ctls.push(ctl);
       var eu = disparadas;
