@@ -358,6 +358,18 @@ function vd_sigItem_(linha) {
   return vd_semAcento_(vd_limpar_(linha)).replace(/\s*\|\s*ORC\.?\s*R?\$?\s*[\d.,]+/gi, '').replace(/\s*\|\s*OBS\.?\s*[:\-]\s*[^|]*/gi, '').replace(/^\s*(?:\d+\s*[.)\-]|[-•*])\s*/, '').replace(/\s*\|\s*/g, '|').replace(/\s+/g, ' ').trim();
 }
 
+/** 20/10/2026 (QAX3J48): formas da assinatura sem as marcas do complementar ("| COMPL: AUTORIZADO…" e "| COMPLEMENTO dd/mm").
+ *  Marcar a peça como complemento ou registrar a autorização do complementar muda a linha, mas não é peça nova —
+ *  sem isto o card voltava para EM COTAÇÃO logo depois de autorizado. Só serve para comparar com a base (VD_PK2_). */
+function vd_sigFormas_(sig) {
+  var semStatus = String(sig || '').replace(/\|\s*COMPL(?:EMENTAR)?\s*[:\-–]\s*(?:AUTORIZADO|ANTECIPADO)[^|]*/gi, '');
+  var semComp = semStatus.replace(/\|\s*COMPLEMENTO(?:\s+\d{1,2}\/\d{1,2})?\s*(?=\||$)/gi, '');
+  var out = [sig];
+  if (semStatus !== sig) out.push(semStatus);
+  if (semComp !== semStatus) out.push(semComp);
+  return out;
+}
+
 /** Impressão curta da assinatura (10 caracteres): VD_PK2_ guarda só isto — com ~650 cards no quadro principal
  *  as assinaturas inteiras estourariam o limite de ~500 KB das Propriedades. Valor antigo (texto inteiro) é convertido. */
 function vd_pkH_(sig) {
@@ -1711,7 +1723,11 @@ function vd_conferirPosCotacao_(card, ctx) {
   if (baseTxt === null) { vd_pkSet_(card.id, sigs); res.acao = res.pagas ? 'pagas' : 'base registrada'; return res; }
   var base = JSON.parse(baseTxt).map(vd_pkH_), sigsH = sigs.map(vd_pkH_);
   var novas = [];
-  linhas.forEach(function (l, i) { if (base.indexOf(sigsH[i]) < 0) novas.push(l); });
+  linhas.forEach(function (l, i) {
+    if (base.indexOf(sigsH[i]) >= 0) return;
+    if (vd_sigFormas_(sigs[i]).some(function (f) { return base.indexOf(vd_pkH_(f)) >= 0; })) return;   // só mudou a marca do complementar
+    novas.push(l);
+  });
   if (!novas.length) {
     if (baseTxt !== JSON.stringify(sigsH)) vd_pkSet_(card.id, sigs);
     // peça da oficina com o mesmo código de um item FO pendente: o item FO sai (07/10/2026, RHM1J09)
