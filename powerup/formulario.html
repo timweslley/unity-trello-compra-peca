@@ -8274,6 +8274,7 @@ document.addEventListener('input', function (e) {
     '.v2r #telaSucesso.v2r-on #msgSucesso, .v2r #telaSucesso.v2r-on .rodape{display:none !important}',
     '.v2r.v2r-res #v2toast{display:none !important}',
     '.v2r.v2r-res #btnFechar{display:none !important}',
+    '.v2r.v2r-res #v2fotos{display:none !important}',
     /* carregando / erro / login */
     '.v2r #telaCarregando.v2r-on, .v2r #telaLogin.v2r-on{padding:0 !important;background:transparent !important}',
     '.v2r .v2r-cx.v2r-centro{text-align:center;max-width:460px;margin-top:40px}',
@@ -8305,12 +8306,12 @@ document.addEventListener('input', function (e) {
   var PROX = {
     'FALTA DADOS PARA COTAÇÃO': 'Falta completar o pedido: abra EDITAR/INCLUIR PEÇA e preencha o que está marcado. O robô comenta no card o que falta.',
     'EM COTAÇÃO': 'Agora o comprador cota as peças. Você não precisa fazer mais nada.',
-    'COTAÇÃO FINALIZADA': 'Agora é a autorização: quem autoriza escolhe as cotações na aba Autorizar.',
-    'PENDENTE AUTORIZAR': 'Agora é a autorização: quem autoriza escolhe as cotações na aba Autorizar.',
+    'COTAÇÃO FINALIZADA': 'Agora quem autoriza escolhe as cotações na aba Autorizar.',
+    'PENDENTE AUTORIZAR': 'Agora quem autoriza escolhe as cotações na aba Autorizar.',
     'AUTORIZADO COMPRA': 'Agora o comprador faz a compra na aba Compra.',
-    'FALTA CHEGAR': 'Agora é esperar a peça chegar. Quando chegar, marque na aba Recebimento.',
+    'FALTA CHEGAR': 'Agora é esperar a peça chegar. Quando chegar, registre na aba Recebimento.',
     'ENTREGUES': 'Peças entregues. Falta o faturamento conferir e fechar o card.',
-    'ENCERRADO COMPRAS/FORNEC.': 'Tudo certo: todas as peças chegaram. Nada mais a fazer neste card.'
+    'ENCERRADO COMPRAS/FORNEC.': 'Todas as peças chegaram. Nada mais a fazer neste card.'
   };
   function normLista(s) {
     s = String(s || '').replace(/\s+/g, ' ').trim().replace(/\.{2,}$/, '.');
@@ -8391,13 +8392,18 @@ document.addEventListener('input', function (e) {
     var prox = PROX[lista] || '';
     if (/parcial/i.test(titulo)) prox = proxCard || 'Quando terminar, volte ao card e clique em Enviar para o card seguir.';
     else if (proxCard) prox = proxCard;
+    if (/^Cotação devolvida/i.test(titulo)) prox = 'O comprador revisa a cotação conforme a sua observação e envia de novo.';
+    if (proxCard && /abra de novo e clique em Enviar cotação/i.test(proxCard)) prox = 'Para concluir, abra o formulário de novo e clique em Enviar cotação.';
+    // detalhe que repete o próximo passo ("Todas as peças chegaram.") sai da lista
+    dets = dets.filter(function (d) { var td = texto(d).replace(/\.$/, ''); return !(td.length > 8 && prox.indexOf(td) >= 0); });
+    if (/salva$/i.test(titulo)) dets = dets.map(function (d) { return /^\d+ [^,.]+\.$/.test(texto(d)) ? d.replace(/\.$/, ' salva(s).') : d; });
     if (/^Nada para gravar/i.test(titulo) && !prox) prox = 'Nenhuma alteração encontrada. O que já estava no card continua salvo.';
     var agora = g('v2agora'); if (!prox && agora) prox = semEmoji(agora.textContent.trim()).replace(/[\u2600-\u27BF]\uFE0F?\s*|\uD83C[\uDC00-\uDFFF]\s*|\uD83D[\uDC00-\uDFFF]\s*/g, '');
     // botões: os mesmos de antes (abrir no Trello / fazer outro / fechar)
     var lc = g('linkCard'), ln = g('linkNovo');
     var acoes = [];
-    if (lc && !lc.classList.contains('oculto') && lc.getAttribute('href') && lc.getAttribute('href') !== '#') acoes.push('<a class="v2r-bt p" data-r="card" href="' + esc(lc.href) + '" target="_blank" rel="noopener">' + ico('ext') + 'Abrir o card no Trello</a>');
-    if (ln && !ln.classList.contains('oculto')) acoes.push('<a class="v2r-bt ' + (acoes.length ? 's' : 'p') + '" data-r="novo" href="' + esc(ln.getAttribute('href') || '#') + '">' + esc(ln.textContent.trim() || 'Fechar') + '</a>');
+    if (lc && !lc.classList.contains('oculto') && lc.getAttribute('href') && lc.getAttribute('href') !== '#') acoes.push('<a class="v2r-bt p" data-r="card" href="' + esc(lc.href) + '" target="_blank" rel="noopener" aria-label="Abrir o card no Trello (abre em nova aba)">' + ico('ext') + 'Abrir o card no Trello</a>');
+    if (ln && !ln.classList.contains('oculto')) acoes.push('<a class="v2r-bt ' + (acoes.length ? 's' : 'p') + '" data-r="novo" href="' + esc(ln.getAttribute('href') || '#') + '">' + esc(/^(Voltar ao card|Lançar mais \/ comprar)$/.test(ln.textContent.trim()) ? 'Voltar ao formulário' : (ln.textContent.trim() || 'Fechar')) + '</a>');
     var forn = g('v2fornAgora');
     if (forn && /não precisa fazer mais nada/.test(prox)) prox = prox.replace(/\s*Você não precisa fazer mais nada\.?/, '');   // a caixa do fornecimento logo abaixo fala do resto
     // topo: salvamento parcial não é "Enviado"
@@ -8406,7 +8412,7 @@ document.addEventListener('input', function (e) {
     if (etb && window.V2R_ETAPA && /^Enviado/.test(etb.textContent)) etb.firstChild.nodeValue = window.V2R_ETAPA;
     var h = '<div class="v2r-cx t-' + tom + '">'
       + '<div class="v2r-cab"><div class="v2r-selo">' + ico(selo) + '</div><div><h2 class="v2r-tit" id="v2resTit" tabindex="-1">' + esc(titulo || 'Pronto') + '</h2>'
-      + (card ? '<p class="v2r-card">Card <b>' + esc(card) + '</b></p>' : '') + '</div></div>'
+      + (card ? '<p class="v2r-card">Card <b>' + esc(card).replace(/((?:[\u2600-\u27BF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDD00-\uDFFF])\uFE0F?)/g, '<span aria-hidden="true">$1</span>') + '</b></p>' : '') + '</div></div>'
       + (lista ? '<div class="v2r-col">O card está em <span class="v2r-chip ' + corLista(lista) + '">' + esc(lista) + '</span></div>' : '')
       + (prox ? '<div class="v2r-prox">' + ico('seta') + '<div><b>Próximo passo</b>' + esc(prox) + '</div></div>' : '')
       + (avisos.length ? '<ul class="v2r-avs">' + avisos.map(function (a) { return '<li>' + ico(/^(Ainda|Falta)\b|ainda (sem|falta)|parcial/i.test(texto(a)) ? 'clock' : 'alert') + '<span>' + plural(a) + '</span></li>'; }).join('') + '</ul>' : '')
