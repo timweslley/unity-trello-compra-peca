@@ -369,7 +369,8 @@ function vdf_buscarPlaca(token, placa, chassi) {
 function vdf_arquivadosDaPlaca_(placa) {
   if (!vd_placaValida_(placa)) return [];
   try {
-    var r = vd_api_('/search', { query: { query: placa + ' is:archived', idBoards: vd_board_(), modelTypes: 'cards', card_fields: 'name,shortLink,closed,dateLastActivity', cards_limit: 10, partial: 'true' } });
+    var idQ = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } }).id;   // a busca só aceita o id longo do quadro (o atalho dá erro)
+    var r = vd_api_('/search', { query: { query: placa + ' is:archived', idBoards: idQ, modelTypes: 'cards', card_fields: 'name,shortLink,closed,dateLastActivity', cards_limit: 10, partial: 'true' } });
     return ((r && r.cards) || []).filter(function (c) { return c.closed && !vdf_cardProtegido_(c.name) && vd_mesmaPlaca_(vd_placaDoTexto_(c.name) || '', placa); })
       .sort(function (a, b) { return String(b.dateLastActivity || '').localeCompare(String(a.dateLastActivity || '')); })
       .slice(0, 5).map(function (c) { return { shortLink: c.shortLink, nome: c.name, lista: 'arquivado', arquivado: true, porChassi: false }; });
