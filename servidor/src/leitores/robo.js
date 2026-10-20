@@ -595,6 +595,9 @@ function pv_fornecedorCurto_(txt, lista) {
 // Previsao.gs:370
 function pv_lerStatusCilia_(texto, lista) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
+  // relatório de peças novo do Cilia ("piece_report", 20/10/2026, TAX1A70): leitor próprio
+  var rel = null; try { rel = pv_lerRelatorioPecasCilia_(texto, lista); } catch (e) { console.log('relatório de peças cilia: ' + e); }
+  if (rel) return rel;
   if (!/STATUS DAS PECAS|PREVISAO DE ENTREGA|STATUS DO PEDIDO/.test(U)) return null;
   var linhas = U.split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
   var STATUS = /^(EM COTACAO|AGUARDANDO (APROVACAO|ENTREGA)|ENTREG|CANCELAD|RECUSAD)/;
@@ -704,7 +707,72 @@ function pv_lerStatusCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:494
+// Previsao.gs:485
+function pv_ehRelatorioPecasCilia_(texto) {
+  var U = vd_semAcento_(String(texto || ''));
+  return /FORNECIMENTO\s*\([^)\n]*\d{14}\s*\)/.test(U) && /DATA\/HORA/.test(U) && /\bENTREGA\b/.test(U) && /\bATUALIZACAO\b/.test(U);
+}
+
+// Previsao.gs:499
+function pv_lerRelatorioPecasCilia_(texto, lista) {
+  if (!pv_ehRelatorioPecasCilia_(texto)) return null;
+  var linhas = vd_semAcento_(String(texto || '').replace(/\r/g, '')).split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
+  var ehCodigo = function (t) { return /^[A-Z0-9]{6,20}$/.test(t) && (t.match(/\d/g) || []).length >= 4 && !/^\d{11,}$/.test(t); };
+  var iPar = linhas.length;
+  for (var z = 0; z < linhas.length; z++) if (/^ULTIMOS PARECERES/.test(linhas[z])) { iPar = z; break; }
+  var med = '', forn = '', pecas = [], dentro = false;
+  for (var i = 0; i < iPar; i++) {
+    var l = linhas[i], mm = l.match(/^FORNECIMENTO\s*\((.*?)\s*(?:-\s*\d{14})?\s*\)/);
+    if (mm) { med = mm[1].trim(); forn = ''; dentro = true; continue; }
+    if (!dentro) continue;
+    if (/^TOTAIS\b/.test(l)) { dentro = false; continue; }
+    var mf = l.match(/^([A-Z][A-Z0-9 .&\/\-]{2,80}?)\s*-\s*\d{14}$/);
+    if (mf) { forn = mf[1].trim(); continue; }
+    l.split(' ').forEach(function (t) {
+      if (!ehCodigo(t) || pecas.some(function (p) { return p.codigo === t; })) return;
+      pecas.push({ codigo: t, i: i, med: med, forn: forn });
+    });
+  }
+  if (!pecas.length) return null;
+  // datas de cada linha da tabela: do código até o próximo código (layout: mesma linha; simples: linhas seguintes)
+  pecas.forEach(function (p, k) {
+    var fim = k + 1 < pecas.length ? pecas[k + 1].i : iPar, ds = [];
+    for (var j = p.i; j < fim; j++) { if (/^TOTAIS\b/.test(linhas[j])) break; (linhas[j].match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g) || []).forEach(function (d) { ds.push(d); }); }
+    p.colEntrega = ds.length === 5 ? ds[3] : '';
+  });
+  // pareceres: blocos a partir de "FLUXO: … DATA DE CRIACAO", mais novo primeiro
+  var blocos = [], atual = null;
+  for (var b = iPar + 1; b < linhas.length; b++) {
+    if (/^FLUXO:.*DATA DE CRIACAO/.test(linhas[b])) { atual = []; blocos.push(atual); continue; }
+    if (atual) atual.push(linhas[b]);
+  }
+  var out = {};
+  pecas.forEach(function (p) {
+    var prev = '', ent = '', entregue = false, desc = '';
+    blocos.forEach(function (bl) {
+      var txt = bl.join(' '), tem = bl.some(function (x) { return x.split(/[\s\-]+/).indexOf(p.codigo) >= 0; });
+      if (!tem) return;
+      bl.forEach(function (x) { var md = x.match(new RegExp('^' + p.codigo + '\\s+(.+?)(?:\\s+-\\s+PREVISAO.*)?$')); if (md && !desc) desc = md[1].trim(); });
+      if (!entregue) { var me = txt.match(/ENTREGUE\(?S?\)?\s+EM\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/); if (me) { entregue = true; ent = me[1]; } }
+      if (!prev) {
+        var lp = bl.filter(function (x) { return x.indexOf(p.codigo) === 0 && /PREVISAO DE ENTREGA:?\s*\d/.test(x); })[0];
+        var mp = lp ? lp.match(/PREVISAO DE ENTREGA:?\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/) : txt.match(/COM PREVISAO DE ENTREGA PARA:?\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/);
+        if (mp) prev = mp[1];
+      }
+    });
+    if (!prev) prev = p.colEntrega;
+    var d = prev ? pv_datas_(prev) : [], dE = ent ? pv_datas_(ent) : [];
+    var nomeF = p.forn ? (p.med ? p.med.replace(/\s*-\s*\d+$/, '') + ' / ' : '') + p.forn : '';
+    out[cp_norm_(p.codigo)] = {
+      codigo: p.codigo, descricao: desc, fornecedor: nomeF ? pv_fornecedorCurto_(nomeF, lista) : '',
+      previsao: d.length ? d[0].toISOString() : '', entregue: entregue, entregueEm: dE.length ? dE[0].toISOString() : '',
+      linha: (p.codigo + ' ' + desc).slice(0, 120)
+    };
+  });
+  return out;
+}
+
+// Previsao.gs:570
 function pv_lerPareceresCilia_(texto) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   var reCab = /FLUXO:\s*\d+\s*\|.*?DATA DE CRIACAO:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/g;
@@ -760,7 +828,7 @@ function pv_lerPareceresCilia_(texto) {
   return out;
 }
 
-// Previsao.gs:550
+// Previsao.gs:626
 function pv_ultimaAtualizacaoCilia_(texto) {
   var m = vd_semAcento_(String(texto || '')).match(/ULTIMA ATUALIZACAO\s*\(?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/);
   if (!m) return null;
@@ -769,7 +837,7 @@ function pv_ultimaAtualizacaoCilia_(texto) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Previsao.gs:562
+// Previsao.gs:638
 function pv_aplicarPareceres_(achados, texto, alvos) {
   var pareceres = pv_lerPareceresCilia_(texto);
   if (!pareceres.length) return 0;
@@ -812,7 +880,7 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
   return n;
 }
 
-// Previsao.gs:616
+// Previsao.gs:692
 function pv_soFornecedor_(u, lista) {
   u = vd_semAcento_(String(u || '')).toUpperCase().replace(/\s+/g, ' ').trim();
   if (!u) return false;
@@ -820,7 +888,7 @@ function pv_soFornecedor_(u, lista) {
   return false;
 }
 
-// Previsao.gs:623
+// Previsao.gs:699
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
@@ -910,7 +978,7 @@ function pv_lerHdiPecas_(texto, lista) {
   return pecas.length ? pecas : null;
 }
 
-// Previsao.gs:712
+// Previsao.gs:788
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
@@ -1003,7 +1071,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:805
+// Previsao.gs:881
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
@@ -1149,4 +1217,4 @@ function vd_orcExpandir_(lista) {
   });
 }
 
-export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_PALAVRAS_PECA, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_soFornecedor_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };
+export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_PALAVRAS_PECA, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_ehRelatorioPecasCilia_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerRelatorioPecasCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_soFornecedor_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };

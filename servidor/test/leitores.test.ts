@@ -152,3 +152,25 @@ describe('cor lida como nome de campo (TAJ0E65, 07/10/2026)', () => {
     expect(melhorLeitura({ layout, simples })?.leitura.cor || '').toBe('');
   });
 });
+
+describe('relatório de peças novo do Cilia (piece_report)', () => {
+  it('fornecedor do bloco "FORNECIMENTO (MEDIADORA - CNPJ)", previsão e entrega pelos pareceres', () => {
+    const t = `FORNECIMENTO (MEDIADORA X - 11111111000111)
+CASA TESTE VEICULOS LTDA - 22222222000122
+STATUS TIPO CÓDIGO TÍTULO FRETE QTD
+DATA/HORA ENTREGA DATA/HORA ATUALIZAÇÃO
+GENUÍNA 123450A100 PECA TESTE UM 3 dias 1 R$ 10,00 01/10/26 - 07:00 01/10/26 - 07:10 01/10/26 - 13:00 06/10/26 - 15:00 07/10/26 - 13:00
+TOTAIS: 1 R$ 10,00
+ÚLTIMOS PARECERES
+Fluxo: 1 | Criado por: Webservice • X | Data de criação: 08/10/2026 - 03:00:00
+Item(ns) entregue(s) em 06/10/2026 e confirmado(s) com fulano.
+123450A100 PECA TESTE UM
+Fluxo: 1 | Criado por: Webservice • X | Data de criação: 05/10/2026 - 03:00:00
+123450A100 PECA TESTE UM - Previsão de entrega: 07/10/2026`;
+    const r = R.pv_lerFornecimento_(t, [{ id: 1, nome: '123450A100 PECA TESTE UM', codigo: '123450A100', descricao: 'PECA TESTE UM' }], []);
+    expect(r).toHaveLength(1);
+    expect(r[0].fornecedor).toBe('CASA TESTE VEICULOS LTDA');
+    expect(r[0].previsao.slice(0, 10)).toBe('2026-10-07');
+    expect(r[0].entregue).toBe(true);
+  });
+});

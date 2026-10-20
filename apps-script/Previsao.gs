@@ -369,6 +369,9 @@ function pv_fornecedorCurto_(txt, lista) {
  */
 function pv_lerStatusCilia_(texto, lista) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
+  // relatório de peças novo do Cilia ("piece_report", 20/10/2026, TAX1A70): leitor próprio
+  var rel = null; try { rel = pv_lerRelatorioPecasCilia_(texto, lista); } catch (e) { console.log('relatório de peças cilia: ' + e); }
+  if (rel) return rel;
   if (!/STATUS DAS PECAS|PREVISAO DE ENTREGA|STATUS DO PEDIDO/.test(U)) return null;
   var linhas = U.split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
   var STATUS = /^(EM COTACAO|AGUARDANDO (APROVACAO|ENTREGA)|ENTREG|CANCELAD|RECUSAD)/;
@@ -473,6 +476,79 @@ function pv_lerStatusCilia_(texto, lista) {
       codigo: p.codigo, descricao: p.descricao, fornecedor: forn ? pv_fornecedorCurto_(forn, lista) : '',
       previsao: d.length ? d[0].toISOString() : '', entregue: !!ent, entregueEm: dEnt.length ? dEnt[0].toISOString() : '',
       linha: (p.codigo + ' ' + p.descricao).slice(0, 120)
+    };
+  });
+  return out;
+}
+
+/** O texto é o relatório de peças novo do Cilia? ("FORNECIMENTO (INPART - 0444…)" + colunas "DATA/HORA ENTREGA") */
+function pv_ehRelatorioPecasCilia_(texto) {
+  var U = vd_semAcento_(String(texto || ''));
+  return /FORNECIMENTO\s*\([^)\n]*\d{14}\s*\)/.test(U) && /DATA\/HORA/.test(U) && /\bENTREGA\b/.test(U) && /\bATUALIZACAO\b/.test(U);
+}
+
+/**
+ * Relatório de peças novo do Cilia ("piece_report.pdf", 20/10/2026, TAX1A70 SUHAI/AudaParts). Layout:
+ *   FORNECIMENTO (INPART - 04449353000124)          <- mediadora
+ *   CAR HOUSE VEICULOS LTDA - 94673480001762         <- fornecedor (nome - CNPJ); pode haver mais de um bloco
+ *   STATUS TIPO CÓDIGO TÍTULO FRETE QTD PREÇOS… DATA/HORA PEDIDO · VISUALIZAÇÃO · ENVIANDO · ENTREGA · ATUALIZAÇÃO
+ *   ÚLTIMOS PARECERES (mais novo primeiro): "Item(ns) entregue(s) em 14/10/2026 …" / "COD DESC - Previsão de entrega: 15/10/2026"
+ * Fornecedor = o bloco em que o código aparece; previsão = parecer mais novo (senão a coluna ENTREGA); entregue = parecer
+ * "entregue(s) em". Devolve no formato de pv_lerStatusCilia_ ou null se não for esse layout.
+ */
+function pv_lerRelatorioPecasCilia_(texto, lista) {
+  if (!pv_ehRelatorioPecasCilia_(texto)) return null;
+  var linhas = vd_semAcento_(String(texto || '').replace(/\r/g, '')).split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
+  var ehCodigo = function (t) { return /^[A-Z0-9]{6,20}$/.test(t) && (t.match(/\d/g) || []).length >= 4 && !/^\d{11,}$/.test(t); };
+  var iPar = linhas.length;
+  for (var z = 0; z < linhas.length; z++) if (/^ULTIMOS PARECERES/.test(linhas[z])) { iPar = z; break; }
+  var med = '', forn = '', pecas = [], dentro = false;
+  for (var i = 0; i < iPar; i++) {
+    var l = linhas[i], mm = l.match(/^FORNECIMENTO\s*\((.*?)\s*(?:-\s*\d{14})?\s*\)/);
+    if (mm) { med = mm[1].trim(); forn = ''; dentro = true; continue; }
+    if (!dentro) continue;
+    if (/^TOTAIS\b/.test(l)) { dentro = false; continue; }
+    var mf = l.match(/^([A-Z][A-Z0-9 .&\/\-]{2,80}?)\s*-\s*\d{14}$/);
+    if (mf) { forn = mf[1].trim(); continue; }
+    l.split(' ').forEach(function (t) {
+      if (!ehCodigo(t) || pecas.some(function (p) { return p.codigo === t; })) return;
+      pecas.push({ codigo: t, i: i, med: med, forn: forn });
+    });
+  }
+  if (!pecas.length) return null;
+  // datas de cada linha da tabela: do código até o próximo código (layout: mesma linha; simples: linhas seguintes)
+  pecas.forEach(function (p, k) {
+    var fim = k + 1 < pecas.length ? pecas[k + 1].i : iPar, ds = [];
+    for (var j = p.i; j < fim; j++) { if (/^TOTAIS\b/.test(linhas[j])) break; (linhas[j].match(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g) || []).forEach(function (d) { ds.push(d); }); }
+    p.colEntrega = ds.length === 5 ? ds[3] : '';
+  });
+  // pareceres: blocos a partir de "FLUXO: … DATA DE CRIACAO", mais novo primeiro
+  var blocos = [], atual = null;
+  for (var b = iPar + 1; b < linhas.length; b++) {
+    if (/^FLUXO:.*DATA DE CRIACAO/.test(linhas[b])) { atual = []; blocos.push(atual); continue; }
+    if (atual) atual.push(linhas[b]);
+  }
+  var out = {};
+  pecas.forEach(function (p) {
+    var prev = '', ent = '', entregue = false, desc = '';
+    blocos.forEach(function (bl) {
+      var txt = bl.join(' '), tem = bl.some(function (x) { return x.split(/[\s\-]+/).indexOf(p.codigo) >= 0; });
+      if (!tem) return;
+      bl.forEach(function (x) { var md = x.match(new RegExp('^' + p.codigo + '\\s+(.+?)(?:\\s+-\\s+PREVISAO.*)?$')); if (md && !desc) desc = md[1].trim(); });
+      if (!entregue) { var me = txt.match(/ENTREGUE\(?S?\)?\s+EM\s+(\d{1,2}\/\d{1,2}\/\d{2,4})/); if (me) { entregue = true; ent = me[1]; } }
+      if (!prev) {
+        var lp = bl.filter(function (x) { return x.indexOf(p.codigo) === 0 && /PREVISAO DE ENTREGA:?\s*\d/.test(x); })[0];
+        var mp = lp ? lp.match(/PREVISAO DE ENTREGA:?\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/) : txt.match(/COM PREVISAO DE ENTREGA PARA:?\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/);
+        if (mp) prev = mp[1];
+      }
+    });
+    if (!prev) prev = p.colEntrega;
+    var d = prev ? pv_datas_(prev) : [], dE = ent ? pv_datas_(ent) : [];
+    var nomeF = p.forn ? (p.med ? p.med.replace(/\s*-\s*\d+$/, '') + ' / ' : '') + p.forn : '';
+    out[cp_norm_(p.codigo)] = {
+      codigo: p.codigo, descricao: desc, fornecedor: nomeF ? pv_fornecedorCurto_(nomeF, lista) : '',
+      previsao: d.length ? d[0].toISOString() : '', entregue: entregue, entregueEm: dE.length ? dE[0].toISOString() : '',
+      linha: (p.codigo + ' ' + desc).slice(0, 120)
     };
   });
   return out;
@@ -857,7 +933,7 @@ function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
 /** Tipo do documento de fornecimento pelo texto: 'Status do Pedido Cilia' | 'Peças HDI' | ''. */
 function pv_docFornecimento_(texto) {
   var nt = vd_normTexto_(texto);
-  if (/STATUS DO PEDIDO|PREVISAO DE ENTREGA|STATUS DAS PECAS/.test(nt)) return 'Status do Pedido Cilia';
+  if (/STATUS DO PEDIDO|PREVISAO DE ENTREGA|STATUS DAS PECAS/.test(nt) || pv_ehRelatorioPecasCilia_(texto)) return 'Status do Pedido Cilia';
   if (/PE[CG]AS DO (SINISTRO|LAUDO)/.test(nt)) return 'Peças HDI';
   return '';
 }
