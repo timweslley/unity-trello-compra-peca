@@ -8390,6 +8390,13 @@ document.addEventListener('input', function (e) {
       else dets.push(hs);
     });
     if (!lista && window.LISTA_ENVIADO) lista = normLista(window.LISTA_ENVIADO);
+    // 19/10/2026 (teste real ZZT9H01, só peças da seguradora): a coluna certa vem do retorno do salvar ("→ FALTA CHEGAR",
+    // "volta para EM COTAÇÃO", "card continua em …"); só sem ele um pedido novo é EM COTAÇÃO
+    var ult = window.V2R_ULT;
+    if (ult && /^Pedido (criado|atualizado)$/.test(titulo) && Date.now() - ult.em < 60000) {
+      var ma = String(ult.acao || '').match(/(?:→|para|em)\s+([A-ZÇÃÕÁÉÍÓÚÂÊ][A-ZÇÃÕÁÉÍÓÚÂÊ\/. ]{3,}?)\s*$/);
+      if (ma) lista = normLista(ma[1]);
+    }
     if (!lista && /^Pedido criado$/.test(titulo)) lista = 'EM COTAÇÃO';
     if (!lista && /^(Fornecimento atualizado|Previsão alterada|Aviso enviado|Peças marcadas|Cotação registrada|Retirada registrada)$/.test(titulo) && window.CARD && window.CARD.lista) lista = normLista(window.CARD.lista);   // ações que não mudam o card de coluna
     if (/^Fornecimento atualizado$/.test(titulo)) { dets = dets.map(function (d) { return /^\d+ peça/.test(texto(d)) ? 'Fornecedor e previsão lançados em ' + d.replace(/\.$/, '') + ' da seguradora.' : d; }); }   // card novo sem falta: o formulário cria em EM COTAÇÃO (com falta, a linha "fica em FALTA DADOS" já veio)
@@ -8398,6 +8405,11 @@ document.addEventListener('input', function (e) {
     var prox = PROX[lista] || '';
     if (/parcial/i.test(titulo)) prox = proxCard || 'Quando terminar, volte ao card e clique em Enviar para o card seguir.';
     else if (proxCard) prox = proxCard;
+    // peça devolvida no recebimento: o card volta para a compra — "todas as peças chegaram" não vale
+    if (/AUTORIZADO COMPRA/.test(lista) && dets.some(function (d) { return /devoluç/i.test(texto(d)); })) {
+      dets = dets.filter(function (d) { return !/^Todas as peças chegaram/i.test(texto(d)); });
+      prox = 'Agora o comprador compra de novo a peça devolvida, na aba Compra.';
+    }
     if (/^Cotação devolvida/i.test(titulo)) prox = 'O comprador revisa a cotação conforme a sua observação e envia de novo.';
     if (proxCard && /abra de novo e clique em Enviar cotação/i.test(proxCard)) prox = 'Para concluir, abra o formulário de novo e clique em Enviar cotação.';
     // detalhe que repete o próximo passo ("Todas as peças chegaram.") sai da lista
@@ -8432,6 +8444,15 @@ document.addEventListener('input', function (e) {
     var bf = box.querySelector('[data-r=forn]'); if (bf && forn) bf.onclick = function () { var b = forn.querySelector('button'); if (b) b.click(); };
     if (!tela.classList.contains('v2r-on')) tela.classList.add('v2r-on'); html.classList.add('v2r-res');
     setTimeout(function () { var t = g('v2resTit'); if (t && vis(tela)) try { t.focus({ preventScroll: true }); } catch (e) {} }, 30);
+  }
+  /* guarda o retorno do último salvar (coluna para onde o card foi) */
+  if (typeof window.chamar === 'function') {
+    var chamarOrig = window.chamar;
+    window.chamar = function (fn) {
+      var p = chamarOrig.apply(this, arguments);
+      if (fn === 'vdf_salvar' && p && p.then) p.then(function (r) { if (r && r.ok) window.V2R_ULT = { acao: r.acao || '', em: Date.now() }; }, function () {});
+      return p;
+    };
   }
   var agendado = 0;
   function agendar() { clearTimeout(agendado); agendado = setTimeout(function () { try { montarResultado(); } catch (e) { console.log('v2r', e && e.message); } }, 40); }
