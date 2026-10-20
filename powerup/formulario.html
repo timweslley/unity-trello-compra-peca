@@ -8284,6 +8284,9 @@ document.addEventListener('input', function (e) {
     '@keyframes v2rgira{to{transform:rotate(360deg)}}',
     '@media (prefers-reduced-motion:reduce){.v2r .v2r-gira{animation:none;border-top-color:#dcdfe4}}',
     '.v2r .v2r-demora{margin-top:10px !important;font-size:14px !important;color:#626f86 !important}',
+    '.v2r .v2r-errdet{margin:12px 0 0;text-align:left}.v2r .v2r-errdet summary{cursor:pointer;color:#44546f;font-size:14px;min-height:24px}',
+    '.v2r .v2r-errdet .v2r-errtxt{margin-top:8px}',
+    '.v2toque.v2r #telaSucesso .v2r-cx :focus{scroll-margin-bottom:96px}',
     '.v2r .v2r-errtxt{margin:12px 0 0;padding:10px 12px;border-radius:8px;background:#ffeceb;color:#5d1f1a;font-size:14px;line-height:20px;text-align:left;word-break:break-word}',
     '.v2r.v2r-pre #v2placa{display:none !important}',
     '.v2pc.v2r.v2r-pre #v2topo{display:none !important}',   /* no celular o topo fica: é lá que estão o ⋯ e o Fechar */
@@ -8380,9 +8383,12 @@ document.addEventListener('input', function (e) {
       if (/⚠|⏳/.test(e) || /^(Ainda|Falta)\b|\bainda (sem|falta)\b/i.test(t)) avisos.push(hs); else dets.push(hs);
     });
     if (!lista && window.LISTA_ENVIADO) lista = normLista(window.LISTA_ENVIADO);
+    // GPT (19/10): "Compra autorizada" com peça ainda por autorizar soava como tudo pronto
+    if (/^Compra autorizada$/i.test(titulo) && avisos.some(function (a) { return /Ainda falta autorizar/i.test(texto(a)); })) titulo = 'Compra autorizada em parte';
     var prox = PROX[lista] || '';
     if (/parcial/i.test(titulo)) prox = proxCard || 'Quando terminar, volte ao card e clique em Enviar para o card seguir.';
     else if (proxCard) prox = proxCard;
+    if (/^Nada para gravar/i.test(titulo) && !prox) prox = 'Nenhuma alteração encontrada. O que já estava no card continua salvo.';
     var agora = g('v2agora'); if (!prox && agora) prox = semEmoji(agora.textContent.trim()).replace(/[\u2600-\u27BF]\uFE0F?\s*|\uD83C[\uDC00-\uDFFF]\s*|\uD83D[\uDC00-\uDFFF]\s*/g, '');
     // botões: os mesmos de antes (abrir no Trello / fazer outro / fechar)
     var lc = g('linkCard'), ln = g('linkNovo');
@@ -8431,7 +8437,7 @@ document.addEventListener('input', function (e) {
       t.innerHTML = '<div class="v2r-cx v2r-centro t-erro" role="alert"><div class="v2r-selo">' + ico(semRede ? 'wifi' : 'alert') + '</div>'
         + '<h2 class="v2r-tit">Não deu para abrir o formulário</h2>'
         + '<p>' + (semRede ? 'O servidor demorou para responder. Confira a internet e tente de novo.' : 'Aconteceu um erro ao carregar o card. Tente de novo; se continuar, mande um print desta tela para o Weslley.') + '</p>'
-        + '<div class="v2r-errtxt">' + esc(msg) + '</div>'
+        + '<details class="v2r-errdet"><summary>Ver detalhes do erro</summary><div class="v2r-errtxt">' + esc(msg) + '</div></details>'
         + '<div class="v2r-acoes"><button type="button" class="v2r-bt p" onclick="location.reload()">' + ico('refresh') + 'Tentar de novo</button></div></div>';
       if (!t.classList.contains('v2r-on')) t.classList.add('v2r-on');
       return;
@@ -8440,7 +8446,7 @@ document.addEventListener('input', function (e) {
       t.innerHTML = '<div class="v2r-cx v2r-centro" role="status" aria-live="polite"><div class="v2r-gira" aria-hidden="true"></div>'
         + '<h2 class="v2r-tit">Abrindo o pedido…</h2><p class="v2r-msgc">Buscando o card no Trello.</p><p class="v2r-demora" hidden>Está demorando mais que o normal. Se não abrir em alguns segundos, feche e abra de novo.</p></div>';
       if (!t.classList.contains('v2r-on')) t.classList.add('v2r-on');
-      setTimeout(function () { var d = t.querySelector('.v2r-demora'); if (d && vis(t)) d.hidden = false; }, 12000);
+      setTimeout(function () { var d = t.querySelector('.v2r-demora'); if (d && vis(t)) d.hidden = false; }, 8000);
     }
   }
   function telaLogin() {
