@@ -67,7 +67,46 @@ function rc_cancelarCompra_(card, it, motivo, modo, token, me) {
     valor: vd_valorNum_(((partes[2] || '').match(/[\d.]+(?:,\d{1,2})?/) || [''])[0]), previsao: it.due || '',
     detalhe: (modo === 'devolvida' ? 'DEVOLVIDA AO FORNECEDOR' : 'COMPRA CANCELADA') + (motivo ? ': ' + motivo : '') + ' · ' + it.lista };
   try { ev_registrar_('COMPRA CANCELADA', card, me.username, [e], { detalhe: modo + (motivo ? ' — ' + motivo : '') }); } catch (x) {}
+  try { rc_aposCancelar_(card, it, motivo, modo, token); } catch (x) { console.log('cancelar/ajustes: ' + x); }
   return (modo === 'devolvida' ? '↩️ ' : '❌ ') + partes[0] + (partes[1] ? ' (' + partes[1] + ')' : '') + ' — ' + (modo === 'devolvida' ? 'devolvida ao fornecedor' : 'compra cancelada') + (motivo ? ': ' + motivo : '') + ' · verificar compra do item';
+}
+
+/** 19/10/2026 (revisão completa do fluxo, ZZT9C01) — depois de cancelar/devolver uma compra (só com vd_ajustes1910_):
+ *  • "⚠️ comprado antes da autorização do complementar" era daquela compra: sai da linha da peça se não sobrou outra compra dela;
+ *  • a peça ganha a linha "OBS <peça>: (devolvida dd/MM · FORN) motivo" — o comprador vê na aba Compra por que precisa comprar de novo;
+ *  • Data Entrega do card: maior previsão das peças ainda pendentes; sem nenhuma, a regra do robô (2 dias úteis a partir de agora).
+ *  A compra já saiu do checklist quando esta função roda. */
+function rc_aposCancelar_(card, it, motivo, modo, token) {
+  if (!vd_ajustes1910_()) return;
+  (card.checklists || []).forEach(function (k) { k.checkItems = (k.checkItems || []).filter(function (i) { return i.id !== it.id; }); });
+  var nomeIt = vd_semAcento_(rc_semMarcas_(it.nome)), partes = rc_semMarcas_(it.nome).split(/\s+-\s+/);
+  if (card.desc && !vd_ehVitrineSemCompleta_(card.desc)) {   // sem a descrição completa não regrava nada (só a Data Entrega)
+    var an = vd_analisar_(card.desc, card.name);
+    var peca = (an.pecas || []).filter(function (p) { return vd_casaItem_(nomeIt, vd_chavePeca_(p)); })[0];
+    if (peca) {
+      var k = vd_chavePeca_(peca), resto = [];
+      (card.checklists || []).forEach(function (ck) { if (/^PAGAS/i.test(String(ck.name || '').trim())) (ck.checkItems || []).forEach(function (i) { resto.push(vd_semAcento_(i.name)); }); });
+      var reler = function () { try { card.desc = vd_api_('/cards/' + card.id, { query: { fields: 'desc' } }).desc; } catch (x) {} };
+      if (peca.compStatus === 'ANTECIPADO' && !resto.some(function (n) { return vd_casaItem_(n, k); })) {
+        peca.compStatus = ''; peca.compPor = '';
+        if (vdf_regravarLinhasPeca_(card, [peca], token)) reler();
+      }
+      var nomeP = peca.pneu ? 'PNEU ' + String(peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(peca);
+      var quando = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM');
+      var linha = 'OBS ' + nomeP + ': (' + (modo === 'devolvida' ? 'devolvida' : 'compra cancelada') + ' ' + quando + (partes[1] ? ' · ' + partes[1] : '') + ') ' + String(motivo || '').replace(/\s*\n\s*/g, ' ').trim();
+      var div = vd_dividir_(card.desc);
+      vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + (div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR) + '\n' + linha, token);
+      reler();
+    }
+  }
+  // Data Entrega: a previsão da compra cancelada não vale mais
+  var maior = '';
+  (card.checklists || []).forEach(function (ck) {
+    if (!/^(PAGAS|FORNECIMENTO)/i.test(String(ck.name || '').trim())) return;
+    (ck.checkItems || []).forEach(function (i) { if (i.state !== 'complete' && i.due && (!maior || new Date(i.due) > new Date(maior))) maior = i.due; });
+  });
+  if (!maior) maior = new Date(du_somarUteis_(PZ.DIAS_SEM_PREVISAO, new Date().toISOString())).toISOString();
+  vd_api_('/cards/' + card.id, { method: 'put', payload: { due: maior, dueComplete: false } }, token);
 }
 
 /**

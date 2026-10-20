@@ -1118,6 +1118,14 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     if (mt) { tipo = vd_tipoNorm_(mt[1]); marca = mt[2].trim(); }
     var qn = { chave: peca.chave, fornecedor: forn, obs: obs, tipo: tipo, marca: marca, valor: vd_valorNum_(m[3]), dias: m[4] !== undefined ? +m[4] : '', data: m[5] || '', link: tl.link };
     if (recot && caiu[peca.chave]) qn.nova = caiu[peca.chave];
+    // 19/10/2026 (revisão, ZZT9C01): cotação nova igual a uma que já está no card (mesmo fornecedor, tipo, marca, valor e prazo)
+    // fica numa linha só — a mais nova, com a marca de "cotação nova"; antes aparecia duas vezes e ia para o "também cotado"
+    if (vd_ajustes1910_()) {
+      for (var id = out.cotacoes.length - 1; id >= 0; id--) {
+        var qd = out.cotacoes[id];
+        if (qd.chave === qn.chave && qd.fornecedor === qn.fornecedor && Math.abs(qd.valor - qn.valor) < 0.005 && (qd.tipo || '') === (qn.tipo || '') && (qd.marca || '') === (qn.marca || '') && String(qd.dias) === String(qn.dias)) { if (!qn.link && qd.link) qn.link = qd.link; out.cotacoes.splice(id, 1); }
+      }
+    }
     out.cotacoes.push(qn);
     // 10/10/2026 (revisão): "SEM COTAÇÃO" de bloco anterior cai quando a peça ganha cotação depois — senão a justificativa velha
     // deixava a peça autorizada passar no "Enviar compra" sem compra (vdf_salvarCompra trata naoCotadas como "não espera compra")

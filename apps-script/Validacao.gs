@@ -56,6 +56,10 @@ function vd_board_() { return VD_BOARD_FORCA || vd_prop_('VD_BOARD', VD.BOARD_PA
 /** 16/10/2026: comportamentos da versão 2.0 no robô/servidor — sempre no TESTE; no principal com VD_V2_PRINCIPAL (virada 17/10/2026, OK do
  *  Weslley às 03h57: "faça já"). Voltar: VD_V2_PRINCIPAL = false (ou a propriedade VD_V2=NAO) + tirar o principal de QUADROS_V2 no powerup/config.js. */
 var VD_V2_PRINCIPAL = true;
+/** 19/10/2026 (revisão completa do fluxo, Weslley: "fazer antes"): ajustes de dados da revisão — aviso de compra antecipada some quando a
+ *  compra é cancelada/devolvida; cotação nova idêntica a uma que já está no card não duplica. Sempre no TESTE; no principal só com
+ *  VD_AJUSTES_1910=SIM (depois do OK do Weslley). */
+function vd_ajustes1910_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('VD_AJUSTES_1910', 'NAO') === 'SIM'; } catch (e) { return false; } }
 function vd_v2_() { try { return vd_board_() === VD.BOARD_PADRAO || (VD_V2_PRINCIPAL && vd_prop_('VD_V2', 'SIM') !== 'NAO'); } catch (e) { return false; } }
 function vd_modo_() { return vd_prop_('VD_MODO', 'ATIVO'); }
 function vd_ligado_() { return vd_prop_('VD_LIGADO', 'SIM') !== 'NAO'; }

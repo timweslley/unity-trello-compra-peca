@@ -6914,7 +6914,7 @@ iniciar();
         if (b.parentNode && b.parentNode !== it && !b.parentNode.classList.contains('v2c-bmini')) b.parentNode.classList.add('v2c-bmini'); b.classList.add('v2c-mini');
         if (!b.dataset.v2c) {
           b.dataset.v2c = '1'; var t = b.textContent.replace(/^[^A-Za-zÀ-ú]+/, '').trim();
-          if (/^alterar prazo/i.test(t)) t = 'Alterar prazo autorizado'; else if (/^alterar previs/i.test(t)) t = 'Alterar previsão'; else if (/^compra cancelada/i.test(t)) t = 'Cancelar compra'; else if (/indispon/i.test(t)) t = 'Cotação autorizada indisponível';
+          if (/^alterar prazo/i.test(t)) t = 'Alterar prazo autorizado'; else if (/^alterar previs/i.test(t)) t = 'Alterar previsão'; else if (/^compra cancelada/i.test(t)) t = window.V2R_AJ ? 'Cancelar compra' : 'Compra cancelada'; else if (/indispon/i.test(t)) t = 'Cotação autorizada indisponível';
           b.textContent = t; b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-label', t + ' — ' + nm);
         }
       });
@@ -8405,6 +8405,19 @@ document.addEventListener('input', function (e) {
     if (/^Fornecimento atualizado$/.test(titulo)) { dets = dets.map(function (d) { return /^\d+ peça/.test(texto(d)) ? 'Fornecedor e previsão lançados em ' + d.replace(/\.$/, '') + ' da seguradora.' : d; }); }   // card novo sem falta: o formulário cria em EM COTAÇÃO (com falta, a linha "fica em FALTA DADOS" já veio)
     // GPT (19/10): "Compra autorizada" com peça ainda por autorizar soava como tudo pronto
     if (/^Compra autorizada$/i.test(titulo) && avisos.some(function (a) { return /Ainda falta autorizar/i.test(texto(a)); })) titulo = 'Compra autorizada em parte';
+    // revisão completa (19/10/2026): o que foi feito cita as peças da oficina do pedido novo, as peças "não vou cotar" e os NT
+    if (window.V2R_AJ) {
+      var ultP = window.V2R_ULT;
+      if (/^Pedido criado$/.test(titulo) && ultP && ultP.novo && Date.now() - ultP.em < 60000 && ultP.np && !dets.some(function (d) { return /peça\S* (da|pela) oficina/i.test(texto(d)); }))
+        dets.unshift(ultP.np + ' peça(s) pela oficina no pedido' + (ultP.npart ? ' e ' + ultP.npart + ' particular(es)' : '') + '.');
+      var cotP = window.V2R_COT;
+      if (/^Cotação (lançada|parcial salva)/.test(titulo) && cotP && Date.now() - cotP.em < 60000) {
+        if (cotP.semCot) dets.push(cotP.semCot + ' peça(s) marcada(s) como não cotar — o motivo foi para o card.');
+        if (cotP.nt) dets.push(cotP.nt + ' fornecedor(es) sem a peça (NT) registrado(s).');
+      }
+      if (/^Compra autorizada/.test(titulo) && window.CARD && window.CARD.ordemAut === false)
+        avisos.push('Falta a etiqueta ORDEM AUTORIZADA: o comprador só consegue comprar depois que ela for marcada (conferir no Databox).');
+    }
     var prox = PROX[lista] || '';
     if (/parcial/i.test(titulo)) prox = proxCard || 'Quando terminar, volte ao card e clique em Enviar para o card seguir.';
     else if (proxCard) prox = proxCard;
@@ -8467,7 +8480,10 @@ document.addEventListener('input', function (e) {
     var chamarOrig = window.chamar;
     window.chamar = function (fn) {
       var p = chamarOrig.apply(this, arguments);
-      if (fn === 'vdf_salvar' && p && p.then) p.then(function (r) { if (r && r.ok) window.V2R_ULT = { acao: r.acao || '', em: Date.now() }; }, function () {});
+      var a2 = arguments[2] || {};
+      if (fn === 'vdf_salvar' && p && p.then) p.then(function (r) { if (r && r.ok) window.V2R_ULT = { acao: r.acao || '', em: Date.now(), novo: !!r.novo, np: (a2.pecas || []).filter(function (x) { return x && !x.naoComprar && !x.particular; }).length, npart: (a2.pecas || []).filter(function (x) { return x && !x.naoComprar && x.particular; }).length }; }, function () {});
+      if (fn === 'vdf_salvarCotacao' && p && p.then) p.then(function (r) { if (r && r.ok) window.V2R_COT = { em: Date.now(), semCot: (a2.semCot || []).length, nt: (a2.nt || []).length }; }, function () {});
+      if (fn === 'vdf_salvarAutorizacao' && p && p.then) p.then(function (r) { if (r && r.ok) window.V2R_AUT = { em: Date.now() }; }, function () {});
       return p;
     };
   }
@@ -8526,6 +8542,109 @@ document.addEventListener('input', function (e) {
     };
     try { box.querySelector('[data-r=nao]').focus(); } catch (x) {}
   }, true);
+
+  /* ---------- 19/10/2026 (revisão completa do fluxo; Weslley: "fazer antes") — ajustes de tela, junto com TELAS_FINAIS ---------- */
+  window.V2R_AJ = true;
+  (function () {
+    function $$(sel, el) { return Array.prototype.slice.call((el || document).querySelectorAll(sel)); }
+    var st = document.createElement('style');
+    st.textContent = [
+      // pendência das abas do comprador em âmbar até a 1ª tentativa de enviar (o pedido já faz assim: v2-tentou)
+      'html.v2r:not(.v2r-tentou) #comprador.v2c .item.v2c-falta::before{background:#e2b203 !important}',
+      'html.v2r:not(.v2r-tentou) #comprador.v2c .v2c-faltalin{color:#7f5f01 !important}',
+      'html.v2r:not(.v2r-tentou) #comprador.v2c #compraItens .compl-box.v2c-cxfalta{background:#fffbe6 !important;border-color:#f5cd47 !important}',
+      // "Marcar ORDEM AUTORIZADA" numa linha só dele, embaixo do "Sim:"
+      'html.v2r #compraAviso #btnOrdemAut{display:flex !important;margin:6px 0 6px 22px !important}',
+      // alteração aberta (previsão/cancelamento): o Enviar compra espera
+      'html.v2r #btnCompra.v2r-espera,html.v2r #btnCompraParcial.v2r-espera{opacity:.55}',
+      '.v2r-nota{margin:8px 0;padding:10px 12px;border-radius:8px;background:#fff7d6;color:#533f04;font-size:14px;line-height:20px}',
+      '.v2r-nota b{color:#533f04}',
+      '.v2r-nota button{margin-top:8px}',
+      // contraste e tamanho mínimo (WCAG 1.4.3): textos cinza pequenos
+      'html.v2r #comprador .dica:not(.ruim):not(.boa),html.v2r #form .dica:not(.ruim):not(.boa){color:#44546f !important}',
+      'html.v2r .dica[style*="font-size:12px"],html.v2r #comprador .dica{font-size:13px !important}',
+      'html.v2r #form .v2-leg, html.v2r #form h2 small, html.v2r #form h2 .v2-leg{color:#44546f !important;font-size:12px !important}'
+    ].join('\n');
+    document.head.appendChild(st);
+
+    // 1ª tentativa de enviar/salvar nas abas do comprador: as pendências passam a vermelho
+    document.addEventListener('click', function (e) {
+      var b = e.target && e.target.closest && e.target.closest('#comprador button, #v2cAcoes button');
+      if (!b) return;
+      if (/^(Enviar|Corrija|Corrigir|Falta|Faltam|Salvar parcial)/.test(b.textContent.replace(/^[^A-Za-zÀ-ú]+/, '').trim()) && !html.classList.contains('v2r-tentou')) html.classList.add('v2r-tentou');
+    }, true);
+
+    // alteração aberta na aba Compra (previsão / cancelamento): Enviar compra não segue até salvar ou fechar
+    function abertaCompra() { return $$('#comprador .prev:not(.oculto), #comprador .cancel:not(.oculto)').filter(function (x) { return x.offsetParent !== null; })[0] || null; }
+    function marcarEspera() {
+      var ab = abertaCompra();
+      ['btnCompra', 'btnCompraParcial'].forEach(function (id) { var b = g(id); if (b && b.classList.contains('v2r-espera') !== !!ab) b.classList.toggle('v2r-espera', !!ab); });
+      var n = g('v2rEspera'); if (n && !ab) n.remove();
+    }
+    document.addEventListener('click', function (e) {
+      setTimeout(marcarEspera, 0);
+      var b = e.target && e.target.closest && e.target.closest('#btnCompra, #btnCompraParcial');
+      if (!b) return;
+      var ab = abertaCompra(); if (!ab) return;
+      e.preventDefault(); e.stopImmediatePropagation();
+      var ehCanc = ab.classList.contains('cancel');
+      var n = g('v2rEspera');
+      if (!n) { n = document.createElement('div'); n.id = 'v2rEspera'; n.className = 'v2r-nota'; n.setAttribute('role', 'alert'); b.parentNode.insertBefore(n, b); }
+      n.innerHTML = '<b>Termine a alteração aberta antes.</b> ' + (ehCanc ? 'Confirme o cancelamento da compra ou feche o quadro.' : 'Salve a previsão nova ou feche o quadro.') + ' Depois envie a compra.'
+        + '<div><button type="button" class="v2r-bt s">Ir até a alteração</button></div>';
+      n.querySelector('button').onclick = function () { try { ab.scrollIntoView({ block: 'center' }); (ab.querySelector('input') || ab).focus(); } catch (x) {} };
+    }, true);
+    document.addEventListener('input', marcarEspera, true);
+
+    // aba Autorizar: avisar já aqui que o comprador depende da etiqueta ORDEM AUTORIZADA
+    function notaAut() {
+      var pa = g('painelAut'), it = g('autItens'); if (!pa || !it) return;
+      var precisa = vis(pa) && window.CARD && window.CARD.ordemAut === false;
+      var n = g('v2rAutOrdem');
+      if (!precisa) { if (n) n.remove(); return; }
+      if (n) return;
+      n = document.createElement('div'); n.id = 'v2rAutOrdem'; n.className = 'v2r-nota';
+      n.innerHTML = '<b>Este card ainda não tem a etiqueta ORDEM AUTORIZADA.</b> Pode autorizar normalmente, mas o comprador só consegue comprar depois que ela for marcada (confere no Databox e marca na aba Compra).';
+      it.parentNode.insertBefore(n, it);
+    }
+
+    // tipo da peça que o orçamento já diz (Websoma: "No orçamento: GENUÍNA"): já vem marcado; dá para trocar
+    var TIPO_DICA = function (t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5); };
+    function tipoDoOrc() {
+      $$('#itens > .item, #itensPart > .item').forEach(function (it) {
+        if (it.dataset.v2rTipo) return;
+        var d = $$('.dica', it).filter(function (x) { return /^No orçamento:/.test(x.textContent.trim()); })[0];
+        if (!d) return;
+        it.dataset.v2rTipo = '1';
+        var cx = $$('.f-tipo', it); if (!cx.length || cx.some(function (c) { return c.checked; })) return;
+        var alvo = TIPO_DICA((d.querySelector('b') || d).textContent);
+        var c = cx.filter(function (c) { return TIPO_DICA(c.value) === alvo; })[0];
+        if (!c) return;
+        c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true }));
+        d.innerHTML = 'No orçamento: <b>' + esc((d.querySelector('b') || d).textContent) + '</b> — tipo já marcado; troque se precisar.';
+      });
+    }
+
+    // texto dos obrigatórios com orçamento anexado (a regra real do envio: placa, carro, unidade, nº da ordem, cor e seguradora)
+    function textoOrc() {
+      var a = g('avisoOrc'); if (!a) return;
+      var h = a.innerHTML, novo = h.replace('Com orçamento, dos dados do carro só são obrigatórios placa e carro.', 'Com orçamento, para enviar bastam placa, carro, unidade, nº da ordem, cor e seguradora — modelo, ano e chassi podem ficar para depois.');
+      if (novo !== h) a.innerHTML = novo;
+    }
+
+    // situação do complementar: quem marca é o comprador, na aba Compra; na Autorizar a diretoria pode adiantar (decisão de 09/10)
+    function complAut() {
+      $$('#autItens input.a-compl').forEach(function (cb) {
+        var lb = cb.closest('label'); if (!lb || lb.dataset.v2r) return; lb.dataset.v2r = '1';
+        lb.insertAdjacentHTML('beforeend', ' <span style="font-weight:400">(opcional aqui — se não marcar, o comprador marca na compra)</span>');
+      });
+    }
+
+    var t0 = 0;
+    function passada() { clearTimeout(t0); t0 = setTimeout(function () { try { notaAut(); tipoDoOrc(); textoOrc(); complAut(); marcarEspera(); } catch (x) { console.log('v2r-aj', x && x.message); } }, 60); }
+    new MutationObserver(passada).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    passada();
+  })();
 
   /* ---------- carregando / erro ao abrir / login ---------- */
   function telaCarregando() {
