@@ -63,6 +63,12 @@ function fat_executar_() {
     if (!cardId || vistos[cardId]) return;
     var quem = a.memberCreator ? String(a.memberCreator.username || '').toLowerCase() : '';
     var arquivou = a.type === 'updateCard';
+    // 20/10/2026 (Weslley): card arquivado por FATURAMENTO só ele desarquiva — quem mais desarquivar, o card volta a ser arquivado
+    if (arquivou && a.data.card && a.data.card.closed === false) {
+      if (vd_prop_('FAT_TRAVA_DESARQ', 'SIM') === 'NAO' || !quem || quem === 'timweslley') return;
+      try { if (fat_desarquivouFaturado_(cardId, a, us, quem)) { vistos[cardId] = 1; n++; } } catch (eD) { console.log('desarquivar faturado: ' + eD); }
+      return;
+    }
     if (arquivou) {
       // arquivamento à mão: só interessa o de quem confirma faturamento (arquivar = "faturado")
       if (!(a.data.card && a.data.card.closed) || !quem || us.indexOf(quem) < 0) return;
@@ -114,4 +120,36 @@ function fat_executar_() {
   });
   if (n) console.log('faturamento: ' + n + ' card(s) faturado(s)');
   return n;
+}
+
+/** Card desarquivado por quem não é o Weslley: se o último arquivamento foi por faturamento (arquivado por quem confirma
+ *  faturamento, ou pelo robô logo depois de um «faturado» dessas pessoas), arquiva de novo e avisa no card. Devolve true se agiu. */
+function fat_desarquivouFaturado_(cardId, acao, us, quem) {
+  var c = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name,idList,closed,shortLink,shortUrl' } });
+  if (!c || c.closed || vdf_cardProtegido_(c.name || '')) return false;   // já foi arquivado de novo / card fixo
+  var acts = vd_api_('/cards/' + cardId + '/actions', { cru: true, query: { filter: 'updateCard:closed,commentCard', limit: 50, fields: 'type,date,data', memberCreator_fields: 'username' } }) || [];
+  var tDesarq = new Date(acao.date).getTime(), arq = null;
+  for (var i = 0; i < acts.length; i++) {   // mais nova primeiro
+    var x = acts[i];
+    if (new Date(x.date).getTime() >= tDesarq) continue;
+    if (x.type === 'updateCard' && x.data && x.data.card && x.data.card.closed === true) { arq = x; break; }
+  }
+  if (!arq) return false;
+  var autor = String((arq.memberCreator && arq.memberCreator.username) || '').toLowerCase(), fat = false;
+  var usF = us.filter(function (u) { return u !== 'timweslley'; });
+  if (usF.indexOf(autor) >= 0) fat = true;
+  else if (autor === 'timweslley') {
+    // robô arquivou: vale se houve «faturado» de quem confirma faturamento até 15 min antes
+    var tArq = new Date(arq.date).getTime();
+    fat = acts.some(function (x) {
+      var t = new Date(x.date).getTime(), u = String((x.memberCreator && x.memberCreator.username) || '').toLowerCase();
+      return x.type === 'commentCard' && t <= tArq && tArq - t < 15 * 60000 && usF.indexOf(u) >= 0 && fat_ehConfirmacao_((x.data && x.data.text) || '');
+    });
+  }
+  if (!fat) return false;
+  vd_comentar_(c, '@' + quem + ' ' + FAT.MARCA + ' Card já **faturado** — só o Weslley pode desarquivar. O card foi arquivado de novo. ' +
+    'Para retorno ou peça nova deste carro, abra um card novo pelo formulário (a placa traz os dados do card arquivado).');
+  vd_api_('/cards/' + cardId, { method: 'put', payload: { closed: 'true' } });
+  ev_registrar_('DESARQUIVAMENTO DESFEITO', c, quem, null, { detalhe: 'card faturado desarquivado por @' + quem + ' — arquivado de novo' });
+  return true;
 }
