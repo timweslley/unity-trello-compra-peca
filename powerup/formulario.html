@@ -8403,7 +8403,7 @@ document.addEventListener('input', function (e) {
     }
     if (!lista && /^Pedido criado$/.test(titulo)) lista = 'EM COTAÇÃO';
     if (!lista && /^(Fornecimento atualizado|Previsão alterada|Aviso enviado|Peças marcadas|Cotação registrada|Retirada registrada)$/.test(titulo) && window.CARD && window.CARD.lista) lista = normLista(window.CARD.lista);   // ações que não mudam o card de coluna
-    if (/^Devolução registrada$/.test(titulo)) dets = dets.map(function (d) { return d.replace(/^(\d+) devolução\(ões\)\.?$/, '$1 peça(s) devolvida(s) ao fornecedor.'); });
+    if (/^Devolução registrada$/.test(titulo)) dets = dets.map(function (d) { return d.replace(/^(\d+) devolução\(ões\)\.?$/, 'Devolução de $1 peça(s) registrada.'); });
     if (/^Retirada registrada$/.test(titulo)) dets = dets.map(function (d) { return /^\d+ peça\S*\.$/.test(texto(d)) ? d.replace(/\.$/, ' retirada(s).') : d; });
     if (/^Fornecimento atualizado$/.test(titulo)) { dets = dets.map(function (d) { return /^\d+ peça/.test(texto(d)) ? 'Fornecedor e previsão lançados em ' + d.replace(/\.$/, '') + ' da seguradora.' : d; }); }   // card novo sem falta: o formulário cria em EM COTAÇÃO (com falta, a linha "fica em FALTA DADOS" já veio)
     // GPT (19/10): "Compra autorizada" com peça ainda por autorizar soava como tudo pronto
@@ -8422,8 +8422,12 @@ document.addEventListener('input', function (e) {
     var prox = PROX[lista] || '';
     // autorizou sem a etiqueta ORDEM AUTORIZADA: o próximo passo é a etiqueta, não a compra
     if (window.V2R_AJ && /^Compra autorizada/.test(titulo) && /AUTORIZADO COMPRA/.test(lista) && window.CARD && window.CARD.ordemAut === false)
-      prox = 'Falta a etiqueta ORDEM AUTORIZADA. Confira no Databox se a ordem está autorizada e o orçamento importado, e marque a etiqueta na aba Compra; só então o comprador consegue comprar.';
+      prox = 'Antes de comprar, o comprador confere no Databox (ordem autorizada e orçamento importado) e marca a etiqueta ORDEM AUTORIZADA na aba Compra. Sem ela a compra fica travada.';
     if (/parcial/i.test(titulo)) prox = proxCard || 'Quando terminar, volte ao card e clique em Enviar para o card seguir.';
+    if (window.V2R_AJ && /parcial/i.test(titulo) && /^Quando terminar, volte ao card e clique em Enviar/.test(prox)) {   // diz qual botão (avaliação 19/10)
+      var qual = /^Cotação/.test(titulo) ? 'Enviar cotação' : /^Autoriza/.test(titulo) ? 'Enviar autorização' : /^Compra/.test(titulo) ? 'Enviar compra' : /^Pedido|^Card/.test(titulo) ? 'Enviar pedido' : '';
+      if (qual) prox = 'Quando terminar, abra o formulário de novo e toque em ' + qual + ' para o card seguir.';
+    }
     else if (proxCard) prox = proxCard;
     // peça devolvida no recebimento: o card volta para a compra — "todas as peças chegaram" não vale
     if (/AUTORIZADO COMPRA/.test(lista) && (/^Devolução registrada$/.test(titulo) || dets.some(function (d) { return /devoluç/i.test(texto(d)); }))) {
@@ -8538,7 +8542,7 @@ document.addEventListener('input', function (e) {
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" class="v2r-bt s" data-r="sim">Usar mesmo assim</button><button type="button" class="v2r-bt p" data-r="nao">Trocar orçamento</button></div>';
     box.querySelector('[data-r=sim]').onclick = function () { window.V2R_PLACA_OK = true; box.remove(); b.click(); };
     box.querySelector('[data-r=nao]').onclick = function () {   // as peças do arquivo já foram lidas: o jeito seguro de trocar é recomeçar sem salvar
-      box.innerHTML = '<b id="v2rPlacaT">Nada foi enviado.</b> Para anexar o orçamento certo é preciso recomeçar. <b>As alterações não salvas serão perdidas.</b>'
+      box.innerHTML = '<b id="v2rPlacaT">Nada foi enviado.</b> Para trocar o orçamento, recomece: <b>o que foi preenchido nesta tela e ainda não foi salvo será descartado.</b>'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" class="v2r-bt p" data-r="rec">Descartar e recomeçar</button><button type="button" class="v2r-bt s" data-r="fechar">Voltar ao formulário</button></div>';
       box.querySelector('[data-r=rec]').onclick = function () { document.body.style.display = 'none'; location.reload(); };   // tela escondida = nada "sujo" visível: recarrega sem o "Sair do site?"
       box.querySelector('[data-r=fechar]').onclick = function () { box.remove(); };
@@ -8563,7 +8567,8 @@ document.addEventListener('input', function (e) {
       // "Marcar ORDEM AUTORIZADA" numa linha só dele, embaixo do "Sim:"
       'html.v2r #compraAviso #btnOrdemAut{display:flex !important;margin:6px 0 6px 22px !important}',
       // alteração aberta (previsão/cancelamento): o Enviar compra espera
-      'html.v2r #btnCompra.v2r-espera,html.v2r #btnCompraParcial.v2r-espera{opacity:.55}',
+      'html.v2r #btnCompra.v2r-espera,html.v2r #btnCompraParcial.v2r-espera,html.v2r #btnEnviar.v2r-espera,html.v2r #btnParcial.v2r-espera{opacity:.55}',
+      'html.v2r #usuario, html.v2r #usuario a{color:#44546f !important}',
       '.v2r-nota{margin:8px 0;padding:10px 12px;border-radius:8px;background:#fff7d6;color:#533f04;font-size:14px;line-height:20px}',
       '.v2r-nota b{color:#533f04}',
       '.v2r-nota button{margin-top:8px}',
@@ -8598,7 +8603,7 @@ document.addEventListener('input', function (e) {
       var ehCanc = ab.classList.contains('cancel');
       var n = g('v2rEspera');
       if (!n) { n = document.createElement('div'); n.id = 'v2rEspera'; n.className = 'v2r-nota'; n.setAttribute('role', 'alert'); b.parentNode.insertBefore(n, b); }
-      n.innerHTML = '<b>Termine a alteração aberta antes.</b> ' + (ehCanc ? 'Confirme o cancelamento ou clique de novo em "Cancelar compra" para fechar.' : (ab.querySelector('.p-dias') ? 'Salve o novo prazo ou clique de novo em "Alterar prazo autorizado" para fechar.' : 'Salve a previsão nova ou clique de novo em "Alterar previsão" para fechar.')) + ' Depois envie a compra.'
+      n.innerHTML = '<b>Termine a alteração aberta antes.</b> ' + (ehCanc ? 'Confirme o cancelamento ou clique em "Fechar sem cancelar".' : (ab.querySelector('.p-dias') ? 'Salve o novo prazo ou clique em "Fechar sem salvar".' : 'Salve a previsão nova ou clique em "Fechar sem salvar".')) + ' Depois envie a compra.'
         + '<div><button type="button" class="v2r-bt s">Ir até a alteração</button></div>';
       n.querySelector('button').onclick = function () { try { ab.scrollIntoView({ block: 'center' }); (ab.querySelector('input') || ab).focus(); } catch (x) {} };
     }, true);
@@ -8612,7 +8617,7 @@ document.addEventListener('input', function (e) {
       if (!precisa) { if (n) n.remove(); return; }
       if (n) return;
       n = document.createElement('div'); n.id = 'v2rAutOrdem'; n.className = 'v2r-nota';
-      n.innerHTML = '<b>Este card ainda não tem a etiqueta ORDEM AUTORIZADA.</b> Pode autorizar normalmente, mas o comprador só consegue comprar depois que ela for marcada (confere no Databox e marca na aba Compra).';
+      n.innerHTML = '<b>Este card ainda não tem a etiqueta ORDEM AUTORIZADA.</b> A autorização vale normalmente; antes de comprar, o comprador confere no Databox (ordem autorizada e orçamento importado) e marca a etiqueta na aba Compra.';
       it.parentNode.insertBefore(n, it);
     }
 
@@ -8639,7 +8644,7 @@ document.addEventListener('input', function (e) {
       var h = a.innerHTML, novo = h.replace('Com orçamento, dos dados do carro só são obrigatórios placa e carro.', 'Com orçamento, para enviar bastam placa, carro, unidade, nº da ordem, cor e seguradora — modelo, ano e chassi podem ficar para depois.');
       // tipo já marcado pelo orçamento em todas as peças: não pede para "marcar"
       var semTipo = $$('#itens > .item').some(function (it) { var cx = $$('.f-tipo', it); return cx.length && !cx.some(function (c) { return c.checked; }); });
-      if (!semTipo) novo = novo.replace(/ — confira e <b>marque o tipo de cada uma<\/b>\./, ' — confira o tipo de cada uma (já veio do orçamento).');
+      if (!semTipo) novo = novo.replace(/ — confira e <b>marque o tipo de cada uma<\/b>\./, ' — confira o tipo de cada uma (já preenchido pelo orçamento).');
       if (novo !== h) a.innerHTML = novo;
     }
 
@@ -8664,8 +8669,44 @@ document.addEventListener('input', function (e) {
       });
     }
 
+    // peça devolvida/cancelada ainda sem compra nova: a linha vira um destaque "falta comprar de novo" (avaliação 19/10)
+    function devolvidaCompra() {
+      $$('#compraItens > .item').forEach(function (it) {
+        var comprou = !!it.querySelector('.comprado, .v2c-feito');
+        $$('.dica, .v2c-nota', it).forEach(function (d) {
+          if (d.dataset.v2rDev || !/^\W*\((devolvida|compra cancelada) \d/.test(d.textContent.trim())) return;
+          if (comprou) return;
+          d.dataset.v2rDev = '1';
+          d.insertAdjacentHTML('afterbegin', '<b style="color:#7f5f01">Falta comprar de novo · </b>');
+          d.style.background = '#fff7d6'; d.style.borderColor = '#f5cd47';
+        });
+      });
+    }
+    // pergunta da placa aberta: o Enviar fica apagado até responder
+    function placaAberta() {
+      var bx = g('v2rPlaca'), on = !!(bx && bx.isConnected);
+      ['btnEnviar', 'btnParcial'].forEach(function (id) { var b = g(id); if (b && b.classList.contains('v2r-espera') !== on) b.classList.toggle('v2r-espera', on); });
+    }
+
+    // alteração aberta (previsão / prazo / cancelamento) ganha um "Fechar" explícito (antes só clicando de novo no botão que abriu)
+    function fecharAlteracao() {
+      $$('#comprador .prev, #comprador .cancel').forEach(function (bx) {
+        if (bx.querySelector('.v2r-fechar')) return;
+        var ok = bx.querySelector('button.principal'); if (!ok) return;
+        var f = document.createElement('button'); f.type = 'button'; f.className = 'secundario v2r-fechar'; f.style.marginLeft = '8px';
+        f.textContent = bx.classList.contains('cancel') ? 'Fechar sem cancelar' : 'Fechar sem salvar';
+        f.onclick = function () {
+          $$('input', bx).forEach(function (i) { if (i.type !== 'date') i.value = ''; });
+          bx.classList.add('oculto');
+          var ab = bx.previousElementSibling && bx.previousElementSibling.querySelector('button'); if (ab) { ab.setAttribute('aria-expanded', 'false'); try { ab.focus(); } catch (x) {} }
+          marcarEspera();
+        };
+        ok.insertAdjacentElement('afterend', f);
+      });
+    }
+
     var t0 = 0;
-    function passada() { clearTimeout(t0); t0 = setTimeout(function () { try { notaAut(); tipoDoOrc(); textoOrc(); complAut(); naoCotadaCompra(); marcarEspera(); } catch (x) { console.log('v2r-aj', x && x.message); } }, 60); }
+    function passada() { clearTimeout(t0); t0 = setTimeout(function () { try { notaAut(); tipoDoOrc(); textoOrc(); complAut(); naoCotadaCompra(); devolvidaCompra(); fecharAlteracao(); placaAberta(); marcarEspera(); } catch (x) { console.log('v2r-aj', x && x.message); } }, 60); }
     new MutationObserver(passada).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     passada();
   })();
