@@ -8510,7 +8510,7 @@ document.addEventListener('input', function (e) {
     // peça devolvida/cancelada ainda sem compra nova: a linha vira um destaque "falta comprar de novo" (avaliação 19/10)
     function devolvidaCompra() {
       $$('#compraItens > .item').forEach(function (it) {
-        var comprou = !!it.querySelector('.comprado, .v2c-feito');
+        var comprou = $$('.comprado, .v2c-feito', it).some(function (x) { return /comprado/i.test(x.textContent) && !/^\W*Autorizad/i.test(x.textContent.trim()); });
         $$('.dica, .v2c-nota', it).forEach(function (d) {
           if (d.dataset.v2rDev || !/^\W*\((devolvida|compra cancelada) \d/.test(d.textContent.trim())) return;
           if (comprou) return;
