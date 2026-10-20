@@ -343,11 +343,11 @@ function vdf_salvarRecebimento(token, p) {
     evsRet.push({ peca: partes[0], particular: it.lista === 'PAGAS PARTICULAR', fornecedor: /^PAGAS/.test(it.lista) && partes.length >= 2 ? partes[1] : (/^FORNECIMENTO/.test(it.lista) ? 'SEGURADORA (FO)' : ''), detalhe: 'retirada por ' + quem + ' em ' + Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM/yyyy') + (it.local ? ' · estava em ' + it.local : '') + ' · ' + it.lista });
   });
   // devolução ao fornecedor: peça PAGAS sai do checklist (compra cancelada, precisa de compra nova); peça FO volta a pendente
-  var evsDev = [];
+  var evsDev = [], devPagas = 0;
   devolucoes.forEach(function (x) {
     var it = porId[x.id], motivo = String(x.motivo || '').replace(/\s*\n\s*/g, ' ').trim();
     try {
-      if (/^PAGAS/.test(it.lista)) { linhas.push(rc_cancelarCompra_(card, it, motivo, 'devolvida', token, me)); delete porId[x.id]; todos = todos.filter(function (i) { return i.id !== it.id; }); }
+      if (/^PAGAS/.test(it.lista)) { devPagas++; linhas.push(rc_cancelarCompra_(card, it, motivo, 'devolvida', token, me)); delete porId[x.id]; todos = todos.filter(function (i) { return i.id !== it.id; }); }
       else {
         vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'put', payload: { state: 'incomplete' } }, token);
         it.ok = false;
@@ -408,7 +408,9 @@ function vdf_salvarRecebimento(token, p) {
     var txt = (soMarcas ? '📦 **PEÇAS — local / devolução** — ' : '📦 **RECEBIMENTO** — ') + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' + (linhas.length ? linhas.join('\n') : '_(só anexos)_') +
       (nAnexos ? '\n📎 ' + nAnexos + ' anexo(s)' : '') +
       (geral ? '\n📝 ' + geral : '') +
-      (pend.length ? '\n⏳ Falta chegar: ' + pend.map(function (i) { return i.base.split(/\s+-\s+/)[0]; }).join(', ') : (todos.length ? '\n✅ Tudo recebido.' : ''));
+      (pend.length ? '\n⏳ Falta chegar: ' + pend.map(function (i) { return i.base.split(/\s+-\s+/)[0]; }).join(', ') :
+        // 19/10/2026 (revisão): compra devolvida saiu do checklist — "tudo recebido" enganava; a peça precisa de compra nova
+        (vd_ajustes1910_() && devPagas ? '\n🔁 Falta comprar de novo a peça devolvida.' : (todos.length ? '\n✅ Tudo recebido.' : '')));
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
   } catch (e) {}
   try { if (evs.length || nAnexos || itens.length) ev_registrar_('RECEBIMENTO', card, me.username, evs.length ? evs : null, { detalhe: nAnexos ? nAnexos + ' anexo(s)' : '' }); } catch (e) {}

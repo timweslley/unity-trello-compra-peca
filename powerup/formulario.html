@@ -8362,7 +8362,9 @@ document.addEventListener('input', function (e) {
     var mq = titulo.match(/^(.*?)\s*\((\d+ [^)]+)\)$/);   // "Cotação indisponível registrada (1 peça(s))": a contagem vai para os detalhes
     if (mq) { titulo = mq[1]; if (!det1) det1 = mq[2] + '.'; }
     if (/^Card criado$/i.test(titulo)) titulo = 'Pedido criado'; else if (/^Card atualizado$/i.test(titulo)) titulo = 'Pedido atualizado';
-    else if (/^Registrado$/i.test(titulo)) titulo = /recebida/i.test(texto(det1)) ? 'Recebimento registrado' : /devolvida|recusada/i.test(texto(det1)) ? 'Devolução registrada' : 'Registrado';
+    else if (/^Registrado$/i.test(titulo)) titulo = /^0 peça\S* recebida/i.test(texto(det1)) && /devolu/i.test(texto(det1)) ? 'Devolução registrada' : /recebida/i.test(texto(det1)) ? 'Recebimento registrado' : /devolvida|devolu|recusada/i.test(texto(det1)) ? 'Devolução registrada' : 'Registrado';
+    // "0 peça(s) recebida(s), 1 devolução(ões)": o zero sai e fica o que foi feito (antes a linha inteira sumia)
+    if (/^0 [^,]+,\s*/.test(texto(det1))) det1 = det1.replace(/^\s*0 [^,]+,\s*/, '').replace(/^([a-zà-ú])/, function (c) { return c.toUpperCase(); });
     var tom = /❌/.test(emo) ? 'neutro' : /⚠/.test(emo) ? 'alerta' : /↩/.test(emo) ? 'info' : /💾/.test(emo) ? 'info' : /^Nada para gravar/i.test(titulo) ? 'neutro' : 'ok';
     var selo = { ok: 'ok', info: /↩/.test(emo) ? 'undo' : 'save', alerta: 'alert', neutro: /❌/.test(emo) ? 'x' : 'info' }[tom];
     // coluna, avisos e detalhes
@@ -8423,7 +8425,7 @@ document.addEventListener('input', function (e) {
     if (/parcial/i.test(titulo)) prox = proxCard || 'Quando terminar, volte ao card e clique em Enviar para o card seguir.';
     else if (proxCard) prox = proxCard;
     // peça devolvida no recebimento: o card volta para a compra — "todas as peças chegaram" não vale
-    if (/AUTORIZADO COMPRA/.test(lista) && dets.some(function (d) { return /devoluç/i.test(texto(d)); })) {
+    if (/AUTORIZADO COMPRA/.test(lista) && (/^Devolução registrada$/.test(titulo) || dets.some(function (d) { return /devoluç/i.test(texto(d)); }))) {
       dets = dets.filter(function (d) { return !/^Todas as peças chegaram/i.test(texto(d)); });
       prox = 'Agora o comprador registra uma compra nova da peça devolvida, na aba Compra. Se o preço ou o fornecedor mudar, use "Cotação autorizada indisponível".';
     }
@@ -8554,6 +8556,9 @@ document.addEventListener('input', function (e) {
       'html.v2r:not(.v2r-tentou) #comprador.v2c .item.v2c-falta::before{background:#e2b203 !important}',
       'html.v2r:not(.v2r-tentou) #comprador.v2c .v2c-faltalin{color:#7f5f01 !important}',
       'html.v2r:not(.v2r-tentou) #comprador.v2c #compraItens .compl-box.v2c-cxfalta{background:#fffbe6 !important;border-color:#f5cd47 !important}',
+      'html.v2r:not(.v2r-tentou) #comprador.v2c :is(input,textarea,select).v2-falta{background:#fff !important;border-color:#e2b203 !important;box-shadow:none !important}',
+      'html.v2r:not(.v2r-tentou) #v2cLado a :is(.nm,.fx),html.v2r:not(.v2r-tentou) #v2cLado li:has(a .fx){color:#7f5f01 !important}',
+      'html.v2r:not(.v2r-tentou) #v2cLado li:has(a .fx)::marker,html.v2r:not(.v2r-tentou) #v2cLado li:has(a .fx)::before{color:#7f5f01 !important}',
       // "Marcar ORDEM AUTORIZADA" numa linha só dele, embaixo do "Sim:"
       'html.v2r #compraAviso #btnOrdemAut{display:flex !important;margin:6px 0 6px 22px !important}',
       // alteração aberta (previsão/cancelamento): o Enviar compra espera
