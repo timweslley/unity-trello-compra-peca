@@ -8209,7 +8209,7 @@ document.addEventListener('input', function (e) {
       var mc = t.match(/^O card (?:está|continua|fica|voltou para|foi para) (?:em )?([A-ZÇÃÕÁÉÍÓÚÂÊ\/. ]{4,}?)(?:\.|,| e | até |$)/);
       if (mc) {
         lista = normLista(mc[1]);
-        var resto = t.slice(mc[0].length).replace(/^\s*(?:e|até)\s+/, '').replace(/^\.\s*/, '').trim();
+        var resto = / até $/.test(mc[0]) ? '' : t.slice(mc[0].length).replace(/^\s*(?:e|até)\s+/, '').replace(/^\.\s*/, '').trim();   // "fica em X até você enviar": a etiqueta e o próximo passo já dizem
         if (/^O card fica em FALTA/.test(t)) { /* a coluna (em amarelo) e o próximo passo já dizem isso */ }
         else if (/voltou para/.test(t)) dets.unshift('O card voltou para ' + lista + '.');
         else if (/^Quando terminar/i.test(resto)) proxCard = resto;   // instrução do próprio envio vale como próximo passo
@@ -8218,9 +8218,12 @@ document.addEventListener('input', function (e) {
       }
       var mc2 = t.match(/(?:o card (?:continua|fica) em|coluna \()\s*([A-ZÇÃÕÁÉÍÓÚ\/. ]{4,}?)[).]/i);
       if (mc2 && !lista) lista = normLista(mc2[1]);
-      if (/⚠|⏳/.test(e) || /^(Ainda|Falta)\b|\bainda (sem|falta)\b/i.test(t)) avisos.push(hs); else dets.push(hs);
+      if (/⚠|⏳/.test(e) || /^(Ainda|Falta)\b|\bainda (sem|falta)\b/i.test(t)) avisos.push(hs);
+      else if (/clique em|abra de novo/i.test(t) && !proxCard) proxCard = t.replace(/^.*?—\s*/, '').replace(/^([a-zà-ú])/, function (c) { return c.toUpperCase(); });   // instrução: vira o próximo passo
+      else dets.push(hs);
     });
     if (!lista && window.LISTA_ENVIADO) lista = normLista(window.LISTA_ENVIADO);
+    if (!lista && /^Pedido criado$/.test(titulo)) lista = 'EM COTAÇÃO';   // card novo sem falta: o formulário cria em EM COTAÇÃO (com falta, a linha "fica em FALTA DADOS" já veio)
     // GPT (19/10): "Compra autorizada" com peça ainda por autorizar soava como tudo pronto
     if (/^Compra autorizada$/i.test(titulo) && avisos.some(function (a) { return /Ainda falta autorizar/i.test(texto(a)); })) titulo = 'Compra autorizada em parte';
     var prox = PROX[lista] || '';
