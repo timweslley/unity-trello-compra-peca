@@ -1772,6 +1772,9 @@ function vd_conferirPosCotacao_(card, ctx) {
 
   // linha "NÃO COMPRAR" (registro, fora do fluxo) não é peça nova
   novas = novas.filter(function (l) { return !/\|\s*N[ÃA]O COMPRAR\b/i.test(l); });
+  // 20/10/2026 (UBJ0D80 retorno): a observação geral do pedido ("OBS: …", editada pelo formulário) não é peça nova —
+  // mudar o texto dela mandava o card de PENDENTE AUTORIZAR para FALTA DADOS como "linha nova fora do padrão"
+  novas = novas.filter(function (l) { return !/^\s*OBS\.?\s*[:\-–]/i.test(l); });
   if (!novas.length) { vd_pkSet_(card.id, sigs); res.acao = res.pagas ? 'pagas' : 'sem peça nova'; return res; }
   var faltas = [];
   var nomes = novas.map(function (l, i) {
