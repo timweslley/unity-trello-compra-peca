@@ -8364,7 +8364,7 @@ document.addEventListener('input', function (e) {
     if (det1) {   // "com 2 observações" / "para @fulano" continuam o título; o resto começa com maiúscula
       if (/^(com|para|sem)\s/.test(texto(det1))) det1 = esc(titulo) + ' ' + det1;
       else det1 = det1.replace(/^([a-zà-ú])/, function (c) { return c.toUpperCase(); });
-      dets.push(det1);
+      if (!/^0\s/.test(texto(det1))) dets.push(det1);   // "0 cotações" (já estavam salvas antes): nada a mostrar
     }
     ls.forEach(function (h) {
       var t0 = texto(h), e = emojiDe(t0), t = semEmoji(t0), hs = semEmoji(h.replace(/^\s+/, ''));
@@ -8381,7 +8381,7 @@ document.addEventListener('input', function (e) {
       var mc2 = t.match(/(?:o card (?:continua|fica) em|coluna \()\s*([A-ZÇÃÕÁÉÍÓÚ\/. ]{4,}?)[).]/i);
       if (mc2 && !lista) lista = normLista(mc2[1]);
       if (/⚠|⏳/.test(e) || /^(Ainda|Falta)\b|\bainda (sem|falta)\b/i.test(t)) avisos.push(hs);
-      else if (/clique em|abra de novo/i.test(t) && !proxCard) proxCard = t.replace(/^.*?—\s*/, '').replace(/^([a-zà-ú])/, function (c) { return c.toUpperCase(); });   // instrução: vira o próximo passo
+      else if (/clique em|abra de novo|fica liberada quando/i.test(t) && !proxCard) proxCard = t.replace(/^.*?—\s*/, '').replace(/^([a-zà-ú])/, function (c) { return c.toUpperCase(); });   // instrução: vira o próximo passo
       else dets.push(hs);
     });
     if (!lista && window.LISTA_ENVIADO) lista = normLista(window.LISTA_ENVIADO);
