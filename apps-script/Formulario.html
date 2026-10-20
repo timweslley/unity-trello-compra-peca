@@ -8716,7 +8716,7 @@ document.addEventListener('input', function (e) {
         if (!k || !it.querySelector('.cot-lida')) return;   // sem cotação no card: fica como está (a regra de "sem cotação" não muda)
         var pg = pagas.filter(function (x) { var n = norm(x.nome); return n === k || n.indexOf(k + ' ') === 0; })[0];
         if (!pg) return;
-        var partes = String(pg.nome).split(/\s+-\s+/);
+        var partes = String(pg.nome).replace(/\s*·\s*(📍|✋|↩️)[^·]*/g, '').split(/\s+-\s+/);
         it.classList.add('v2c-comprada');
         var av = document.createElement('div'); av.className = 'v2c-compradaaviso';
         av.textContent = '✔ Já comprada' + (partes[1] ? ' · ' + partes[1] : '') + (partes[2] ? ' · ' + partes[2] : '') + (pg.ok ? ' · recebida' : '') + ' — não precisa cotar de novo.';
