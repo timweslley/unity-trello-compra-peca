@@ -176,3 +176,16 @@ da outra, deixar um recado aqui e no commit.
 - Correção: `vdf_salvar` com `rotina:true` pega as peças e as FO da base do robô (CILIA-HOJE/HDI-HOJE, `vdf_pecasDaBase_`,
   mesmo filtro `cl_pecasParaOrc_`), mantendo fornecedor/previsão que a Rotina leu no portal. Fora da base: só linhas com `operacao` T.
   Prévia: `GET /tarefas/rotina-base?placa=&sinistro=`. Propriedades do script: 202 KB (alerta de 16/10 era 386 KB, antes da aba ANEXOS).
+
+## 20/10/2026 20h40–21h — check no TESTE com o Fable (Weslley: "check, sugestões, aprimoramento visual, validar a última migração")
+- **Ciclo completo no TESTE pelo servidor**, card novo TST2B21 (arquivado depois como "🧪 TESTE — pode excluir"): pedido 6,9 s →
+  cotação parcial 3,2 s → cotação 4,4 s (COTAÇÃO FINALIZADA, particular) → autorização 3,9 s → ORDEM AUTORIZADA 1,7 s → compra
+  5,0 s (FALTA CHEGAR) → recebimento 3,4 s + 4,1 s (ENCERRADO) → retirada 4,2 s (ENTREGUES). Abrir card 0,35 s. Nenhum erro;
+  nenhuma volta ao Google; trava e robô não mexeram no card. Quase todo o tempo de cada gravação é a API do Trello (~0,3 s por
+  chamada, em série). Deslize: as menções @comprasunity dos comentários padrão saíram no card de teste (TESTE não silencia).
+- **Visual 2.0** (capturas no computador e em 375 px): computador ok; no celular o cabeçalho ocupa ~190 px (placa + caixa
+  "Sem foto" vazia + botões em duas linhas) e as 6 abas viram 3 linhas — sugestões anotadas no relatório (não aplicadas).
+- **Última migração (Google parado)** — o que o servidor ainda pede ao Apps Script: propriedades do robô (espelho + devolução a
+  cada gravação e a cada minuto do robô), licenças das travas (esperadas antes de responder), e-mails (MailApp), OCR do Google
+  (vdf_ocrServidor), volta do formulário ao Google quando o servidor falha, e os acionadores (só retornam). O TESTE já roda
+  100% no banco (gas_propriedade, cache em memória) — é a prova de que o caminho funciona. Plano no relatório ao Weslley.
