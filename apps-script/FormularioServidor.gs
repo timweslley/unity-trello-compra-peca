@@ -625,6 +625,24 @@ function vdf_fotoCard(token, shortLink, idAnexo) {
   var srcs = vdf_baixarFotos_([a], 1000, 'vdf_foto_');
   return { id: a.id, src: srcs[a.id] || '' };
 }
+/** Copia a foto de capa de um card (o anterior, no retorno) para outro card e põe como capa. true se copiou. */
+function vdf_copiarCapa_(origem, destino, placa, token) {
+  var board = vd_api_('/boards/' + vd_board_(), { query: { fields: 'id' } });
+  var c = vd_api_('/cards/' + origem, { query: { fields: 'idBoard,idAttachmentCover', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,url,bytes' } });
+  if (!c || c.idBoard !== board.id || !c.idAttachmentCover) return false;
+  var a = (c.attachments || []).filter(function (x) { return x.id === c.idAttachmentCover && x.isUpload && x.url; })[0];
+  if (!a || (a.bytes || 0) > 10000000) return false;
+  var r = UrlFetchApp.fetch(a.url, { method: 'get', muteHttpExceptions: true, headers: { Authorization: vd_auth_() } });
+  if (r.getResponseCode() >= 300) return false;
+  var b = r.getBlob();
+  if (!/^image\//i.test(b.getContentType() || '') && !/\.(jpe?g|png|webp|gif)$/i.test(a.name || '')) return false;
+  var nome = ax_nome_(AX.FOTO, placa, ['capa']);
+  b.setName(/\.\w{3,4}$/.test(nome) ? nome : nome + ((/\.(jpe?g|png|webp|gif)$/i.exec(a.name || '') || ['.jpg'])[0]));
+  var at = vd_api_('/cards/' + destino.id + '/attachments', { method: 'post', multipart: { file: b, name: b.getName(), setCover: 'true' } }, token);
+  if (!at || !at.id) return false;
+  try { vd_api_('/cards/' + destino.id, { method: 'put', payload: { idAttachmentCover: at.id } }, token); } catch (e) {}
+  return true;
+}
 /** Troca a capa do card por uma foto que já está nele. */
 function vdf_definirCapa(token, shortLink, idAnexo) {
   var x = vdf_fotosDoCard_(token, shortLink);
@@ -2304,6 +2322,13 @@ function vdf_salvar(token, p) {
       anexados++;
     } catch (e) {}
   });
+
+  // card novo de RETORNO (Weslley, 20/10/2026): sem foto de capa enviada, a capa do card anterior vem junto
+  if (!p.shortLink && !capaOk) {
+    var mRet = /card anterior[^\n]*?trello\.com\/c\/([A-Za-z0-9]{8})/i.exec(obs || '');
+    var origemCapa = String(p.retornoDe || (mRet && mRet[1]) || '').trim();
+    if (origemCapa) { try { capaOk = vdf_copiarCapa_(origemCapa, card, d.placa, token); } catch (e) { console.log('capa do retorno: ' + e); } }
+  }
 
   // orçamento que o formulário leu agora (original ou complementar): o robô não precisa ler de novo o PDF que subiu
   if (idsLidos.length || idsForn.length) { try { cp_marcarVistos_(idsLidos.concat(idsForn)); } catch (e) {} }
