@@ -8436,7 +8436,8 @@ document.addEventListener('input', function (e) {
     document.head.appendChild(st);
 
     // 1ª tentativa de enviar/salvar nas abas do comprador: as pendências passam a vermelho
-    document.addEventListener('click', function (e) {
+    // (na janela, antes do 2.0: com pendência o 2.0 para o clique e leva ao 1º item que falta)
+    window.addEventListener('click', function (e) {
       var b = e.target && e.target.closest && e.target.closest('#comprador button, #v2cAcoes button');
       if (!b) return;
       if (/^(Enviar|Corrija|Corrigir|Falta|Faltam|Salvar parcial)/.test(b.textContent.replace(/^[^A-Za-zÀ-ú]+/, '').trim()) && !html.classList.contains('v2r-tentou')) html.classList.add('v2r-tentou');
