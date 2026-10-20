@@ -8417,10 +8417,12 @@ document.addEventListener('input', function (e) {
     var temFO = dets.some(function (d) { return /FORNECIMENTO/i.test(texto(d)); });
     if (/^Pedido (criado|atualizado)$/.test(titulo) && temFO) {
       if (/EM COTAÇÃO/.test(lista)) prox = 'Agora o comprador cota as peças da oficina. Para as peças da seguradora, lance fornecedor e previsão no botão abaixo.';
-      else if (/FALTA CHEGAR/.test(lista)) prox = 'Lance fornecedor e previsão da peça nova da seguradora no botão abaixo e continue registrando as chegadas na aba Recebimento.';
+      else if (/FALTA CHEGAR/.test(lista)) prox = /criado/.test(titulo) ? 'Não há peça para a oficina comprar. Lance fornecedor e previsão das peças da seguradora no botão abaixo; quando chegarem, registre na aba Recebimento.' : 'Lance fornecedor e previsão da peça nova da seguradora no botão abaixo e continue registrando as chegadas na aba Recebimento.';
     }
     if (/^Compra cancelada$/.test(titulo)) prox = 'Agora o comprador registra uma compra nova da peça na aba Compra. Se o preço ou o fornecedor mudar, use "Cotação autorizada indisponível".';
-    if (/^Cotação indisponível registrada$/.test(titulo) && dets.some(function (d) { return /cotação nova foi para/i.test(texto(d)); })) titulo = 'Cotação nova enviada para autorização';
+    if (/^Cotação indisponível registrada$/.test(titulo) && dets.some(function (d) { return /cotação nova foi para/i.test(texto(d)); })) { titulo = 'Cotação nova enviada para autorização'; dets = dets.filter(function (d) { return !/^\d+ peça\S*\.?$/.test(texto(d)); }); }
+    // pedido novo: peça incluída à mão não é "orçamento complementar" (o termo é da seguradora)
+    if (/^Pedido criado$/.test(titulo)) dets = dets.map(function (d) { return /^Orçamento complementar:/.test(texto(d)) ? d.replace(/^[\s\S]*?Orçamento complementar:\s*/, 'Fora do orçamento da seguradora (incluídas à mão): ') : d; });
     if (/^Cotação indisponível registrada$/.test(titulo) && /EM COTAÇÃO/.test(lista)) prox = 'Cote a peça de novo na aba Cotação (sem cotação nova, ela voltou para cotação).';
     if (/^Compra parcial salva$/.test(titulo) && /para o card seguir/.test(prox)) prox = prox.replace(/\s*para o card seguir\.?$/, ' — o card segue para FALTA CHEGAR.');
     if (/^Cotação devolvida/i.test(titulo)) prox = 'O comprador revisa a cotação conforme a sua observação e envia de novo.';
@@ -8497,6 +8499,27 @@ document.addEventListener('input', function (e) {
       return r;
     };
   }
+
+  /* ---------- 19/10/2026 (avaliação do fluxo completo): orçamento de OUTRA placa não vai para o card sem confirmação ---------- */
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#btnEnviar, #btnParcial');
+    if (!b || window.V2R_PLACA_OK) return;
+    var avisos = Array.prototype.filter.call(document.querySelectorAll('#form .dica, #form .aviso'), function (x) { return x.offsetParent !== null && /O documento não mostra a placa/.test(x.textContent); });
+    if (!avisos.length) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    var m = avisos[avisos.length - 1].textContent.match(/achei: ([^)]+)\)/), achou = m ? m[1] : 'outra placa';
+    var box = g('v2rPlaca');
+    if (!box) {
+      box = document.createElement('div'); box.id = 'v2rPlaca'; box.setAttribute('role', 'alertdialog'); box.setAttribute('aria-labelledby', 'v2rPlacaT');
+      box.style.cssText = 'margin:10px 0;padding:12px 14px;border-radius:8px;background:#fff7d6;color:#533f04;font-size:14px;line-height:20px;text-align:left';
+      b.parentNode.insertBefore(box, b.nextSibling);
+    }
+    box.innerHTML = '<b id="v2rPlacaT">O orçamento anexado é da placa ' + esc(achou) + '.</b> Ele é mesmo deste carro? As peças dele vão para este card.'
+      + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" class="v2r-bt s" data-r="sim">Sim, é deste carro</button><button type="button" class="v2r-bt p" data-r="nao">Trocar o arquivo</button></div>';
+    box.querySelector('[data-r=sim]').onclick = function () { window.V2R_PLACA_OK = true; box.remove(); b.click(); };
+    box.querySelector('[data-r=nao]').onclick = function () { box.remove(); var a = document.querySelector('#form #arquivo'); var lb = a && (a.closest('label') || a); try { (avisos[0].closest('section') || avisos[0]).scrollIntoView({ block: 'center' }); } catch (x) {} };
+    try { box.querySelector('[data-r=nao]').focus(); } catch (x) {}
+  }, true);
 
   /* ---------- carregando / erro ao abrir / login ---------- */
   function telaCarregando() {
