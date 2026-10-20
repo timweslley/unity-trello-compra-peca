@@ -9012,7 +9012,7 @@ function vd_prop_(k, padrao) {
 function vd_board_() { return VD_BOARD_FORCA || vd_prop_('VD_BOARD', VD.BOARD_PADRAO); }
 
 // Validacao.gs:62
-function vd_ajustes1910_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('VD_AJUSTES_1910', 'NAO') === 'SIM'; } catch (e) { return false; } }
+function vd_ajustes1910_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('VD_AJUSTES_1910', 'SIM') === 'SIM'; } catch (e) { return false; } }
 
 // Validacao.gs:63
 function vd_v2_() { try { return vd_board_() === VD.BOARD_PADRAO || (VD_V2_PRINCIPAL && vd_prop_('VD_V2', 'SIM') !== 'NAO'); } catch (e) { return false; } }

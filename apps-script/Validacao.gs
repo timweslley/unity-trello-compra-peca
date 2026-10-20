@@ -58,8 +58,8 @@ function vd_board_() { return VD_BOARD_FORCA || vd_prop_('VD_BOARD', VD.BOARD_PA
 var VD_V2_PRINCIPAL = true;
 /** 19/10/2026 (revisão completa do fluxo, Weslley: "fazer antes"): ajustes de dados da revisão — aviso de compra antecipada some quando a
  *  compra é cancelada/devolvida; cotação nova idêntica a uma que já está no card não duplica. Sempre no TESTE; no principal só com
- *  VD_AJUSTES_1910=SIM (depois do OK do Weslley). */
-function vd_ajustes1910_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('VD_AJUSTES_1910', 'NAO') === 'SIM'; } catch (e) { return false; } }
+ *  VD_AJUSTES_1910=SIM (depois do OK do Weslley). 20/10/2026 00h10: ligado no principal (Weslley); voltar: propriedade VD_AJUSTES_1910=NAO. */
+function vd_ajustes1910_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('VD_AJUSTES_1910', 'SIM') === 'SIM'; } catch (e) { return false; } }
 function vd_v2_() { try { return vd_board_() === VD.BOARD_PADRAO || (VD_V2_PRINCIPAL && vd_prop_('VD_V2', 'SIM') !== 'NAO'); } catch (e) { return false; } }
 function vd_modo_() { return vd_prop_('VD_MODO', 'ATIVO'); }
 function vd_ligado_() { return vd_prop_('VD_LIGADO', 'SIM') !== 'NAO'; }

@@ -8656,30 +8656,12 @@ document.addEventListener('input', function (e) {
       it.parentNode.insertBefore(n, it);
     }
 
-    // tipo da peça que o orçamento já diz (Websoma: "No orçamento: GENUÍNA"): já vem marcado; dá para trocar
-    var TIPO_DICA = function (t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5); };
-    function tipoDoOrc() {
-      $$('#itens > .item, #itensPart > .item').forEach(function (it) {
-        if (it.dataset.v2rTipo) return;
-        var d = $$('.dica', it).filter(function (x) { return /^No orçamento:/.test(x.textContent.trim()); })[0];
-        if (!d) return;
-        it.dataset.v2rTipo = '1';
-        var cx = $$('.f-tipo', it); if (!cx.length || cx.some(function (c) { return c.checked; })) return;
-        var alvo = TIPO_DICA((d.querySelector('b') || d).textContent);
-        var c = cx.filter(function (c) { return TIPO_DICA(c.value) === alvo; })[0];
-        if (!c) return;
-        c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true }));
-        d.innerHTML = 'Orçamento: <b>' + esc((d.querySelector('b') || d).textContent) + '</b>';   // o aviso do topo já explica; aqui fica só a referência
-      });
-    }
+    // 20/10/2026 (Weslley): tipo da peça NÃO é preenchido sozinho pelo orçamento — o consultor marca (a dica "No orçamento: …" continua)
 
     // texto dos obrigatórios com orçamento anexado (a regra real do envio: placa, carro, unidade, nº da ordem, cor e seguradora)
     function textoOrc() {
       var a = g('avisoOrc'); if (!a) return;
       var h = a.innerHTML, novo = h.replace('Com orçamento, dos dados do carro só são obrigatórios placa e carro.', 'Com orçamento, para enviar bastam placa, carro, unidade, nº da ordem, cor e seguradora — modelo, ano e chassi podem ficar para depois.');
-      // tipo já marcado pelo orçamento em todas as peças: não pede para "marcar"
-      var semTipo = $$('#itens > .item').some(function (it) { var cx = $$('.f-tipo', it); return cx.length && !cx.some(function (c) { return c.checked; }); });
-      if (!semTipo) novo = novo.replace(/ — confira e <b>marque o tipo de cada uma<\/b>\./, ' — o tipo de cada uma já veio marcado pelo orçamento; confira e troque se precisar.');
       if (novo !== h) a.innerHTML = novo;
     }
 
@@ -8757,7 +8739,7 @@ document.addEventListener('input', function (e) {
     function placeholderAut() { var ag = g('autGeral'); if (ag && !ag.dataset.v2r) { ag.dataset.v2r = '1'; ag.placeholder = 'Ex.: comprar hoje; pedir nota no CNPJ de Toledo. Para devolver para cotação, escreva aqui o motivo e use o botão Devolver para cotação.'; } }
 
     var t0 = 0;
-    function passada() { clearTimeout(t0); t0 = setTimeout(function () { try { notaAut(); tipoDoOrc(); textoOrc(); complAut(); naoCotadaCompra(); devolvidaCompra(); fecharAlteracao(); placaUmaVez(); placaAberta(); marcarEspera(); placeholderAut(); } catch (x) { console.log('v2r-aj', x && x.message); } }, 60); }
+    function passada() { clearTimeout(t0); t0 = setTimeout(function () { try { notaAut(); textoOrc(); complAut(); naoCotadaCompra(); devolvidaCompra(); fecharAlteracao(); placaUmaVez(); placaAberta(); marcarEspera(); placeholderAut(); } catch (x) { console.log('v2r-aj', x && x.message); } }, 60); }
     new MutationObserver(passada).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     passada();
   })();

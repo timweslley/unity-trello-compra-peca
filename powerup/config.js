@@ -33,10 +33,12 @@ window.PU_CFG = {
   GRAVACAO_SERVIDOR: 'todos',   // 17/10 08h35 — RELIGADO (Weslley: "fazer já") com as licenças das travas indo ao Apps Script (3bafc2b)
   /* 19/10/2026: botões "📋 Copiar lista para WhatsApp" (Cotação) e "Pedidos por fornecedor" (Compra) — só leitura.
    * 'teste' = só no quadro TESTE; 'todos' = liga no principal (com OK do Weslley); qualquer outro valor desliga. */
-  COPIAR_WHATS: 'teste',
+  COPIAR_WHATS: 'todos',   // 20/10/2026 00h10 — Weslley: "colocar no principal" (voltar: 'teste')
   /* 19/10/2026: telas que faltavam no padrão 2.0 — resultado do envio, carregando, erro ao abrir e login.
    * 'teste' = só no quadro TESTE; 'todos' = liga no principal (com OK do Weslley); qualquer outro valor desliga. */
-  TELAS_FINAIS: 'teste',
+  TELAS_FINAIS: 'todos',   // 20/10/2026 00h10 — Weslley: "colocar no principal" (voltar: 'teste')
+  /* 20/10/2026: visual 2.0 da seção e da janela do Power-Up: 'todos' liga no principal (sem a chave: só no TESTE). */
+  SECAO_V2: 'todos',
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
