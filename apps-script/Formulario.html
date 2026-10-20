@@ -8488,8 +8488,21 @@ document.addEventListener('input', function (e) {
       });
     }
 
+    // aba Compra: peça que o comprador marcou "não vou cotar" não é "sem cotação — lance na aba Cotação" (não entra na compra)
+    function naoCotadaCompra() {
+      var sc = ((window.CARD || {}).cotacoes || {}).semCot || []; if (!sc.length) return;
+      $$('#compraItens > .item').forEach(function (it) {
+        var s1 = sc.filter(function (x) { return x.chave === it.dataset.chave; }).pop(); if (!s1) return;
+        $$('.dica.ruim', it).forEach(function (d) {
+          if (d.dataset.v2rNc || !/Sem cotação/.test(d.textContent + ' ' + (d.title || ''))) return;
+          d.dataset.v2rNc = '1'; d.classList.remove('ruim'); d.title = '';
+          d.textContent = 'Não cotada: ' + s1.texto + ' — não entra na compra.';
+        });
+      });
+    }
+
     var t0 = 0;
-    function passada() { clearTimeout(t0); t0 = setTimeout(function () { try { notaAut(); tipoDoOrc(); textoOrc(); complAut(); marcarEspera(); } catch (x) { console.log('v2r-aj', x && x.message); } }, 60); }
+    function passada() { clearTimeout(t0); t0 = setTimeout(function () { try { notaAut(); tipoDoOrc(); textoOrc(); complAut(); naoCotadaCompra(); marcarEspera(); } catch (x) { console.log('v2r-aj', x && x.message); } }, 60); }
     new MutationObserver(passada).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     passada();
   })();
