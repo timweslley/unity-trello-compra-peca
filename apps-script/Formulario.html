@@ -8241,6 +8241,7 @@ document.addEventListener('input', function (e) {
     }
     if (!lista && /^Pedido criado$/.test(titulo)) lista = 'EM COTAÇÃO';
     if (!lista && /^(Fornecimento atualizado|Previsão alterada|Aviso enviado|Peças marcadas|Cotação registrada|Retirada registrada)$/.test(titulo) && window.CARD && window.CARD.lista) lista = normLista(window.CARD.lista);   // ações que não mudam o card de coluna
+    if (/^Devolução registrada$/.test(titulo)) dets = dets.map(function (d) { return d.replace(/^(\d+) devolução\(ões\)\.?$/, '$1 peça(s) devolvida(s) ao fornecedor.'); });
     if (/^Retirada registrada$/.test(titulo)) dets = dets.map(function (d) { return /^\d+ peça\S*\.$/.test(texto(d)) ? d.replace(/\.$/, ' retirada(s).') : d; });
     if (/^Fornecimento atualizado$/.test(titulo)) { dets = dets.map(function (d) { return /^\d+ peça/.test(texto(d)) ? 'Fornecedor e previsão lançados em ' + d.replace(/\.$/, '') + ' da seguradora.' : d; }); }   // card novo sem falta: o formulário cria em EM COTAÇÃO (com falta, a linha "fica em FALTA DADOS" já veio)
     // GPT (19/10): "Compra autorizada" com peça ainda por autorizar soava como tudo pronto
@@ -8435,7 +8436,7 @@ document.addEventListener('input', function (e) {
       var ehCanc = ab.classList.contains('cancel');
       var n = g('v2rEspera');
       if (!n) { n = document.createElement('div'); n.id = 'v2rEspera'; n.className = 'v2r-nota'; n.setAttribute('role', 'alert'); b.parentNode.insertBefore(n, b); }
-      n.innerHTML = '<b>Termine a alteração aberta antes.</b> ' + (ehCanc ? 'Confirme o cancelamento ou clique de novo em "Cancelar compra" para fechar.' : 'Salve a previsão nova ou clique de novo em "' + (ab.querySelector('.p-dias') ? 'Alterar prazo autorizado' : 'Alterar previsão') + '" para fechar.') + ' Depois envie a compra.'
+      n.innerHTML = '<b>Termine a alteração aberta antes.</b> ' + (ehCanc ? 'Confirme o cancelamento ou clique de novo em "Cancelar compra" para fechar.' : (ab.querySelector('.p-dias') ? 'Salve o novo prazo ou clique de novo em "Alterar prazo autorizado" para fechar.' : 'Salve a previsão nova ou clique de novo em "Alterar previsão" para fechar.')) + ' Depois envie a compra.'
         + '<div><button type="button" class="v2r-bt s">Ir até a alteração</button></div>';
       n.querySelector('button').onclick = function () { try { ab.scrollIntoView({ block: 'center' }); (ab.querySelector('input') || ab).focus(); } catch (x) {} };
     }, true);
