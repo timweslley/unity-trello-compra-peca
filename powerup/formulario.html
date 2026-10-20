@@ -2822,7 +2822,7 @@ function enviarPayload(payload) {
     guardar('vd_card_pend', null);
     $('msgSucesso').innerHTML = (r.novo ? '✅ Card criado: ' : '✅ Card atualizado: ') + '<b>' + esc(r.nome) + '</b>'
       + (/EM COTA/.test(r.acao || '') && /volta/.test(r.acao || '') ? '<br>O card voltou para EM COTAÇÃO.' : '')
-      + (/FALTA/.test(r.acao || '') || (payload.parcial && !(document.documentElement.classList.contains('v2') && !r.novo && window.CARD && /COTA|AUTORIZ|COMPRA|ENTREG|RECEB|FINALIZ|PENDENTE|ENCERR/i.test(CARD.lista || ''))) ? '<br>⚠️ O card fica em FALTA DADOS até completar — o robô comenta o que falta.' : '')
+      + (/FALTA DADOS/.test(r.acao || '') || (payload.parcial && !(document.documentElement.classList.contains('v2') && !r.novo && window.CARD && /COTA|AUTORIZ|COMPRA|ENTREG|RECEB|FINALIZ|PENDENTE|ENCERR/i.test(CARD.lista || ''))) ? '<br>⚠️ O card fica em FALTA DADOS até completar — o robô comenta o que falta.' : '')
       + (r.fo ? '<br>Checklist FORNECIMENTO: ' + r.fo + ' peça(s) incluída(s).' : '')
       + (r.comp ? '<br>➕ Orçamento complementar: ' + r.comp + ' peça(s) nova(s) da oficina na lista.' : '')
       + (r.foComp ? '<br>Checklist FORNECIMENTO COMPLEMENTO: ' + r.foComp + ' peça(s) incluída(s).' : '')
@@ -7533,7 +7533,8 @@ iniciar();
   }, true);
 
   /* ---------- alterações não salvas (como no pedido) ---------- */
-  var COMP_BASE = null, COMP_ULT, COMP_PEND = 1;
+  var COMP_BASE = null, COMP_ULT, COMP_PEND = 1, COMP_T0 = 0, COMP_MEXEU = false;
+  ['input', 'change', 'click'].forEach(function (ev) { document.addEventListener(ev, function (e) { if (e.isTrusted && e.target && e.target.closest && e.target.closest('#comprador')) COMP_MEXEU = true; }, true); });
   function assinaturaComp() {
     var v = [];
     // #recRevertidas chega depois (consulta à parte): fica fora da conta para não acusar alteração sem ninguém mexer
@@ -7544,8 +7545,9 @@ iniciar();
   }
   function compSujo() { return compPC() && COMP_BASE !== null && assinaturaComp() !== COMP_BASE; }
   function estadoComp() {
-    if (window.CARD !== COMP_ULT) { COMP_ULT = window.CARD; COMP_PEND = 1; COMP_BASE = null; }
+    if (window.CARD !== COMP_ULT) { COMP_ULT = window.CARD; COMP_PEND = 1; COMP_BASE = null; COMP_T0 = Date.now(); }
     if (COMP_PEND > 0) { COMP_PEND--; if (!COMP_PEND) COMP_BASE = assinaturaComp(); }
+    else if (COMP_BASE !== null && Date.now() - COMP_T0 < 2500 && !COMP_MEXEU) COMP_BASE = assinaturaComp();   // 19/10/2026: campos que a tela preenche sozinha logo depois de abrir
     var el = g('v2cEstado'); if (!el) return;
     var envi = $$('#comprador .carregando').some(function (x) { return !x.classList.contains('oculto') && /Enviando/.test(x.textContent); });
     var erro = g('erroComprador') && !g('erroComprador').classList.contains('oculto');
@@ -8275,6 +8277,7 @@ document.addEventListener('input', function (e) {
     '.v2r.v2r-res #v2toast{display:none !important}',
     '.v2r.v2r-res #btnFechar{display:none !important}',
     '.v2r.v2r-res #v2fotos{display:none !important}',
+    '.v2r #btnOrdemAut{margin:4px 0 !important}',
     /* carregando / erro / login */
     '.v2r #telaCarregando.v2r-on, .v2r #telaLogin.v2r-on{padding:0 !important;background:transparent !important}',
     '.v2r .v2r-cx.v2r-centro{text-align:center;max-width:460px;margin-top:40px}',
@@ -8334,12 +8337,13 @@ document.addEventListener('input', function (e) {
 
   /* "3 peça(s)" → "3 peças", "1 cotação(ões)" → "1 cotação", "2 item(ns)" → "2 itens" (o número mais perto, antes da palavra) */
   function plural(h) {
-    return String(h).replace(/([A-Za-zÀ-ú]+)\((s|es|ões|ns)\)/g, function (tudo, p, suf, pos, str) {
+    return String(h).replace(/([A-Za-zÀ-ú]+)\((s|es|ões|ns|is)\)/g, function (tudo, p, suf, pos, str) {
       var antes = str.slice(0, pos).replace(/<[^>]+>/g, ''), m = antes.match(/(\d+)(?:[^\d]{0,40})$/);
       var n = m ? parseInt(m[1], 10) : 2;
       if (n === 1) return p;
       if (suf === 'ões') return p.replace(/ão$/, 'ões');
       if (suf === 'ns') return p.replace(/m$/, 'ns');
+      if (suf === 'is') return p.replace(/l$/, 'is');
       return p + suf;
     });
   }
@@ -8386,7 +8390,9 @@ document.addEventListener('input', function (e) {
       else dets.push(hs);
     });
     if (!lista && window.LISTA_ENVIADO) lista = normLista(window.LISTA_ENVIADO);
-    if (!lista && /^Pedido criado$/.test(titulo)) lista = 'EM COTAÇÃO';   // card novo sem falta: o formulário cria em EM COTAÇÃO (com falta, a linha "fica em FALTA DADOS" já veio)
+    if (!lista && /^Pedido criado$/.test(titulo)) lista = 'EM COTAÇÃO';
+    if (!lista && /^(Fornecimento atualizado|Previsão alterada|Aviso enviado|Peças marcadas|Cotação registrada|Retirada registrada)$/.test(titulo) && window.CARD && window.CARD.lista) lista = normLista(window.CARD.lista);   // ações que não mudam o card de coluna
+    if (/^Fornecimento atualizado$/.test(titulo)) { dets = dets.map(function (d) { return /^\d+ peça/.test(texto(d)) ? 'Fornecedor e previsão lançados em ' + d.replace(/\.$/, '') + ' da seguradora.' : d; }); }   // card novo sem falta: o formulário cria em EM COTAÇÃO (com falta, a linha "fica em FALTA DADOS" já veio)
     // GPT (19/10): "Compra autorizada" com peça ainda por autorizar soava como tudo pronto
     if (/^Compra autorizada$/i.test(titulo) && avisos.some(function (a) { return /Ainda falta autorizar/i.test(texto(a)); })) titulo = 'Compra autorizada em parte';
     var prox = PROX[lista] || '';
@@ -8430,6 +8436,31 @@ document.addEventListener('input', function (e) {
   var agendado = 0;
   function agendar() { clearTimeout(agendado); agendado = setTimeout(function () { try { montarResultado(); } catch (e) { console.log('v2r', e && e.message); } }, 40); }
   var msgS = g('msgSucesso'); if (msgS) new MutationObserver(agendar).observe(msgS, { childList: true, subtree: true, characterData: true });
+
+  /* ---------- 19/10/2026 (teste real ZZT9C01): "Marcar ORDEM AUTORIZADA" recarrega a aba Compra e apagava o que já tinha sido
+   * escolhido (situação do complementar, quem liberou, fornecedor). Guarda os campos da compra e devolve depois de recarregar. ---------- */
+  if (typeof window.marcarOrdemAut === 'function') {
+    var ordemOrig = window.marcarOrdemAut;
+    window.marcarOrdemAut = function () {
+      var raiz = g('comprador'), guard = [];
+      if (raiz) Array.prototype.forEach.call(raiz.querySelectorAll('#compraItens input, #compraItens select, #compraItens textarea'), function (e, i) {
+        if (e.type === 'file') return;
+        guard.push({ i: i, t: e.type, v: e.value, c: e.checked, n: e.name || '' });
+      });
+      var r = ordemOrig.apply(this, arguments), t0 = Date.now();
+      (function devolver() {
+        var b = g('btnOrdemAut'), itens = raiz && raiz.querySelectorAll('#compraItens input, #compraItens select, #compraItens textarea');
+        if (b && Date.now() - t0 < 20000) return setTimeout(devolver, 300);   // ainda não recarregou
+        if (!itens || !itens.length) return;
+        guard.forEach(function (x) {
+          var e = itens[x.i]; if (!e || e.type !== x.t || (e.name || '') !== x.n) return;
+          if (x.t === 'radio' || x.t === 'checkbox') { if (e.checked !== x.c) { e.checked = x.c; e.dispatchEvent(new Event('change', { bubbles: true })); } }
+          else if (x.v && e.value !== x.v) { e.value = x.v; e.dispatchEvent(new Event('input', { bubbles: true })); e.dispatchEvent(new Event('change', { bubbles: true })); }
+        });
+      })();
+      return r;
+    };
+  }
 
   /* ---------- carregando / erro ao abrir / login ---------- */
   function telaCarregando() {
