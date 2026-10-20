@@ -263,6 +263,27 @@ function vdf_renomearPagas(token, p) {
   return { ok: true, n: feitos.length, url: card.shortUrl };
 }
 
+/** 20/10/2026 (Weslley, RHM2H41): orçamento só de mão de obra — card sem peça nenhuma vai para ENCERRADO pela escrita
+ *  oficial (a trava não devolve). Só a diretoria; recusa se o card tem peça no pedido ou item de checklist pendente.
+ *  p = {shortLink, motivo} */
+function vdf_encerrarSemPecas(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria encerra card sem peças — sua conta: ' + me.username + '.'] };
+  var ctx = vd_contexto_();
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,idBoard,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  var an = vd_analisar_(card.desc, card.name), pend = vdf_itensRecebimento_(card).filter(function (i) { return !i.ok; });
+  if ((an.pecas || []).length) return { ok: false, faltas: ['O card tem ' + an.pecas.length + ' peça(s) no pedido — use o fluxo normal (ou marque 🚫 Não comprar).'] };
+  if (pend.length) return { ok: false, faltas: ['O card tem ' + pend.length + ' item(ns) de checklist ainda não recebido(s).'] };
+  var motivo = String(p.motivo || '').replace(/\s*\n\s*/g, ' ').trim().slice(0, 300);
+  if (!motivo) return { ok: false, faltas: ['Escreva o motivo — vai para o card.'] };
+  var mv = vdf_moverPara_(card, ctx, RC.LISTA_FIM, token, me.username);
+  try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🔒 **Encerrado sem peças** — ' + me.fullName + (mv ? ' → **' + mv + '**' : '') + '\n📝 ' + motivo } }, token); } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, lista: mv || vdf_nomeLista_(ctx, card.idList) };
+}
+
 /** Itens recebíveis do card: [{id, nome, ok, due, lista: PAGAS|FORNECIMENTO}] */
 function vdf_itensRecebimento_(c) {
   var out = [];
