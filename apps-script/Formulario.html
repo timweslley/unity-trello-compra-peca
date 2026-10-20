@@ -8197,6 +8197,8 @@ document.addEventListener('input', function (e) {
     if (m) { titulo = texto(m[1]); card = texto(m[2]); det1 = m[3].replace(/^[:.,]\s*/, '').replace(/^\(([\s\S]*)\)\.?$/, '$1').trim(); }
     else { var p2 = primH.split(/:\s+/); titulo = texto(p2.shift()); det1 = p2.join(': '); }
     titulo = titulo.replace(/[.:]\s*$/, '');
+    var mq = titulo.match(/^(.*?)\s*\((\d+ [^)]+)\)$/);   // "Cotação indisponível registrada (1 peça(s))": a contagem vai para os detalhes
+    if (mq) { titulo = mq[1]; if (!det1) det1 = mq[2] + '.'; }
     if (/^Card criado$/i.test(titulo)) titulo = 'Pedido criado'; else if (/^Card atualizado$/i.test(titulo)) titulo = 'Pedido atualizado';
     else if (/^Registrado$/i.test(titulo)) titulo = /recebida/i.test(texto(det1)) ? 'Recebimento registrado' : /devolvida|recusada/i.test(texto(det1)) ? 'Devolução registrada' : 'Registrado';
     var tom = /❌/.test(emo) ? 'neutro' : /⚠/.test(emo) ? 'alerta' : /↩/.test(emo) ? 'info' : /💾/.test(emo) ? 'info' : /^Nada para gravar/i.test(titulo) ? 'neutro' : 'ok';
@@ -8237,6 +8239,7 @@ document.addEventListener('input', function (e) {
     }
     if (!lista && /^Pedido criado$/.test(titulo)) lista = 'EM COTAÇÃO';
     if (!lista && /^(Fornecimento atualizado|Previsão alterada|Aviso enviado|Peças marcadas|Cotação registrada|Retirada registrada)$/.test(titulo) && window.CARD && window.CARD.lista) lista = normLista(window.CARD.lista);   // ações que não mudam o card de coluna
+    if (/^Retirada registrada$/.test(titulo)) dets = dets.map(function (d) { return /^\d+ peça\S*\.$/.test(texto(d)) ? d.replace(/\.$/, ' retirada(s).') : d; });
     if (/^Fornecimento atualizado$/.test(titulo)) { dets = dets.map(function (d) { return /^\d+ peça/.test(texto(d)) ? 'Fornecedor e previsão lançados em ' + d.replace(/\.$/, '') + ' da seguradora.' : d; }); }   // card novo sem falta: o formulário cria em EM COTAÇÃO (com falta, a linha "fica em FALTA DADOS" já veio)
     // GPT (19/10): "Compra autorizada" com peça ainda por autorizar soava como tudo pronto
     if (/^Compra autorizada$/i.test(titulo) && avisos.some(function (a) { return /Ainda falta autorizar/i.test(texto(a)); })) titulo = 'Compra autorizada em parte';
@@ -8261,6 +8264,8 @@ document.addEventListener('input', function (e) {
     if (lc && !lc.classList.contains('oculto') && lc.getAttribute('href') && lc.getAttribute('href') !== '#') acoes.push('<a class="v2r-bt p" data-r="card" href="' + esc(lc.href) + '" target="_blank" rel="noopener" aria-label="Abrir o card no Trello (abre em nova aba)">' + ico('ext') + 'Abrir o card no Trello</a>');
     if (ln && !ln.classList.contains('oculto')) acoes.push('<a class="v2r-bt ' + (acoes.length ? 's' : 'p') + '" data-r="novo" href="' + esc(ln.getAttribute('href') || '#') + '">' + esc(/^(Voltar ao card|Lançar mais \/ comprar)$/.test(ln.textContent.trim()) ? 'Voltar ao formulário' : (ln.textContent.trim() || 'Fechar')) + '</a>');
     var forn = g('v2fornAgora');
+    // pedido novo sem nenhuma peça da seguradora (ex.: Websoma só com peças da oficina): o convite do fornecimento não se aplica
+    if (forn && /^Pedido criado$/.test(titulo) && !dets.some(function (d) { return /FORNECIMENTO/i.test(texto(d)); })) forn = null;
     if (forn && /não precisa fazer mais nada/.test(prox)) prox = prox.replace(/\s*Você não precisa fazer mais nada\.?/, '');   // a caixa do fornecimento logo abaixo fala do resto
     // topo: salvamento parcial não é "Enviado"
     window.V2R_ETAPA = /parcial/i.test(titulo) ? 'Salvo (parcial)' : '';
