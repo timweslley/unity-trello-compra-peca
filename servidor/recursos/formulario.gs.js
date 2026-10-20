@@ -7449,6 +7449,16 @@ function pv_lerRelatorioPecasCilia_(texto, lista) {
   var ehCodigo = function (t) { return /^[A-Z0-9]{6,20}$/.test(t) && (t.match(/\d/g) || []).length >= 4 && !/^\d{11,}$/.test(t); };
   var iPar = linhas.length;
   for (var z = 0; z < linhas.length; z++) if (/^ULTIMOS PARECERES/.test(linhas[z])) { iPar = z; break; }
+  // códigos citados nos pareceres ("670030D450 PORTA TRASEIRA DIR"): separam o código grudado no título no OCR do Google
+  // ("759210D220FAIXA SUP DA")
+  var codPar = [];
+  for (var y = iPar + 1; y < linhas.length; y++) { var t0 = linhas[y].split(' ')[0]; if (ehCodigo(t0) && codPar.indexOf(t0) < 0) codPar.push(t0); }
+  var separa = function (t) {
+    var p = codPar.filter(function (c) { return t !== c && t.indexOf(c) === 0 && /^[A-Z]{3,}$/.test(t.slice(c.length)); }).sort(function (a, b) { return b.length - a.length; })[0];
+    if (p) return p;
+    var m = t.match(/^([A-Z0-9]*\d)([A-Z]{4,})$/);
+    return m && m[1].length >= 6 && (m[1].match(/\d/g) || []).length >= 4 ? m[1] : t;
+  };
   var med = '', forn = '', pecas = [], dentro = false;
   for (var i = 0; i < iPar; i++) {
     var l = linhas[i], mm = l.match(/^FORNECIMENTO\s*\((.*?)\s*(?:-\s*\d{14})?\s*\)/);
@@ -7458,7 +7468,9 @@ function pv_lerRelatorioPecasCilia_(texto, lista) {
     var mf = l.match(/^([A-Z][A-Z0-9 .&\/\-]{2,80}?)\s*-\s*\d{14}$/);
     if (mf) { forn = mf[1].trim(); continue; }
     l.split(' ').forEach(function (t) {
-      if (!ehCodigo(t) || pecas.some(function (p) { return p.codigo === t; })) return;
+      if (!ehCodigo(t)) return;
+      t = separa(t);
+      if (pecas.some(function (p) { return p.codigo === t; })) return;
       pecas.push({ codigo: t, i: i, med: med, forn: forn });
     });
   }
@@ -7501,7 +7513,7 @@ function pv_lerRelatorioPecasCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:570
+// Previsao.gs:582
 function pv_lerPareceresCilia_(texto) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   var reCab = /FLUXO:\s*\d+\s*\|.*?DATA DE CRIACAO:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/g;
@@ -7557,7 +7569,7 @@ function pv_lerPareceresCilia_(texto) {
   return out;
 }
 
-// Previsao.gs:626
+// Previsao.gs:638
 function pv_ultimaAtualizacaoCilia_(texto) {
   var m = vd_semAcento_(String(texto || '')).match(/ULTIMA ATUALIZACAO\s*\(?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/);
   if (!m) return null;
@@ -7566,7 +7578,7 @@ function pv_ultimaAtualizacaoCilia_(texto) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Previsao.gs:638
+// Previsao.gs:650
 function pv_aplicarPareceres_(achados, texto, alvos) {
   var pareceres = pv_lerPareceresCilia_(texto);
   if (!pareceres.length) return 0;
@@ -7609,7 +7621,7 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
   return n;
 }
 
-// Previsao.gs:692
+// Previsao.gs:704
 function pv_soFornecedor_(u, lista) {
   u = vd_semAcento_(String(u || '')).toUpperCase().replace(/\s+/g, ' ').trim();
   if (!u) return false;
@@ -7617,7 +7629,7 @@ function pv_soFornecedor_(u, lista) {
   return false;
 }
 
-// Previsao.gs:699
+// Previsao.gs:711
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
@@ -7707,7 +7719,7 @@ function pv_lerHdiPecas_(texto, lista) {
   return pecas.length ? pecas : null;
 }
 
-// Previsao.gs:788
+// Previsao.gs:800
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
@@ -7800,7 +7812,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:881
+// Previsao.gs:893
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
@@ -7811,7 +7823,7 @@ function pv_enriquecerFo_(texto, fo) {
   return n;
 }
 
-// Previsao.gs:895
+// Previsao.gs:907
 function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   var me = vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state,due' } });
@@ -7825,7 +7837,7 @@ function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   return out;
 }
 
-// Previsao.gs:910
+// Previsao.gs:922
 function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
@@ -7849,7 +7861,7 @@ function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   return out;
 }
 
-// Previsao.gs:934
+// Previsao.gs:946
 function pv_docFornecimento_(texto) {
   var nt = vd_normTexto_(texto);
   if (/STATUS DO PEDIDO|PREVISAO DE ENTREGA|STATUS DAS PECAS/.test(nt) || pv_ehRelatorioPecasCilia_(texto)) return 'Status do Pedido Cilia';
@@ -7857,7 +7869,7 @@ function pv_docFornecimento_(texto) {
   return '';
 }
 
-// Previsao.gs:942
+// Previsao.gs:954
 function pv_lerFornecimentoTexto_(card, texto) {
   var itensFo = [];
   (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(i); }); });
@@ -7896,6 +7908,11 @@ function pv_lerFornecimentoTexto_(card, texto) {
       if (/REFATURA|\bVALOR\b|DIFERENCA|\bTAXA\b|MAO DE OBRA/.test(dU) || vd_ehServico_(dU) || pv_soFornecedor_(dU, foLista)) return;
       if (!descsCard.some(function (d) { return cp_similar_(d, p.descricao) > 0; })) extras.push(p.descricao + (p.fornecedor ? ' (' + p.fornecedor + ')' : ''));
     });
+  } else if (pv_ehRelatorioPecasCilia_(texto)) {
+    // relatório de peças novo do Cilia: peças a mais = códigos da tabela que o card não tem (20/10/2026, TAX1A70 — antes
+    // o nº do orçamento "160115.1" aparecia como peça a mais)
+    var relX = {}; try { relX = pv_lerRelatorioPecasCilia_(texto, foLista) || {}; } catch (e) {}
+    Object.keys(relX).forEach(function (k) { if (!ja(k)) extras.push((relX[k].codigo + ' ' + relX[k].descricao).trim()); });
   } else {
     String(texto).split('\n').forEach(function (l) {
       if (!pv_datas_(l).length) return;

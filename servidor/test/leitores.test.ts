@@ -173,4 +173,19 @@ Fluxo: 1 | Criado por: Webservice • X | Data de criação: 05/10/2026 - 03:00:
     expect(r[0].previsao.slice(0, 10)).toBe('2026-10-07');
     expect(r[0].entregue).toBe(true);
   });
+  it('OCR do Google: código grudado no título é separado pelo código do parecer', () => {
+    const t = `FORNECIMENTO (MEDIADORA X - 11111111000111)
+CASA TESTE VEICULOS LTDA - 22222222000122
+STATUS TIPO CÓDIGO TÍTULO FRETE QTDPREÇO NO PEDIDO
+GENUÍNA 123450A100PECA TESTE UM
+DATA/HORA ENTREGA
+DATA/HORA ATUALIZAÇÃO
+TOTAIS: 1
+ÚLTIMOS PARECERES
+Fluxo: 1 | Criado por: Webservice • X | Data de criação: 05/10/2026 - 03:00:00
+123450A100 PECA TESTE UM - Previsão de entrega: 07/10/2026`;
+    const r = R.pv_lerFornecimento_(t, [{ id: 1, nome: '123450 A100 PECA TESTE UM', codigo: '123450', descricao: 'A100 PECA TESTE UM' }], []);
+    expect(r[0].fornecedor).toBe('CASA TESTE VEICULOS LTDA');
+    expect(r[0].previsao.slice(0, 10)).toBe('2026-10-07');
+  });
 });
