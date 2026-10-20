@@ -8418,6 +8418,8 @@ document.addEventListener('input', function (e) {
       // alteração aberta (previsão/cancelamento): o Enviar compra espera
       'html.v2r #btnCompra.v2r-espera,html.v2r #btnCompraParcial.v2r-espera,html.v2r #btnEnviar.v2r-espera,html.v2r #btnParcial.v2r-espera{opacity:.55}',
       'html.v2r #usuario, html.v2r #usuario a{color:#44546f !important}',
+      '.v2r-dup{display:none !important}',
+      'html.v2r #compraItens .v2r-devnota{background:#fff7d6 !important;border-color:#f5cd47 !important;color:#533f04 !important}',
       // lista do que falta na lateral (pedido e abas do comprador) também em âmbar até a 1ª tentativa
       'html.v2r:not(.v2-tentou):not(.v2r-tentou) ul.fl a, html.v2r:not(.v2-tentou):not(.v2r-tentou) ul.fl a *{color:#7f5f01 !important}',
       'html.v2r:not(.v2-tentou):not(.v2r-tentou) ul.fl li::marker{color:#7f5f01 !important}',
@@ -8538,7 +8540,7 @@ document.addEventListener('input', function (e) {
           if (comprou) return;
           d.dataset.v2rDev = '1';
           d.insertAdjacentHTML('afterbegin', '<b style="color:#7f5f01">Falta comprar de novo · </b>');
-          d.style.background = '#fff7d6'; d.style.borderColor = '#f5cd47';
+          d.classList.add('v2r-devnota');
         });
       });
     }
@@ -8546,9 +8548,9 @@ document.addEventListener('input', function (e) {
     // novo — fica só o do arquivo novo (avaliação 19/10)
     function placaUmaVez() {
       $$('.v2-ler > .v2-resultado.dica.ruim').forEach(function (r) {
-        var t = r.textContent.trim(); if (!/não mostra a placa/.test(t)) { if (r.dataset.v2rDup) { r.style.display = ''; delete r.dataset.v2rDup; } return; }
+        var t = r.textContent.trim(); if (!/não mostra a placa/.test(t)) { if (r.classList.contains('v2r-dup')) r.classList.remove('v2r-dup'); return; }
         var outro = $$('#form .dica.ruim').some(function (d) { return d !== r && !d.closest('.v2-ler') && d.offsetParent !== null && d.textContent.trim().replace(/\s+/g, ' ').indexOf(t.replace(/\s+/g, ' ').slice(0, 60)) === 0; });
-        if (outro && !r.dataset.v2rDup) { r.dataset.v2rDup = '1'; r.style.display = 'none'; }
+        if (outro !== r.classList.contains('v2r-dup')) r.classList.toggle('v2r-dup', outro);   // o 2.0 mexe no display: vai por classe
       });
     }
     // pergunta da placa aberta: o Enviar fica apagado até responder
