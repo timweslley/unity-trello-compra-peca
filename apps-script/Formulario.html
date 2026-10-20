@@ -8358,7 +8358,7 @@ document.addEventListener('input', function (e) {
     box.querySelector('[data-r=nao]').onclick = function () {   // as peças do arquivo já foram lidas: o jeito seguro de trocar é recomeçar sem salvar
       box.innerHTML = '<b id="v2rPlacaT">Nada foi enviado.</b> As peças desse arquivo já entraram na tela; para usar o orçamento certo, recarregue o formulário (o que não foi salvo é descartado) e anexe o arquivo deste carro.'
         + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" class="v2r-bt p" data-r="rec">Recarregar sem salvar</button><button type="button" class="v2r-bt s" data-r="fechar">Fechar</button></div>';
-      box.querySelector('[data-r=rec]').onclick = function () { window.onbeforeunload = null; location.reload(); };
+      box.querySelector('[data-r=rec]').onclick = function () { document.body.style.display = 'none'; location.reload(); };   // tela escondida = nada "sujo" visível: recarrega sem o "Sair do site?"
       box.querySelector('[data-r=fechar]').onclick = function () { box.remove(); };
       try { box.querySelector('[data-r=rec]').focus(); } catch (x) {}
     };
