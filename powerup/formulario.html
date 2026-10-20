@@ -4867,7 +4867,10 @@ iniciar();
     g('v2seguir').onclick = function () {
       var s = PASSOS[passo].s.map(function (i) { return secoes[i]; });
       var falta = passo === 0 ? camposObrigatorios(s) : faltaNasPecas();
-      if (passo === 1 && !itensDoPedido().filter(function (it) { return it.offsetParent !== null || it.classList.contains('v2-fechada'); }).length) falta.push('Inclua pelo menos uma peça');
+      // 20/10/2026 (Weslley, BCB8218 no celular): só peças da seguradora (FO do orçamento/complementar ou checklist já no card)
+      // não precisa de peça da oficina — a mesma regra do envio (coletar); antes o passo 2 travava com "Inclua pelo menos uma peça"
+      var soFo = (window.ORC && (window.ORC.fo || []).length) || (window.COMP && (window.COMP.fo || []).length) || (window.CARD_EDICAO && window.CARD && (window.CARD.recebiveis || []).length);
+      if (passo === 1 && !soFo && !itensDoPedido().filter(function (it) { return it.offsetParent !== null || it.classList.contains('v2-fechada'); }).length) falta.push('Inclua pelo menos uma peça');
       if (falta.length) {
         errPasso.innerHTML = '<b>Falta acertar:</b><ul>' + falta.map(function (f) { return '<li>' + txt(f) + '</li>'; }).join('') + '</ul>';
         errPasso.classList.remove('oculto'); window.scrollTo(0, 0);
