@@ -224,7 +224,7 @@ var ST = {
   LIMITE_MS: 30 * 1000
 };
 
-// Fluxo.gs:147
+// Fluxo.gs:151
 var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, REPETIR_FATURAR_DU: 5, LIMITE_MS: 40 * 1000, RESUMO_MAX: 120 };
 
 // FormularioServidor.gs:26
@@ -3350,6 +3350,10 @@ function st_executar_() {
     // coluna livre = marca apagada.
     var tiraMarca = function () { try { props.deleteProperty(kEsp); } catch (e) {} };
     if (st_temLicenca_(cardId, para)) { st_gastarLicenca_(cardId, para); if (nDe === ESP) tiraMarca(); return; }
+    // 20/10/2026 (QAX3J48 12:18/12:20): no servidor as licenças ficam na memória e somem a cada deploy — um movimento feito
+    // antes do processo subir (inclusive o próprio "desfazer" da trava) ficava sem licença e era desfeito de novo. Movimento
+    // anterior à subida do processo não é julgado.
+    if (typeof SERVIDOR_INICIO_MS === 'number' && SERVIDOR_INICIO_MS > 0 && a.date && new Date(a.date).getTime() < SERVIDOR_INICIO_MS) return;
     if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
     // card estacionado em ESPERA: guarda de onde veio; pode voltar só para lá
     if (nPara === ESP) { if (ST.TRAVADAS[nDe]) props.setProperty(kEsp, nDe); else tiraMarca(); return; }
@@ -3402,19 +3406,19 @@ function st_executar_() {
   return desfeitos;
 }
 
-// Fluxo.gs:154
+// Fluxo.gs:158
 function sla_dia_(d) { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); }
 
-// Fluxo.gs:155
+// Fluxo.gs:159
 function sla_mais_(d, n) { d = sla_dia_(d); var g = 0; while (n > 0 && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) n--; } return d; }
 
-// Fluxo.gs:157
+// Fluxo.gs:161
 function sla_users_(prop, padrao) { if (vd_board_() === VD.BOARD_PADRAO) padrao = 'timweslley'; return String(vd_prop_(prop, padrao)).split(/[,;\s]+/).filter(String); }
 
-// Fluxo.gs:158
+// Fluxo.gs:162
 function sla_mencao_(us) { return us.filter(function (u, i) { return u && us.indexOf(u) === i; }).map(function (u) { return '@' + u; }).join(' '); }
 
-// Fluxo.gs:164
+// Fluxo.gs:168
 function sla_podeAvisar_(props, chave, hoje) {
   var ult = props.getProperty(chave);
   if (!ult) return true;
@@ -3422,7 +3426,7 @@ function sla_podeAvisar_(props, chave, hoje) {
   return rep > 0 && sla_mais_(new Date(ult), rep) <= hoje;
 }
 
-// Fluxo.gs:172
+// Fluxo.gs:176
 function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
   if (vd_prop_('FAT_RESUMO', 'SIM') === 'NAO' || !itens.length) return false;
   var kDia = 'FAT_RESUMO_DIA', dia = Utilities.formatDate(hoje, 'America/Sao_Paulo', 'yyyy-MM-dd');
@@ -3449,7 +3453,7 @@ function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
   } catch (e) { console.log('resumo de faturamento: ' + e); return false; }
 }
 
-// Fluxo.gs:198
+// Fluxo.gs:202
 function sla_executar_(forcar) {
   if (vd_prop_('SLA_LIGADO', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -3569,7 +3573,7 @@ function sla_executar_(forcar) {
   return n;
 }
 
-// Fluxo.gs:328
+// Fluxo.gs:332
 function exc_executar_() {
   if (vd_prop_('EXC_PROTEGER', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -3615,7 +3619,7 @@ function exc_executar_() {
   return n;
 }
 
-// Fluxo.gs:374
+// Fluxo.gs:378
 function exc_comprasDoCard_(shortLink) {
   if (!shortLink) return [];
   try {
@@ -8710,6 +8714,8 @@ function ck_executar_() {
     if (vd_legado_(cardId)) return;   // card antigo: segue o jeito antigo
     if (tocados.indexOf(cardId) < 0) tocados.push(cardId);
     if (ck_licenciada_(a, cache)) return;
+    // 20/10/2026: licença feita antes do deploy do servidor se perde com a memória — ação anterior à subida não é julgada
+    if (typeof SERVIDOR_INICIO_MS === 'number' && SERVIDOR_INICIO_MS > 0 && new Date(a.date).getTime() < SERVIDOR_INICIO_MS) return;
     // 10/10/2026 (revisão, 36 ✔ desfeitos em 5 dias): ✔ marcado direto no Trello num item PAGAS*/FORNECIMENTO* por quem pode
     // receber vale como recebimento de hoje (comentário, evento, coluna) em vez de ser desfeito — ck_aceitarManual_
     if (a.type === 'updateCheckItemStateOnCard' && a.data.checkItem && a.data.checkItem.state === 'complete' && /^(PAGAS|FORNECIMENTO)/i.test(String((a.data.checklist || {}).name || '').trim()) && vd_prop_('CK_ACEITA_OK', 'SIM') !== 'NAO') {
@@ -8755,7 +8761,7 @@ function ck_executar_() {
   return n;
 }
 
-// TravaChecklist.gs:196
+// TravaChecklist.gs:198
 function lic_espelhar_(par, seg) {
   try {
     if (!vd_roboNoServidor_()) return;

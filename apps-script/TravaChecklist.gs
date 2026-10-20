@@ -145,6 +145,8 @@ function ck_executar_() {
     if (vd_legado_(cardId)) return;   // card antigo: segue o jeito antigo
     if (tocados.indexOf(cardId) < 0) tocados.push(cardId);
     if (ck_licenciada_(a, cache)) return;
+    // 20/10/2026: licença feita antes do deploy do servidor se perde com a memória — ação anterior à subida não é julgada
+    if (typeof SERVIDOR_INICIO_MS === 'number' && SERVIDOR_INICIO_MS > 0 && new Date(a.date).getTime() < SERVIDOR_INICIO_MS) return;
     // 10/10/2026 (revisão, 36 ✔ desfeitos em 5 dias): ✔ marcado direto no Trello num item PAGAS*/FORNECIMENTO* por quem pode
     // receber vale como recebimento de hoje (comentário, evento, coluna) em vez de ser desfeito — ck_aceitarManual_
     if (a.type === 'updateCheckItemStateOnCard' && a.data.checkItem && a.data.checkItem.state === 'complete' && /^(PAGAS|FORNECIMENTO)/i.test(String((a.data.checklist || {}).name || '').trim()) && vd_prop_('CK_ACEITA_OK', 'SIM') !== 'NAO') {

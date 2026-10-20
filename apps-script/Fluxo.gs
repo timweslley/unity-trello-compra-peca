@@ -83,6 +83,10 @@ function st_executar_() {
     // coluna livre = marca apagada.
     var tiraMarca = function () { try { props.deleteProperty(kEsp); } catch (e) {} };
     if (st_temLicenca_(cardId, para)) { st_gastarLicenca_(cardId, para); if (nDe === ESP) tiraMarca(); return; }
+    // 20/10/2026 (QAX3J48 12:18/12:20): no servidor as licenças ficam na memória e somem a cada deploy — um movimento feito
+    // antes do processo subir (inclusive o próprio "desfazer" da trava) ficava sem licença e era desfeito de novo. Movimento
+    // anterior à subida do processo não é julgado.
+    if (typeof SERVIDOR_INICIO_MS === 'number' && SERVIDOR_INICIO_MS > 0 && a.date && new Date(a.date).getTime() < SERVIDOR_INICIO_MS) return;
     if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
     // card estacionado em ESPERA: guarda de onde veio; pode voltar só para lá
     if (nPara === ESP) { if (ST.TRAVADAS[nDe]) props.setProperty(kEsp, nDe); else tiraMarca(); return; }

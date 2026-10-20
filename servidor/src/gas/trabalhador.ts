@@ -10,8 +10,8 @@ import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 
-interface Dados { porta: MessagePort; sinal: SharedArrayBuffer; arquivo: string; props: Record<string, string>; fixas: Record<string, string>; somenteLeitura?: boolean }
-const { porta, sinal, arquivo, props: propsIniciais, fixas, somenteLeitura } = workerData as Dados;
+interface Dados { porta: MessagePort; sinal: SharedArrayBuffer; arquivo: string; props: Record<string, string>; fixas: Record<string, string>; somenteLeitura?: boolean; inicio?: number }
+const { porta, sinal, arquivo, props: propsIniciais, fixas, somenteLeitura, inicio } = workerData as Dados;
 const flag = new Int32Array(sinal);
 
 /** Pede algo à thread principal e espera a resposta (bloqueia este trabalhador, não o servidor). */
@@ -355,6 +355,7 @@ const Logger = { log: (...a: unknown[]) => console.log(...a) };
 Object.assign(globalThis, {
   Logger, Utilities, PropertiesService, CacheService, UrlFetchApp, SpreadsheetApp, DriveApp, Drive, DocumentApp,
   LockService, MailApp, ScriptApp, ContentService, HtmlService, Session,
+  SERVIDOR_INICIO_MS: inicio || 0,   // 20/10/2026: hora em que o processo subiu (trava de colunas — Fluxo.gs)
 });
 const ANTES = new Set(Object.keys(globalThis));
 vm.runInThisContext(readFileSync(arquivo, 'utf8'), { filename: 'formulario.gs.js' });

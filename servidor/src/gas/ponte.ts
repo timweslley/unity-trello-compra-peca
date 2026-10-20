@@ -228,6 +228,9 @@ async function abaDoPrincipal(nome: string, ex: Execucao | null): Promise<unknow
 /** 17/10/2026 — Drive (só leitura) com a conta do servidor: bases de orçamento na pasta compartilhada pelo Weslley. */
 /** Cache compartilhado entre os trabalhadores (travas sg_* do robô e do formulário). */
 const cacheCompart = new Map<string, { v: string; ate: number }>();
+/** 20/10/2026 (QAX3J48): o cache acima nasce vazio a cada deploy — as licenças da trava de colunas de antes do deploy se perdem.
+ *  O robô recebe a hora em que este processo subiu e não julga movimento de coluna anterior a ela (SERVIDOR_INICIO_MS). */
+const PROCESSO_INICIO = Date.now();
 const cacheObs = new Map<string, { v: string; ate: number }>();
 const ESCOPO_DRIVE = 'https://www.googleapis.com/auth/drive.readonly';
 const CAMPOS_DRIVE = 'id,name,mimeType,modifiedTime,trashed,parents';
@@ -644,7 +647,7 @@ class Contexto {
       const flag = new Int32Array(sinal);
       const { port1, port2 } = new MessageChannel();
       const w = new Worker(path.join(AQUI, 'trabalhador.js'), {
-        workerData: { porta: port2, sinal, arquivo: ARQUIVO_ROBO, props, fixas: this.fixas(), somenteLeitura: this.somenteLeitura }, transferList: [port2] });
+        workerData: { porta: port2, sinal, arquivo: ARQUIVO_ROBO, props, fixas: this.fixas(), somenteLeitura: this.somenteLeitura, inicio: PROCESSO_INICIO }, transferList: [port2] });
       port1.on('message', async (m: { op: string; dados: unknown }) => {
         let resp: { ok: boolean; r?: unknown; erro?: string };
         const t0 = Date.now();
