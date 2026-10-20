@@ -8415,10 +8415,11 @@ document.addEventListener('input', function (e) {
         if (cotP.semCot) dets.push(cotP.semCot + ' peça(s) marcada(s) como não cotar — o motivo foi para o card.');
         if (cotP.nt) dets.push(cotP.nt + ' fornecedor(es) sem a peça (NT) registrado(s).');
       }
-      if (/^Compra autorizada/.test(titulo) && window.CARD && window.CARD.ordemAut === false)
-        avisos.push('Falta a etiqueta ORDEM AUTORIZADA: o comprador só consegue comprar depois que ela for marcada (conferir no Databox).');
     }
     var prox = PROX[lista] || '';
+    // autorizou sem a etiqueta ORDEM AUTORIZADA: o próximo passo é a etiqueta, não a compra
+    if (window.V2R_AJ && /^Compra autorizada/.test(titulo) && /AUTORIZADO COMPRA/.test(lista) && window.CARD && window.CARD.ordemAut === false)
+      prox = 'Falta a etiqueta ORDEM AUTORIZADA. Confira no Databox se a ordem está autorizada e o orçamento importado, e marque a etiqueta na aba Compra; só então o comprador consegue comprar.';
     if (/parcial/i.test(titulo)) prox = proxCard || 'Quando terminar, volte ao card e clique em Enviar para o card seguir.';
     else if (proxCard) prox = proxCard;
     // peça devolvida no recebimento: o card volta para a compra — "todas as peças chegaram" não vale
@@ -8563,7 +8564,8 @@ document.addEventListener('input', function (e) {
       // contraste e tamanho mínimo (WCAG 1.4.3): textos cinza pequenos
       'html.v2r #comprador .dica:not(.ruim):not(.boa),html.v2r #form .dica:not(.ruim):not(.boa){color:#44546f !important}',
       'html.v2r .dica[style*="font-size:12px"],html.v2r #comprador .dica{font-size:13px !important}',
-      'html.v2r #form .v2-leg, html.v2r #form h2 small, html.v2r #form h2 .v2-leg{color:#44546f !important;font-size:12px !important}'
+      'html.v2r #form .v2-leg, html.v2r #form h2 small, html.v2r #form h2 .v2-leg{color:#44546f !important;font-size:12px !important}',
+      'html.v2r .vf-img, html.v2r .selo, html.v2r .selo-trava{font-size:12px !important}'
     ].join('\n');
     document.head.appendChild(st);
 
@@ -8629,6 +8631,9 @@ document.addEventListener('input', function (e) {
     function textoOrc() {
       var a = g('avisoOrc'); if (!a) return;
       var h = a.innerHTML, novo = h.replace('Com orçamento, dos dados do carro só são obrigatórios placa e carro.', 'Com orçamento, para enviar bastam placa, carro, unidade, nº da ordem, cor e seguradora — modelo, ano e chassi podem ficar para depois.');
+      // tipo já marcado pelo orçamento em todas as peças: não pede para "marcar"
+      var semTipo = $$('#itens > .item').some(function (it) { var cx = $$('.f-tipo', it); return cx.length && !cx.some(function (c) { return c.checked; }); });
+      if (!semTipo) novo = novo.replace(/ — confira e <b>marque o tipo de cada uma<\/b>\./, ' — confira o tipo de cada uma (já veio do orçamento).');
       if (novo !== h) a.innerHTML = novo;
     }
 
