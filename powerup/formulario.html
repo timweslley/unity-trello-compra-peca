@@ -6840,7 +6840,7 @@ iniciar();
   /* "✔ seguradora autorizou…" num botão que já tem a caixinha: tira o ✔ do texto (eram dois "certo" juntos) */
   function tirarVisto(lab) { Array.prototype.forEach.call(lab.childNodes, function (n) { if (n.nodeType === 3 && /^\s*✔/.test(n.nodeValue)) n.nodeValue = ' ' + n.nodeValue.replace(/^\s*✔️?\s*/, ''); }); $$('.v2i-check', lab).forEach(function (x) { x.remove(); }); }
   function analisarAut() {
-    var its = $$('#autItens > .item').filter(function (it) { return !it.dataset.fora; }), pend = [], esc = 0, nao = 0, cartao = [];
+    var its = $$('#autItens > .item').filter(function (it) { return !it.dataset.fora && !it.dataset.v2rNc; }), pend = [], esc = 0, nao = 0, cartao = [];   // v2rNc: "não vou cotar" (TELAS_FINAIS) fica fora da conta
     its.forEach(function (it) {
       var fs = [], cn = it.querySelector('.a-nao'), mt = it.querySelector('.a-nao-motivo');
       if (cn && cn.checked) { nao++; pintarCampo(mt, !vl(mt), vl(mt)); if (!vl(mt)) fs.push({ t: 'o motivo de não comprar', c: 'motivo de não comprar', el: mt }); }
@@ -6954,7 +6954,7 @@ iniciar();
     });
   }
   function analisarCompra() {
-    var its = $$('#compraItens > .item'), lista = [], pend = [], jaC = 0, agora = 0, semCompra = [], cartao = [], indOk = 0;
+    var its = $$('#compraItens > .item').filter(function (it) { return !it.dataset.v2rNc; }), lista = [], pend = [], jaC = 0, agora = 0, semCompra = [], cartao = [], indOk = 0;
     var temInd = !!document.querySelector('#compraItens .indisp:not(.oculto)');
     // caixas abertas (alterar prazo/previsão, cancelada, indisponível): obrigatório vazio rosado, preenchido verde (têm botão próprio)
     $$('#compraItens .v2c-caixa:not(.oculto)').forEach(function (bx) { $$('input[aria-required="true"], select[aria-required="true"]', bx).forEach(function (e) { pintarCampo(e, !vl(e), !!vl(e)); }); });
@@ -8420,6 +8420,17 @@ document.addEventListener('input', function (e) {
       }
     }
     var prox = PROX[lista] || '';
+    // "1 peça sem autorização" quando a peça é a "não vou cotar" do comprador: diz isso (avaliação 19/10)
+    if (window.V2R_AJ && /^Compra autorizada/.test(titulo)) {
+      var ncs = ((((window.CARD || {}).cotacoes || {}).semCot) || []).map(function (x) { return x.chave; }).filter(function (k, i, a) { return a.indexOf(k) === i; });
+      var cots = ((((window.CARD || {}).cotacoes || {}).cotacoes) || []);
+      var nNc = ncs.filter(function (k) { return !cots.some(function (q) { return q.chave === k; }); }).length;
+      if (nNc) dets = dets.map(function (d) {
+        var m = texto(d).match(/^(\d+) peça\S* sem autorização\.?$/); if (!m) return d;
+        var n = +m[1], resto = n - nNc;
+        return (Math.min(n, nNc) + ' peça(s) não cotada(s) pelo comprador, fora da compra.') + (resto > 0 ? ' ' + resto + ' peça(s) sem autorização.' : '');
+      });
+    }
     // autorizou sem a etiqueta ORDEM AUTORIZADA: o próximo passo é a etiqueta, não a compra
     if (window.V2R_AJ && /^Compra autorizada/.test(titulo) && /AUTORIZADO COMPRA/.test(lista) && window.CARD && window.CARD.ordemAut === false)
       prox = 'Antes de comprar, o comprador confere no Databox (ordem autorizada e orçamento importado) e marca a etiqueta ORDEM AUTORIZADA na aba Compra. Sem ela a compra fica travada.';
@@ -8569,6 +8580,12 @@ document.addEventListener('input', function (e) {
       // alteração aberta (previsão/cancelamento): o Enviar compra espera
       'html.v2r #btnCompra.v2r-espera,html.v2r #btnCompraParcial.v2r-espera,html.v2r #btnEnviar.v2r-espera,html.v2r #btnParcial.v2r-espera{opacity:.55}',
       'html.v2r #usuario, html.v2r #usuario a{color:#44546f !important}',
+      // lista do que falta na lateral (pedido e abas do comprador) também em âmbar até a 1ª tentativa
+      'html.v2r:not(.v2-tentou):not(.v2r-tentou) ul.fl a, html.v2r:not(.v2-tentou):not(.v2r-tentou) ul.fl a *{color:#7f5f01 !important}',
+      'html.v2r:not(.v2-tentou):not(.v2r-tentou) ul.fl li::marker{color:#7f5f01 !important}',
+      // "Não comprar" não quebra em duas linhas na peça do pedido
+      'html.v2r :is(#itens,#itensPart) .chip-nao, html.v2r :is(#itens,#itensPart) .chip-nao *{white-space:nowrap !important}',
+      'html.v2r :is(#itens,#itensPart) .chip-nao{width:auto !important;min-width:max-content !important}',
       '.v2r-nota{margin:8px 0;padding:10px 12px;border-radius:8px;background:#fff7d6;color:#533f04;font-size:14px;line-height:20px}',
       '.v2r-nota b{color:#533f04}',
       '.v2r-nota button{margin-top:8px}',
@@ -8634,7 +8651,7 @@ document.addEventListener('input', function (e) {
         var c = cx.filter(function (c) { return TIPO_DICA(c.value) === alvo; })[0];
         if (!c) return;
         c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true }));
-        d.innerHTML = 'No orçamento: <b>' + esc((d.querySelector('b') || d).textContent) + '</b> — tipo já marcado; troque se precisar.';
+        d.innerHTML = 'Orçamento: <b>' + esc((d.querySelector('b') || d).textContent) + '</b>';   // o aviso do topo já explica; aqui fica só a referência
       });
     }
 
@@ -8644,7 +8661,7 @@ document.addEventListener('input', function (e) {
       var h = a.innerHTML, novo = h.replace('Com orçamento, dos dados do carro só são obrigatórios placa e carro.', 'Com orçamento, para enviar bastam placa, carro, unidade, nº da ordem, cor e seguradora — modelo, ano e chassi podem ficar para depois.');
       // tipo já marcado pelo orçamento em todas as peças: não pede para "marcar"
       var semTipo = $$('#itens > .item').some(function (it) { var cx = $$('.f-tipo', it); return cx.length && !cx.some(function (c) { return c.checked; }); });
-      if (!semTipo) novo = novo.replace(/ — confira e <b>marque o tipo de cada uma<\/b>\./, ' — confira o tipo de cada uma (já preenchido pelo orçamento).');
+      if (!semTipo) novo = novo.replace(/ — confira e <b>marque o tipo de cada uma<\/b>\./, ' — o tipo de cada uma já veio marcado pelo orçamento; confira e troque se precisar.');
       if (novo !== h) a.innerHTML = novo;
     }
 
@@ -8656,15 +8673,20 @@ document.addEventListener('input', function (e) {
       });
     }
 
-    // aba Compra: peça que o comprador marcou "não vou cotar" não é "sem cotação — lance na aba Cotação" (não entra na compra)
+    // peça que o comprador marcou "não vou cotar": nas abas Compra e Autorizar aparece como não cotada, sem cara de erro, e
+    // fica fora das contas ("4 de 4", não "4 de 5") — avaliação 19/10
     function naoCotadaCompra() {
       var sc = ((window.CARD || {}).cotacoes || {}).semCot || []; if (!sc.length) return;
-      $$('#compraItens > .item').forEach(function (it) {
-        var s1 = sc.filter(function (x) { return x.chave === it.dataset.chave; }).pop(); if (!s1) return;
-        $$('.dica.ruim', it).forEach(function (d) {
-          if (d.dataset.v2rNc || !/Sem cotação/.test(d.textContent + ' ' + (d.title || ''))) return;
-          d.dataset.v2rNc = '1'; d.classList.remove('ruim'); d.title = '';
-          d.textContent = 'Não cotada: ' + s1.texto + ' — não entra na compra.';
+      [['#compraItens', 'não entra na compra'], ['#autItens', 'fica fora da autorização']].forEach(function (cfg) {
+        $$(cfg[0] + ' > .item').forEach(function (it) {
+          var s1 = sc.filter(function (x) { return x.chave === it.dataset.chave; }).pop(); if (!s1) return;
+          $$('.dica.ruim', it).forEach(function (d) {
+            if (d.dataset.v2rNc || !/Sem cotação|Não cotada|Nao cotada/.test(d.textContent + ' ' + (d.title || ''))) return;
+            d.dataset.v2rNc = '1'; d.classList.remove('ruim'); d.title = ''; d.removeAttribute('data-v2c');
+            d.textContent = 'Não cotada: ' + s1.texto + ' — ' + cfg[1] + '.';
+            if (!it.dataset.v2rNc) { it.dataset.v2rNc = '1'; it.classList.remove('v2c-falta', 'v2-pend'); }
+          });
+          if (it.dataset.v2rNc && cfg[0] === '#autItens') $$('button, label.chip', it).forEach(function (b) { if (/Complemento|Não comprar/i.test(b.textContent) && !b.hidden) { b.hidden = true; b.style.display = 'none'; } });
         });
       });
     }
@@ -8680,6 +8702,15 @@ document.addEventListener('input', function (e) {
           d.insertAdjacentHTML('afterbegin', '<b style="color:#7f5f01">Falta comprar de novo · </b>');
           d.style.background = '#fff7d6'; d.style.borderColor = '#f5cd47';
         });
+      });
+    }
+    // aviso de placa do arquivo NOVO aparecia duas vezes: embaixo do "Já está no card" (parecia ser do anexo antigo) e no arquivo
+    // novo — fica só o do arquivo novo (avaliação 19/10)
+    function placaUmaVez() {
+      $$('.v2-ler > .v2-resultado.dica.ruim').forEach(function (r) {
+        var t = r.textContent.trim(); if (!/não mostra a placa/.test(t)) { if (r.dataset.v2rDup) { r.style.display = ''; delete r.dataset.v2rDup; } return; }
+        var outro = $$('#form .dica.ruim').some(function (d) { return d !== r && !d.closest('.v2-ler') && d.offsetParent !== null && d.textContent.trim().replace(/\s+/g, ' ').indexOf(t.replace(/\s+/g, ' ').slice(0, 60)) === 0; });
+        if (outro && !r.dataset.v2rDup) { r.dataset.v2rDup = '1'; r.style.display = 'none'; }
       });
     }
     // pergunta da placa aberta: o Enviar fica apagado até responder
@@ -8706,7 +8737,7 @@ document.addEventListener('input', function (e) {
     }
 
     var t0 = 0;
-    function passada() { clearTimeout(t0); t0 = setTimeout(function () { try { notaAut(); tipoDoOrc(); textoOrc(); complAut(); naoCotadaCompra(); devolvidaCompra(); fecharAlteracao(); placaAberta(); marcarEspera(); } catch (x) { console.log('v2r-aj', x && x.message); } }, 60); }
+    function passada() { clearTimeout(t0); t0 = setTimeout(function () { try { notaAut(); tipoDoOrc(); textoOrc(); complAut(); naoCotadaCompra(); devolvidaCompra(); fecharAlteracao(); placaUmaVez(); placaAberta(); marcarEspera(); } catch (x) { console.log('v2r-aj', x && x.message); } }, 60); }
     new MutationObserver(passada).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
     passada();
   })();
