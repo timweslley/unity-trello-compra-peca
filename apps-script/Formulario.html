@@ -8428,7 +8428,7 @@ document.addEventListener('input', function (e) {
       var ehCanc = ab.classList.contains('cancel');
       var n = g('v2rEspera');
       if (!n) { n = document.createElement('div'); n.id = 'v2rEspera'; n.className = 'v2r-nota'; n.setAttribute('role', 'alert'); b.parentNode.insertBefore(n, b); }
-      n.innerHTML = '<b>Termine a alteração aberta antes.</b> ' + (ehCanc ? 'Confirme o cancelamento da compra ou feche o quadro.' : 'Salve a previsão nova ou feche o quadro.') + ' Depois envie a compra.'
+      n.innerHTML = '<b>Termine a alteração aberta antes.</b> ' + (ehCanc ? 'Confirme o cancelamento ou clique de novo em "Cancelar compra" para fechar.' : 'Salve a previsão nova ou clique de novo em "' + (ab.querySelector('.p-dias') ? 'Alterar prazo autorizado' : 'Alterar previsão') + '" para fechar.') + ' Depois envie a compra.'
         + '<div><button type="button" class="v2r-bt s">Ir até a alteração</button></div>';
       n.querySelector('button').onclick = function () { try { ab.scrollIntoView({ block: 'center' }); (ab.querySelector('input') || ab).focus(); } catch (x) {} };
     }, true);
