@@ -237,6 +237,32 @@ function vdf_cancelarCompra(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(vd_contexto_(), card.idList) };
 }
 
+/** 20/10/2026 (Weslley, ATP5105): passa item de compra de card antigo ("AVENIDA - RADIADOR - NOTUS - R$310") para o
+ *  padrão novo ("RADIADOR NOTUS - AVENIDA - R$ 310,00") pela escrita oficial (com licença: a trava não desfaz).
+ *  Só a diretoria. p = {shortLink, itens:[{id, nome}]}. Mantém ✔, data e as marcas 📍/✋/↩️ do item. */
+function vdf_renomearPagas(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria renomeia itens de compra — sua conta: ' + me.username + '.'] };
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,idBoard,shortLink,shortUrl', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  var porId = {}; vdf_itensRecebimento_(card).forEach(function (i) { if (/^PAGAS/.test(i.lista)) porId[i.id] = i; });
+  var faltas = [], feitos = [];
+  (p.itens || []).forEach(function (x) {
+    var it = porId[x && x.id], nome = String((x && x.nome) || '').replace(/\s+/g, ' ').trim().toUpperCase();
+    if (!it) { faltas.push('item ' + (x && x.id) + ' não está no PAGAS deste card'); return; }
+    if (!nome || nome.length > 200) { faltas.push(it.nome + ': nome vazio ou longo demais'); return; }
+    var novo = rc_comMarcas_(nome, rc_marcas_(it.nome));
+    if (novo === it.nome) return;
+    vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'put', payload: { name: novo } }, token);
+    feitos.push('• ' + it.base + ' → ' + nome);
+  });
+  if (faltas.length) return { ok: false, faltas: faltas, feitos: feitos.length };
+  if (feitos.length) { try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🔄 **Compras do card antigo no padrão novo** — ' + me.fullName + '\n' + feitos.join('\n') } }, token); } catch (e) {} }
+  try { vd_redesenhar_(card.id, token); } catch (e) {}
+  return { ok: true, n: feitos.length, url: card.shortUrl };
+}
+
 /** Itens recebíveis do card: [{id, nome, ok, due, lista: PAGAS|FORNECIMENTO}] */
 function vdf_itensRecebimento_(c) {
   var out = [];
