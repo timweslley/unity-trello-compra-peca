@@ -1014,53 +1014,53 @@ function pv_enriquecerFo_(texto, fo) {
   return n;
 }
 
-// Validacao.gs:242
+// Validacao.gs:257
 function vd_semAcento_(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 }
 
-// Validacao.gs:273
+// Validacao.gs:288
 function vd_normPlaca_(p) {
   return String(p || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-// Validacao.gs:277
+// Validacao.gs:292
 function vd_placaMercosul_(p) {
   p = vd_normPlaca_(p);
   if (/^[A-Z]{3}\d{4}$/.test(p)) return p.slice(0, 4) + 'ABCDEFGHIJ'.charAt(+p.charAt(4)) + p.slice(5);
   return p;
 }
 
-// Validacao.gs:282
+// Validacao.gs:297
 function vd_mesmaPlaca_(a, b) {
   return !!a && !!b && vd_placaMercosul_(a) === vd_placaMercosul_(b);
 }
 
-// Validacao.gs:296
+// Validacao.gs:311
 function vd_placaDoTexto_(s) {
   var m = String(s || '').toUpperCase().match(/\b([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/);
   return m ? m[1] + m[2] : '';
 }
 
-// Validacao.gs:301
+// Validacao.gs:316
 function vd_normChassi_(c) {
   return String(c || '').toUpperCase().replace(/[\s.\-]/g, '');
 }
 
-// Validacao.gs:304
+// Validacao.gs:319
 function vd_chassiValido_(c) {
   c = vd_normChassi_(c);
   return /^[A-HJ-NPR-Z0-9]{17}$/.test(c) && /[A-Z]/.test(c) && /\d{4}$/.test(c);
 }
 
-// Validacao.gs:600
+// Validacao.gs:615
 function vd_valorOrcTxt_(v) {
   if (v == null || v === '') return '';
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   return isNaN(n) || n <= 0 ? '' : vd_valorBR_(n);
 }
 
-// Validacao.gs:700
+// Validacao.gs:715
 function vd_motorDoModelo_(m) {
   var s = String(m || '');
   var d = s.match(/\b\d\.\d\b/);
@@ -1070,7 +1070,7 @@ function vd_motorDoModelo_(m) {
   return [d[0]].concat(tk.filter(function (t, i) { return tk.indexOf(t) === i; })).join(' ');
 }
 
-// Validacao.gs:708
+// Validacao.gs:723
 function vd_extrair_(texto) {
   var T = String(texto || '').replace(/\r/g, '');
   var U = vd_semAcento_(T).replace(/[\s\u00a0]+/g, ' ');
@@ -1122,7 +1122,7 @@ function vd_extrair_(texto) {
   return r;
 }
 
-// Validacao.gs:989
+// Validacao.gs:1004
 function vd_dicaNorm_(t) {
   var s = vd_semAcento_(t);
   if (/^GENU/.test(s)) return 'GENUÍNO';
@@ -1133,14 +1133,14 @@ function vd_dicaNorm_(t) {
   return '';
 }
 
-// Validacao.gs:1025
+// Validacao.gs:1040
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
 
-// Validacao.gs:1047
+// Validacao.gs:1062
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4

@@ -137,6 +137,21 @@ function vd_api_(caminho, opts, tokenUsuario) {
     }
     params.contentType = 'application/json';
     params.payload = JSON.stringify(opts.payload);
+    // 20/10/2026 (Weslley, UNI0001: FALTA DADOS 2x em 6 s): duas execuções (formulário + ciclo do robô) podiam comentar o mesmo
+    // texto no mesmo card ao mesmo tempo. Antes de comentar, olha os últimos comentários do card: texto idêntico há menos de
+    // 3 min = não comenta de novo (devolve o que já existe). Desligar: COMENT_DEDUPE = NAO.
+    var mCm = params.method === 'post' && opts.payload.text && caminho.match(/^\/cards\/([^\/?]+)\/actions\/comments/);
+    if (mCm && !opts.semDedupe && vd_prop_('COMENT_DEDUPE', 'SIM') !== 'NAO') {
+      try {
+        var ult = vd_api_('/cards/' + mCm[1] + '/actions', { cru: true, query: { filter: 'commentCard', limit: 5, fields: 'data,date' } }, tokenUsuario) || [];
+        var txtNovo = String(opts.payload.text).trim(), igual = null;
+        ult.forEach(function (a) {
+          if (igual || !a || !a.data) return;
+          if (String(a.data.text || '').trim() === txtNovo && Date.now() - new Date(a.date).getTime() < 3 * 60 * 1000) igual = a;
+        });
+        if (igual) { console.log('comentário repetido evitado em ' + mCm[1]); return igual; }
+      } catch (eD) { console.log('dedupe comentário: ' + eD); }
+    }
   }
   // escrita em checklist: licença ANTES (o ciclo da trava pode ler entre a escrita e a resposta) e de novo depois
   var ehCk = params.method !== 'get' && !opts.semLicenca && /checkItem|checklists/i.test(caminho);

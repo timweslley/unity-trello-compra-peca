@@ -8078,7 +8078,12 @@ document.addEventListener('input', function (e) {
     var jaCot = b.querySelector('[data-a=jacot]').checked, com = {};
     ((c.cotacoes && c.cotacoes.cotacoes) || []).forEach(function (q) { com[q.chave] = 1; });
     var todas = pecasOficina(c);
-    if (!b._marcas) { b._marcas = {}; todas.forEach(function (p) { b._marcas[p.chave] = gp.quer(p) && (jaCot || !com[p.chave]); }); }
+    if (!b._marcas) {
+      b._marcas = {}; todas.forEach(function (p) { b._marcas[p.chave] = gp.quer(p) && (jaCot || !com[p.chave]); });
+      // 20/10/2026 (Weslley, QYI7J31: "ao clicar em CSS não seleciona nada"): se todas as peças do tipo já têm cotação,
+      // marca assim mesmo — tocar no fornecedor tem de trazer a lista; o comprador desmarca o que não quiser
+      if (!todas.some(function (p) { return b._marcas[p.chave]; })) todas.forEach(function (p) { b._marcas[p.chave] = gp.quer(p); });
+    }
     // só os tipos que têm peça neste card, com a quantidade (sem pneu no card = sem botão Pneu)
     var gr = b.querySelector('.wz-grupos'); gr.innerHTML = '';
     GRUPOS.forEach(function (g2) {
