@@ -6752,7 +6752,7 @@ iniciar();
         if (b.parentNode && b.parentNode !== it && !b.parentNode.classList.contains('v2c-bmini')) b.parentNode.classList.add('v2c-bmini'); b.classList.add('v2c-mini');
         if (!b.dataset.v2c) {
           b.dataset.v2c = '1'; var t = b.textContent.replace(/^[^A-Za-zÀ-ú]+/, '').trim();
-          if (/^alterar prazo/i.test(t)) t = 'Alterar prazo autorizado'; else if (/^alterar previs/i.test(t)) t = 'Alterar previsão'; else if (/^compra cancelada/i.test(t)) t = 'Compra cancelada'; else if (/indispon/i.test(t)) t = 'Cotação autorizada indisponível';
+          if (/^alterar prazo/i.test(t)) t = 'Alterar prazo autorizado'; else if (/^alterar previs/i.test(t)) t = 'Alterar previsão'; else if (/^compra cancelada/i.test(t)) t = 'Cancelar compra'; else if (/indispon/i.test(t)) t = 'Cotação autorizada indisponível';
           b.textContent = t; b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-label', t + ' — ' + nm);
         }
       });
@@ -8355,7 +8355,13 @@ document.addEventListener('input', function (e) {
     box.innerHTML = '<b id="v2rPlacaT">O orçamento anexado é da placa ' + esc(achou) + '.</b> Ele é mesmo deste carro? As peças dele vão para este card.'
       + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" class="v2r-bt s" data-r="sim">Sim, é deste carro</button><button type="button" class="v2r-bt p" data-r="nao">Trocar o arquivo</button></div>';
     box.querySelector('[data-r=sim]').onclick = function () { window.V2R_PLACA_OK = true; box.remove(); b.click(); };
-    box.querySelector('[data-r=nao]').onclick = function () { box.remove(); var a = document.querySelector('#form #arquivo'); var lb = a && (a.closest('label') || a); try { (avisos[0].closest('section') || avisos[0]).scrollIntoView({ block: 'center' }); } catch (x) {} };
+    box.querySelector('[data-r=nao]').onclick = function () {   // as peças do arquivo já foram lidas: o jeito seguro de trocar é recomeçar sem salvar
+      box.innerHTML = '<b id="v2rPlacaT">Nada foi enviado.</b> As peças desse arquivo já entraram na tela; para usar o orçamento certo, recarregue o formulário (o que não foi salvo é descartado) e anexe o arquivo deste carro.'
+        + '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button type="button" class="v2r-bt p" data-r="rec">Recarregar sem salvar</button><button type="button" class="v2r-bt s" data-r="fechar">Fechar</button></div>';
+      box.querySelector('[data-r=rec]').onclick = function () { window.onbeforeunload = null; location.reload(); };
+      box.querySelector('[data-r=fechar]').onclick = function () { box.remove(); };
+      try { box.querySelector('[data-r=rec]').focus(); } catch (x) {}
+    };
     try { box.querySelector('[data-r=nao]').focus(); } catch (x) {}
   }, true);
 
