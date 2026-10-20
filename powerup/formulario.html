@@ -8581,13 +8581,10 @@ document.addEventListener('input', function (e) {
       'html.v2r #btnCompra.v2r-espera,html.v2r #btnCompraParcial.v2r-espera,html.v2r #btnEnviar.v2r-espera,html.v2r #btnParcial.v2r-espera{opacity:.55}',
       'html.v2r #usuario, html.v2r #usuario a{color:#44546f !important}',
       '.v2r-dup{display:none !important}',
-      'html.v2r #compraItens .v2r-devnota{background:#fff7d6 !important;border-color:#f5cd47 !important;color:#533f04 !important}',
+      'html.v2r #comprador.v2c #compraItens .item > .dica.v2c-nota.v2r-devnota{background:#fff7d6 !important;border-left-color:#e2b203 !important;color:#533f04 !important}',
       // lista do que falta na lateral (pedido e abas do comprador) também em âmbar até a 1ª tentativa
       'html.v2r:not(.v2-tentou):not(.v2r-tentou) ul.fl a, html.v2r:not(.v2-tentou):not(.v2r-tentou) ul.fl a *{color:#7f5f01 !important}',
       'html.v2r:not(.v2-tentou):not(.v2r-tentou) ul.fl li::marker{color:#7f5f01 !important}',
-      // "Não comprar" não quebra em duas linhas na peça do pedido
-      'html.v2r :is(#itens,#itensPart) .chip-nao, html.v2r :is(#itens,#itensPart) .chip-nao *{white-space:nowrap !important}',
-      'html.v2r :is(#itens,#itensPart) .chip-nao{width:auto !important;min-width:max-content !important}',
       '.v2r-nota{margin:8px 0;padding:10px 12px;border-radius:8px;background:#fff7d6;color:#533f04;font-size:14px;line-height:20px}',
       '.v2r-nota b{color:#533f04}',
       '.v2r-nota button{margin-top:8px}',
