@@ -226,3 +226,5 @@ da outra, deixar um recado aqui e no commit.
   antes de gravar depois de ler anexos, confere se a descrição mudou; se mudou, deixa para o próximo ciclo. De quebra: em pedido
   PARTICULAR saía "🔀 QUEM PAGA MUDOU — voltou para a seguradora" (com @menções) a cada edição — o formulário manda particular=false e
   a análise marca todas como particular; agora não compara.
+- 16h52 — Weslley: "aviso de COTAÇÃO PARCIAL toda vez é excessivo" (card com 3 parciais seguidas). Agora só comenta quando a situação
+  muda (assinatura `VDF_PARC_<card>`: o que falta / tudo coberto / movido); zera no envio da cotação. Direto no principal (pedido dele).
