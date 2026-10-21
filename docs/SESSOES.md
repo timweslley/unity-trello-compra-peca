@@ -196,3 +196,9 @@ da outra, deixar um recado aqui e no commit.
   em 2 linhas em vez de "Enviar com…", barra do WhatsApp sem subtítulo. Conferido nas 4 telas em 375 px. Principal: `'todos'`.
 - Weslley: e-mail fica de lado; quer "liga um, desliga outro" — plano de ~18 h em duas noites (chaves por fonte: propriedades,
   planilha, OCR, bases; cópia de volta ao Google por 30 dias).
+- 22h50–23h40 — **Pacote de entrega para o unityOS** (Weslley: o desenvolvedor usa o Claude Code; módulo em ~1 semana depois do
+  comando → migração do Apps Script descartada): `docs/HANDOFF-UNITYOS.md` (mapa: levar × refazer × descartar, código, regras
+  que enganam, dicionário de dados, integrações, pendências), `CLAUDE.md` na raiz (regras fixas e como trabalhar), especificação
+  revisada (20/10, §13 mudanças desde 16/10), rota `POST /tarefas/exportar` (NDJSON por tabela; só diretoria pelo login do Trello;
+  corpo JSON; CORS; sem token não cai no token do robô). Conferido no TESTE: pedido_retrato 158, trello_card 226, evento 4.180,
+  anexo_leitura 487 linhas. Regra daqui em diante: toda mudança de regra atualiza especificação + handoff no mesmo commit.
