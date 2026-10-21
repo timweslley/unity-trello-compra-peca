@@ -206,3 +206,11 @@ da outra, deixar um recado aqui e no commit.
   selo de previsão, "Chegou tudo" marca/desmarca sem gravar; computador intocado).
   Conferido no principal (ATP5105, AGL5650, só leitura): com foto de capa a etapa quebrava ("Recebiment/o") — miniatura 56 px e
   etapa 13,5 px; "Recebimento", "Editar pedido" e "Cotação" numa linha. Computador intocado.
+
+## 21/10/2026 — monitoramento: falso alarme do webhook e conector do Trello fora
+- 09:58 "webhook parado em 20:50": era o webhook do TESTE (sem atividade à noite); o do principal estava vivo
+  (/tarefas/robo/rapido). Webhook do TESTE testado (comentário no card 🧪 arquivado) — chegou em segundos. Texto da tarefa ajustado.
+- 10:58–12:58: conector do Trello (MCP da Anthropic) com timeout/502 por 3 h — não é da conta do Weslley nem do quadro. Reserva no
+  servidor: `GET /tarefas/robo/atividade?horas=` — ações do principal recebidas pelo webhook, só tipo/quem/card(shortLink)/colunas/
+  marcador do comentário (sem nome de card nem texto); memória de 24 h. Tarefa: tenta o conector de novo em 60 s, senão usa a reserva;
+  conector fora não é 🔴 nem notificação.
