@@ -255,3 +255,7 @@ da outra, deixar um recado aqui e no commit.
 - 19h32 — Weslley: "lembrar sempre que essas alterações devem bater com as diretrizes de design que já estabelecemos". Diretrizes
   consolidadas numa seção do `CLAUDE.md` (público, duas interfaces por aparelho, estrutura das telas, balões, resultado em cartão,
   só aparência na 2.0, conferir no TESTE nos dois aparelhos antes de publicar). Memória também anotada.
+- 19h51 — Rotina Unity travada em 2 placas (FPY5D56, QCJ1I71): placa na base do robô → pneu da base sem categoria e a API recusava
+  "falta categoria" ignorando a 1ª LINHA que a Rotina mandou. Agora aproveita categoria/marca do pneu da mesma medida e, se ainda
+  faltar, abre o card em FALTA DADOS em vez de recusar. TAW0B79: "KIT COLA BRR01" é insumo → 🚫 não comprar padrão (cola, adesivo,
+  silicone, vedante).

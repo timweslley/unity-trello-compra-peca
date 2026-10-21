@@ -2030,7 +2030,14 @@ function vdf_salvar(token, p) {
     var daBase = null;
     try { daBase = vdf_pecasDaBase_(p.dados && p.dados.placa, (p.novo || {}).sinistro); } catch (eB) { console.log('rotina/base: ' + eB); }
     if (daBase) {
-      p.pecas = daBase.oficina;
+      // 21/10/2026 (FPY5D56, QCJ1I71): o pneu da base vem sem categoria/marca e a API recusava ("falta categoria") mesmo com a
+      // Rotina mandando 1ª LINHA — agora a categoria/marca que a Rotina manda para o pneu da mesma medida é aproveitada.
+      var enviadas = (p.pecas || []).filter(function (x) { return x && x.pneu; }), medidaN = function (x) { return String((x && x.medida) || '').replace(/\s+/g, '').toUpperCase(); };
+      p.pecas = (daBase.oficina || []).map(function (x) {
+        if (!x || !x.pneu || x.categoria || x.marca) return x;
+        var r = enviadas.filter(function (e) { return medidaN(e) === medidaN(x) && (e.categoria || e.marca); })[0] || (enviadas.length === 1 && (enviadas[0].categoria || enviadas[0].marca) ? enviadas[0] : null);
+        return r ? Object.assign({}, x, { categoria: r.categoria || '', marca: r.marca || '' }) : x;
+      });
       var foRot = ((p.orcamento || {}).fo || []), chFo = function (x) { return String((x && x.codigo) || '').toUpperCase().replace(/[^A-Z0-9]/g, '') || vd_semAcento_(String((x && x.descricao) || '')).toUpperCase(); };
       var porCod = {}; foRot.forEach(function (x) { if (x) porCod[chFo(x)] = x; });
       p.orcamento = Object.assign({}, p.orcamento || {}, { origem: (p.orcamento || {}).origem || daBase.origem,
@@ -2231,7 +2238,7 @@ function vdf_salvar(token, p) {
   var faltasRotina = [];
   // 19/10/2026: limpeza de card que a Rotina abriu (vdf_limparCardRotina) tolera o mesmo que a Rotina tolerou ao abrir
   var limpezaRotina = !!p.limpezaRotina && vdf_ehAutorizador_(me) && !!p.shortLink;
-  if (rotina || limpezaRotina) { faltasRotina = faltas.filter(function (f) { return /falta o tipo de pe|falta o c[óo]digo|fora do padr/i.test(f) || (limpezaRotina && /falta categoria/i.test(f)); }); faltas = faltas.filter(function (f) { return faltasRotina.indexOf(f) < 0; }); }
+  if (rotina || limpezaRotina) { faltasRotina = faltas.filter(function (f) { return /falta o tipo de pe|falta o c[óo]digo|fora do padr|falta categoria/i.test(f); }); faltas = faltas.filter(function (f) { return faltasRotina.indexOf(f) < 0; }); }   // 21/10/2026: pneu sem categoria também abre o card (vai para FALTA DADOS) em vez de recusar
   if (parcial) faltas = faltas.filter(function (f) { return /^placa|^carro \(nome/i.test(f); });
   if (faltas.length) return { ok: false, faltas: faltas };
 
