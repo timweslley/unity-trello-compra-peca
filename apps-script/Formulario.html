@@ -4516,6 +4516,9 @@ iniciar();
     if (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) return true;   // iPad que se apresenta como Mac
     try { return window.matchMedia('(pointer:coarse)').matches && !window.matchMedia('(any-pointer:fine)').matches; } catch (e) { return false; }
   })();
+  // 20/10/2026: `&aparelho=celular` ou `&aparelho=pc` força o modo (conferência do layout no computador; não muda nada para a equipe)
+  var forcaAparelho = (location.search.match(/[?&]aparelho=(celular|pc)(&|$)/) || [])[1];
+  if (forcaAparelho) ehAparelhoDeToque = forcaAparelho === 'celular';
   if (!ehAparelhoDeToque) html.classList.add('v2pc'); else html.classList.add('v2toque');
   /* 09/10/2026 (revisão das regras): só os textos de AJUDA que já estão na página ao abrir ficam atrás de "❔ Ajuda".
      Mensagens que o formulário escreve depois (estado do card: "nada pendente de chegada", "já recebidas", "sem peça FO"…) ficam à vista. */
