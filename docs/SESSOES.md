@@ -220,3 +220,9 @@ da outra, deixar um recado aqui e no commit.
   defeitos de tela: botão "⏳ Importando…" preso (lista não redesenhada quando nada mudou) e dica "não achei dados novos" com a
   peça importada. Corrigido: leitor reconhece o cabeçalho (modelo + ano; leitor v3 relê Cilia no formulário), botão solta quando a
   leitura termina, dica diz o que o documento não traz. O chassi continua tendo de ser digitado (o documento não tem).
+- 16h40 — SES8I10 "salvei tudo e voltou de novo": corrida. O Weslley salvou (16:37:47) e, no mesmo segundo, o robô — que tinha lido o
+  card antes e estava lendo os anexos (leitor v3 releu o PDF e achou modelo/ano/motor) — gravou a descrição VELHA + campos lidos por
+  cima, apagando chassi e tipo; FALTA DADOS de novo (16:38:05). Segundo salvamento (16:39) ficou. Correção no robô (`vd_descMudou_`):
+  antes de gravar depois de ler anexos, confere se a descrição mudou; se mudou, deixa para o próximo ciclo. De quebra: em pedido
+  PARTICULAR saía "🔀 QUEM PAGA MUDOU — voltou para a seguradora" (com @menções) a cada edição — o formulário manda particular=false e
+  a análise marca todas como particular; agora não compara.

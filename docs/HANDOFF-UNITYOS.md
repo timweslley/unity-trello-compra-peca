@@ -77,6 +77,7 @@ Postgres). Publicação: push na `main` → GitHub Actions (`Servidor` → Cloud
 - **Prazos**: 2 dias úteis cotar, 2 autorizar, 1 de folga após a previsão; lembretes só 8h–18h em dia útil; faturamento cobrado após 7 dias úteis em ENTREGUES (só cards entrados a partir de 20/10/2026 15:30 recebem lembrete no card; os antigos vão no resumo diário).
 - **Zacarias** (concessionária): peças sempre FO, nunca compra. **SEM COBERTURA** no orçamento não entra. **ADITIVO/ÓLEO** é "não comprar" padrão (estoque).
 - **Retorno** (oficina paga): nasce copiando o carro de um card da mesma placa (inclusive arquivado); puxa a capa; OBS "RETORNO INTERNO — card anterior …".
+- **Concorrência**: formulário e robô gravam a mesma descrição. Quem grava depois de uma leitura demorada (anexos) tem de conferir se a descrição mudou e, se mudou, desistir e refazer (21/10, SES8I10). No unityOS: transação/versão do pedido, não "último escreve ganha".
 - **Comentários**: nunca "seguir com compra/fornecimento" nem "cotar/comprar"; peça de oficina = "verificar compra do item X"; FO = "verificar prazo do item X"; nunca a palavra "faturado" fora do fluxo do financeiro; dúvida sempre com PLACA + nº da O.S.
 
 ## 5. Dados — dicionário e exportação

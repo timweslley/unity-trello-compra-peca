@@ -1496,6 +1496,14 @@ function vd_mover_(card, idLista, pos) {
   } catch (e) {}
 }
 
+/** A descrição do card no Trello já não é a que o robô leu no início do ciclo? (alguém salvou pelo formulário enquanto ele lia anexos) */
+function vd_descMudou_(card) {
+  try {
+    var c = vd_api_('/cards/' + card.id, { query: { fields: 'desc' } });   // sem cru: compara completa com completa, como o ciclo leu
+    return String(c.desc || '') !== String(card.desc || '');
+  } catch (e) { console.log('descMudou: ' + e); return false; }
+}
+
 /** Confere um card de EM COTAÇÃO / FALTA DADOS. ctx = {board, listas, modoAtivo, prazo, urlForm}. */
 function vd_conferirCard_(card, ctx) {
   var props = PropertiesService.getScriptProperties();
@@ -1535,6 +1543,7 @@ function vd_conferirCard_(card, ctx) {
   // card sem placa (ex.: PDF arrastado direto para o quadro): tenta achar a placa nos anexos
   if (!base && !d.placa && (card.attachments || []).length && Date.now() < ctx.prazo) {
     var pa = vd_placaDosAnexos_(card, ctx.prazo);
+    if (pa.placa && ctx.modoAtivo && vd_descMudou_(card)) { res.acao = 'descrição mudou durante a leitura dos anexos (alguém salvou) — fica para o próximo ciclo'; return res; }
     if (pa.placa) {
       var descP = vd_definirCampo_(card.desc || '', VD_ROT.placa, 'PLACA', pa.placa);
       // título sem placa: se era só nome de arquivo vira a placa; senão a placa entra na frente
@@ -1558,6 +1567,10 @@ function vd_conferirCard_(card, ctx) {
   // dados do carro pelos anexos (não mexe em card que voltou só por peça nova)
   if (!base && d.placa && (card.attachments || []).length && Date.now() < ctx.prazo) {
     lido = vd_lerAnexosCard_(card, d.placa, ctx.prazo, ctx.modoAtivo);
+    // 21/10/2026 (SES8I10): ler anexo demora segundos; se alguém salvou pelo formulário nesse meio-tempo, a descrição que o robô
+    // tem na mão é velha — gravar por cima apagava chassi/tipo recém-preenchidos e devolvia o card a FALTA DADOS. Fica para o
+    // próximo ciclo (a leitura dos anexos já está em cache, então ele volta rápido e com a descrição nova).
+    if (ctx.modoAtivo && vd_descMudou_(card)) { res.acao = 'descrição mudou durante a leitura dos anexos (alguém salvou) — fica para o próximo ciclo'; return res; }
     var novaDesc = card.desc || '';
     var origem = [];
     var poe = function (cond, valor, rotRe, rot, nomeCampo) {

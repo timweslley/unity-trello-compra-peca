@@ -2109,9 +2109,12 @@ function vdf_salvar(token, p) {
       } catch (e) { console.log('trava de peça: ' + e); return { ok: false, faltas: ['Não consegui conferir as peças travadas agora (Trello lento). Envie de novo em alguns segundos.'] }; }
     }
     // 14/10/2026 (Weslley, NPG5429): peça que passou entre seguradora e particular nesta edição — vai num comentário no card
+    // 21/10/2026 (SES8I10): pedido PARTICULAR não entra — nele toda peça é do cliente (vd_analisar_ marca todas) e o formulário
+    // manda particular=false, o que gerava "QUEM PAGA MUDOU — voltou para a seguradora" (com @menções) a cada edição.
     try {
       var descTp = card.desc; try { var cmpTp = vd_completa_(card.id); if (cmpTp) descTp = cmpTp; } catch (e) {}   // vitrine -> descrição completa
       var anTp = vd_analisar_(descTp, card.name), velhoP = {};
+      if (tipo === 'PARTICULAR' || anTp.dados.tipo === 'PARTICULAR') anTp.pecas = [];
       anTp.pecas.forEach(function (x) { velhoP[vd_chavePeca_(x)] = !!x.particular; });
       pecas.forEach(function (x) {
         var kTp = vd_chavePeca_(x);
