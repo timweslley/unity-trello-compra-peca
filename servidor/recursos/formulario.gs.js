@@ -522,7 +522,7 @@ var VD_ROT_EXTRA = {
 var VD_ANXS = { ABA: 'ANEXOS', SH: null, ROW: null, MAX: 45000 };
 
 // Validacao.gs:865
-var VD_LEITOR_V = 2;
+var VD_LEITOR_V = 3;
 
 // Validacao.gs:866
 var VD_ANX_V = 3;
