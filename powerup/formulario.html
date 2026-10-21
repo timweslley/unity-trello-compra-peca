@@ -8877,7 +8877,8 @@ document.addEventListener('input', function (e) {
     'html.v2toque #v2topo #v2fotos.vazio .vf-img{font-size:0 !important}',
     'html.v2toque #v2topo #v2fotos.vazio .vf-img::before{content:"📷";font-size:20px;line-height:44px}',
     'html.v2toque #v2topo .etapa{display:block !important;-webkit-line-clamp:unset !important;overflow:visible !important}',
-    'html.v2toque #v2topo .etapa b{display:block;overflow-wrap:anywhere;font-size:14px !important;line-height:17px !important}',
+    'html.v2toque #v2topo #v2fotos:not(.vazio){width:56px !important;height:40px !important}',   /* com foto: miniatura menor para a etapa caber ("Recebimento" quebrava em "Recebiment/o") */
+    'html.v2toque #v2topo .etapa b{display:block;overflow-wrap:anywhere;font-size:13.5px !important;line-height:17px !important;letter-spacing:-.1px}',
     'html.v2toque #v2topo .etapa b + *, html.v2toque #v2topo .etapa > span{display:block;font-size:11.5px;line-height:14px;color:#44546f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     'html.v2toque #recItens > .item > .grade > div:has(> .dica.vc-prevcel){display:none !important}',
     'html.v2toque #recItens > .item > .item-topo{flex-wrap:wrap}',
