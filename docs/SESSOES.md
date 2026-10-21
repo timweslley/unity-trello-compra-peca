@@ -228,3 +228,6 @@ da outra, deixar um recado aqui e no commit.
   a análise marca todas como particular; agora não compara.
 - 16h52 — Weslley: "aviso de COTAÇÃO PARCIAL toda vez é excessivo" (card com 3 parciais seguidas). Agora só comenta quando a situação
   muda (assinatura `VDF_PARC_<card>`: o que falta / tudo coberto / movido); zera no envio da cotação. Direto no principal (pedido dele).
+- 16h57 — Weslley: reenviar a autorização com uma alteração repetia "✅ AUTORIZADO" inteiro (BBW5…: 17 peças, só a obs mudou).
+  Agora reenvio compara com a autorização anterior: "✏️ AUTORIZAÇÃO ALTERADA" só com o que mudou (trocou / autorizou agora /
+  obs / marcas) e o total do card; igual = "🔁 reenviada sem alteração". Marca `VDF_AUT_ENV_<card>` no envio; cai na devolução.

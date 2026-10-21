@@ -1435,6 +1435,14 @@ function vdf_autorizar(token, p) {
   var autsAntes = vd_autorizacoesDaDescricao_(card.desc, an.pecas);
   var naoComprarAgora = {};
   marcas.forEach(function (m) { if (m && m.naoComprar && porChave[m.chave]) naoComprarAgora[m.chave] = 1; });
+  // 21/10/2026 (Weslley): autorização reenviada repetia o aviso inteiro ("✅ AUTORIZADO" de novo, com menção ao comprador).
+  // Agora, se a autorização do card já foi ENVIADA antes (marca VDF_AUT_ENV_), compara escolha por escolha com a anterior:
+  // só o que mudou (nova / fornecedor ou valor trocado / obs / marca) entra na descrição e sai em "✏️ AUTORIZAÇÃO ALTERADA";
+  // reenvio igual = uma linha "reenviada sem alteração", sem menção. A marca cai em "Devolver para cotação".
+  var antesPorChave = {}; autsAntes.forEach(function (a) { antesPorChave[a.chave] = a; });
+  var propsA = PropertiesService.getScriptProperties(), kEnv = 'VDF_AUT_ENV_' + card.id;
+  var jaEnviada = !parcial && (!!propsA.getProperty(kEnv) || card.idList === ctx.listas[VDF_LISTA_AUTORIZADO]);   // card já em AUTORIZADO COMPRA também conta (cards de antes da marca)
+  var novasA = [], trocadasA = [], iguaisA = [];
   (p.escolhas || []).forEach(function (e, i) {
     var peca = porChave[e.chave];
     if (!peca) { faltas.push('escolha ' + (i + 1) + ': peça não encontrada no pedido'); return; }
@@ -1443,7 +1451,11 @@ function vdf_autorizar(token, p) {
     var forn = String(e.fornecedor || '').trim().toUpperCase(), valor = vd_valorNum_(e.valor);
     var q = lidas.filter(function (x) { return x.chave === e.chave && x.fornecedor === forn && Math.abs(x.valor - valor) < 0.005; })[0];
     if (!q) { faltas.push(vd_nomePeca_(peca) + ': essa cotação (' + forn + ' ' + vd_valorBR_(valor) + ') não está no card'); return; }
-    linhas.push('AUTORIZADO: ' + forn + ' - ' + (peca.pneu ? 'PNEU ' + String(peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(peca)) + ' - ' + vd_valorBR_(valor));
+    var antA = antesPorChave[e.chave], nomeA = peca.pneu ? 'PNEU ' + String(peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(peca);
+    var mesmaA = !!(antA && antA.fornecedor === forn && Math.abs((+antA.valor || 0) - valor) < 0.005);
+    if (mesmaA) iguaisA.push(peca); else if (antA) trocadasA.push(nomeA + ': ' + antA.fornecedor + ' ' + vd_valorBR_(antA.valor) + ' → ' + forn + ' ' + vd_valorBR_(valor)); else novasA.push(nomeA + ' (' + forn + ' ' + vd_valorBR_(valor) + ')');
+    if (jaEnviada && mesmaA) return;   // reenvio da mesma escolha: não repete a linha na descrição nem conta de novo
+    linhas.push('AUTORIZADO: ' + forn + ' - ' + nomeA + ' - ' + vd_valorBR_(valor));
     total += valor * (vd_totaisPorQtd_() ? vd_qtdNum_(peca.qtd) : 1);   // 16/10/2026: valor é da unidade (LÍQUIDO 4 × R$ 40 = R$ 160)
     var doPeca = lidas.filter(function (x) { return x.chave === e.chave; }).map(function (x) { return x.valor; });
     var ea = ev_peca_(peca); ea.fornecedor = forn; ea.valor = valor; ea.dias = q.dias;
@@ -1478,6 +1490,13 @@ function vdf_autorizar(token, p) {
   }
   if (faltas.length) return { ok: false, faltas: faltas };
   var obsL = vdf_linhasObs_(p, porChave, 'autorização');
+  var reenvio = jaEnviada && (iguaisA.length > 0 || trocadasA.length > 0);
+  if (reenvio && !linhas.length && !marcadas.length && !obsL.linhas.length) {
+    // mesma autorização de novo: nada muda no card; uma linha de registro, sem menção
+    var totR = autsAntes.reduce(function (sum, a) { var pc = porChave[a.chave] || {}; return sum + (+a.valor || 0) * (vd_totaisPorQtd_() ? vd_qtdNum_(pc.qtd) : 1); }, 0);
+    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🔁 **Autorização reenviada sem alteração** — ' + me.fullName + ' · ' + autsAntes.length + ' peça(s) · ' + vd_valorBR_(totR) } }, token); } catch (e) {}
+    return { ok: true, repetida: true, url: card.shortUrl, nome: card.name, n: autsAntes.length, total: totR, semAut: 0, aguarda: [], marcas: 0, lista: vdf_nomeLista_(ctx, card.idList) };
+  }
 
   var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
   var resto = div.temMarcador ? div.resto.replace(/\s+$/, '') : VD.MARCADOR;
@@ -1556,11 +1575,21 @@ function vdf_autorizar(token, p) {
   var semAut = an.pecas.filter(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador) && !temAut(x); }).length;   // autorizada antes (ex.: complemento) não conta
   try {
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **AUTORIZADO** — ' + me.fullName + ' · ' + linhas.length + ' peça(s) · ' + vd_valorBR_(total) + (movido ? ' → **' + movido + '**' : '') +
-      (semAut ? '\n⛔ Sem autorização (não comprar): ' + semAut + ' peça(s)' : '') + (typeof txtM === 'string' ? txtM : '') + obsL.texto + (aguarda.length ? '\n⏳ Aguarda: ' + aguarda.join('; ') : '') } }, token);
+    if (reenvio) {
+      // só o que mudou, com o total do card depois da mudança
+      var totC = autsAgora.reduce(function (sum, a) { var pc = porChave[a.chave] || {}; return sum + (+a.valor || 0) * (vd_totaisPorQtd_() ? vd_qtdNum_(pc.qtd) : 1); }, 0);
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✏️ **AUTORIZAÇÃO ALTERADA** — ' + me.fullName + ' · ' + autsAgora.length + ' peça(s) · ' + vd_valorBR_(totC) + (movido ? ' → **' + movido + '**' : '') +
+        (trocadasA.length ? '\n🔁 Trocou: ' + trocadasA.join('; ') : '') + (novasA.length ? '\n➕ Autorizou agora: ' + novasA.join('; ') : '') +
+        (typeof txtM === 'string' ? txtM : '') + obsL.texto + (aguarda.length ? '\n⏳ Aguarda: ' + aguarda.join('; ') : '') } }, token);
+      total = totC; linhas = autsAgora.map(function (a) { return a.chave; });
+    } else {
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **AUTORIZADO** — ' + me.fullName + ' · ' + linhas.length + ' peça(s) · ' + vd_valorBR_(total) + (movido ? ' → **' + movido + '**' : '') +
+        (semAut ? '\n⛔ Sem autorização (não comprar): ' + semAut + ' peça(s)' : '') + (typeof txtM === 'string' ? txtM : '') + obsL.texto + (aguarda.length ? '\n⏳ Aguarda: ' + aguarda.join('; ') : '') } }, token);
+    }
   } catch (e) {}
+  try { propsA.setProperty(kEnv, agora); } catch (e) {}   // daqui em diante, reenvio compara com esta autorização
   try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, aguarda: aguarda, marcas: marcadas.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+  return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, aguarda: aguarda, marcas: marcadas.length, lista: movido || vdf_nomeLista_(ctx, card.idList), alterada: reenvio };
 }
 
 /** Observações por peça ({chave, texto}) e geral do autorizador -> linhas "OBS PEÇA: texto" + "OBS GERAL: texto" e texto para o comentário. */
@@ -1613,6 +1642,7 @@ function vdf_devolverCotacao(token, p) {
   vd_gravarDesc_(card.id, div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n**DEVOLVIDA PARA COTAÇÃO ' + agora + ' - ' + me.fullName + '**\n' +
     mantidas.map(function (k) { return 'MANTIDA (comprada): ' + k + '\n'; }).join('') + obsL.linhas.join('\n'), token);
   try { ev_registrar_('DEVOLUÇÃO', card, me.username, null, { detalhe: [String(p.geral || '').trim()].concat((p.obs || []).map(function (o) { return o.texto; })).filter(String).join(' | ').slice(0, 500) }); } catch (e) {}
+  try { PropertiesService.getScriptProperties().deleteProperty('VDF_AUT_ENV_' + card.id); } catch (e) {}   // a próxima autorização é nova, não "alterada"
   var movido = '';
   try { movido = vdf_moverPara_(card, ctx, VD.LISTA_COTACAO, token, me.username); } catch (e) {}
   try {
