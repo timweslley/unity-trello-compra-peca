@@ -242,3 +242,7 @@ da outra, deixar um recado aqui e no commit.
 - 17h49 — Weslley (AGL5650): "não tem quem incluiu e pediu as 2 novas peças" e "no formulário não tem a unidade — importante
   para o autorizador". Edição do pedido comenta "✏️ PEDIDO EDITADO — Nome (usuário)" com incluiu / tipo definido / tirou / não
   comprar (substitui o "🚫 NÃO COMPRAR" das 17h24 na edição). Painel 2.0: Unidade e "Pedido por".
+- 18h46 — Weslley: e-mails de falha do GitHub ("Publicar Apps Script") e pedido de revisar TODOS os comentários do robô/formulário
+  (quando e formato, sem notificar a cada movimento). Falha: o projeto Apps Script bateu em **200 versões** (`clasp deploy` falha
+  desde 20/10 20h57; `clasp push` continua, o servidor é quem roda) — precisa apagar versões antigas em "Histórico do projeto"
+  (conta sistema@) e depois tornar o deploy do Apps Script manual/semanal. Inventário e proposta: `docs/COMENTARIOS-ROBO.md`.
