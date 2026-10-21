@@ -202,3 +202,5 @@ da outra, deixar um recado aqui e no commit.
   revisada (20/10, §13 mudanças desde 16/10), rota `POST /tarefas/exportar` (NDJSON por tabela; só diretoria pelo login do Trello;
   corpo JSON; CORS; sem token não cai no token do robô). Conferido no TESTE: pedido_retrato 158, trello_card 226, evento 4.180,
   anexo_leitura 487 linhas. Regra daqui em diante: toda mudança de regra atualiza especificação + handoff no mesmo commit.
+- 23h20 — `VISUAL_CEL: 'todos'` (OK do Weslley): ajustes visuais do celular no principal. Conferido antes no TESTE (celular: topo,
+  selo de previsão, "Chegou tudo" marca/desmarca sem gravar; computador intocado).
