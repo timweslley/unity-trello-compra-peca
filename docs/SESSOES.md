@@ -233,3 +233,5 @@ da outra, deixar um recado aqui e no commit.
   obs / marcas) e o total do card; igual = "🔁 reenviada sem alteração". Marca `VDF_AUT_ENV_<card>` no envio; cai na devolução.
 - 17h22 — Weslley: "aviso nenhum de cotação parcial, tá tumultuando" → cotação parcial deixa de comentar no card (desfaz a regra
   das 16h52); só o "Enviar cotação" avisa.
+- 17h24 — Weslley: "quando o consultor definir a peça e ela for marcada como não comprar, informar @fulano marcou os itens x, y".
+  vdf_salvar compara as 🚫 de antes com as de agora e comenta "🚫 NÃO COMPRAR — @consultor marcou como não comprar: …".
