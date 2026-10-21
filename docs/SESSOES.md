@@ -204,3 +204,5 @@ da outra, deixar um recado aqui e no commit.
   anexo_leitura 487 linhas. Regra daqui em diante: toda mudança de regra atualiza especificação + handoff no mesmo commit.
 - 23h20 — `VISUAL_CEL: 'todos'` (OK do Weslley): ajustes visuais do celular no principal. Conferido antes no TESTE (celular: topo,
   selo de previsão, "Chegou tudo" marca/desmarca sem gravar; computador intocado).
+  Conferido no principal (ATP5105, AGL5650, só leitura): com foto de capa a etapa quebrava ("Recebiment/o") — miniatura 56 px e
+  etapa 13,5 px; "Recebimento", "Editar pedido" e "Cotação" numa linha. Computador intocado.
