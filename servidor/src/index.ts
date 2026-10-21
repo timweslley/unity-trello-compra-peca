@@ -313,7 +313,10 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
    *  POST { token, tabela, quadro?, desde? } — token do Trello de alguém da diretoria (VD_AUTORIZADORES do robô);
    *  devolve a tabela em NDJSON (uma linha por registro). Sem token válido: 403. Nada é gravado. */
   app.post('/tarefas/exportar', async (req, resp) => {
-    const b = (req.body || {}) as { token?: string; tabela?: string; quadro?: string; desde?: string };
+    let b: { token?: string; tabela?: string; quadro?: string; desde?: string } = {};
+    try { b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : ((req.body as typeof b) || {}); } catch { return resp.code(400).send({ ok: false, erro: 'corpo inválido' }); }
+    // sem token NÃO cai no token do robô (seria a diretoria sem login)
+    if (!b.token || String(b.token).length < 20) return resp.code(403).send({ ok: false, erro: 'informe o token do Trello (diretoria)' });
     const DIRETORIA = (process.env.EXPORTAR_USUARIOS || 'timweslley,comercialunity,christianfarias23').toLowerCase().split(/[,;\s]+/).filter(Boolean);
     let usuario = '';
     try { const me = await trello<{ username: string }>('/members/me', { token: String(b.token || ''), query: { fields: 'username' }, tentativas: 1 }); usuario = String(me.username || '').toLowerCase(); } catch { /* token inválido */ }
