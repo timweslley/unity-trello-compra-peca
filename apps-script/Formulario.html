@@ -8695,6 +8695,81 @@ document.addEventListener('input', function (e) {
 })();
 </script>
 <script>
+/* 20/10/2026 (check com o Fable, Weslley: "as alterações visuais pode fazer") — celular (v2toque), camada 2.0:
+ *  1. topo: a etapa não fica cortada ("Recebimentc") — caixa "Sem foto" vira só um ícone quando o card não tem foto, e o texto
+ *     da etapa nunca é recortado;
+ *  2. recebimento: previsão como selo logo abaixo do nome ("Previsão 22/09 · atrasada", em vermelho quando passou), sem a
+ *     célula "Previsão" da grade; botão "✔ Chegou tudo" quando há 3 ou mais peças pendentes (só marca as caixas);
+ *  3. rodapé: o botão principal quebra em 2 linhas em vez de cortar ("Enviar com…");
+ *  4. barras do WhatsApp: o subtítulo some no celular (quebrava em 2–3 linhas).
+ * Liga por PU_CFG.VISUAL_CEL: 'teste' (só no TESTE, srv=1) | 'todos' | desligado. Não grava nada. */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('v2') || !html.classList.contains('v2toque')) return;
+  var cfg = window.PU_CFG && PU_CFG.VISUAL_CEL;
+  var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  var st = document.createElement('style');
+  st.textContent = [
+    'html.v2toque #v2topo #v2fotos.vazio{width:44px !important;height:44px !important;border-radius:10px}',
+    'html.v2toque #v2topo #v2fotos.vazio .vf-img{font-size:0 !important}',
+    'html.v2toque #v2topo #v2fotos.vazio .vf-img::before{content:"📷";font-size:20px;line-height:44px}',
+    'html.v2toque #v2topo .etapa{display:block !important;-webkit-line-clamp:unset !important;overflow:visible !important}',
+    'html.v2toque #v2topo .etapa b{display:block;overflow-wrap:anywhere;font-size:14px !important;line-height:17px !important}',
+    'html.v2toque #v2topo .etapa b + *, html.v2toque #v2topo .etapa > span{display:block;font-size:11.5px;line-height:14px;color:#44546f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    'html.v2toque #recItens > .item > .grade > div:has(> .dica.vc-prevcel){display:none !important}',
+    'html.v2toque #recItens > .item > .item-topo{flex-wrap:wrap}',
+    'html.v2toque #recItens > .item > .item-topo .vc-prev{flex:0 0 100%;margin:4px 0 0 0;font-size:12.5px;line-height:18px;color:#44546f}',
+    'html.v2toque #recItens > .item > .item-topo .vc-prev.vc-atras{color:#ae2e24;font-weight:600}',
+    'html.v2toque #recItens > .item > .item-topo .vc-prev.vc-atras::before{content:"⚠ "}',
+    'html.v2toque #recItens > .item > .item-topo{padding:10px 12px !important;margin-bottom:6px !important}',
+    'html.v2toque #vcTudo{width:100%;margin:0 0 12px;min-height:44px !important;font-size:15px !important;background:#fff;border:2px solid #1f845a;color:#1f845a;border-radius:8px}',
+    'html.v2toque #vcTudo.vc-on{background:#1f845a;color:#fff}',
+    'html.v2toque #comprador .rodape > button.principal{white-space:normal !important;line-height:1.2 !important;overflow:visible !important;flex:1.4 1 0 !important}',
+    'html.v2toque .wz-abre .dica{display:none !important}'
+  ].join('\n');
+  document.head.appendChild(st);
+  function recPorId(id) { var l = (window.CARD && window.CARD.recebiveis) || []; for (var i = 0; i < l.length; i++) if (l[i].id === id) return l[i]; return null; }
+  function hojeIso() { var d = new Date(); return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function txt(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function decorar() {
+    var box = document.getElementById('recItens'); if (!box) return;
+    var itens = Array.prototype.slice.call(box.querySelectorAll(':scope > .item'));
+    itens.forEach(function (it) {
+      if (it.dataset.vcel) return; it.dataset.vcel = '1';
+      var r = recPorId(it.dataset.id) || {}, tp = it.querySelector(':scope > .item-topo'); if (!tp) return;
+      // célula "Previsão" da grade: marcada para sumir (fica o selo no topo)
+      Array.prototype.forEach.call(it.querySelectorAll(':scope > .grade > div'), function (cel) {
+        var lb = cel.querySelector(':scope > label'), dc = cel.querySelector(':scope > div.dica');
+        if (lb && dc && /^Previs/.test(lb.textContent.trim())) dc.classList.add('vc-prevcel');
+      });
+      var atras = r.dueIso && r.dueIso < hojeIso();
+      var s = document.createElement('span'); s.className = 'vc-prev' + (atras ? ' vc-atras' : '');
+      s.textContent = r.dueTxt ? 'Previsão ' + String(r.dueTxt).replace(/\s*·.*$/, '') + (atras ? ' · atrasada' : '') : 'Sem previsão';
+      tp.appendChild(s);
+    });
+    // "Chegou tudo": só marca as caixas (a pessoa ainda confere data/prateleira e registra)
+    var pend = itens.filter(function (it) { return it.querySelector('.r-ok'); });
+    var bt = document.getElementById('vcTudo');
+    if (pend.length >= 3) {
+      if (!bt) {
+        bt = document.createElement('button'); bt.type = 'button'; bt.id = 'vcTudo';
+        bt.onclick = function () {
+          var liga = !bt.classList.contains('vc-on');
+          pend.forEach(function (it) { var cb = it.querySelector('.r-ok'); if (cb && cb.checked !== liga) { cb.checked = liga; cb.dispatchEvent(new Event('change', { bubbles: true })); } });
+          bt.classList.toggle('vc-on', liga); bt.textContent = liga ? '✔ Tudo marcado — desmarcar' : '✔ Chegou tudo (marcar as ' + pend.length + ' peças)';
+        };
+        bt.textContent = '✔ Chegou tudo (marcar as ' + pend.length + ' peças)';
+        box.insertBefore(bt, box.firstChild);
+      }
+    } else if (bt) bt.remove();
+  }
+  var box = document.getElementById('recItens');
+  if (box) new MutationObserver(function () { try { decorar(); } catch (e) {} }).observe(box, { childList: true });
+  try { decorar(); } catch (e) {}
+})();
+</script>
+<script>
 /* 20/10/2026 (Weslley, AGL5650): peça que já está comprada (item no PAGAS) e com cotação no card aparece na aba Cotação
  * fechada — "✔ Já comprada · fornecedor · valor" — para o comprador não cotar de novo quando chega orçamento complementar.
  * Camada 2.0: só embrulha montarCotacao (a tela clássica não muda). */

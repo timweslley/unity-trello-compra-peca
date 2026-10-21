@@ -39,6 +39,9 @@ window.PU_CFG = {
   TELAS_FINAIS: 'todos',   // 20/10/2026 00h10 — Weslley: "colocar no principal" (voltar: 'teste')
   /* 20/10/2026: visual 2.0 da seção e da janela do Power-Up: 'todos' liga no principal (sem a chave: só no TESTE). */
   SECAO_V2: 'todos',
+  /* 20/10/2026: ajustes visuais do celular (topo sem corte, previsão como selo + "Chegou tudo" no recebimento, botão do rodapé
+   * sem corte, barra do WhatsApp sem subtítulo). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley). */
+  VISUAL_CEL: 'teste',
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
