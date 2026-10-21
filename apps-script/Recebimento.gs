@@ -203,8 +203,11 @@ function vdf_salvarRetirada(token, p) {
   // tudo recebido e tudo retirado: ENCERRADO -> ENTREGUES
   var movido = '', lista = vdf_nomeLista_(ctx, card.idList);
   var noEstoque = todos.filter(function (i) { return i.ok && !i.retirada; }), pendRec = todos.filter(function (i) { return !i.ok; });
+  var devPend = []; try { devPend = rc_devolucoesPendentes_(card); } catch (e) {}
   if (lista === RC.LISTA_FIM && todos.length && !pendRec.length && !noEstoque.length && ctx.listas['ENTREGUES']) {
-    try { movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, me.username); } catch (e) { console.log('retirada/coluna: ' + e); }
+    // 21/10/2026 (Weslley): devolução sem NF segura o card em ENCERRADO até o comprador informar a NF (aba Recebimento → Devoluções)
+    if (devPend.length) linhas.push('⏳ O card fica em **' + RC.LISTA_FIM + '**: NF de devolução pendente — ' + devPend.map(function (d) { return d.peca; }).join('; '));
+    else { try { movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, me.username); } catch (e) { console.log('retirada/coluna: ' + e); } }
   }
   try {
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✋ **RETIRADA** — ' + me.fullName + (ids.length ? ' · por **' + quem + '** em ' + dd : '') + (movido ? ' → **' + movido + '**' : '') + '\n' + linhas.join('\n') +
@@ -394,6 +397,7 @@ function vdf_salvarRecebimento(token, p) {
   devolucoes.forEach(function (x) {
     var it = porId[x.id], motivo = String(x.motivo || '').replace(/\s*\n\s*/g, ' ').trim();
     try {
+      try { rc_registrarDevolucao_(card, it, motivo, !/^PAGAS/.test(it.lista), token); } catch (eD) { console.log('devolução/checklist: ' + eD); }   // 21/10/2026: checklist DEVOLUÇÕES
       if (/^PAGAS/.test(it.lista)) { devPagas++; linhas.push(rc_cancelarCompra_(card, it, motivo, 'devolvida', token, me)); delete porId[x.id]; todos = todos.filter(function (i) { return i.id !== it.id; }); }
       else {
         vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'put', payload: { state: 'incomplete' } }, token);
@@ -547,4 +551,103 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
     } catch (e) {}
   }
   return movido;
+}
+
+/* ===================== Devoluções ao fornecedor — checklist DEVOLUÇÕES (21/10/2026, Weslley) =====================
+ * Toda peça devolvida (compra da oficina OU fornecimento da seguradora) vira um item no checklist "DEVOLUÇÕES":
+ *   "↩️ PEÇA - FORNECEDOR - R$ valor · devolvida dd/MM · aguardando NF"   (data do item = data da devolução)
+ * O COMPRADOR confirma a data, informa o nº da NF de devolução e anexa o PDF (vdf_salvarDevolucao): o item fica ✔ e o nome
+ * termina em "· NF nº dd/MM". Enquanto houver devolução sem NF, o card NÃO vai para ENTREGUES (segura em ENCERRADO).
+ * Prazo: SLA_DIAS_NF_DEVOLUCAO (3 d.u.) depois da devolução → ⏰ para o setor de compras, uma vez por item. */
+var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF' };
+
+function rc_checklistDev_(card, token) {
+  var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
+  if (k) return k;
+  k = vd_api_('/cards/' + card.id + '/checklists', { method: 'post', payload: { name: RC_DEV.LISTA, pos: 'bottom' } }, token);
+  k.checkItems = []; card.checklists = (card.checklists || []).concat([k]);
+  return k;
+}
+/** Cria o item da devolução. it = item do PAGAS/FORNECIMENTO (nome com marcas), motivo, fo = fornecimento da seguradora. */
+function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'NAO') === 'SIM'; } catch (e) { return false; } }   // TESTE sempre; principal com RC_DEV_PRINCIPAL=SIM (OK do Weslley)
+function rc_registrarDevolucao_(card, it, motivo, fo, token) {
+  if (!rc_devLigado_()) return null;
+  var k = rc_checklistDev_(card, token);
+  var partes = rc_semMarcas_(it.nome).split(/\s+-\s+/), hoje = new Date();
+  var nome = '↩️ ' + partes[0] + ' - ' + (fo ? 'SEGURADORA (FO)' : (partes[1] || '?')) + (partes[2] && !fo ? ' - ' + partes[2] : '') +
+    ' · devolvida ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM') + (motivo ? ' (' + String(motivo).replace(/\s*·\s*/g, ' ').slice(0, 60) + ')' : '') + ' · ' + RC_DEV.AGUARDA;
+  var due = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 15).toISOString();
+  var novo = vd_api_('/checklists/' + k.id + '/checkItems', { method: 'post', payload: { name: nome.slice(0, 16000), due: due, pos: 'bottom' } }, token);
+  k.checkItems.push(novo);
+  return novo;
+}
+/** Itens do checklist DEVOLUÇÕES (pendentes = sem NF). */
+function rc_devolucoes_(card) {
+  var out = [];
+  (card.checklists || []).forEach(function (k) {
+    if (!RC_DEV.RX.test(String(k.name || '').trim())) return;
+    (k.checkItems || []).forEach(function (i) {
+      var m = String(i.name || '').match(/\s*·\s*NF\s+(\S+)\s+(\d{1,2}\/\d{1,2})\s*$/i);
+      out.push({ id: i.id, nome: i.name, peca: String(i.name || '').replace(/^↩️\s*/, '').split(/\s+-\s+/)[0], ok: i.state === 'complete', due: i.due || '',
+        dueIso: i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', nf: m ? m[1] : '', nfData: m ? m[2] : '' });
+    });
+  });
+  return out;
+}
+function rc_devolucoesPendentes_(card) { return rc_devolucoes_(card).filter(function (d) { return !d.ok; }); }
+
+/** p = {shortLink, itens:[{id, data:'aaaa-mm-dd', nf, fileIds:[...]}]} — comprador (quem pode receber). */
+function vdf_salvarDevolucao(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  var ctx = vd_contexto_();
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,date' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Só quem registra recebimento neste card (comprador / diretoria) informa a NF de devolução.'] };
+  var devs = rc_devolucoes_(card), porId = {}; devs.forEach(function (d) { porId[d.id] = d; });
+  var itens = (p.itens || []).filter(function (x) { return x && porId[x.id]; });
+  if (!itens.length) return { ok: false, faltas: ['Nenhuma devolução marcada.'] };
+  var faltas = [];
+  itens.forEach(function (x) {
+    if (!String(x.nf || '').trim()) faltas.push(porId[x.id].peca + ': informe o nº da NF de devolução.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(x.data || ''))) faltas.push(porId[x.id].peca + ': informe a data da devolução.');
+  });
+  if (faltas.length) return { ok: false, faltas: faltas };
+  var placa = vd_analisar_(card.desc, card.name).dados.placa || vd_placaDoTexto_(card.name) || '';
+  var linhas = [], nAnexos = 0, evs = [], anexosCard = (card.attachments || []).slice();
+  itens.forEach(function (x) {
+    var d = porId[x.id], nf = String(x.nf).trim().replace(/\s+/g, ''), dt = x.data.split('-');
+    var ddmm = dt[2] + '/' + dt[1], due = new Date(+dt[0], +dt[1] - 1, +dt[2], 15).toISOString();
+    var base = String(d.nome).replace(/\s*·\s*aguardando NF\s*$/i, '').replace(/\s*·\s*NF\s+\S+\s+\d{1,2}\/\d{1,2}\s*$/i, '');
+    var nomeNovo = base + ' · NF ' + nf + ' ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM');
+    try { vd_api_('/cards/' + card.id + '/checkItem/' + d.id, { method: 'put', payload: { name: nomeNovo.slice(0, 16000), state: 'complete', due: due } }, token); } catch (e) { console.log('devolução/item: ' + e); }
+    var forn = String(d.nome).replace(/^↩️\s*/, '').split(/\s+-\s+/)[1] || '';
+    (x.fileIds || []).forEach(function (fid) {
+      try {
+        var f = vdf_arquivoTemp_(fid);
+        var ext = /\.xml$/i.test(f.getName()) ? '.xml' : (/\.pdf$/i.test(f.getName()) || /pdf/i.test(f.getMimeType() || '') ? '.pdf' : '');
+        var nome = '↩️ NF DEVOLUÇÃO ' + nf + AX.SEP + placa + AX.SEP + forn.split(/\s*\(/)[0].trim() + AX.SEP + ddmm + ext;
+        var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: f.getBlob(), name: nome } }, token);
+        if (at && at.id) { try { nome = ax_batizar_(card.id, at.id, nome, anexosCard, token, { semVersao: false, nomeAtual: nome }); } catch (e) {} anexosCard.push({ id: at.id, name: nome, date: new Date().toISOString() }); }
+        f.setTrashed(true); nAnexos++;
+      } catch (e) { console.log('devolução/anexo: ' + e); }
+    });
+    linhas.push('↩️ ' + d.peca + ' (' + forn + ') — devolvida em ' + ddmm + ' · NF ' + nf + ((x.fileIds || []).length ? ' anexada' : ' (sem anexo)'));
+    evs.push({ peca: d.peca, fornecedor: forn, detalhe: 'NF DEVOLUÇÃO ' + nf + ' · devolvida ' + ddmm });
+  });
+  try { ev_registrar_('DEVOLUÇÃO', card, me.username, evs, { detalhe: 'NF de devolução · ' + itens.length + ' peça(s)' }); } catch (e) {}
+  // liberou? tudo recebido e retirado e sem devolução pendente -> ENTREGUES (o que a retirada teria feito)
+  var movido = '';
+  try {
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList', checklists: 'all', checkItem_fields: 'name,state,due' } });
+    var lista = vdf_nomeLista_(ctx, c2.idList), todos = vdf_itensRecebimento_(c2);
+    if (lista === RC.LISTA_FIM && todos.length && todos.every(function (i) { return i.ok && i.retirada; }) && !rc_devolucoesPendentes_(c2).length && ctx.listas['ENTREGUES']) {
+      movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, me.username);
+    }
+  } catch (e) { console.log('devolução/coluna: ' + e); }
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '↩️ **NF DE DEVOLUÇÃO** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' + linhas.join('\n') + (nAnexos ? '\n📎 ' + nAnexos + ' anexo(s)' : '') } }, token);
+  } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }

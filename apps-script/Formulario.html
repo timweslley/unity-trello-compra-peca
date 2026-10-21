@@ -8849,6 +8849,98 @@ document.addEventListener('input', function (e) {
     return r;
   };
 })();
+
+/* 21/10/2026 (Weslley: controle das devoluções ao fornecedor) — camada 2.0, computador e celular:
+ * na aba 📦 Recebimento, seção "Devoluções ao fornecedor — NF": cada peça devolvida (checklist DEVOLUÇÕES do card) com a data da
+ * devolução (confirmar/corrigir), o nº da NF de devolução e o anexo. O comprador salva (vdf_salvarDevolucao); o item fica ✔.
+ * Enquanto houver devolução sem NF o card não vai para ENTREGUES. Só aparece quando o card tem devolução. */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('v2') || typeof window.montarRecebimento !== 'function') return;
+  var st = document.createElement('style');
+  st.textContent = [
+    '#secDev .v2d-item{border:1px solid #c1c7d0;border-left:4px solid #e56910;border-radius:8px;padding:10px 12px;margin:0 0 10px;background:#fff}',
+    '#secDev .v2d-item.ok{border-left-color:#1f845a;opacity:.85}',
+    '#secDev .v2d-topo{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;margin-bottom:6px}',
+    '#secDev .v2d-topo b{font-size:15px;color:#172b4d}',
+    '#secDev .v2d-meta{font-size:13px;color:#44546f}',
+    '#secDev .v2d-campos{display:grid;grid-template-columns:150px 1fr;gap:8px 12px;align-items:end}',
+    '#secDev .v2d-campos label{display:block;font-size:12px;color:#44546f;margin:0 0 3px}',
+    '#secDev .v2d-campos input[type=date],#secDev .v2d-campos input[type=text]{width:100%;box-sizing:border-box;min-height:36px;padding:6px 8px;border:1px solid #c1c7d0;border-radius:6px;font:inherit}',
+    '#secDev .v2d-arq{grid-column:1 / -1;font-size:13px}',
+    '#secDev .v2d-arq .v2d-lista{margin-top:4px;color:#1f845a}',
+    '#secDev .v2d-erro{border-color:#c62828 !important}',
+    '#secDev .v2d-rodape{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:4px}',
+    'html.v2toque #secDev .v2d-campos{grid-template-columns:1fr}',
+    'html.v2toque #secDev .v2d-campos input{min-height:44px}'
+  ].join('\n');
+  document.head.appendChild(st);
+  var DEV_ARQS = {};   // id do item -> [{fileId, nome}]
+  function esc2(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function desenhar(c) {
+    var pn = document.getElementById('painelRec'); if (!pn) return;
+    var sec = document.getElementById('secDev');
+    var devs = (c && c.devolucoes) || [];
+    if (!devs.length || c.podeReceber === false) { if (sec) sec.remove(); return; }
+    if (!sec) {
+      sec = document.createElement('section'); sec.id = 'secDev';
+      var rod = pn.querySelector(':scope > .rodape');
+      if (rod) pn.insertBefore(sec, rod); else pn.appendChild(sec);
+    }
+    DEV_ARQS = {};
+    var pend = devs.filter(function (d) { return !d.ok; }), feitas = devs.filter(function (d) { return d.ok; });
+    sec.innerHTML = '<h2>Devoluções ao fornecedor — NF</h2>'
+      + '<div class="dica" style="margin-bottom:10px">Peça devolvida ao fornecedor: confirme a <b>data da devolução</b>, informe o <b>nº da NF de devolução</b> e anexe a nota. Enquanto faltar NF, o card não vai para ENTREGUES.</div>'
+      + pend.map(function (d) {
+        var meta = String(d.nome).replace(/^↩️\s*/, '').replace(/\s*·\s*aguardando NF\s*$/i, '');
+        return '<div class="v2d-item" data-id="' + esc2(d.id) + '"><div class="v2d-topo"><b>↩️ ' + esc2(d.peca) + '</b><span class="v2d-meta">' + esc2(meta.replace(d.peca, '').replace(/^\s*-\s*/, '')) + '</span></div>'
+          + '<div class="v2d-campos"><div><label>Data da devolução</label><input type="date" class="v2d-data" value="' + esc2(d.dueIso || '') + '"></div>'
+          + '<div><label>Nº da NF de devolução</label><input type="text" class="v2d-nf" inputmode="numeric" placeholder="ex.: 12345"></div>'
+          + '<div class="v2d-arq"><label class="v2-btnarq" style="cursor:pointer">📎 Anexar NF (PDF/XML)<input type="file" class="v2d-file" accept="application/pdf,.xml,image/*" style="display:none"></label><div class="v2d-lista"></div></div></div></div>';
+      }).join('')
+      + (feitas.length ? '<div class="dica" style="margin:6px 0 4px">Com NF informada:</div>' + feitas.map(function (d) {
+        return '<div class="v2d-item ok"><div class="v2d-topo"><b>✔ ' + esc2(d.peca) + '</b><span class="v2d-meta">NF ' + esc2(d.nf) + ' · ' + esc2(d.nfData) + '</span></div></div>';
+      }).join('') : '')
+      + (pend.length ? '<div class="v2d-rodape"><button type="button" class="principal" id="btnDev2">↩️ Salvar NF de devolução</button><span class="carregando oculto" id="devEnviando">Enviando…</span></div>' : '');
+    sec.querySelectorAll('.v2d-file').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        var it = inp.closest('.v2d-item'), id = it.dataset.id, lista = it.querySelector('.v2d-lista');
+        Array.prototype.forEach.call(inp.files || [], function (f) {
+          if (f.size > 15 * 1024 * 1024) { lista.textContent = '❌ arquivo muito grande (máx. 15 MB)'; return; }
+          var av = document.createElement('div'); av.textContent = '⏳ enviando ' + f.name + '…'; lista.appendChild(av);
+          lerArquivo(f).then(function (b64) { return chamar('vdf_subirArquivo', TOKEN, b64, f.type || 'application/octet-stream', f.name); }).then(function (r) {
+            (DEV_ARQS[id] = DEV_ARQS[id] || []).push({ fileId: r.fileId, nome: f.name }); av.textContent = '📎 ' + f.name;
+          }).catch(function (e) { av.textContent = '❌ ' + f.name + ': ' + e.message; });
+        });
+        inp.value = '';
+      });
+    });
+    var bt = document.getElementById('btnDev2');
+    if (bt) bt.onclick = function () {
+      var itens = [], erro = false;
+      sec.querySelectorAll('.v2d-item:not(.ok)').forEach(function (it) {
+        var nf = it.querySelector('.v2d-nf'), dt = it.querySelector('.v2d-data');
+        nf.classList.remove('v2d-erro'); dt.classList.remove('v2d-erro');
+        var vNf = (nf.value || '').trim(), vDt = dt.value || '';
+        if (!vNf && !(DEV_ARQS[it.dataset.id] || []).length) return;   // não mexeu nesta
+        if (!vNf) { nf.classList.add('v2d-erro'); erro = true; }
+        if (!vDt) { dt.classList.add('v2d-erro'); erro = true; }
+        itens.push({ id: it.dataset.id, data: vDt, nf: vNf, fileIds: (DEV_ARQS[it.dataset.id] || []).map(function (a) { return a.fileId; }) });
+      });
+      if (erro) { try { errosComprador(['Informe o nº da NF e a data da devolução nas peças marcadas.']); } catch (e) {} return; }
+      if (!itens.length) { try { errosComprador(['Informe o nº da NF de devolução de pelo menos uma peça.']); } catch (e) {} return; }
+      bt.disabled = true; var env = document.getElementById('devEnviando'); if (env) env.classList.remove('oculto');
+      chamar('vdf_salvarDevolucao', TOKEN, { shortLink: CARD_EDICAO, itens: itens }).then(function (r) {
+        bt.disabled = false; if (env) env.classList.add('oculto');
+        if (!r.ok) return errosComprador(r.faltas);
+        sucesso('↩️ NF de devolução registrada no card <b>' + esc2(r.nome) + '</b>: ' + r.n + ' peça(s)' + (r.anexos ? ', ' + r.anexos + ' anexo(s)' : '') + '.'
+          + (r.pendentes > 0 ? '<br>⏳ Ainda falta NF de ' + r.pendentes + ' devolução(ões).' : '') + (r.lista ? '<br>O card está em <b>' + esc2(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+      }).catch(function (x) { bt.disabled = false; if (env) env.classList.add('oculto'); errosComprador([x.message]); });
+    };
+  }
+  var orig = window.montarRecebimento;
+  window.montarRecebimento = function (c) { var r = orig.apply(this, arguments); try { desenhar(c); } catch (e) { console.log('devoluções: ' + e); } return r; };
+})();
 </script>
 </body>
 </html>

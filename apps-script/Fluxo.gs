@@ -318,6 +318,26 @@ function sla_executar_(forcar) {
         chaves.push(ch);
       });
     });
+    // 21/10/2026 (Weslley): devolução sem NF há mais de SLA_DIAS_NF_DEVOLUCAO d.u. (checklist DEVOLUÇÕES) — avisa o comprador uma vez por item
+    try {
+      var devAtr = [], chDev = [], folgaDev = +vd_prop_('SLA_DIAS_NF_DEVOLUCAO', 3);
+      (c.checklists || []).forEach(function (k) {
+        if (!/^DEVOLU[ÇC][ÕO]ES/i.test(String(k.name || '').trim())) return;
+        (k.checkItems || []).forEach(function (it) {
+          if (it.state === 'complete' || !it.due || hoje <= sla_mais_(it.due, folgaDev)) return;
+          var chD = 'SLA_DEV_' + it.id; if (!sla_podeAvisar_(props, chD, hoje)) return;
+          devAtr.push(String(it.name || '').replace(/^↩️\s*/, '').split(/\s+-\s+/)[0] + ' (devolvida ' + vd_dataCurta_(it.due) + ')'); chDev.push(chD);
+        });
+      });
+      if (devAtr.length) {
+        if (silencioso) chDev.forEach(function (ch) { props.setProperty(ch, '2999-01-01T12:00:00.000Z'); });
+        else {
+          vd_comentar_(c, sla_mencao_(sla_users_('SLA_RECEBER', 'comprasunity')) + ' ⏰ NF de devolução pendente há mais de ' + folgaDev + ' dia(s) útil(eis) — ' + devAtr.join('; ') + '. Informar o nº da NF e anexar na aba **📦 Recebimento → Devoluções**.');
+          ev_registrar_('ALERTA PRAZO', c, 'robô', null, { detalhe: 'NF de devolução: ' + devAtr.join('; ') });
+          chDev.forEach(function (ch) { props.setProperty(ch, hoje.toISOString()); }); n++;
+        }
+      }
+    } catch (eD) { console.log('sla/devolução: ' + eD); }
     if (!chaves.length) return;
     var partes = [];
     if (atrasados.PAGAS.length) partes.push('verificar compra do item ' + atrasados.PAGAS.join(', '));
