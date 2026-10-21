@@ -1308,7 +1308,7 @@ function vdf_salvarCotacao(token, p) {
     var quem = particular ? vd_criador_(card.id) : '';
     var eqC = vdf_equipeDoCard_(card), temPartC = particular || an.pecas.some(function (x) { return x.particular; });
     var mencoes = [compr].concat(temPartC && eqC.length ? eqC : [quem].concat(an.pecas.map(function (x) { return x.partPor; }))).filter(function (u, i, a) { return u && u !== String(me.username).toLowerCase() && a.indexOf(u) === i; });
-    var txt = mencoes.map(function (u) { return '@' + u + ' '; }).join('') + '💰 **COTAÇÃO** — ' + me.fullName + ' · ' + (nada ? 'enviada (salva antes aos poucos)' : cots.length + ' cotação(ões) em ' + nPc + ' peça(s)' + (nt.length ? ' · ' + nt.length + ' NT' : '')) + (movido ? ' → **' + movido + '**' : '');
+    var txt = vdf_mencao_(mencoes) + '💰 **COTAÇÃO** — ' + me.fullName + ' · ' + (nada ? 'enviada (salva antes aos poucos)' : cots.length + ' cotação(ões) em ' + nPc + ' peça(s)' + (nt.length ? ' · ' + nt.length + ' NT' : '')) + (movido ? ' → **' + movido + '**' : '');
     if (cob.faltam.length) txt += '\n⏳ **PARCIAL** — falta cotar ou justificar: ' + cob.faltam.join(', ');
     else if (cob.semCot.length) txt += '\n⛔ **NÃO COTADAS:** ' + cob.semCot.map(function (s) { return s.nome + ' (' + s.texto + ')'; }).join('; ');
     if (misto && !cob.faltam.length) txt += '\n👤 Particulares: autoriza o consultor pela aba Autorizar.';
@@ -1392,6 +1392,14 @@ function vd_autorizacoesDaDescricao_(desc, pecas) {
 }
 
 var VDF_LISTA_AUTORIZADO = 'AUTORIZADO COMPRA';
+
+/** 21/10/2026 (Weslley: "só avisar se o prazo da tarefa expirar"): os comentários de fluxo do formulário (cotação, autorização,
+ * devolução, indisponível, quem paga, não comprar) NÃO mencionam mais ninguém — quem tem de agir é avisado pelo lembrete de prazo
+ * do robô (SLA). Voltar a mencionar: propriedade MENCAO_FLUXO = SIM. */
+function vdf_mencao_(us) {
+  if (vd_prop_('MENCAO_FLUXO', 'NAO') === 'NAO') return '';
+  return (us || []).filter(function (u, i, a) { return u && a.indexOf(u) === i; }).map(function (u) { return '@' + u + ' '; }).join('');
+}
 
 /**
  * p = {shortLink, escolhas:[{chave, fornecedor, valor}]}
@@ -1535,7 +1543,7 @@ function vdf_autorizar(token, p) {
     if (!grupoSeg.some(temAut)) aguarda.push('peças da seguradora — diretoria');
     if (!grupoPart.some(temAut)) {
       var donos = [].concat.apply([], grupoPart.map(function (x) { return vdf_donosPart_(card, x, criador); })).filter(function (u, i, a) { return u && a.indexOf(u) === i; });
-      aguarda.push('peças particulares — ' + (donos.length ? donos.map(function (u) { return '@' + u; }).join(' ') : 'consultor'));
+      aguarda.push('peças particulares — ' + (donos.length ? donos.join(' / ') : 'consultor'));
     }
   }
   // 16/10/2026 (Weslley, NPG5429): peça ainda sem cotação (complemento novo em EM COTAÇÃO) segura o card — antes o "Enviar
@@ -1566,12 +1574,12 @@ function vdf_autorizar(token, p) {
     if (reenvio) {
       // só o que mudou, com o total do card depois da mudança
       var totC = autsAgora.reduce(function (sum, a) { var pc = porChave[a.chave] || {}; return sum + (+a.valor || 0) * (vd_totaisPorQtd_() ? vd_qtdNum_(pc.qtd) : 1); }, 0);
-      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✏️ **AUTORIZAÇÃO ALTERADA** — ' + me.fullName + ' · ' + autsAgora.length + ' peça(s) · ' + vd_valorBR_(totC) + (movido ? ' → **' + movido + '**' : '') +
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: vdf_mencao_([compr]) + '✏️ **AUTORIZAÇÃO ALTERADA** — ' + me.fullName + ' · ' + autsAgora.length + ' peça(s) · ' + vd_valorBR_(totC) + (movido ? ' → **' + movido + '**' : '') +
         (trocadasA.length ? '\n🔁 Trocou: ' + trocadasA.join('; ') : '') + (novasA.length ? '\n➕ Autorizou agora: ' + novasA.join('; ') : '') +
         (typeof txtM === 'string' ? txtM : '') + obsL.texto + (aguarda.length ? '\n⏳ Aguarda: ' + aguarda.join('; ') : '') } }, token);
       total = totC; linhas = autsAgora.map(function (a) { return a.chave; });
     } else {
-      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '✅ **AUTORIZADO** — ' + me.fullName + ' · ' + linhas.length + ' peça(s) · ' + vd_valorBR_(total) + (movido ? ' → **' + movido + '**' : '') +
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: vdf_mencao_([compr]) + '✅ **AUTORIZADO** — ' + me.fullName + ' · ' + linhas.length + ' peça(s) · ' + vd_valorBR_(total) + (movido ? ' → **' + movido + '**' : '') +
         (semAut ? '\n⛔ Sem autorização (não comprar): ' + semAut + ' peça(s)' : '') + (typeof txtM === 'string' ? txtM : '') + obsL.texto + (aguarda.length ? '\n⏳ Aguarda: ' + aguarda.join('; ') : '') } }, token);
     }
   } catch (e) {}
@@ -1635,7 +1643,7 @@ function vdf_devolverCotacao(token, p) {
   try { movido = vdf_moverPara_(card, ctx, VD.LISTA_COTACAO, token, me.username); } catch (e) {}
   try {
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (compr ? '@' + compr + ' ' : '') + '↩️ **COTAÇÃO DEVOLVIDA** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + obsL.texto } }, token);
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: vdf_mencao_([compr]) + '↩️ **COTAÇÃO DEVOLVIDA** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + obsL.texto } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: obsL.n, lista: movido || vdf_nomeLista_(ctx, card.idList) };
@@ -2466,7 +2474,7 @@ function vdf_salvar(token, p) {
     try {
       var eqTp = vdf_equipeDoCard_(card);
       var donosTp = (eqTp.length ? eqTp : trocasPart.paraPart.map(function (x) { return x.por; })).filter(function (u, i, a) { return u && u !== String(me.username).toLowerCase() && a.indexOf(u) === i; });
-      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: (donosTp.length ? donosTp.map(function (u) { return '@' + u; }).join(' ') + ' ' : '') + '🔀 **QUEM PAGA MUDOU** — ' + me.fullName +
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: vdf_mencao_(donosTp) + '🔀 **QUEM PAGA MUDOU** — ' + me.fullName +
         (trocasPart.paraPart.length ? '\n👤 Passou para **particular** (cliente paga · autoriza o consultor): ' + trocasPart.paraPart.map(function (x) { return x.nome; }).join('; ') : '') +
         (trocasPart.paraSeg.length ? '\n🛡️ Voltou para a **seguradora** (autoriza a diretoria): ' + trocasPart.paraSeg.map(function (x) { return x.nome; }).join('; ') : '') } }, token);
     } catch (e) {}
@@ -2476,7 +2484,7 @@ function vdf_salvar(token, p) {
   try {
     var naoNovas = pecas.filter(function (x) { return x.naoComprar && !naoAntes[vd_chavePeca_(x)]; });
     if (naoNovas.length) {
-      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🚫 **NÃO COMPRAR** — @' + me.username + ' marcou como não comprar: ' +
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🚫 **NÃO COMPRAR** — ' + me.fullName + ' (' + me.username + ') marcou como não comprar: ' +
         naoNovas.map(function (x) { return vd_nomePeca_(x) + (x.naoMotivo ? ' (' + x.naoMotivo + ')' : ''); }).join('; ') } }, token);
     }
   } catch (e) {}
@@ -2561,7 +2569,7 @@ function vdf_cotacaoIndisponivel(token, p) {
     var us = [];
     if (temNova) afetadas.forEach(function (x) { if (vdf_pecaParticular_(x, card, an)) us = us.concat(vdf_donosPart_(card, x, criador)); else us = us.concat(sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity')); });
     us = us.filter(function (u, i) { return u && u !== me.username && us.indexOf(u) === i; });
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: us.map(function (u) { return '@' + u + ' '; }).join('') + '⚠️ **COTAÇÃO INDISPONÍVEL** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' +
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: vdf_mencao_(us) + '⚠️ **COTAÇÃO INDISPONÍVEL** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' +
       // 16/10/2026: no quadro TESTE (2.0) o comentário traz a cotação nova; no principal fica o texto de antes até a migração
       (vd_v2_() ? resumo.join('\n') + (!semNova ? '\n✅ Autorizar de novo pela aba Autorizar (a cotação nova já vem marcada).' : temNova ? '\n🔁 Falta cotar ' + (semNova === 1 ? 'a peça sem cotação nova' : 'as peças sem cotação nova') + ' — depois a cotação vai para autorização junto com a nova.' : '\n🔁 Sem cotação nova: volta para cotação.')
         : linhas.map(function (l) { return '- ' + l.replace(/^INDISPON[IÍ]VEL:\s*/i, ''); }).join('\n') + (temNova ? '\n↪️ Cotação nova: autorizar de novo.' : '\n↪️ Sem cotação nova: volta para cotação.')) } }, token);

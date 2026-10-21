@@ -235,3 +235,7 @@ da outra, deixar um recado aqui e no commit.
   das 16h52); só o "Enviar cotação" avisa.
 - 17h24 — Weslley: "quando o consultor definir a peça e ela for marcada como não comprar, informar @fulano marcou os itens x, y".
   vdf_salvar compara as 🚫 de antes com as de agora e comenta "🚫 NÃO COMPRAR — @consultor marcou como não comprar: …".
+- 17h27 — Weslley: "só avisar se o prazo para a tarefa, seja qual for, expirar" (print: "@timweslley 💰 COTAÇÃO → PENDENTE
+  AUTORIZAR"). Comentários de fluxo do formulário sem @menção (`vdf_mencao_`, chave MENCAO_FLUXO=NAO); os lembretes ⏰ do SLA
+  continuam mencionando. Mantidas as menções de FALTA DADOS/PEÇA NOVA, travas, faturamento, ORDEM AUTORIZADA PENDENTE e compra
+  fora da autorização (não têm prazo no SLA — ver com ele se também devem calar).

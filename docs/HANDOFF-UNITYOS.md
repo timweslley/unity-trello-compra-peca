@@ -79,6 +79,7 @@ Postgres). Publicação: push na `main` → GitHub Actions (`Servidor` → Cloud
 - **Retorno** (oficina paga): nasce copiando o carro de um card da mesma placa (inclusive arquivado); puxa a capa; OBS "RETORNO INTERNO — card anterior …".
 - **Concorrência**: formulário e robô gravam a mesma descrição. Quem grava depois de uma leitura demorada (anexos) tem de conferir se a descrição mudou e, se mudou, desistir e refazer (21/10, SES8I10). No unityOS: transação/versão do pedido, não "último escreve ganha".
 - **Comentários de rotina só quando algo muda** (21/10): o robô/formulário guarda a assinatura do último aviso por card (ex.: `VD_SIG_`, `VDF_PARC_`) e não repete o mesmo estado — cotação parcial, falta dados. Portar como "estado avisado" do pedido.
+- **Notificar só no prazo** (21/10): o andamento do fluxo (cotou, autorizou, devolveu…) não notifica ninguém; a pessoa é chamada quando o prazo da tarefa dela vence (SLA). No unityOS: notificação = vencimento, não evento.
 - **Comentários**: nunca "seguir com compra/fornecimento" nem "cotar/comprar"; peça de oficina = "verificar compra do item X"; FO = "verificar prazo do item X"; nunca a palavra "faturado" fora do fluxo do financeiro; dúvida sempre com PLACA + nº da O.S.
 
 ## 5. Dados — dicionário e exportação
