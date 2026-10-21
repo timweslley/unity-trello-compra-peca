@@ -252,3 +252,6 @@ da outra, deixar um recado aqui e no commit.
   COMPRA (2 d.u.).
 - 19h14 — Weslley: "Devolver para cotação" abre balão com campo de motivo (obrigatório; opcional se há obs. em alguma peça), em
   vez de exigir a observação geral. Computador e celular (camada 2.0).
+- 19h32 — Weslley: "lembrar sempre que essas alterações devem bater com as diretrizes de design que já estabelecemos". Diretrizes
+  consolidadas numa seção do `CLAUDE.md` (público, duas interfaces por aparelho, estrutura das telas, balões, resultado em cartão,
+  só aparência na 2.0, conferir no TESTE nos dois aparelhos antes de publicar). Memória também anotada.
