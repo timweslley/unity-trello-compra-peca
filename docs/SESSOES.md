@@ -189,3 +189,10 @@ da outra, deixar um recado aqui e no commit.
   cada gravação e a cada minuto do robô), licenças das travas (esperadas antes de responder), e-mails (MailApp), OCR do Google
   (vdf_ocrServidor), volta do formulário ao Google quando o servidor falha, e os acionadores (só retornam). O TESTE já roda
   100% no banco (gas_propriedade, cache em memória) — é a prova de que o caminho funciona. Plano no relatório ao Weslley.
+- 22h30 — **Visual do celular (só TESTE, `PU_CFG.VISUAL_CEL: 'teste'`)**: correção da revisão de 20h40 — as capturas "de celular"
+  eram o layout de computador espremido (o modo vem do aparelho, não da largura); chave `&aparelho=celular|pc` para conferir no
+  computador. No layout de celular de verdade: topo com "Sem foto" virando ícone (a etapa não corta mais), previsão como selo
+  "Previsão 22/09 · atrasada" no recebimento + botão "✔ Chegou tudo" (≥ 3 peças, só marca as caixas), botão principal do rodapé
+  em 2 linhas em vez de "Enviar com…", barra do WhatsApp sem subtítulo. Conferido nas 4 telas em 375 px. Principal: `'todos'`.
+- Weslley: e-mail fica de lado; quer "liga um, desliga outro" — plano de ~18 h em duas noites (chaves por fonte: propriedades,
+  planilha, OCR, bases; cópia de volta ao Google por 30 dias).
