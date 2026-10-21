@@ -327,11 +327,11 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
       trello_quadro: 'SELECT * FROM trello_quadro',
       trello_card: 'SELECT * FROM trello_card WHERE ($1::text IS NULL OR quadro = $1)',
       trello_acao: 'SELECT * FROM trello_acao WHERE ($1::text IS NULL OR quadro = $1) AND ($2::timestamptz IS NULL OR data >= $2) ORDER BY data',
-      evento: 'SELECT * FROM evento WHERE ($2::timestamptz IS NULL OR quando >= $2) ORDER BY quando',
+      evento: 'SELECT * FROM evento WHERE ($1::timestamptz IS NULL OR quando >= $1) ORDER BY quando',
       planilha_trava: 'SELECT * FROM planilha_trava',
       anexo_leitura: 'SELECT anexo_id, card_id, nome, bytes, hash, tipo, metodo, versao_texto, leitura, versao_leitor, erro, lido_em FROM anexo_leitura',
       pedido_retrato: 'SELECT * FROM pedido_retrato WHERE ($1::text IS NULL OR quadro = $1)',
-      pedido_historico: 'SELECT * FROM pedido_historico WHERE ($2::timestamptz IS NULL OR quando >= $2) ORDER BY quando',
+      pedido_historico: 'SELECT * FROM pedido_historico WHERE ($1::timestamptz IS NULL OR quando >= $1) ORDER BY quando',
       gas_aba: 'SELECT * FROM gas_aba',
       gas_linha: 'SELECT * FROM gas_linha ORDER BY aba, linha',
       gas_propriedade: 'SELECT chave, valor, alterada_em FROM gas_propriedade',
@@ -343,7 +343,8 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
     let quadro: string | null = null;
     if (b.quadro) { const [q] = await consulta<{ id: string }>(`SELECT id FROM trello_quadro WHERE short_link = $1 OR id = $1`, [String(b.quadro)]); quadro = q ? q.id : String(b.quadro); }
     const desde = b.desde ? new Date(String(b.desde)).toISOString() : null;
-    const params = sql.includes('$2') ? [quadro, desde] : sql.includes('$1') ? [quadro] : [];
+    const soData = /^SELECT \* FROM (evento|pedido_historico)/.test(sql);
+    const params = sql.includes('$2') ? [quadro, desde] : sql.includes('$1') ? [soData ? desde : quadro] : [];
     const linhas = await consulta<Record<string, unknown>>(sql, params);
     console.log(`[exportar] ${usuario} ${b.tabela} ${linhas.length} linhas`);
     resp.header('content-type', 'application/x-ndjson; charset=utf-8');
