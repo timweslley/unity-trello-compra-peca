@@ -308,6 +308,42 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
   app.get('/tarefas/drive-teste', async () => testeDrive());
   app.get('/tarefas/robo/comparar', async (req) => compararRobo(Math.min(48, Math.max(1, +((req.query as Record<string, string>)?.horas || 1))), String((req.query as Record<string, string>)?.detalhe || '')));
   app.get('/tarefas/robo/props', async () => tamanhoProps());
+
+  /** 20/10/2026 — exportação dos dados para o unityOS (pacote de entrega, docs/HANDOFF-UNITYOS.md).
+   *  POST { token, tabela, quadro?, desde? } — token do Trello de alguém da diretoria (VD_AUTORIZADORES do robô);
+   *  devolve a tabela em NDJSON (uma linha por registro). Sem token válido: 403. Nada é gravado. */
+  app.post('/tarefas/exportar', async (req, resp) => {
+    const b = (req.body || {}) as { token?: string; tabela?: string; quadro?: string; desde?: string };
+    const DIRETORIA = (process.env.EXPORTAR_USUARIOS || 'timweslley,comercialunity,christianfarias23').toLowerCase().split(/[,;\s]+/).filter(Boolean);
+    let usuario = '';
+    try { const me = await trello<{ username: string }>('/members/me', { token: String(b.token || ''), query: { fields: 'username' }, tentativas: 1 }); usuario = String(me.username || '').toLowerCase(); } catch { /* token inválido */ }
+    if (!usuario || !DIRETORIA.includes(usuario)) return resp.code(403).send({ ok: false, erro: 'só a diretoria exporta (login do Trello)' });
+    const TABELAS: Record<string, string> = {
+      trello_quadro: 'SELECT * FROM trello_quadro',
+      trello_card: 'SELECT * FROM trello_card WHERE ($1::text IS NULL OR quadro = $1)',
+      trello_acao: 'SELECT * FROM trello_acao WHERE ($1::text IS NULL OR quadro = $1) AND ($2::timestamptz IS NULL OR data >= $2) ORDER BY data',
+      evento: 'SELECT * FROM evento WHERE ($2::timestamptz IS NULL OR quando >= $2) ORDER BY quando',
+      planilha_trava: 'SELECT * FROM planilha_trava',
+      anexo_leitura: 'SELECT anexo_id, card_id, nome, bytes, hash, tipo, metodo, versao_texto, leitura, versao_leitor, erro, lido_em FROM anexo_leitura',
+      pedido_retrato: 'SELECT * FROM pedido_retrato WHERE ($1::text IS NULL OR quadro = $1)',
+      pedido_historico: 'SELECT * FROM pedido_historico WHERE ($2::timestamptz IS NULL OR quando >= $2) ORDER BY quando',
+      gas_aba: 'SELECT * FROM gas_aba',
+      gas_linha: 'SELECT * FROM gas_linha ORDER BY aba, linha',
+      gas_propriedade: 'SELECT chave, valor, alterada_em FROM gas_propriedade',
+      config: 'SELECT * FROM config',
+    };
+    const sql = TABELAS[String(b.tabela || '')];
+    if (!sql) return resp.code(400).send({ ok: false, erro: 'tabela inválida', tabelas: Object.keys(TABELAS) });
+    // quadro: id longo ou shortLink (ZX4gRmnX / oH4TbTqb) — a tabela guarda o id longo
+    let quadro: string | null = null;
+    if (b.quadro) { const [q] = await consulta<{ id: string }>(`SELECT id FROM trello_quadro WHERE short_link = $1 OR id = $1`, [String(b.quadro)]); quadro = q ? q.id : String(b.quadro); }
+    const desde = b.desde ? new Date(String(b.desde)).toISOString() : null;
+    const params = sql.includes('$2') ? [quadro, desde] : sql.includes('$1') ? [quadro] : [];
+    const linhas = await consulta<Record<string, unknown>>(sql, params);
+    console.log(`[exportar] ${usuario} ${b.tabela} ${linhas.length} linhas`);
+    resp.header('content-type', 'application/x-ndjson; charset=utf-8');
+    return resp.send(linhas.map((l) => JSON.stringify(l)).join('\n') + '\n');
+  });
   // 17/10/2026: despertador próprio (CPU sempre ligada no Cloud Run, sem Cloud Scheduler) — a cada minuto
   if (process.env.ROBO_TICK === 'SIM') {
     setTimeout(() => setInterval(() => { minutoRobo().catch((e) => console.error('[robô] minuto:', (e as Error).message)); }, 60_000), 20_000);

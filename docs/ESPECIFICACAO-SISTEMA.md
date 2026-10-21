@@ -1,6 +1,6 @@
 # Compra de Peça — Especificação do sistema (para reimplementação em servidor próprio)
 
-**Grupo Unity · versão deste documento: 07/10/2026**
+**Grupo Unity · versão deste documento: 20/10/2026** · mapa de entrega para o unityOS em `HANDOFF-UNITYOS.md`
 
 Este documento descreve **o que o sistema faz hoje** — fluxo, regras de negócio, modelo de dados, integrações e
 cálculos — de forma independente da tecnologia atual (Google Apps Script + Trello). Ele foi levantado diretamente
@@ -648,3 +648,9 @@ seção 10) · `usuario` (username trello, nome, papéis, unidade).
   estado atual, não a história.
 - Uma cópia é mantida no Drive em `Claude/Sistema Trello Compra de Peça/` junto com o `ESTADO-SISTEMA-TRELLO.md`
   (estado operacional/pendências). Para entregar ao desenvolvedor: este arquivo + acesso ao repositório.
+
+## 13. Mudanças de regra desde 16/10/2026 (resumo; o detalhe está nas seções e no `git log`)
+
+- **17/10** — Versão 2.0 ligada no quadro principal; gravações do formulário pelo servidor; itens "SEM COBERTURA" do orçamento Cilia não entram para compra; card PARTICULAR continua exigindo ORDEM AUTORIZADA; dois pneus da mesma medida no card são a mesma peça; "ÓLEO ADITIVO…" é 🚫 não comprar padrão.
+- **19/10** — Robô do principal roda no servidor (Google em reserva). Rotina abre cards só com peças de TROCA da base do Cilia/HDI. Lista de cotação para WhatsApp por tipo de fornecedor (CSS/concessionária, lataria, mecânica, pneu) e pedidos de compra por fornecedor. Print HDI: fornecedor só por palavras de empresa; linha de fornecedor e REFATURAMENTO não são peça.
+- **20/10** — Marcas do complementar (`COMPL:`/`COMPLEMENTO dd/mm`) e a observação geral (`OBS:`) não contam como peça nova. Comentário repetido no mesmo card em < 3 min não é postado. Lembrete de faturamento no card só para cards entrados em ENTREGUES a partir de 20/10 15:30. Card arquivado por faturamento: só o Weslley desarquiva (o robô arquiva de novo e avisa). Retorno pode nascer de card **arquivado** da mesma placa e puxa a foto de capa. Comprador pode cotar **tipo diferente do pedido** (aviso "fora do pedido" para quem autoriza). Diretoria pode renomear itens de compra de card antigo para o padrão novo e encerrar card sem peça nenhuma (orçamento só de mão de obra). Leitor do **relatório de peças novo do Cilia** (fornecedor = bloco FORNECIMENTO + "nome - CNPJ"; previsão e entrega pelos pareceres). Na aba Cotação, peça já comprada (item no PAGAS) aparece fechada "✔ Já comprada".
