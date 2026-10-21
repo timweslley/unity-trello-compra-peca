@@ -214,3 +214,9 @@ da outra, deixar um recado aqui e no commit.
   servidor: `GET /tarefas/robo/atividade?horas=` — ações do principal recebidas pelo webhook, só tipo/quem/card(shortLink)/colunas/
   marcador do comentário (sem nome de card nem texto); memória de 24 h. Tarefa: tenta o conector de novo em 60 s, senão usa a reserva;
   conector fora não é 🔴 nem notificação.
+- 13h56 — SES8I10 CRETA PARTICULAR (Lucas, Cascavel): "não lê o orçamento e travou". O PDF é orçamento **particular do Cilia da
+  própria oficina** (sem "CASCO - marca", sem chassi, cor "-"): a peça (porta) FOI importada, mas modelo/ano não (cabeçalho
+  "CRETA (2020 A 2025) ACTION AUT 1.6 16V FLEX 2024") e pedido particular exige modelo, ano e chassi → "Faltam 3 dados". Dois
+  defeitos de tela: botão "⏳ Importando…" preso (lista não redesenhada quando nada mudou) e dica "não achei dados novos" com a
+  peça importada. Corrigido: leitor reconhece o cabeçalho (modelo + ano; leitor v3 relê Cilia no formulário), botão solta quando a
+  leitura termina, dica diz o que o documento não traz. O chassi continua tendo de ser digitado (o documento não tem).
