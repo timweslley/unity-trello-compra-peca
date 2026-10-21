@@ -2108,10 +2108,14 @@ function vdf_salvar(token, p) {
 
   // card existente: descobre coluna e peças que já existiam
   var card = null, lista = '', posCot = false, baseSigs = null, baseTodas = null;
-  var naoAntes = {};   // 21/10/2026: peças já marcadas 🚫 não comprar antes desta gravação (para avisar só as novas)
+  var naoAntes = {}, pecasAntes = null;   // 21/10/2026: como o pedido estava antes desta gravação (para dizer o que mudou e quem mudou)
   if (p.shortLink) {
     card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard' } });
-    try { (vd_analisar_(card.desc, card.name).naoComprar || []).forEach(function (x) { naoAntes[vd_chavePeca_(x)] = 1; }); } catch (e) {}
+    try {
+      var anAntes = vd_analisar_(card.desc, card.name); pecasAntes = {};
+      (anAntes.pecas || []).forEach(function (x) { pecasAntes[vd_chavePeca_(x)] = x; });
+      (anAntes.naoComprar || []).forEach(function (x) { naoAntes[vd_chavePeca_(x)] = 1; pecasAntes[vd_chavePeca_(x)] = x; });
+    } catch (e) { pecasAntes = null; }
     if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro — não pode ser usado como pedido. Clique em "Fazer pedido novo em vez disso".'] };
     // CSS pelo título do card (quando o nome do carro não trouxe ZACARIAS): mesma conversão para FO
     if (!cssCard && vd_cardCss_(card.name)) {
@@ -2480,12 +2484,28 @@ function vdf_salvar(token, p) {
     } catch (e) {}
     try { ev_registrar_('PEDIDO EDITADO', card, me.username, trocasPart.paraPart.concat(trocasPart.paraSeg).map(function (x) { return { peca: x.nome, detalhe: '' }; }), { detalhe: 'quem paga mudou: ' + trocasPart.paraPart.length + ' → particular · ' + trocasPart.paraSeg.length + ' → seguradora' }); } catch (e) {}
   }
-  // 21/10/2026 (Weslley): consultor marcou peça como 🚫 não comprar no pedido → avisa no card quem marcou e quais itens
+  // 21/10/2026 (Weslley, AGL5650: "não tem quem incluiu e pediu as peças"): edição do pedido deixa no card QUEM fez e O QUE
+  // mudou — peça incluída, tipo definido/trocado, peça tirada, 🚫 não comprar (com motivo). Sem @menção (o prazo avisa).
   try {
-    var naoNovas = pecas.filter(function (x) { return x.naoComprar && !naoAntes[vd_chavePeca_(x)]; });
-    if (naoNovas.length) {
-      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🚫 **NÃO COMPRAR** — ' + me.fullName + ' (' + me.username + ') marcou como não comprar: ' +
-        naoNovas.map(function (x) { return vd_nomePeca_(x) + (x.naoMotivo ? ' (' + x.naoMotivo + ')' : ''); }).join('; ') } }, token);
+    if (pecasAntes) {
+      var incl = [], tipoDef = [], naoNovas = [], tiradas = [], agoraCh = {};
+      pecas.forEach(function (x) {
+        var k = vd_chavePeca_(x), ant = pecasAntes[k]; agoraCh[k] = 1;
+        var nmX = vd_nomePeca_(x), tpX = (x.tipos || []).join('/');
+        if (x.naoComprar) { if (!naoAntes[k]) naoNovas.push(nmX + (x.naoMotivo ? ' (' + x.naoMotivo + ')' : '')); return; }
+        if (!ant) { incl.push(nmX + (tpX ? ' · ' + tpX : '')); return; }
+        var tpA = (ant.tipos || []).join('/');
+        if (tpX && tpX !== tpA) tipoDef.push(nmX + ': ' + (tpA ? tpA + ' → ' : '') + tpX);
+      });
+      Object.keys(pecasAntes).forEach(function (k) { if (!agoraCh[k] && !pecasAntes[k].naoComprar) tiradas.push(vd_nomePeca_(pecasAntes[k])); });
+      if (incl.length || tipoDef.length || naoNovas.length || tiradas.length) {
+        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✏️ **PEDIDO EDITADO** — ' + me.fullName + ' (' + me.username + ')' +
+          (incl.length ? '\n➕ Incluiu: ' + incl.join('; ') : '') + (tipoDef.length ? '\n🏷️ Tipo definido: ' + tipoDef.join('; ') : '') +
+          (tiradas.length ? '\n➖ Tirou do pedido: ' + tiradas.join('; ') : '') + (naoNovas.length ? '\n🚫 Não comprar: ' + naoNovas.join('; ') : '') } }, token);
+      }
+    } else {
+      var naoNovo = pecas.filter(function (x) { return x.naoComprar; });
+      if (naoNovo.length) vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🚫 **NÃO COMPRAR** — ' + me.fullName + ' (' + me.username + ') marcou como não comprar: ' + naoNovo.map(function (x) { return vd_nomePeca_(x) + (x.naoMotivo ? ' (' + x.naoMotivo + ')' : ''); }).join('; ') } }, token);
     }
   } catch (e) {}
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };

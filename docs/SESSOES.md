@@ -239,3 +239,6 @@ da outra, deixar um recado aqui e no commit.
   AUTORIZAR"). Comentários de fluxo do formulário sem @menção (`vdf_mencao_`, chave MENCAO_FLUXO=NAO); os lembretes ⏰ do SLA
   continuam mencionando. Mantidas as menções de FALTA DADOS/PEÇA NOVA, travas, faturamento, ORDEM AUTORIZADA PENDENTE e compra
   fora da autorização (não têm prazo no SLA — ver com ele se também devem calar).
+- 17h49 — Weslley (AGL5650): "não tem quem incluiu e pediu as 2 novas peças" e "no formulário não tem a unidade — importante
+  para o autorizador". Edição do pedido comenta "✏️ PEDIDO EDITADO — Nome (usuário)" com incluiu / tipo definido / tirou / não
+  comprar (substitui o "🚫 NÃO COMPRAR" das 17h24 na edição). Painel 2.0: Unidade e "Pedido por".

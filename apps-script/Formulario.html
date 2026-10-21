@@ -7042,6 +7042,9 @@ iniciar();
       // quem paga só some na tela baixa quando é seguradora (particular e retorno precisam aparecer)
       + kv('Quem paga', txt(c.tipo === 'PARTICULAR' ? 'Cliente (particular)' : c.tipo === 'RETORNO' ? 'Oficina (retorno)' : 'Seguradora'), seg ? 'Quem paga' : 'Quem paga!')
       + kv('Nº da ordem', c.ordem ? txt(c.ordem) : '<span class="v2c-sem">sem nº</span>')
+      // 21/10/2026 (Weslley): unidade e quem pediu são informação importante para quem autoriza
+      + kv('Unidade', (function () { var un = document.getElementById('unidade'), o = un && c.unidadeId ? Array.prototype.filter.call(un.options, function (x) { return x.value === c.unidadeId; })[0] : null; return o ? txt(o.text) : '<span class="v2c-sem">sem unidade</span>'; })())
+      + (c.solicitante ? kv('Pedido por', txt(c.solicitante)) : '')
       + kv('Peças pela oficina', String(pecs.length))
       + (orc ? kv('Total no orçamento', txt(fmtValor(orc))) : '')
       + (T.cot ? kv('Menor cotação', txt(fmtValor(T.cot))) : '')
