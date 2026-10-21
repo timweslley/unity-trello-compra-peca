@@ -15,6 +15,33 @@ import { retratar, retratarTodos } from './retrato.js';
 import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo, minutoRobo, testeDrive, compararRobo, tamanhoProps, pedirCicloRapido, estadoCicloRapido, batidaNoGoogle } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
+/* 21/10/2026 — últimas 24 h de ações do quadro principal recebidas pelo webhook, só o que o monitoramento precisa e nada
+ * de dado de cliente: sem nome de card, sem texto de comentário (só o marcador do robô). Memória: zera a cada publicação. */
+interface AtividadeResumida { em: string; tipo: string; quem: string; card: string; de?: string; para?: string; fechado?: boolean; marcador?: string }
+const ATIVIDADE: AtividadeResumida[] = [];
+const MARCADORES: Array<[RegExp, string]> = [
+  [/ALTERA[ÇC][ÃA]O N[ÃA]O PERMITIDA/i, '🔒 ALTERAÇÃO NÃO PERMITIDA'], [/n[ãa]o pode ser movido/i, '🔒 O card não pode ser movido'],
+  [/n[ãa]o volta/i, '🔒 Card que já passou da cotação não volta'], [/PE[ÇC]A NOVA/i, '🆕 PEÇA NOVA'], [/PE[ÇC]A SEM COTA[ÇC][ÃA]O/i, '🆕 PEÇA SEM COTAÇÃO'],
+  [/Card em \*\*ENTREGUES|⏰/i, '⏰ lembrete'], [/Faturamento pendente/i, '🧾 Faturamento pendente'], [/Desarquivei|já \*\*faturado\*\*/i, '🧾 desarquivamento'],
+  [/\*\*AUTORIZADO\*\*/, '✅ AUTORIZADO'], [/AUTORIZA[ÇC][ÃA]O PARCIAL/i, '💾 AUTORIZAÇÃO PARCIAL'], [/\*\*COTA[ÇC][ÃA]O\*\*/, '💰 COTAÇÃO'], [/COTA[ÇC][ÃA]O PARCIAL/i, '💾 COTAÇÃO PARCIAL'],
+  [/\*\*COMPRA\*\*/, '🛒 COMPRA'], [/COMPRA CANCELADA/i, '❌ COMPRA CANCELADA'], [/\*\*RECEBIMENTO\*\*/, '📦 RECEBIMENTO'], [/\*\*RETIRADA\*\*/, '✋ RETIRADA'],
+  [/ORÇAMENTO COMPLEMENTAR/i, '📄 ORÇAMENTO COMPLEMENTAR'], [/FALTA DADOS/i, '⚠️ FALTA DADOS'], [/↪️ Card →/, '↪️ Card →'], [/Anexo repetido/i, '🗑️ anexo repetido'],
+  [/Encerrado sem peças/i, '🔒 Encerrado sem peças'], [/Compras do card antigo/i, '🔄 renomear PAGAS'], [/DEVOLU[ÇC][ÃA]O|devolvid/i, '↩️ devolução'],
+];
+function anotarAtividade(a: AcaoTrello): void {
+  const d = (a.data || {}) as Record<string, any>;
+  const x: AtividadeResumida = { em: a.date, tipo: a.type, quem: a.memberCreator?.username || '', card: d.card?.shortLink || '' };
+  if (d.listBefore?.name && d.listAfter?.name) { x.de = d.listBefore.name; x.para = d.listAfter.name; }
+  if (a.type === 'updateCard' && typeof d.card?.closed === 'boolean' && d.old && 'closed' in d.old) x.fechado = d.card.closed;
+  if (a.type === 'commentCard') { const t = String(d.text || ''); x.marcador = (MARCADORES.find(([re]) => re.test(t)) || [null, 'comentário'])[1]; }
+  if (a.type === 'updateCard' && !x.de && x.fechado === undefined) return;   // outras edições de card não interessam
+  ATIVIDADE.push(x);
+  const lim = Date.now() - 24 * 3_600_000;
+  while (ATIVIDADE.length && Date.parse(ATIVIDADE[0].em) < lim) ATIVIDADE.shift();
+  if (ATIVIDADE.length > 5000) ATIVIDADE.splice(0, ATIVIDADE.length - 5000);
+}
+
+
 /** ações que não mudam o card (o texto fica em trello_acao / view comentario) */
 const SO_COMENTARIO = /^(commentCard|updateComment|deleteComment|addMemberToCard|removeMemberFromCard)$/;
 /** retrato completo do quadro a cada 30 min, no máximo, aproveitando a chegada de uma ação */
@@ -134,10 +161,17 @@ export function criarApp() {
     const corpo = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
     const url = CFG.urlPublica.replace(/\/$/, '') + '/trello/robo';
     if (!assinaturaValida(corpo, url, req.headers['x-trello-webhook'] as string | undefined, CFG.trello.segredo)) return resp.code(401).send({ ok: false });
-    try { const a = (JSON.parse(corpo) as { action?: AcaoTrello }).action; if (a?.data?.card?.id) pedirCicloRapido(); } catch { /* corpo inválido: ignora */ }
+    try { const a = (JSON.parse(corpo) as { action?: AcaoTrello }).action; if (a?.data?.card?.id) { pedirCicloRapido(); anotarAtividade(a); } } catch { /* corpo inválido: ignora */ }
     return { ok: true };
   });
   app.get('/tarefas/robo/rapido', async () => ({ ok: true, webhook: ESTADO.webhookRobo, ...estadoCicloRapido() }));
+  /** 21/10/2026 — atividade recente do quadro principal SEM dados de cliente (para o monitoramento quando o conector do
+   *  Trello falha): tipo, quem, card (shortLink), coluna de/para, marcador do comentário do robô. ?horas=1 (máx. 24). */
+  app.get('/tarefas/robo/atividade', async (req) => {
+    const horas = Math.min(24, Math.max(0.1, Number((req.query as Record<string, string>)?.horas || 1)));
+    const desde = Date.now() - horas * 3_600_000;
+    return { ok: true, horas, guardadoDesde: ATIVIDADE[0]?.em || null, acoes: ATIVIDADE.filter((x) => Date.parse(x.em) >= desde) };
+  });
   app.get('/tarefas/robo/batida', async () => batidaNoGoogle());
 
   /**
