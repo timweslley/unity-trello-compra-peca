@@ -7566,24 +7566,27 @@ iniciar();
     var bal = bt.closest('.v2c-balao'); if (bal && bal._t0 && e.detail > 0 && performance.now() - bal._t0 < 400) { e.preventDefault(); e.stopImmediatePropagation(); }
   }, true);
   document.addEventListener('click', function (e) {
-    if (!compPC()) return;
     var dv = e.target && e.target.closest && e.target.closest('#btnDev');
-    if (dv && !dv.dataset.forcar && !dv.disabled) {
+    if (dv && !dv.dataset.forcar && !dv.disabled && (compPC() || !PC)) {   // computador (lateral) e celular
       e.preventDefault(); e.stopImmediatePropagation();
-      var temObs = !!vl(g('autGeral')) || $$('#autItens .a-obs').some(function (x) { return vl(x); });
-      var bal;
-      if (!temObs) {
-        bal = balaoComp('v2cDevConf', dv, '<p class="v2-bt">Para devolver, escreva o <b>motivo</b>.</p><div class="dica">É o que o comprador vai ler: na observação geral ou na observação de uma peça.</div>'
-          + '<div class="bts"><button type="button" class="principal" id="v2cDevEsc">Escrever o motivo</button><button type="button" class="secundario" id="v2cDevNao">Cancelar</button></div>', 'v2cDevEsc');
-        g('v2cDevEsc').onclick = function () { fecharBalao(bal, false); irPara(g('autGeral')); };
-      } else {
-        bal = balaoComp('v2cDevConf', dv, '<p class="v2-bt">Devolver o card para <b>EM COTAÇÃO</b>?</p><div class="dica">O comprador recebe as suas observações e a autorização feita até aqui deixa de valer.</div>'
-          + '<div class="bts"><button type="button" class="perigo" id="v2cDevSim">Devolver</button><button type="button" class="secundario" id="v2cDevNao">Cancelar</button></div>', 'v2cDevNao');
-        g('v2cDevSim').onclick = function () { fecharBalao(bal, false); dv.dataset.forcar = '1'; dv.click(); delete dv.dataset.forcar; };
-      }
+      // 21/10/2026 (Weslley): o motivo é pedido no próprio balão (obrigatório); se já há observação em alguma peça, fica opcional
+      var temObsPeca = $$('#autItens .a-obs').some(function (x) { return vl(x); }), geralJa = vl(g('autGeral'));
+      var abreBal = compPC() ? balaoComp : function (id, gat, html, foco) { var b = g(id); if (!b) { b = document.createElement('div'); b.id = id; } abrirBalao(b, gat, html, foco); return b; };
+      var bal = abreBal('v2cDevConf', dv, '<p class="v2-bt">Devolver o card para <b>EM COTAÇÃO</b>?</p>'
+        + '<label for="v2cDevMotivo" class="v2-sr">Motivo da devolução</label><textarea id="v2cDevMotivo" rows="3" placeholder="' + (temObsPeca ? 'Motivo (opcional — já há observação na peça)' : 'Motivo da devolução (obrigatório) — é o que o comprador vai ler') + '" style="width:100%;box-sizing:border-box;margin:6px 0 2px;font:inherit;padding:8px;border:1px solid var(--v2-borda,#c9ced6);border-radius:8px;resize:vertical"></textarea>'
+        + '<div class="dica">O comprador recebe o motivo' + (temObsPeca ? ' e as observações das peças' : '') + '; a autorização feita até aqui deixa de valer.</div>'
+        + '<div class="bts"><button type="button" class="perigo" id="v2cDevSim">Devolver</button><button type="button" class="secundario" id="v2cDevNao">Cancelar</button></div>', 'v2cDevMotivo');
+      var ta = g('v2cDevMotivo'); if (ta && geralJa) ta.value = geralJa;
+      g('v2cDevSim').onclick = function () {
+        var m = vl(ta);
+        if (!m && !temObsPeca) { ta.style.borderColor = '#c62828'; ta.focus(); return; }
+        if (m) g('autGeral').value = m;
+        fecharBalao(bal, false); dv.dataset.forcar = '1'; dv.click(); delete dv.dataset.forcar;
+      };
       g('v2cDevNao').onclick = function () { fecharBalao(bal, true); };
       return;
     }
+    if (!compPC()) return;
     // recebimento com devolução: o formulário perguntava com a caixa do navegador (confirm) — agora no balão
     var br = e.target && e.target.closest && e.target.closest('#btnRec');
     if (br && !br.dataset.forcar && !br.disabled && !br.classList.contains('v2c-pend') && !br.classList.contains('v2c-neutro')) {

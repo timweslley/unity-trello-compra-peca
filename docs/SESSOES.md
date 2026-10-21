@@ -250,3 +250,5 @@ da outra, deixar um recado aqui e no commit.
   novo e sem "DADOS COMPLETOS"; FALTA DADOS mantido; reenvio igual, parciais (autorização/compra) e "negociação anexada" calados;
   rotina antiga de PARADO só etiqueta; ⏰ de item atrasado um por card/dia; SLA novo para FALTA DADOS (1 d.u.) e AUTORIZADO
   COMPRA (2 d.u.).
+- 19h14 — Weslley: "Devolver para cotação" abre balão com campo de motivo (obrigatório; opcional se há obs. em alguma peça), em
+  vez de exigir a observação geral. Computador e celular (camada 2.0).
