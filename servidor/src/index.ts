@@ -312,7 +312,9 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
   /** 20/10/2026 — exportação dos dados para o unityOS (pacote de entrega, docs/HANDOFF-UNITYOS.md).
    *  POST { token, tabela, quadro?, desde? } — token do Trello de alguém da diretoria (VD_AUTORIZADORES do robô);
    *  devolve a tabela em NDJSON (uma linha por registro). Sem token válido: 403. Nada é gravado. */
+  app.options('/tarefas/exportar', async (_req, resp) => resp.headers(cors).code(204).send());
   app.post('/tarefas/exportar', async (req, resp) => {
+    resp.headers(cors);
     let b: { token?: string; tabela?: string; quadro?: string; desde?: string } = {};
     try { b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : ((req.body as typeof b) || {}); } catch { return resp.code(400).send({ ok: false, erro: 'corpo inválido' }); }
     // sem token NÃO cai no token do robô (seria a diretoria sem login)
