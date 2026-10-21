@@ -742,6 +742,11 @@ function vd_extrair_(texto) {
     r.modelo = (m[1] + ' ' + m[2]).replace(/\(\s*\d{4}\s*A\s*\d{4}\s*\)/, '').replace(/\s+/g, ' ').trim();
     r.ano = m[3]; r.origem = 'cilia';
   }
+  // Cilia da própria oficina (orçamento particular, 21/10/2026, SES8I10): "CRETA (2020 A 2025) ACTION AUT 1.6 16V FLEX 2024 Placa SES8I10"
+  // — sem marca e sem "CASCO -"; o modelo vem antes da faixa de anos e a versão depois
+  else if ((m = U.match(new RegExp('(?:^|\\s)([A-Z][A-Z0-9][A-Z0-9 .\\-\\/]{0,30}?) \\(\\d{4} A \\d{4}\\) (.{2,80}?) ' + ANO + ' (?=PLACA\\b)')))) {
+    r.modelo = (m[1] + ' ' + m[2]).replace(/\s+/g, ' ').trim(); r.ano = m[3]; r.origem = 'cilia';
+  }
   // HDI: "Veiculo: 0016595 - CHEVROLET COBALT LTZ 1.8 8V ECONO.FLEX 4P AUT. 2015 Placa:"
   else if ((m = U.match(new RegExp('VEICULO: ?\\d* ?-? ?(.{3,100}?) ' + ANO + ' PLACA:')))) {
     r.modelo = m[1].trim(); r.ano = m[2]; r.origem = 'hdi';

@@ -1173,6 +1173,11 @@ function vd_extrair_(texto) {
     r.modelo = (m[1] + ' ' + m[2]).replace(/\(\s*\d{4}\s*A\s*\d{4}\s*\)/, '').replace(/\s+/g, ' ').trim();
     r.ano = m[3]; r.origem = 'cilia';
   }
+  // Cilia da própria oficina (orçamento particular, 21/10/2026, SES8I10): "CRETA (2020 A 2025) ACTION AUT 1.6 16V FLEX 2024 Placa SES8I10"
+  // — sem marca e sem "CASCO -"; o modelo vem antes da faixa de anos e a versão depois
+  else if ((m = U.match(new RegExp('(?:^|\\s)([A-Z][A-Z0-9][A-Z0-9 .\\-\\/]{0,30}?) \\(\\d{4} A \\d{4}\\) (.{2,80}?) ' + ANO + ' (?=PLACA\\b)')))) {
+    r.modelo = (m[1] + ' ' + m[2]).replace(/\s+/g, ' ').trim(); r.ano = m[3]; r.origem = 'cilia';
+  }
   // HDI: "Veiculo: 0016595 - CHEVROLET COBALT LTZ 1.8 8V ECONO.FLEX 4P AUT. 2015 Placa:"
   else if ((m = U.match(new RegExp('VEICULO: ?\\d* ?-? ?(.{3,100}?) ' + ANO + ' PLACA:')))) {
     r.modelo = m[1].trim(); r.ano = m[2]; r.origem = 'hdi';
@@ -1202,7 +1207,7 @@ function vd_extrair_(texto) {
   return r;
 }
 
-// Validacao.gs:1004
+// Validacao.gs:1009
 function vd_dicaNorm_(t) {
   var s = vd_semAcento_(t);
   if (/^GENU/.test(s)) return 'GENUÍNO';
@@ -1213,14 +1218,14 @@ function vd_dicaNorm_(t) {
   return '';
 }
 
-// Validacao.gs:1040
+// Validacao.gs:1045
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
 
-// Validacao.gs:1062
+// Validacao.gs:1067
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4

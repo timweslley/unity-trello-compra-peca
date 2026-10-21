@@ -5600,7 +5600,17 @@ iniciar();
       // 14/10/2026 (modelo novo): orçamentos anteriores recolhidos em "Ver anteriores (N)"
       var htmlAnt = antigos.length ? '<details class="v2-anteriores"><summary>Ver anteriores (' + antigos.length + ')</summary>' + antigos.join('') + '</details>' : '';
       lista.innerHTML = cab + docs.join('') + htmlAnt + htmlFotos;
-      $$('button', lista).forEach(function (b) { b.onclick = function () { var l = lers[+b.dataset.i]; b.disabled = true; b.textContent = /Importar/.test(b.textContent) ? '⏳ Importando…' : '⏳ Lendo…'; l.click(); }; });
+      $$('button', lista).forEach(function (b) { b.onclick = function () {
+        var l = lers[+b.dataset.i], rot = b.textContent; b.disabled = true; b.textContent = /Importar/.test(rot) ? '⏳ Importando…' : '⏳ Lendo…'; l.click();
+        // 21/10/2026 (SES8I10): a leitura acabava, mas a lista não era redesenhada (nada mudou no card) e o botão ficava
+        // "Importando…" para sempre — solta o botão quando a dica deixa de dizer "Lendo" (ou depois de 90 s)
+        var t0 = Date.now(), dica = g('dicaArquivo');
+        var vigia = setInterval(function () {
+          var lendo = dica && /^Lendo\b/.test(dica.textContent || '');
+          if ((lendo && Date.now() - t0 < 90000) || !b.isConnected) { if (!b.isConnected) clearInterval(vigia); return; }
+          clearInterval(vigia); b.disabled = false; b.textContent = /Importar/.test(rot) ? '🔄 Importar de novo' : '🔄 Ler de novo';
+        }, 500);
+      }; });
       // o que não é "ler" (links e outros anexos) continua aparecendo embaixo
       box.classList.add('v2-orig');
       var extra = box.querySelector('.anexos-orig');
@@ -8930,6 +8940,31 @@ document.addEventListener('input', function (e) {
   var box = document.getElementById('recItens');
   if (box) new MutationObserver(function () { try { decorar(); } catch (e) {} }).observe(box, { childList: true });
   try { decorar(); } catch (e) {}
+})();
+</script>
+<script>
+/* 21/10/2026 (SES8I10, Lucas): orçamento particular do Cilia não traz chassi — a leitura importava a peça mas dizia
+ * "não achei dados novos", e o consultor achava que travou. Camada 2.0: depois da leitura, se o documento tinha orçamento e
+ * ainda faltam dados do carro, a dica diz o que falta e que precisa ser digitado. */
+(function () {
+  if (!window.VD_V2) return;
+  var orig = window.aplicarLeitura; if (typeof orig !== 'function') return;
+  window.aplicarLeitura = function (r, dica, sufixo) {
+    var ret = orig.apply(this, arguments);
+    try {
+      if (r && r.orcamento && dica && /^Li o documento, mas não achei dados novos/.test(dica.textContent || '')) {
+        var g = function (id) { return document.getElementById(id); };
+        var faltam = [];
+        if (g('modelo') && !g('modelo').value.trim()) faltam.push('modelo');
+        if (g('ano') && !g('ano').value.trim()) faltam.push('ano');
+        if (g('chassi') && g('chassi').value.replace(/[\s.\-]/g, '').length !== 17) faltam.push('chassi');
+        var n = (r.orcamento.oficina || []).length;
+        dica.textContent = '✓ ' + (n ? n + ' peça(s) do orçamento já está(ão) no pedido. ' : '') + (faltam.length ? 'O documento não traz ' + faltam.join(', ') + ' — digite abaixo para o pedido seguir.' : 'Dados do carro já preenchidos.') + (sufixo || '');
+        dica.className = 'dica' + (faltam.length ? '' : ' boa');
+      }
+    } catch (e) {}
+    return ret;
+  };
 })();
 </script>
 <script>
