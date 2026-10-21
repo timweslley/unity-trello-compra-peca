@@ -534,7 +534,7 @@ function vd_analisarPeca_(linha, n, opts) {
   // estoque da oficina. Só quando ninguém marcou tipo: com tipo marcado, alguém decidiu comprar e vale o que está escrito.
   if (!nao && !part && /^(?:OLEO\s+)?ADITIVO\b/.test(vd_semAcento_(partes[1] || '')) && !partes.slice(2).join('').trim()) { nao = true; naoMotivo = 'ESTOQUE DA OFICINA (PADRÃO)'; }
   // 21/10/2026 (TAW0B79, "KIT COLA BRR01" importado do orçamento): cola, adesivo, silicone e vedante são insumo da oficina, não peça
-  if (!nao && !part && /^(?:KIT\s+)?(?:COLA|ADESIVO|SILICONE|VEDANTE)\b/.test(vd_semAcento_(partes[1] || '')) && !partes.slice(2).join('').trim()) { nao = true; naoMotivo = 'INSUMO DA OFICINA (PADRÃO)'; }
+  if (!nao && !part && /^(?:KIT\s+)?(?:COLA|ADESIVO|SILICONE|VEDANTE|INSUMOS?)\b/.test(vd_semAcento_(partes[1] || '')) && !partes.slice(2).join('').trim()) { nao = true; naoMotivo = 'INSUMO DA OFICINA (PADRÃO)'; }
   if (part) opts = { codigoOpcional: true };
   if (nao) opts = { codigoOpcional: true };   // não vai ser comprada: não cobra código nem tipo
   // 17/10/2026 (teste das cópias): pneu que veio do orçamento como peça comum ("S/C | PNEU HIFLY 195/55R15 HF261 85V" ou

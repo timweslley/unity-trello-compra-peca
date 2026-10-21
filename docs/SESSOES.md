@@ -259,3 +259,5 @@ da outra, deixar um recado aqui e no commit.
   "falta categoria" ignorando a 1ª LINHA que a Rotina mandou. Agora aproveita categoria/marca do pneu da mesma medida e, se ainda
   faltar, abre o card em FALTA DADOS em vez de recusar. TAW0B79: "KIT COLA BRR01" é insumo → 🚫 não comprar padrão (cola, adesivo,
   silicone, vedante).
+- 20h06 — Conferência pós-mudanças: servidor 68592fc ATIVO, robô ciclando, 0 erros em 3 h, workflows verdes. Card da Rotina vUhlsOpU
+  trouxe "INSUMOS GRAMPOS, CINTAS PLASTICAS, BUCHA" como peça → "INSUMO(S)" entra na regra de insumo (🚫 padrão).
