@@ -1490,7 +1490,7 @@ function vdf_autorizar(token, p) {
   if (reenvio && !linhas.length && !marcadas.length && !obsL.linhas.length) {
     // mesma autorização de novo: nada muda no card; uma linha de registro, sem menção
     var totR = autsAntes.reduce(function (sum, a) { var pc = porChave[a.chave] || {}; return sum + (+a.valor || 0) * (vd_totaisPorQtd_() ? vd_qtdNum_(pc.qtd) : 1); }, 0);
-    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🔁 **Autorização reenviada sem alteração** — ' + me.fullName + ' · ' + autsAntes.length + ' peça(s) · ' + vd_valorBR_(totR) } }, token); } catch (e) {}
+    // 21/10/2026 19h03 (Weslley): sem comentário quando nada mudou
     return { ok: true, repetida: true, url: card.shortUrl, nome: card.name, n: autsAntes.length, total: totR, semAut: 0, aguarda: [], marcas: 0, lista: vdf_nomeLista_(ctx, card.idList) };
   }
 
@@ -1527,7 +1527,7 @@ function vdf_autorizar(token, p) {
     // guarda e para por aqui: card fica onde está, sem menção ao comprador
     try { ev_registrar_('AUTORIZAÇÃO', card, me.username, evAut, { detalhe: 'parcial' }); } catch (e) {}
     var jaAut = an.pecas.filter(temAut).length;
-    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '💾 **AUTORIZAÇÃO PARCIAL salva** — ' + me.fullName + ' · ' + linhas.length + ' peça(s) agora · ' + vd_valorBR_(total) + ' · ' + jaAut + ' de ' + an.pecas.length + ' peça(s) autorizada(s) no card' + (typeof txtM === 'string' ? txtM : '') + obsL.texto + '\nO card continua em **' + vdf_nomeLista_(ctx, card.idList) + '** até a autorização ser enviada.' } }, token); } catch (e) {}
+    // 21/10/2026 (Weslley): salvar parcial não comenta — só o "Enviar autorização"
     try { vd_marcar_(card); } catch (e) {}
     return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, jaAut: jaAut, pecas: an.pecas.length, marcas: marcadas.length, lista: vdf_nomeLista_(ctx, card.idList) };
   }
@@ -1821,14 +1821,14 @@ function vdf_salvarCompra(token, p) {
     var movF = ''; try { movF = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username); } catch (e) {}
     // tudo já recebido (ex.: compras do fluxo antigo ✔) -> segue direto para ENCERRADO (13/10/2026, BDK2J49)
     try { var movF2 = rc_reavaliarColuna_(card.id, token, me.username); if (movF2) movF = movF2; } catch (e) { console.log('compra/coluna: ' + e); }
-    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🛒 **COMPRA ENVIADA** — ' + me.fullName + ' · todas as peças já estavam registradas' + (movF ? ' → **' + movF + '**' : '') + vdf_txtAnexosCompra_(axF) } }, token); } catch (e) {}
+    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🛒 **COMPRA** — ' + me.fullName + ' · enviada (salva antes aos poucos)' + (movF ? ' → **' + movF + '**' : '') + vdf_txtAnexosCompra_(axF) } }, token); } catch (e) {}
     try { vd_marcar_(card); } catch (e) {}
     return { ok: true, url: card.shortUrl, nome: card.name, pagas: 0, pendentes: 0, foraAut: [], anexos: axF.anexados, repetidos: axF.repetidos, lista: movF || vdf_nomeLista_(ctx, card.idList) };
   }
   if (!compras.length && parcial) {
     // só arquivos (peça ainda sem compra escolhida): anexa e pronto
     var axP = vdf_anexarCompra_(card, arqs, token);
-    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '📎 **Negociação/pagamento anexado** — ' + me.fullName + vdf_txtAnexosCompra_(axP) } }, token); } catch (e) {}
+    // 21/10/2026 (Weslley): só anexa, sem comentário
     return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, pagas: 0, pendentes: 0, foraAut: [], anexos: axP.anexados, repetidos: axP.repetidos, lista: vdf_nomeLista_(ctx, card.idList) };
   }
   compras.forEach(function (c) {
@@ -1879,7 +1879,7 @@ function vdf_salvarCompra(token, p) {
   } catch (e) {}
   try {
     var dirs = foraAut.length ? sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity').filter(function (u) { return u !== me.username; }) : [];
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +
+    if (!parcial) vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +   // 21/10/2026: salvar parcial não comenta
       (parcial ? '💾 **COMPRA PARCIAL salva** — ' : '🛒 **COMPRA** — ') + me.fullName + ' · ' + n + ' item(ns)' + (movido ? ' → **' + movido + '**' : '') +
       (pendentes ? '\n⏳ Falta comprar: ' + pendentes + ' peça(s)' : '') + (parcial && !pendentes ? '\nTudo comprado — envie a compra para o card seguir.' : '') +
       (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') + txtCompl + vdf_txtAnexosCompra_(axC) } }, token);

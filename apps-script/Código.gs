@@ -345,7 +345,7 @@ function rotinaDiariaNucleo_() {
     if (alvo1.indexOf(c.idList) > -1) {
       if (dias > DIAS_PARADO && !temParado) {
         api_('/cards/' + c.id + '/idLabels', { value: idParado }, 'post');
-        api_('/cards/' + c.id + '/actions/comments', { text: '🔴 ' + mencaoFat_() + ' card parado há mais de ' + DIAS_PARADO + ' dias nesta coluna — verificar faturamento.' }, 'post');
+        // 21/10/2026 (Weslley: "sem aviso pra isso"): só a etiqueta; o lembrete de faturamento é o ⏰ do SLA + resumo diário
         nParado++;
       }
     } else if (temParado) {

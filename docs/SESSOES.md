@@ -246,3 +246,7 @@ da outra, deixar um recado aqui e no commit.
   (quando e formato, sem notificar a cada movimento). Falha: o projeto Apps Script bateu em **200 versões** (`clasp deploy` falha
   desde 20/10 20h57; `clasp push` continua, o servidor é quem roda) — precisa apagar versões antigas em "Histórico do projeto"
   (conta sistema@) e depois tornar o deploy do Apps Script manual/semanal. Inventário e proposta: `docs/COMENTARIOS-ROBO.md`.
+- 19h03 — Decisões do Weslley sobre os comentários (ver `docs/COMENTARIOS-ROBO.md`, todas aplicadas): sem comentário de pedido
+  novo e sem "DADOS COMPLETOS"; FALTA DADOS mantido; reenvio igual, parciais (autorização/compra) e "negociação anexada" calados;
+  rotina antiga de PARADO só etiqueta; ⏰ de item atrasado um por card/dia; SLA novo para FALTA DADOS (1 d.u.) e AUTORIZADO
+  COMPRA (2 d.u.).

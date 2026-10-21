@@ -137,13 +137,19 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 | `🔄 Card antigo voltou para cotação (veio de X): …` | card legado devolvido à cotação | não | **M** |
 | `💬 Autor (principal): texto` (Espelho, só no TESTE) | espelho do principal | não | **M** (só TESTE) |
 
-## Decisões pendentes (Weslley)
+## Decisões do Weslley (21/10/2026 19h03) — aplicadas no mesmo dia
 
-- [ ] §1 pedido novo: criar `📋 PEDIDO — Nome · Unidade · N peça(s)` e calar o "DADOS COMPLETOS" do robô quando a equipe completou?
-- [ ] §2 FALTA DADOS: manter @ ou criar prazo (1 d.u.) e tirar o @?
-- [ ] §4 `🔁 reenviada sem alteração`: manter ou silenciar?
-- [ ] §5 COMPRA PARCIAL / AUTORIZAÇÃO PARCIAL: silenciar como a cotação parcial?
-- [ ] §5 `📎 Negociação/pagamento anexado`: juntar na COMPRA ou silenciar?
-- [ ] §8 `🔴 card parado … verificar faturamento` (rotina antiga): desligar (duplica o ⏰)?
-- [ ] §9 três avisos ⏰ de item atrasado → um só por card/dia?
-- [ ] §9 prazos novos: FALTA DADOS (1 d.u.) e AUTORIZADO COMPRA sem compra (2 d.u.)?
+- [x] §1 pedido novo: **sem** comentário de pedido ("a existência do card basta"); "✅ DADOS COMPLETOS" **calado** — só sai o que o robô importou do orçamento ou um ℹ️ de divergência.
+- [x] §2 FALTA DADOS: **mantido** como está (com @criador); ganhou prazo no SLA (1 d.u.).
+- [x] §4 `🔁 reenviada sem alteração`: **silenciado**.
+- [x] §5 AUTORIZAÇÃO PARCIAL e COMPRA PARCIAL: **silenciados** (só o comando "Enviar" comenta). "COMPRA ENVIADA — todas já estavam registradas" virou `🛒 COMPRA — Nome · enviada (salva antes aos poucos)`.
+- [x] §5 `📎 Negociação/pagamento anexado`: **silenciado** (só anexa).
+- [x] §8 `🔴 card parado … verificar faturamento`: **sem comentário** (a etiqueta PARADO continua).
+- [x] §9 três avisos ⏰ de item atrasado: **um por card por dia** (`pz_jaAvisouHoje_`).
+- [x] §9 prazos novos: **FALTA DADOS 1 d.u.** (`SLA_DIAS_DADOS`, menciona o criador) e **AUTORIZADO COMPRA sem compra 2 d.u.** (`SLA_DIAS_COMPRAR`, menciona compras).
+
+## Próxima rodada (formato, ainda não feita)
+- Juntar no `✏️ PEDIDO EDITADO`: "peça alterada sem nova cotação", "peça removida com compra", "QUEM PAGA MUDOU".
+- `🆕 PEÇA NOVA` do robô: quando a inclusão veio pelo formulário, dizer só `→ coluna` + o que falta (sem @).
+- `↪️ Card → coluna` do robô: só quando não veio de ação pelo formulário.
+- `📄 ORÇAMENTO COMPLEMENTAR`: @ só quando entrou peça nova que exige tipo.

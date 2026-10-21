@@ -1665,11 +1665,13 @@ function vd_conferirCard_(card, ctx) {
       if (mvJ) { res.acao = '→ ' + mvJ; }
       else if (card.idList === idFalta) {
         vd_mover_(card, idCot, 'bottom');
-        vd_comentar_(card, '✅ **DADOS COMPLETOS** → **EM COTAÇÃO**' + (res.importado ? '\n' + res.importado.texto : '') + (res.preenchido.length ? '\n🤖 Lido dos anexos: ' + res.preenchido.join(', ') : '') + txtAviso);
+        // 21/10/2026 (Weslley: "calar os avisos de dados — quando está ok o pedido já anda, basta"): sem "DADOS COMPLETOS";
+        // só o que o robô importou do orçamento (peças novas que a equipe precisa ver) ou um aviso de divergência sai.
+        if (res.importado || txtAviso) vd_comentar_(card, ((res.importado ? res.importado.texto : '') + txtAviso).replace(/^\n/, ''));
       } else if (res.importado) {
-        vd_comentar_(card, '✅ **DADOS COMPLETOS**\n' + res.importado.texto + txtAviso);
-      } else if (sigAnterior !== sigAtual && (res.preenchido.length || res.avisos.length)) {
-        vd_comentar_(card, '✅ **DADOS COMPLETOS**' + (res.preenchido.length ? ' · 🤖 lido dos anexos: ' + res.preenchido.join(', ') : '') + txtAviso);
+        vd_comentar_(card, res.importado.texto + txtAviso);
+      } else if (sigAnterior !== sigAtual && res.avisos.length) {
+        vd_comentar_(card, 'ℹ️ ' + res.avisos.join('; '));
       }
       props.setProperty(chaveSig, sigAtual);
       // pedido só com peças da seguradora (FO): não tem o que cotar -> FALTA CHEGAR
@@ -2316,7 +2318,7 @@ function pz_executar_() {
           var nomeCk = String(ck.name || '').trim();
           (ck.checkItems || []).forEach(function (it) { if (it.state === 'complete' || it.due) return; (/FORNECIMENTO/i.test(nomeCk) ? semDataFo : (/^PAGAS/i.test(nomeCk) ? semDataPg : [])).push(it.name.split(/\s+[-—]\s+/)[0]); });
         });
-        if (semDataFo.length || semDataPg.length) {
+        if ((semDataFo.length || semDataPg.length) && !pz_jaAvisouHoje_(c.id)) {
           vd_comentar_(c, '⏰ Prazo do card vencido sem previsão de peça — ' + [semDataFo.length ? 'verificar prazo do item ' + semDataFo.join('; ') : '', semDataPg.length ? 'verificar compra do item ' + semDataPg.join('; ') : ''].filter(String).join(' · ') + '.');
           mudou = true;
         }
@@ -2332,7 +2334,7 @@ function pz_executar_() {
         // 10/10/2026: comenta só o item + previsão ainda não avisado (etiqueta tirada e posta de novo não repete o aviso)
         var kFo = 'PZ_FOAV_' + c.id, jaAv = []; try { jaAv = JSON.parse(props.getProperty(kFo) || '[]'); } catch (e) {}
         var novosFO = vencidosFO.filter(function (it) { return jaAv.indexOf(it.id + '|' + String(it.due).slice(0, 10)) < 0; });
-        if (novosFO.length) {
+        if (novosFO.length && !pz_jaAvisouHoje_(c.id)) {
           vd_comentar_(c, '⏰ Fornecimento atrasado — verificar prazo do item ' +
             novosFO.map(function (it) { return it.name + ' (previsão ' + pz_fmt_(it.due) + ')'; }).join(', ') + '.');
           try { props.setProperty(kFo, JSON.stringify(jaAv.concat(novosFO.map(function (it) { return it.id + '|' + String(it.due).slice(0, 10); })).slice(-40))); } catch (e) {}

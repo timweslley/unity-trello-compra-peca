@@ -104,9 +104,6 @@ var LBL_PARADO = 'PARADO';
 // Código.gs:314
 var LBL_CONFERIR = 'CONFERIR FATURAMENTO';
 
-// Código.gs:315
-var MENCAO = '@financeirounity @christianfarias23';
-
 // Código.gs:482
 var EMAIL_ALERTA = 'weslley.santos@unitycs.com.br';
 
@@ -550,7 +547,7 @@ var DU = {
 // Validacao.gs:1305
 var DU_CACHE = {};
 
-// Validacao.gs:1875
+// Validacao.gs:1877
 var VD_LINK = {
   EDITAR: '✏️ EDITAR/INCLUIR PEÇA',
   COMPRA: '💰 COTAÇÃO/COMPRA/RECEBIMENTO',
@@ -558,7 +555,7 @@ var VD_LINK = {
   RX_COMPRA: /Cota[çc][ãa]o \/ Compra|COTA[ÇC][ÃA]O\/COMPRA/i
 };
 
-// Validacao.gs:2193
+// Validacao.gs:2195
 var PZ = {
   LISTAS_FORA: ['ESPERA/NÃO AUTORIZADO'],   // estacionamento: não ganha prazo
   /* 07/10/2026 (Weslley): card nessas colunas está concluído — o prazo fica marcado como concluído; se o card volta, desmarca */
@@ -570,7 +567,7 @@ var PZ = {
   LIMITE_MS: 40 * 1000
 };
 
-// Validacao.gs:2361
+// Validacao.gs:2363
 var REL = {
   EMAILS: 'weslley.santos@unitycs.com.br,christian.farias@unitycs.com.br',
   DIAS_FALTA_DADOS: 1,
@@ -582,7 +579,7 @@ var REL = {
   UNIDADES: [['TOLEDO', /\bTOL\b|TOLEDO/i], ['MARECHAL RONDON', /\bMCR\b|RONDON/i], ['CASCAVEL', /\bCVEL\b|CASCAVEL/i], ['CAMPO MOURÃO', /\bCMO?\b|MOUR/i]]
 };
 
-// Validacao.gs:2500
+// Validacao.gs:2502
 var VD_CMP_MEM = null;
 
 // Anexos.gs:18
@@ -1763,9 +1760,6 @@ function instalarAcionador() {
   console.log('Acionador criado: a cada 1 minuto.');
 }
 
-// Código.gs:316
-function mencaoFat_() { try { return fat_usuarios_().filter(function (u) { return u !== 'timweslley' || vd_board_() === VD.BOARD_PADRAO; }).map(function (u) { return '@' + u; }).join(' ') || MENCAO; } catch (e) { return MENCAO; } }
-
 // Código.gs:318
 function rotinaDiariaNucleo_() {
   var listas = api_('/boards/' + BOARD_ID + '/lists', { fields: 'name' });
@@ -1797,7 +1791,7 @@ function rotinaDiariaNucleo_() {
     if (alvo1.indexOf(c.idList) > -1) {
       if (dias > DIAS_PARADO && !temParado) {
         api_('/cards/' + c.id + '/idLabels', { value: idParado }, 'post');
-        api_('/cards/' + c.id + '/actions/comments', { text: '🔴 ' + mencaoFat_() + ' card parado há mais de ' + DIAS_PARADO + ' dias nesta coluna — verificar faturamento.' }, 'post');
+        // 21/10/2026 (Weslley: "sem aviso pra isso"): só a etiqueta; o lembrete de faturamento é o ⏰ do SLA + resumo diário
         nParado++;
       }
     } else if (temParado) {
@@ -3452,10 +3446,19 @@ function sla_mais_(d, n) { d = sla_dia_(d); var g = 0; while (n > 0 && g++ < 400
 // Fluxo.gs:161
 function sla_users_(prop, padrao) { if (vd_board_() === VD.BOARD_PADRAO) padrao = 'timweslley'; return String(vd_prop_(prop, padrao)).split(/[,;\s]+/).filter(String); }
 
-// Fluxo.gs:162
+// Fluxo.gs:163
+function pz_jaAvisouHoje_(cardId) {
+  try {
+    var props = PropertiesService.getScriptProperties(), k = 'PZ_DIA_' + cardId, hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
+    if (props.getProperty(k) === hoje) return true;
+    props.setProperty(k, hoje); return false;
+  } catch (e) { return false; }
+}
+
+// Fluxo.gs:170
 function sla_mencao_(us) { return us.filter(function (u, i) { return u && us.indexOf(u) === i; }).map(function (u) { return '@' + u; }).join(' '); }
 
-// Fluxo.gs:168
+// Fluxo.gs:176
 function sla_podeAvisar_(props, chave, hoje) {
   var ult = props.getProperty(chave);
   if (!ult) return true;
@@ -3463,7 +3466,7 @@ function sla_podeAvisar_(props, chave, hoje) {
   return rep > 0 && sla_mais_(new Date(ult), rep) <= hoje;
 }
 
-// Fluxo.gs:176
+// Fluxo.gs:184
 function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
   if (vd_prop_('FAT_RESUMO', 'SIM') === 'NAO' || !itens.length) return false;
   var kDia = 'FAT_RESUMO_DIA', dia = Utilities.formatDate(hoje, 'America/Sao_Paulo', 'yyyy-MM-dd');
@@ -3490,7 +3493,7 @@ function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
   } catch (e) { console.log('resumo de faturamento: ' + e); return false; }
 }
 
-// Fluxo.gs:202
+// Fluxo.gs:210
 function sla_executar_(forcar) {
   if (vd_prop_('SLA_LIGADO', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -3511,6 +3514,8 @@ function sla_executar_(forcar) {
     { lista: 'EM COTAÇÃO', dias: +vd_prop_('SLA_DIAS_COTAR', 2), quem: 'cotar' },
     { lista: 'PENDENTE AUTORIZAR', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' },
     { lista: 'COTAÇÃO FINALIZADA', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' },
+    { lista: 'FALTA DADOS PARA COTAÇÃO', dias: +vd_prop_('SLA_DIAS_DADOS', 1), quem: 'dados' },        // 21/10/2026 (Weslley)
+    { lista: 'AUTORIZADO COMPRA', dias: +vd_prop_('SLA_DIAS_COMPRAR', 2), quem: 'comprar' },           // 21/10/2026 (Weslley)
     { lista: 'ENTREGUES', dias: +vd_prop_('SLA_DIAS_FATURAR', 7), quem: 'faturar' }   // vale também para card antigo
   ];
   // 1) tempo parado na etapa
@@ -3546,6 +3551,13 @@ function sla_executar_(forcar) {
         txt = '⏰ Card em **ENTREGUES** há ' + dias + ' dia(s) útil(eis) sem confirmação de faturamento (prazo: ' + et.dias + '). Depois de faturar, comente a palavra faturado no card (ou arquive) — ele é arquivado.';
         // 09/10/2026 (Weslley): complementar comprado antes da autorização e ainda sem confirmação da seguradora entra no lembrete
         if (cpP.length) txt += '\n⚠️ Complementar comprado **antes da autorização** e ainda sem confirmação da seguradora — verificar autorização e importação no Databox do item ' + vd_complPendTxt_(cpP) + ' (marcar na aba Compra do formulário).';
+      } else if (et.quem === 'dados') {
+        var crD = ''; try { crD = vd_criador_(c.id); } catch (e) {}
+        mencao = sla_mencao_(crD ? [crD] : sla_users_('SLA_COTAR', 'comprasunity'));
+        txt = '⏰ Card em **FALTA DADOS** há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + '). Completar o pedido pelo anexo **✏️ EDITAR/INCLUIR PEÇA** — o que falta está no último aviso ⚠️ FALTA DADOS.';
+      } else if (et.quem === 'comprar') {
+        mencao = sla_mencao_(sla_users_('SLA_COMPRAR', 'comprasunity'));
+        txt = '⏰ Card em **AUTORIZADO COMPRA** há ' + dias + ' dia(s) útil(eis) sem compra registrada (prazo: ' + et.dias + '). Registrar pelo anexo **💰 Cotação / Compra** → aba 🛒 Compra.';
       } else if (et.quem === 'cotar') {
         mencao = sla_mencao_(sla_users_('SLA_COTAR', 'comprasunity'));
         txt = '⏰ Card em **EM COTAÇÃO** há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + '). Lançar a cotação pelo anexo **💰 Cotação / Compra**.';
@@ -3600,6 +3612,7 @@ function sla_executar_(forcar) {
     var mencao = sla_mencao_(sla_users_('SLA_RECEBER', 'comprasunity'));
     try {
       if (silencioso) { chaves.forEach(function (ch) { props.setProperty(ch, '2999-01-01T12:00:00.000Z'); }); return; }
+      if (pz_jaAvisouHoje_(c.id)) { chaves.forEach(function (ch) { props.setProperty(ch, hoje.toISOString()); }); return; }
       vd_comentar_(c, mencao + ' ⏰ Peça sem recebimento informado depois da previsão — ' + partes.join('; ') + '. Se já chegou, registrar na aba **📦 Recebimento**.');
       ev_registrar_('ALERTA PRAZO', c, 'robô', null, { detalhe: 'recebimento: ' + partes.join('; ') });
       chaves.forEach(function (ch) { props.setProperty(ch, hoje.toISOString()); }); n++;
@@ -3610,7 +3623,7 @@ function sla_executar_(forcar) {
   return n;
 }
 
-// Fluxo.gs:332
+// Fluxo.gs:350
 function exc_executar_() {
   if (vd_prop_('EXC_PROTEGER', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -3656,7 +3669,7 @@ function exc_executar_() {
   return n;
 }
 
-// Fluxo.gs:378
+// Fluxo.gs:396
 function exc_comprasDoCard_(shortLink) {
   if (!shortLink) return [];
   try {
@@ -5061,7 +5074,7 @@ function vdf_autorizar(token, p) {
   if (reenvio && !linhas.length && !marcadas.length && !obsL.linhas.length) {
     // mesma autorização de novo: nada muda no card; uma linha de registro, sem menção
     var totR = autsAntes.reduce(function (sum, a) { var pc = porChave[a.chave] || {}; return sum + (+a.valor || 0) * (vd_totaisPorQtd_() ? vd_qtdNum_(pc.qtd) : 1); }, 0);
-    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🔁 **Autorização reenviada sem alteração** — ' + me.fullName + ' · ' + autsAntes.length + ' peça(s) · ' + vd_valorBR_(totR) } }, token); } catch (e) {}
+    // 21/10/2026 19h03 (Weslley): sem comentário quando nada mudou
     return { ok: true, repetida: true, url: card.shortUrl, nome: card.name, n: autsAntes.length, total: totR, semAut: 0, aguarda: [], marcas: 0, lista: vdf_nomeLista_(ctx, card.idList) };
   }
 
@@ -5098,7 +5111,7 @@ function vdf_autorizar(token, p) {
     // guarda e para por aqui: card fica onde está, sem menção ao comprador
     try { ev_registrar_('AUTORIZAÇÃO', card, me.username, evAut, { detalhe: 'parcial' }); } catch (e) {}
     var jaAut = an.pecas.filter(temAut).length;
-    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '💾 **AUTORIZAÇÃO PARCIAL salva** — ' + me.fullName + ' · ' + linhas.length + ' peça(s) agora · ' + vd_valorBR_(total) + ' · ' + jaAut + ' de ' + an.pecas.length + ' peça(s) autorizada(s) no card' + (typeof txtM === 'string' ? txtM : '') + obsL.texto + '\nO card continua em **' + vdf_nomeLista_(ctx, card.idList) + '** até a autorização ser enviada.' } }, token); } catch (e) {}
+    // 21/10/2026 (Weslley): salvar parcial não comenta — só o "Enviar autorização"
     try { vd_marcar_(card); } catch (e) {}
     return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, jaAut: jaAut, pecas: an.pecas.length, marcas: marcadas.length, lista: vdf_nomeLista_(ctx, card.idList) };
   }
@@ -5378,14 +5391,14 @@ function vdf_salvarCompra(token, p) {
     var movF = ''; try { movF = vdf_moverPara_(card, ctx, VDF_LISTA_CHEGAR, token, me.username); } catch (e) {}
     // tudo já recebido (ex.: compras do fluxo antigo ✔) -> segue direto para ENCERRADO (13/10/2026, BDK2J49)
     try { var movF2 = rc_reavaliarColuna_(card.id, token, me.username); if (movF2) movF = movF2; } catch (e) { console.log('compra/coluna: ' + e); }
-    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🛒 **COMPRA ENVIADA** — ' + me.fullName + ' · todas as peças já estavam registradas' + (movF ? ' → **' + movF + '**' : '') + vdf_txtAnexosCompra_(axF) } }, token); } catch (e) {}
+    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🛒 **COMPRA** — ' + me.fullName + ' · enviada (salva antes aos poucos)' + (movF ? ' → **' + movF + '**' : '') + vdf_txtAnexosCompra_(axF) } }, token); } catch (e) {}
     try { vd_marcar_(card); } catch (e) {}
     return { ok: true, url: card.shortUrl, nome: card.name, pagas: 0, pendentes: 0, foraAut: [], anexos: axF.anexados, repetidos: axF.repetidos, lista: movF || vdf_nomeLista_(ctx, card.idList) };
   }
   if (!compras.length && parcial) {
     // só arquivos (peça ainda sem compra escolhida): anexa e pronto
     var axP = vdf_anexarCompra_(card, arqs, token);
-    try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '📎 **Negociação/pagamento anexado** — ' + me.fullName + vdf_txtAnexosCompra_(axP) } }, token); } catch (e) {}
+    // 21/10/2026 (Weslley): só anexa, sem comentário
     return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, pagas: 0, pendentes: 0, foraAut: [], anexos: axP.anexados, repetidos: axP.repetidos, lista: vdf_nomeLista_(ctx, card.idList) };
   }
   compras.forEach(function (c) {
@@ -5436,7 +5449,7 @@ function vdf_salvarCompra(token, p) {
   } catch (e) {}
   try {
     var dirs = foraAut.length ? sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity').filter(function (u) { return u !== me.username; }) : [];
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +
+    if (!parcial) vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +   // 21/10/2026: salvar parcial não comenta
       (parcial ? '💾 **COMPRA PARCIAL salva** — ' : '🛒 **COMPRA** — ') + me.fullName + ' · ' + n + ' item(ns)' + (movido ? ' → **' + movido + '**' : '') +
       (pendentes ? '\n⏳ Falta comprar: ' + pendentes + ' peça(s)' : '') + (parcial && !pendentes ? '\nTudo comprado — envie a compra para o card seguir.' : '') +
       (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') + txtCompl + vdf_txtAnexosCompra_(axC) } }, token);
@@ -10820,11 +10833,13 @@ function vd_conferirCard_(card, ctx) {
       if (mvJ) { res.acao = '→ ' + mvJ; }
       else if (card.idList === idFalta) {
         vd_mover_(card, idCot, 'bottom');
-        vd_comentar_(card, '✅ **DADOS COMPLETOS** → **EM COTAÇÃO**' + (res.importado ? '\n' + res.importado.texto : '') + (res.preenchido.length ? '\n🤖 Lido dos anexos: ' + res.preenchido.join(', ') : '') + txtAviso);
+        // 21/10/2026 (Weslley: "calar os avisos de dados — quando está ok o pedido já anda, basta"): sem "DADOS COMPLETOS";
+        // só o que o robô importou do orçamento (peças novas que a equipe precisa ver) ou um aviso de divergência sai.
+        if (res.importado || txtAviso) vd_comentar_(card, ((res.importado ? res.importado.texto : '') + txtAviso).replace(/^\n/, ''));
       } else if (res.importado) {
-        vd_comentar_(card, '✅ **DADOS COMPLETOS**\n' + res.importado.texto + txtAviso);
-      } else if (sigAnterior !== sigAtual && (res.preenchido.length || res.avisos.length)) {
-        vd_comentar_(card, '✅ **DADOS COMPLETOS**' + (res.preenchido.length ? ' · 🤖 lido dos anexos: ' + res.preenchido.join(', ') : '') + txtAviso);
+        vd_comentar_(card, res.importado.texto + txtAviso);
+      } else if (sigAnterior !== sigAtual && res.avisos.length) {
+        vd_comentar_(card, 'ℹ️ ' + res.avisos.join('; '));
       }
       props.setProperty(chaveSig, sigAtual);
       // pedido só com peças da seguradora (FO): não tem o que cotar -> FALTA CHEGAR
@@ -10834,7 +10849,7 @@ function vd_conferirCard_(card, ctx) {
   return res;
 }
 
-// Validacao.gs:1689
+// Validacao.gs:1691
 function vd_importarOrcamento_(card, an, lido, ctx) {
   var o = lido.orcamento;
   var d = an.dados;
@@ -10876,7 +10891,7 @@ function vd_importarOrcamento_(card, an, lido, ctx) {
   return { texto: texto, titulo: titulo };
 }
 
-// Validacao.gs:1735
+// Validacao.gs:1737
 function vd_conferirPosCotacao_(card, ctx) {
   var props = PropertiesService.getScriptProperties();
   var res = { card: card.name, url: card.shortUrl, acao: '', faltas: [], preenchido: [], avisos: [] };
@@ -10976,7 +10991,7 @@ function vd_conferirPosCotacao_(card, ctx) {
   return res;
 }
 
-// Validacao.gs:1834
+// Validacao.gs:1836
 function vd_contexto_() {
   var board = vd_board_();
   var url = vd_prop_('VD_URL_FORM', VD.URL_FORM);
@@ -10989,7 +11004,7 @@ function vd_contexto_() {
   };
 }
 
-// Validacao.gs:1846
+// Validacao.gs:1848
 function vd_cardsDasListas_(ids, comAnexos) {
   var cards = [];
   ids.forEach(function (idL) {
@@ -11000,19 +11015,19 @@ function vd_cardsDasListas_(ids, comAnexos) {
   return cards;
 }
 
-// Validacao.gs:1856
+// Validacao.gs:1858
 function vd_cardsParaConferir_(ctx) {
   var ids = [ctx.listas[VD.LISTA_COTACAO], ctx.listas[VD.LISTA_FALTA]].filter(String);
   if (ids.length < 2) throw new Error('Quadro ' + ctx.board + ' sem as colunas "' + VD.LISTA_COTACAO + '" e "' + VD.LISTA_FALTA + '".');
   return vd_cardsDasListas_(ids, true);
 }
 
-// Validacao.gs:1862
+// Validacao.gs:1864
 function vd_listasPosCotacao_(ctx) {
   return Object.keys(ctx.listas).filter(function (n) { return VD.LISTAS_FORA.indexOf(n) < 0; }).map(function (n) { return ctx.listas[n]; });
 }
 
-// Validacao.gs:1866
+// Validacao.gs:1868
 function vd_marcar_(card) {
   try { cf_sincronizar_(card.id); } catch (e) {}   // campos personalizados antes de marcar (a gravação mexe na atividade)
   try {
@@ -11021,7 +11036,7 @@ function vd_marcar_(card) {
   } catch (e) {}
 }
 
-// Validacao.gs:1886
+// Validacao.gs:1888
 function vd_garantirLinks_(forcar) {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -11060,7 +11075,7 @@ function vd_garantirLinks_(forcar) {
   return n;
 }
 
-// Validacao.gs:1958
+// Validacao.gs:1960
 function vd_pkRebasear_(posCot, ctx) {
   var props = PropertiesService.getScriptProperties(), k = 'VD_PK2_REBASE';
   if (props.getProperty(k) === '2026-10-05c') return;
@@ -11079,7 +11094,7 @@ function vd_pkRebasear_(posCot, ctx) {
   console.log('rebase VD_PK2: ' + n + ' card(s) das colunas pós-cotação regravados a partir da descrição completa · ' + cards.length + ' cards em ' + listas.length + ' colunas · ' + leg + ' legado(s) · ' + semCmp + ' sem completa na TRAVA · completas na TRAVA: ' + Object.keys(mapa).length + ' · virada ' + new Date(vd_viradaMs_()).toLocaleString('pt-BR'));
 }
 
-// Validacao.gs:1981
+// Validacao.gs:1983
 function vd_fixarCardNovo_(ctx, cards, completa) {
   if (!ctx.modoAtivo) return false;
   var props = PropertiesService.getScriptProperties();
@@ -11100,7 +11115,7 @@ function vd_fixarCardNovo_(ctx, cards, completa) {
   return true;
 }
 
-// Validacao.gs:2001
+// Validacao.gs:2003
 function vd_fixarTopo_(idLista, token) {
   try {
     var g = String(PropertiesService.getScriptProperties().getProperty('VD_FIXO') || '').split('|');
@@ -11108,7 +11123,7 @@ function vd_fixarTopo_(idLista, token) {
   } catch (e) { console.log('fixar topo: ' + e); }
 }
 
-// Validacao.gs:2009
+// Validacao.gs:2011
 function vd_executarNucleo_() {
   if (!vd_ligado_()) return [];
   var ctx = vd_contexto_();
@@ -11171,12 +11186,12 @@ function vd_executarNucleo_() {
   return out;
 }
 
-// Validacao.gs:2073
+// Validacao.gs:2075
 function vd_roboNoServidor_() {
   try { return ScriptApp.getScriptId() !== 'servidor-compra-peca' && vd_prop_('VD_ROBO_SERVIDOR', 'NAO') === 'SIM'; } catch (e) { return false; }
 }
 
-// Validacao.gs:2077
+// Validacao.gs:2079
 function validarDadosPedido() {
   if (vd_roboNoServidor_()) { try { sd_vigiaServidor_(); } catch (e) {} return; }   // Google de reserva: só vigia o servidor (Saude.gs)
   if (qt_pausada_()) { console.log('ciclo pulado: ' + qt_resumoPausa_()); return; }   // cota estourada: não gasta chamada nem tempo
@@ -11232,7 +11247,7 @@ function validarDadosPedido() {
   } finally { lock.releaseLock(); try { qt_registrar_('ciclo'); } catch (e) {} }
 }
 
-// Validacao.gs:2172
+// Validacao.gs:2174
 function vd_instalarAcionador() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'validarDadosPedido') ScriptApp.deleteTrigger(t);
@@ -11240,7 +11255,7 @@ function vd_instalarAcionador() {
   ScriptApp.newTrigger('validarDadosPedido').timeBased().everyMinutes(1).create();
 }
 
-// Validacao.gs:2205
+// Validacao.gs:2207
 function pz_entradaColuna_(c, props) {
   var k = 'PZ_COL_' + c.id, g = String(props.getProperty(k) || '').split('|');
   if (g[0] === c.idList && g[1]) return g[1];
@@ -11257,7 +11272,7 @@ function pz_entradaColuna_(c, props) {
   return quando;
 }
 
-// Validacao.gs:2221
+// Validacao.gs:2223
 function pz_labelId_(board, nome, cor) {
   var cache = CacheService.getScriptCache();
   var k = 'pz_lbl_' + board + '_' + nome;
@@ -11270,22 +11285,22 @@ function pz_labelId_(board, nome, cor) {
   return l.id;
 }
 
-// Validacao.gs:2233
+// Validacao.gs:2235
 function pz_hoje_() {
   var d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-// Validacao.gs:2237
+// Validacao.gs:2239
 function pz_diaLocal_(iso) {
   var d = new Date(iso);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-// Validacao.gs:2241
+// Validacao.gs:2243
 function pz_fmt_(iso) { return Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM'); }
 
-// Validacao.gs:2250
+// Validacao.gs:2252
 function pz_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
   var board = vd_board_();
@@ -11355,7 +11370,7 @@ function pz_executar_() {
           var nomeCk = String(ck.name || '').trim();
           (ck.checkItems || []).forEach(function (it) { if (it.state === 'complete' || it.due) return; (/FORNECIMENTO/i.test(nomeCk) ? semDataFo : (/^PAGAS/i.test(nomeCk) ? semDataPg : [])).push(it.name.split(/\s+[-—]\s+/)[0]); });
         });
-        if (semDataFo.length || semDataPg.length) {
+        if ((semDataFo.length || semDataPg.length) && !pz_jaAvisouHoje_(c.id)) {
           vd_comentar_(c, '⏰ Prazo do card vencido sem previsão de peça — ' + [semDataFo.length ? 'verificar prazo do item ' + semDataFo.join('; ') : '', semDataPg.length ? 'verificar compra do item ' + semDataPg.join('; ') : ''].filter(String).join(' · ') + '.');
           mudou = true;
         }
@@ -11371,7 +11386,7 @@ function pz_executar_() {
         // 10/10/2026: comenta só o item + previsão ainda não avisado (etiqueta tirada e posta de novo não repete o aviso)
         var kFo = 'PZ_FOAV_' + c.id, jaAv = []; try { jaAv = JSON.parse(props.getProperty(kFo) || '[]'); } catch (e) {}
         var novosFO = vencidosFO.filter(function (it) { return jaAv.indexOf(it.id + '|' + String(it.due).slice(0, 10)) < 0; });
-        if (novosFO.length) {
+        if (novosFO.length && !pz_jaAvisouHoje_(c.id)) {
           vd_comentar_(c, '⏰ Fornecimento atrasado — verificar prazo do item ' +
             novosFO.map(function (it) { return it.name + ' (previsão ' + pz_fmt_(it.due) + ')'; }).join(', ') + '.');
           try { props.setProperty(kFo, JSON.stringify(jaAv.concat(novosFO.map(function (it) { return it.id + '|' + String(it.due).slice(0, 10); })).slice(-40))); } catch (e) {}
@@ -11391,7 +11406,7 @@ function pz_executar_() {
   return n;
 }
 
-// Validacao.gs:2372
+// Validacao.gs:2374
 function rel_unidade_(card) {
   // 19/10/2026: card aberto pela Rotina tem o campo Unidade mas não a etiqueta — valia "SEM UNIDADE"
   try {
@@ -11404,16 +11419,16 @@ function rel_unidade_(card) {
   return 'SEM UNIDADE';
 }
 
-// Validacao.gs:2383
+// Validacao.gs:2385
 function rel_dias_(ms) { return Math.floor((Date.now() - ms) / 864e5); }
 
-// Validacao.gs:2384
+// Validacao.gs:2386
 function rel_criacaoId_(id) { return 1000 * parseInt(String(id).substring(0, 8), 16); }
 
-// Validacao.gs:2385
+// Validacao.gs:2387
 function rel_esc_(s) { return String(s || '').replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
 
-// Validacao.gs:2388
+// Validacao.gs:2390
 function rel_coletar_() {
   var board = vd_prop_('REL_BOARD', vd_board_());
   var listas = vd_listas_(board);
@@ -11453,7 +11468,7 @@ function rel_coletar_() {
   return por;
 }
 
-// Validacao.gs:2427
+// Validacao.gs:2429
 function rel_html_(por) {
   var secoes = [['foVencido', '⏰ Fornecimento vencido (seguradora) — verificar prazo'], ['pagas', '💳 PAGAS há mais de ' + REL.DIAS_PAGAS + ' dias sem chegar / sem nota'],
     ['faltaDados', '⚠️ FALTA DADOS PARA COTAR parado há ' + REL.DIAS_FALTA_DADOS + '+ dia(s)'], ['entregues', '🧾 ENTREGUES há mais de ' + REL.DIAS_ENTREGUES + ' dias sem faturar']];
@@ -11475,7 +11490,7 @@ function rel_html_(por) {
   return h || '<p>Nenhuma exceção hoje. 🎉</p>';
 }
 
-// Validacao.gs:2448
+// Validacao.gs:2450
 function rel_enviar_() {
   var por = rel_coletar_();
   var total = 0;
@@ -11494,20 +11509,20 @@ function rel_enviar_() {
   return total;
 }
 
-// Validacao.gs:2467
+// Validacao.gs:2469
 function relatorioDiario() {
   if (vd_roboNoServidor_()) return;
   if (typeof comAlarme_ === 'function') return comAlarme_('relatório diário', rel_enviar_);
   return rel_enviar_();
 }
 
-// Validacao.gs:2473
+// Validacao.gs:2475
 function rel_instalar() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'relatorioDiario') ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('relatorioDiario').timeBased().everyDays(1).atHour(7).nearMinute(15).create();
 }
 
-// Validacao.gs:2479
+// Validacao.gs:2481
 function rel_instalarSeFaltar_() {
   var pp = PropertiesService.getScriptProperties();
   if (pp.getProperty('REL_INSTALADO') === 'SIM') return;
@@ -11516,16 +11531,16 @@ function rel_instalarSeFaltar_() {
   rel_enviar_();
 }
 
-// Validacao.gs:2502
+// Validacao.gs:2504
 function vd_vitrineLigada_() { return vd_prop_('VD_VITRINE', 'SIM') !== 'NAO'; }
 
-// Validacao.gs:2506
+// Validacao.gs:2508
 function vd_ehVitrineSemCompleta_(desc) {
   var d = String(desc || '');
   return /(^|\n)\d+\.\s+\*\*[^*\n]+\*\*/.test(d) && !/(^|\n)\s*\**\s*PE[ÇC]AS\s*\**\s*:/i.test(d);
 }
 
-// Validacao.gs:2511
+// Validacao.gs:2513
 function vd_completa_(cardId, vitrine) {
   if (!cardId) return '';
   if (VD_CMP_MEM && Object.prototype.hasOwnProperty.call(VD_CMP_MEM, cardId)) return VD_CMP_MEM[cardId];
@@ -11555,7 +11570,7 @@ function vd_completa_(cardId, vitrine) {
   return txt;
 }
 
-// Validacao.gs:2541
+// Validacao.gs:2543
 function vd_completasTodas_() {
   if (VD_CMP_MEM) return VD_CMP_MEM;
   VD_CMP_MEM = {};
@@ -11569,7 +11584,7 @@ function vd_completasTodas_() {
   return VD_CMP_MEM;
 }
 
-// Validacao.gs:2555
+// Validacao.gs:2557
 function vd_trocarPelaCompleta_(r) {
   if (!r) return r;
   if (Array.isArray(r)) {
@@ -11582,13 +11597,13 @@ function vd_trocarPelaCompleta_(r) {
   return r;
 }
 
-// Validacao.gs:2567
+// Validacao.gs:2569
 function vd_tit_(s) { s = String(s || '').toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
 
-// Validacao.gs:2568
+// Validacao.gs:2570
 function vd_md_(s) { return String(s || '').replace(/([\\`*_\[\]#>|~])/g, '\\$1'); }
 
-// Validacao.gs:2574
+// Validacao.gs:2576
 function vd_vitrine_(desc, nome, pagas) {
   if (!vd_vitrineLigada_()) return null;
   if (/^\s*AVISO\b/i.test(nome || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '')) return null;
@@ -11721,7 +11736,7 @@ function vd_vitrine_(desc, nome, pagas) {
   return txt;
 }
 
-// Validacao.gs:2707
+// Validacao.gs:2709
 function vd_textoLegado_(desc) {
   var resto = vd_dividir_(desc).resto;
   if (!resto) return '';
@@ -11737,7 +11752,7 @@ function vd_textoLegado_(desc) {
   return out.join('\n').trim();
 }
 
-// Validacao.gs:2725
+// Validacao.gs:2727
 function vd_obsVitrine_() {
   var props = PropertiesService.getScriptProperties(), st = props.getProperty('VD_OBSVIT') || '2';
   if (st === 'FEITO' || !vd_ligado_() || vd_modo_() !== 'ATIVO' || !vd_vitrineLigada_()) return 0;

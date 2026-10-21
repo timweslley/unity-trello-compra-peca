@@ -159,6 +159,14 @@ function sla_dia_(d) { d = new Date(d); return new Date(d.getFullYear(), d.getMo
 function sla_mais_(d, n) { d = sla_dia_(d); var g = 0; while (n > 0 && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) n--; } return d; }
 /** No quadro TESTE os avisos mencionam só o Weslley (não chamar compras/diretoria por card de teste). */
 function sla_users_(prop, padrao) { if (vd_board_() === VD.BOARD_PADRAO) padrao = 'timweslley'; return String(vd_prop_(prop, padrao)).split(/[,;\s]+/).filter(String); }
+/** 21/10/2026 (Weslley): os três avisos ⏰ de item atrasado (sem recebimento / sem previsão / fornecimento atrasado) viram UM por card por dia. */
+function pz_jaAvisouHoje_(cardId) {
+  try {
+    var props = PropertiesService.getScriptProperties(), k = 'PZ_DIA_' + cardId, hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
+    if (props.getProperty(k) === hoje) return true;
+    props.setProperty(k, hoje); return false;
+  } catch (e) { return false; }
+}
 function sla_mencao_(us) { return us.filter(function (u, i) { return u && us.indexOf(u) === i; }).map(function (u) { return '@' + u; }).join(' '); }
 
 /** Já avisou desta pendência há menos de 2 dias úteis? (chave por card+etapa+entrada ou por item+previsão) */
@@ -219,6 +227,8 @@ function sla_executar_(forcar) {
     { lista: 'EM COTAÇÃO', dias: +vd_prop_('SLA_DIAS_COTAR', 2), quem: 'cotar' },
     { lista: 'PENDENTE AUTORIZAR', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' },
     { lista: 'COTAÇÃO FINALIZADA', dias: +vd_prop_('SLA_DIAS_AUTORIZAR', 2), quem: 'autorizar' },
+    { lista: 'FALTA DADOS PARA COTAÇÃO', dias: +vd_prop_('SLA_DIAS_DADOS', 1), quem: 'dados' },        // 21/10/2026 (Weslley)
+    { lista: 'AUTORIZADO COMPRA', dias: +vd_prop_('SLA_DIAS_COMPRAR', 2), quem: 'comprar' },           // 21/10/2026 (Weslley)
     { lista: 'ENTREGUES', dias: +vd_prop_('SLA_DIAS_FATURAR', 7), quem: 'faturar' }   // vale também para card antigo
   ];
   // 1) tempo parado na etapa
@@ -254,6 +264,13 @@ function sla_executar_(forcar) {
         txt = '⏰ Card em **ENTREGUES** há ' + dias + ' dia(s) útil(eis) sem confirmação de faturamento (prazo: ' + et.dias + '). Depois de faturar, comente a palavra faturado no card (ou arquive) — ele é arquivado.';
         // 09/10/2026 (Weslley): complementar comprado antes da autorização e ainda sem confirmação da seguradora entra no lembrete
         if (cpP.length) txt += '\n⚠️ Complementar comprado **antes da autorização** e ainda sem confirmação da seguradora — verificar autorização e importação no Databox do item ' + vd_complPendTxt_(cpP) + ' (marcar na aba Compra do formulário).';
+      } else if (et.quem === 'dados') {
+        var crD = ''; try { crD = vd_criador_(c.id); } catch (e) {}
+        mencao = sla_mencao_(crD ? [crD] : sla_users_('SLA_COTAR', 'comprasunity'));
+        txt = '⏰ Card em **FALTA DADOS** há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + '). Completar o pedido pelo anexo **✏️ EDITAR/INCLUIR PEÇA** — o que falta está no último aviso ⚠️ FALTA DADOS.';
+      } else if (et.quem === 'comprar') {
+        mencao = sla_mencao_(sla_users_('SLA_COMPRAR', 'comprasunity'));
+        txt = '⏰ Card em **AUTORIZADO COMPRA** há ' + dias + ' dia(s) útil(eis) sem compra registrada (prazo: ' + et.dias + '). Registrar pelo anexo **💰 Cotação / Compra** → aba 🛒 Compra.';
       } else if (et.quem === 'cotar') {
         mencao = sla_mencao_(sla_users_('SLA_COTAR', 'comprasunity'));
         txt = '⏰ Card em **EM COTAÇÃO** há ' + dias + ' dia(s) útil(eis) (prazo: ' + et.dias + '). Lançar a cotação pelo anexo **💰 Cotação / Compra**.';
@@ -308,6 +325,7 @@ function sla_executar_(forcar) {
     var mencao = sla_mencao_(sla_users_('SLA_RECEBER', 'comprasunity'));
     try {
       if (silencioso) { chaves.forEach(function (ch) { props.setProperty(ch, '2999-01-01T12:00:00.000Z'); }); return; }
+      if (pz_jaAvisouHoje_(c.id)) { chaves.forEach(function (ch) { props.setProperty(ch, hoje.toISOString()); }); return; }
       vd_comentar_(c, mencao + ' ⏰ Peça sem recebimento informado depois da previsão — ' + partes.join('; ') + '. Se já chegou, registrar na aba **📦 Recebimento**.');
       ev_registrar_('ALERTA PRAZO', c, 'robô', null, { detalhe: 'recebimento: ' + partes.join('; ') });
       chaves.forEach(function (ch) { props.setProperty(ch, hoje.toISOString()); }); n++;
