@@ -261,3 +261,6 @@ da outra, deixar um recado aqui e no commit.
   silicone, vedante).
 - 20h06 — Conferência pós-mudanças: servidor 68592fc ATIVO, robô ciclando, 0 erros em 3 h, workflows verdes. Card da Rotina vUhlsOpU
   trouxe "INSUMOS GRAMPOS, CINTAS PLASTICAS, BUCHA" como peça → "INSUMO(S)" entra na regra de insumo (🚫 padrão).
+- 20h16 — Devoluções ao fornecedor (decisões: comprador informa a NF; 3 d.u.; segura o card; só NF; FO também; sem coluna nova).
+  Feito e testado no TESTE (TAJ0E65 ToNGgZ6P: 2 devoluções → checklist DEVOLUÇÕES → NF pela tela e pela API com anexo PDF →
+  itens ✔, anexo renomeado, comentários). Principal espera o OK (`RC_DEV_PRINCIPAL=SIM`).
