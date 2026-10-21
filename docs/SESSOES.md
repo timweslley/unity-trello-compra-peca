@@ -231,3 +231,5 @@ da outra, deixar um recado aqui e no commit.
 - 16h57 — Weslley: reenviar a autorização com uma alteração repetia "✅ AUTORIZADO" inteiro (BBW5…: 17 peças, só a obs mudou).
   Agora reenvio compara com a autorização anterior: "✏️ AUTORIZAÇÃO ALTERADA" só com o que mudou (trocou / autorizou agora /
   obs / marcas) e o total do card; igual = "🔁 reenviada sem alteração". Marca `VDF_AUT_ENV_<card>` no envio; cai na devolução.
+- 17h22 — Weslley: "aviso nenhum de cotação parcial, tá tumultuando" → cotação parcial deixa de comentar no card (desfaz a regra
+  das 16h52); só o "Enviar cotação" avisa.

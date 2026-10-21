@@ -1296,19 +1296,8 @@ function vdf_salvarCotacao(token, p) {
     return { ok: true, registro: true, url: card.shortUrl, nome: card.name, lista: vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: [], semCot: 0 };
   }
   if (parcial) {
-    // salva aos poucos: comentário curto, sem mencionar ninguém (o card não anda)
-    // 21/10/2026 (Weslley: "toda vez é excessivo"): só comenta quando a situação muda — 1ª parcial do card, lista do que falta
-    // diferente da última avisada, tudo coberto (uma vez) ou card movido. Salvar de novo no mesmo estado fica em silêncio.
-    try {
-      var sigP = (cob.faltam.length ? cob.faltam.join('|') : 'OK') + (movido ? '>' + movido : ''), kP = 'VDF_PARC_' + card.id;
-      var propsP = PropertiesService.getScriptProperties();
-      if (propsP.getProperty(kP) !== sigP) {
-        var txtP = '💾 **COTAÇÃO PARCIAL salva** — ' + me.fullName + ' · ' + cots.length + ' cotação(ões) em ' + nPc + ' peça(s)' + (nt.length ? ' · ' + nt.length + ' NT' : '') + (movido ? ' → **' + movido + '**' : '')
-          + (cob.faltam.length ? '\n⏳ falta cotar ou justificar: ' + cob.faltam.join(', ') : '\n✅ todas as peças cobertas — falta só **Enviar cotação** pela aba Cotação.');
-        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txtP } }, token);
-        propsP.setProperty(kP, sigP);
-      }
-    } catch (e) {}
+    // salva aos poucos: NÃO comenta no card (21/10/2026, Weslley: "aviso nenhum de cotação parcial, tá tumultuando") —
+    // o card não anda e o comprador vê a situação no próprio formulário; o aviso sai só no "Enviar cotação".
     try { vd_marcar_(card); } catch (e) {}
     return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length };
   }
@@ -1325,7 +1314,6 @@ function vdf_salvarCotacao(token, p) {
     if (misto && !cob.faltam.length) txt += '\n👤 Particulares: autoriza o consultor pela aba Autorizar.';
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
   } catch (e) {}
-  try { PropertiesService.getScriptProperties().deleteProperty('VDF_PARC_' + card.id); } catch (e) {}   // próxima rodada de parciais avisa de novo
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length };
 }
