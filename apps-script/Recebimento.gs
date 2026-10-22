@@ -570,10 +570,10 @@ function rc_checklistDev_(card, token) {
 }
 /** Cria o item da devolução. it = item do PAGAS/FORNECIMENTO (nome com marcas), motivo, fo = fornecimento da seguradora. */
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }   // 21/10/2026 21h33: ligado no principal com OK do Weslley (desligar: propriedade RC_DEV_PRINCIPAL=NAO)
-function rc_registrarDevolucao_(card, it, motivo, fo, token) {
+function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
-  var partes = rc_semMarcas_(it.nome).split(/\s+-\s+/), hoje = new Date();
+  var partes = rc_semMarcas_(it.nome).split(/\s+-\s+/), hoje = quando || new Date();
   var nome = '↩️ ' + partes[0] + ' - ' + (fo ? 'SEGURADORA (FO)' : (partes[1] || '?')) + (partes[2] && !fo ? ' - ' + partes[2] : '') +
     ' · devolvida ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM') + (motivo ? ' (' + String(motivo).replace(/\s*·\s*/g, ' ').slice(0, 60) + ')' : '') + ' · ' + RC_DEV.AGUARDA;
   var due = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 15).toISOString();
@@ -650,4 +650,23 @@ function vdf_salvarDevolucao(token, p) {
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
+
+/** 21/10/2026 (Weslley: "os que ainda não foram entregues dá pra incluir") — diretoria inclui no checklist DEVOLUÇÕES uma devolução
+ *  feita antes do controle existir (ou registrada fora do formulário). p = {shortLink, peca, fornecedor, valor, data:'aaaa-mm-dd', motivo, fo} */
+function vdf_incluirDevolucao(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
+  p = vdf_entrada_(p);
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (!String(p.peca || '').trim() || !/^\d{4}-\d{2}-\d{2}$/.test(String(p.data || ''))) return { ok: false, faltas: ['Informe a peça e a data da devolução.'] };
+  var dt = p.data.split('-'), quando = new Date(+dt[0], +dt[1] - 1, +dt[2], 12);
+  var nomeIt = String(p.peca).trim() + (p.fo ? '' : ' - ' + String(p.fornecedor || '?').trim() + (p.valor ? ' - R$ ' + String(p.valor).trim() : ''));
+  var ja = rc_devolucoes_(card).some(function (d) { return d.peca === String(p.peca).trim(); });
+  if (ja) return { ok: false, faltas: ['Esta peça já está no checklist DEVOLUÇÕES.'] };
+  var novo = rc_registrarDevolucao_(card, { nome: nomeIt }, String(p.motivo || '').trim(), !!p.fo, token, quando);
+  if (!novo) return { ok: false, faltas: ['Controle de devoluções desligado neste quadro.'] };
+  try { ev_registrar_('DEVOLUÇÃO', card, me.username, [{ peca: String(p.peca).trim(), fornecedor: p.fo ? 'SEGURADORA (FO)' : String(p.fornecedor || ''), detalhe: 'incluída no checklist DEVOLUÇÕES (devolvida ' + dt[2] + '/' + dt[1] + ')' }], { detalhe: 'inclusão pela diretoria' }); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, item: novo.name };
 }

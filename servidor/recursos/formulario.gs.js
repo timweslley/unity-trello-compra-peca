@@ -226,7 +226,7 @@ var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, REPETIR_FATURAR_DU: 5, 
 
 // FormularioServidor.gs:26
 var VDF_API = ['vdf_servidorProps', 'vdf_limparCardRotina', 'vdf_rotinaPecasBase', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_incluirDevolucao'];
 
 // FormularioServidor.gs:68
 var VDF_PROPS_SERVIDOR = ['RC_LOCAIS', 'RC_QUEM', 'VD_COMPRADORES', 'VD_AUTORIZADORES', 'FAT_USUARIOS', 'DU_EXTRAS', 'DU_REMOVER',
@@ -8581,10 +8581,10 @@ function rc_checklistDev_(card, token) {
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
 // Recebimento.gs:573
-function rc_registrarDevolucao_(card, it, motivo, fo, token) {
+function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
-  var partes = rc_semMarcas_(it.nome).split(/\s+-\s+/), hoje = new Date();
+  var partes = rc_semMarcas_(it.nome).split(/\s+-\s+/), hoje = quando || new Date();
   var nome = '↩️ ' + partes[0] + ' - ' + (fo ? 'SEGURADORA (FO)' : (partes[1] || '?')) + (partes[2] && !fo ? ' - ' + partes[2] : '') +
     ' · devolvida ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM') + (motivo ? ' (' + String(motivo).replace(/\s*·\s*/g, ' ').slice(0, 60) + ')' : '') + ' · ' + RC_DEV.AGUARDA;
   var due = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 15).toISOString();
@@ -8664,6 +8664,24 @@ function vdf_salvarDevolucao(token, p) {
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
+
+// Recebimento.gs:657
+function vdf_incluirDevolucao(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
+  p = vdf_entrada_(p);
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (!String(p.peca || '').trim() || !/^\d{4}-\d{2}-\d{2}$/.test(String(p.data || ''))) return { ok: false, faltas: ['Informe a peça e a data da devolução.'] };
+  var dt = p.data.split('-'), quando = new Date(+dt[0], +dt[1] - 1, +dt[2], 12);
+  var nomeIt = String(p.peca).trim() + (p.fo ? '' : ' - ' + String(p.fornecedor || '?').trim() + (p.valor ? ' - R$ ' + String(p.valor).trim() : ''));
+  var ja = rc_devolucoes_(card).some(function (d) { return d.peca === String(p.peca).trim(); });
+  if (ja) return { ok: false, faltas: ['Esta peça já está no checklist DEVOLUÇÕES.'] };
+  var novo = rc_registrarDevolucao_(card, { nome: nomeIt }, String(p.motivo || '').trim(), !!p.fo, token, quando);
+  if (!novo) return { ok: false, faltas: ['Controle de devoluções desligado neste quadro.'] };
+  try { ev_registrar_('DEVOLUÇÃO', card, me.username, [{ peca: String(p.peca).trim(), fornecedor: p.fo ? 'SEGURADORA (FO)' : String(p.fornecedor || ''), detalhe: 'incluída no checklist DEVOLUÇÕES (devolvida ' + dt[2] + '/' + dt[1] + ')' }], { detalhe: 'inclusão pela diretoria' }); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, item: novo.name };
 }
 
 // Saude.gs:15
