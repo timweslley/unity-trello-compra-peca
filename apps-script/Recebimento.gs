@@ -569,7 +569,7 @@ function rc_checklistDev_(card, token) {
   return k;
 }
 /** Cria o item da devolução. it = item do PAGAS/FORNECIMENTO (nome com marcas), motivo, fo = fornecimento da seguradora. */
-function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'NAO') === 'SIM'; } catch (e) { return false; } }   // TESTE sempre; principal com RC_DEV_PRINCIPAL=SIM (OK do Weslley)
+function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }   // 21/10/2026 21h33: ligado no principal com OK do Weslley (desligar: propriedade RC_DEV_PRINCIPAL=NAO)
 function rc_registrarDevolucao_(card, it, motivo, fo, token) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);

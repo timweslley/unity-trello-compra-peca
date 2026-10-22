@@ -8578,7 +8578,7 @@ function rc_checklistDev_(card, token) {
 }
 
 // Recebimento.gs:572
-function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'NAO') === 'SIM'; } catch (e) { return false; } }
+function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
 // Recebimento.gs:573
 function rc_registrarDevolucao_(card, it, motivo, fo, token) {
