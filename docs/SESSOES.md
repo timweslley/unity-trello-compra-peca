@@ -265,3 +265,8 @@ da outra, deixar um recado aqui e no commit.
   Feito e testado no TESTE (TAJ0E65 ToNGgZ6P: 2 devoluções → checklist DEVOLUÇÕES → NF pela tela e pela API com anexo PDF →
   itens ✔, anexo renomeado, comentários). Principal espera o OK (`RC_DEV_PRINCIPAL=SIM`).
 - 21h33 — Weslley: "dá pra ligar né?" → devoluções ligadas no principal (padrão SIM; `RC_DEV_PRINCIPAL=NAO` desliga).
+- 21h39 — Weslley: incluir as devoluções dos cards ainda não entregues. Varredura dos 272 cards abertos fora de ENTREGUES
+  (descrição, checklists e 100 comentários por card): 2 devoluções a fornecedor sem NF registrada — RHM1J09 (moldura, FIAT FIPAL,
+  09/10, troca) e AAZ0E84 (calha de chuva, Mercado Livre, 13/10) — incluídas via `vdf_incluirDevolucao` (diretoria). Fora:
+  ATP5105 (ventoinha voltou ao estoque WEV, interno), FOB8723/JDC7H45 (movimentos internos de estoque), 2 cards antigos de
+  fev/set em PENDÊNCIA (fluxo antigo).
