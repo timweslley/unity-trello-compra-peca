@@ -287,3 +287,6 @@ da outra, deixar um recado aqui e no commit.
   Teste no TESTE (ZZT9C01): arquivo subiu pela tela e foi anexado; achado e corrigido: salvar parcial SÓ com arquivo movia o
   card para EM COTAÇÃO (regra da parcial) — agora só anexa, sem mexer em coluna/etiqueta. O rotulador 2.0 dos botões de anexo
   apagava o input das seções novas (Devoluções e Arquivos da cotação) — corrigido (`data-v2c`).
+- 11h13 — Weslley: "onde está o botão por cotação e por peça?" e "depois de anexado, ver o anexo" → 📎 no cabeçalho da peça, em
+  cada cotação salva (tabela) e em cada cotação em edição; links "📎 ver" do que já está no card; nome do anexo com fornecedor e
+  peça. Testado no TESTE (ZZT9C01): `💬 COTAÇÃO · ZZT9C01 · AUTOX · GRADE DO PARACHOQUE 🧪 · 23/10`.
