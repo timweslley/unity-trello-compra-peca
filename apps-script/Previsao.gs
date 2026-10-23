@@ -113,6 +113,7 @@ function pv_baseFo_(nome, lista) {
   b = b.replace(/^(\d{5,})(?=[A-Z]{3,}[A-Z\s])/i, '$1 ');
   // sufixo " - FORNECEDOR": testa do pedaço mais comprido para o mais curto, porque o fornecedor lido do
   // portal pode ter " - " e "/" dentro ("MEDIADORA - PRISMATEC / DUNA FIAT", 05/10/2026)
+  b = b.replace(/\s+-\s+QTD\s*\d*$/i, '');   // 23/10/2026 (SFL9F03): "- QTD 1" gravado como fornecedor por leitura antiga
   var partes = b.split(/\s+-\s+/);
   for (var k = 1; k < partes.length; k++) {
     var suf = partes.slice(k).join(' - ').trim();
@@ -210,6 +211,7 @@ function vdf_atualizarFornecimento(token, p) {
     return base + (forn ? ' - ' + forn : '') + (/^EM COTA/.test(sit) ? ' - ' + PV.EM_COTACAO : (/^B\.?O/.test(sit) ? ' — ' + PV.BO + ' (' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM') + ')' : ''));
   };
   (p.itens || []).forEach(function (x) {
+    if (x && /^\s*QTD\s*\d*\s*$/i.test(String(x.fornecedor || ''))) delete x.fornecedor;   // 23/10/2026 (SFL9F03): quantidade lida como fornecedor — ignora
     var it = pv_achaFo_(itensFo, x);
     if (!it) return faltas.push('FO não encontrada no card: ' + (x.codigo || x.descricao || x.id || '?') + ' (use "novos" para incluir)');
     var base = pv_baseFo_(it.name, foLista), baseOrig = base, mud = {}, txt = [];
@@ -224,6 +226,7 @@ function vdf_atualizarFornecimento(token, p) {
     if (querNome) {
       var marcasIt = rc_marcas_(it.name);   // 📍 local / ✋ retirada no fim do nome ficam (10/10/2026)
       var antigoForn = (marcasIt.base.slice(baseOrig.length).match(/^\s+-\s+([^-—]+?)(?:\s+[-—]|$)/) || [])[1] || '';
+      if (/^QTD\b/i.test(antigoForn)) antigoForn = '';   // "- QTD 1" de leitura antiga não é fornecedor
       var nm = rc_comMarcas_(nomeNovo(base, { fornecedor: x.fornecedor !== undefined ? x.fornecedor : antigoForn, situacao: x.situacao }), marcasIt);
       if (nm !== it.name) { mud.name = nm; txt.push(rc_semMarcas_(nm).slice(base.length).replace(/^\s+[-—]\s+/, '') || 'sem fornecedor'); }
     }
@@ -380,7 +383,7 @@ function pv_lerStatusCilia_(texto, lista) {
   var LABEL = /^(CODIGO|PECA|QTD|FORNECEDOR|PREVIS|STATUS|ULTIMA|RASTREAM|PARECER|SEGURADORA|SINISTRO|ORCAMENTO|OFICINA|CIDADE|E)$|^\d{1,2}\/\d{1,2}\/\d{2,4}\s*-\s*\d/;
   var ehCodigo = function (t) { return /^[A-Z0-9]{6,20}$/.test(t) && (t.match(/\d/g) || []).length >= 4 && !/^\d{11,}$/.test(t) && !/^\d{1,2}\/\d/.test(t); };
   var ehData = function (t) { return /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(t); };
-  var limpaForn = function (t) { return t.replace(/PREVISAO DE ENTREGA.*$/, '').replace(/\s+\d{1,2}\/\d{1,2}\/\d{2,4}.*$/, '').trim(); };
+  var limpaForn = function (t) { var r = t.replace(/PREVISAO DE ENTREGA.*$/, '').replace(/\s+\d{1,2}\/\d{1,2}\/\d{2,4}.*$/, '').trim(); return /^QTD\b/.test(r) ? '' : r; };
   var ehForn = function (t) {
     if (!/[A-Z]{3}/.test(t) || STATUS.test(t) || LABEL.test(t) || ehCodigo(t.replace(/\s/g, ''))) return false;
     if (/HTTPS?:|WWW\.|\.COM\b|\.BR\b|^PREVISAO|:/.test(t)) return false;   // link do portal, rótulo, parecer ("CONTATO COM FORNECEDOR: …")
@@ -436,7 +439,9 @@ function pv_lerStatusCilia_(texto, lista) {
       continue;
     }
     if (/^FORNECEDOR$/.test(l)) {   // nome na linha seguinte (quando não tem "/")
-      var prox = linhas[i + 1] || '';
+      // 23/10/2026 (SFL9F03): "FORNECEDOR / QTD 1 / MEDIADORA…" — a quantidade não é o fornecedor (o item ficava "- QTD 1")
+      var jF = i + 1; while (jF < linhas.length && /^QTD\s*\d*$/.test(linhas[jF])) jF++;
+      var prox = linhas[jF] || '';
       if (/[A-Z]{3}/.test(prox) && !STATUS.test(prox) && !LABEL.test(prox) && !ehCodigo(prox) && !ehForn(prox) && limpaForn(prox)) forns.push({ i: i, nome: limpaForn(prox) });
       continue;
     }

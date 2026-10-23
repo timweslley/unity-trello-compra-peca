@@ -404,10 +404,10 @@ var PN = { ABA: 'PAINEL', DIAS: 30, AZUL: '#0c66e4', CINZA: '#f1f2f4' };
 // Previsao.gs:10
 var PV = { EM_COTACAO: 'EM COTAÇÃO, AINDA SEM PRAZO', BO: 'B.O. NO PORTAL' };
 
-// Previsao.gs:146
+// Previsao.gs:147
 var PV_INTERNO = false;
 
-// Previsao.gs:147
+// Previsao.gs:148
 var PV_CACHE_TXT = 'PV_TXT_';
 
 // Recebimento.gs:10
@@ -7307,6 +7307,7 @@ function pv_baseFo_(nome, lista) {
   b = b.replace(/^(\d{5,})(?=[A-Z]{3,}[A-Z\s])/i, '$1 ');
   // sufixo " - FORNECEDOR": testa do pedaço mais comprido para o mais curto, porque o fornecedor lido do
   // portal pode ter " - " e "/" dentro ("MEDIADORA - PRISMATEC / DUNA FIAT", 05/10/2026)
+  b = b.replace(/\s+-\s+QTD\s*\d*$/i, '');   // 23/10/2026 (SFL9F03): "- QTD 1" gravado como fornecedor por leitura antiga
   var partes = b.split(/\s+-\s+/);
   for (var k = 1; k < partes.length; k++) {
     var suf = partes.slice(k).join(' - ').trim();
@@ -7319,7 +7320,7 @@ function pv_baseFo_(nome, lista) {
   return b;
 }
 
-// Previsao.gs:129
+// Previsao.gs:130
 function pv_achaFo_(itensFo, x) {
   if (x.id) { var porId = itensFo.filter(function (i) { return i.id === x.id; })[0]; if (porId) return porId; }
   var cod = cp_norm_(x.codigo), desc = cp_norm_(x.descricao);
@@ -7328,7 +7329,7 @@ function pv_achaFo_(itensFo, x) {
   return null;
 }
 
-// Previsao.gs:151
+// Previsao.gs:152
 function vdf_previaFornecimento(token, fileId, shortLink, foForm) {
   vdf_usuario_(token);
   var f = vdf_arquivoTemp_(fileId), texto;
@@ -7347,7 +7348,7 @@ function vdf_previaFornecimento(token, fileId, shortLink, foForm) {
   return { doc: doc, fornecimento: !!doc || achados.length > 0, achados: achados };
 }
 
-// Previsao.gs:170
+// Previsao.gs:171
 function pv_fornDoPedido_(token, shortLink, textos) {
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state,due' } });
   var itens = [], vistos = {}, extras = [], faltando = [];
@@ -7372,7 +7373,7 @@ function pv_fornDoPedido_(token, shortLink, textos) {
   return { n: res.n || 0, faltas: res.faltas || [], avisos: res.avisos || [], extras: extras, faltando: faltando };
 }
 
-// Previsao.gs:194
+// Previsao.gs:195
 function vdf_atualizarFornecimento(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -7392,6 +7393,7 @@ function vdf_atualizarFornecimento(token, p) {
     return base + (forn ? ' - ' + forn : '') + (/^EM COTA/.test(sit) ? ' - ' + PV.EM_COTACAO : (/^B\.?O/.test(sit) ? ' — ' + PV.BO + ' (' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM') + ')' : ''));
   };
   (p.itens || []).forEach(function (x) {
+    if (x && /^\s*QTD\s*\d*\s*$/i.test(String(x.fornecedor || ''))) delete x.fornecedor;   // 23/10/2026 (SFL9F03): quantidade lida como fornecedor — ignora
     var it = pv_achaFo_(itensFo, x);
     if (!it) return faltas.push('FO não encontrada no card: ' + (x.codigo || x.descricao || x.id || '?') + ' (use "novos" para incluir)');
     var base = pv_baseFo_(it.name, foLista), baseOrig = base, mud = {}, txt = [];
@@ -7406,6 +7408,7 @@ function vdf_atualizarFornecimento(token, p) {
     if (querNome) {
       var marcasIt = rc_marcas_(it.name);   // 📍 local / ✋ retirada no fim do nome ficam (10/10/2026)
       var antigoForn = (marcasIt.base.slice(baseOrig.length).match(/^\s+-\s+([^-—]+?)(?:\s+[-—]|$)/) || [])[1] || '';
+      if (/^QTD\b/i.test(antigoForn)) antigoForn = '';   // "- QTD 1" de leitura antiga não é fornecedor
       var nm = rc_comMarcas_(nomeNovo(base, { fornecedor: x.fornecedor !== undefined ? x.fornecedor : antigoForn, situacao: x.situacao }), marcasIt);
       if (nm !== it.name) { mud.name = nm; txt.push(rc_semMarcas_(nm).slice(base.length).replace(/^\s+[-—]\s+/, '') || 'sem fornecedor'); }
     }
@@ -7486,10 +7489,10 @@ function vdf_atualizarFornecimento(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: ops.length + novos.length, lista: movidoF || undefined, avisos: avisos };
 }
 
-// Previsao.gs:308
+// Previsao.gs:311
 function pv_diaNum_(d) { try { return +Utilities.formatDate(new Date(d), 'America/Sao_Paulo', 'yyyyMMdd'); } catch (e) { return 0; } }
 
-// Previsao.gs:314
+// Previsao.gs:317
 function pv_datas_(t, semHora) {
   var out = [], m, re = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b(\s*-?\s*\d{1,2}:\d{2})?/g;
   while ((m = re.exec(t))) {
@@ -7501,7 +7504,7 @@ function pv_datas_(t, semHora) {
   return out;
 }
 
-// Previsao.gs:326
+// Previsao.gs:329
 function pv_fornecedor_(janela, lista) {
   var U = vd_semAcento_(janela);
   var m = U.match(/FORNECEDOR\s*[:\-]?\s*([A-Z0-9][A-Z0-9 .&\/\-]{2,40}?)(?=\s{2,}|\s+\d{1,2}\/\d|\s+PREV|\s+DATA|\s+R\$|$)/);
@@ -7524,7 +7527,7 @@ function pv_fornecedor_(janela, lista) {
   return '';
 }
 
-// Previsao.gs:350
+// Previsao.gs:353
 function pv_fornecedorCurto_(txt, lista) {
   var t = vd_semAcento_(txt).replace(/\s+/g, ' ').trim();
   if (t.indexOf('/') >= 0) t = t.split('/').pop().trim();
@@ -7537,7 +7540,7 @@ function pv_fornecedorCurto_(txt, lista) {
   return r.nome;
 }
 
-// Previsao.gs:372
+// Previsao.gs:375
 function pv_lerStatusCilia_(texto, lista) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   // relatório de peças novo do Cilia ("piece_report", 20/10/2026, TAX1A70): leitor próprio
@@ -7549,7 +7552,7 @@ function pv_lerStatusCilia_(texto, lista) {
   var LABEL = /^(CODIGO|PECA|QTD|FORNECEDOR|PREVIS|STATUS|ULTIMA|RASTREAM|PARECER|SEGURADORA|SINISTRO|ORCAMENTO|OFICINA|CIDADE|E)$|^\d{1,2}\/\d{1,2}\/\d{2,4}\s*-\s*\d/;
   var ehCodigo = function (t) { return /^[A-Z0-9]{6,20}$/.test(t) && (t.match(/\d/g) || []).length >= 4 && !/^\d{11,}$/.test(t) && !/^\d{1,2}\/\d/.test(t); };
   var ehData = function (t) { return /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(t); };
-  var limpaForn = function (t) { return t.replace(/PREVISAO DE ENTREGA.*$/, '').replace(/\s+\d{1,2}\/\d{1,2}\/\d{2,4}.*$/, '').trim(); };
+  var limpaForn = function (t) { var r = t.replace(/PREVISAO DE ENTREGA.*$/, '').replace(/\s+\d{1,2}\/\d{1,2}\/\d{2,4}.*$/, '').trim(); return /^QTD\b/.test(r) ? '' : r; };
   var ehForn = function (t) {
     if (!/[A-Z]{3}/.test(t) || STATUS.test(t) || LABEL.test(t) || ehCodigo(t.replace(/\s/g, ''))) return false;
     if (/HTTPS?:|WWW\.|\.COM\b|\.BR\b|^PREVISAO|:/.test(t)) return false;   // link do portal, rótulo, parecer ("CONTATO COM FORNECEDOR: …")
@@ -7605,7 +7608,9 @@ function pv_lerStatusCilia_(texto, lista) {
       continue;
     }
     if (/^FORNECEDOR$/.test(l)) {   // nome na linha seguinte (quando não tem "/")
-      var prox = linhas[i + 1] || '';
+      // 23/10/2026 (SFL9F03): "FORNECEDOR / QTD 1 / MEDIADORA…" — a quantidade não é o fornecedor (o item ficava "- QTD 1")
+      var jF = i + 1; while (jF < linhas.length && /^QTD\s*\d*$/.test(linhas[jF])) jF++;
+      var prox = linhas[jF] || '';
       if (/[A-Z]{3}/.test(prox) && !STATUS.test(prox) && !LABEL.test(prox) && !ehCodigo(prox) && !ehForn(prox) && limpaForn(prox)) forns.push({ i: i, nome: limpaForn(prox) });
       continue;
     }
@@ -7652,13 +7657,13 @@ function pv_lerStatusCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:487
+// Previsao.gs:492
 function pv_ehRelatorioPecasCilia_(texto) {
   var U = vd_semAcento_(String(texto || ''));
   return /FORNECIMENTO\s*\([^)\n]*\d{14}\s*\)/.test(U) && /DATA\/HORA/.test(U) && /\bENTREGA\b/.test(U) && /\bATUALIZACAO\b/.test(U);
 }
 
-// Previsao.gs:501
+// Previsao.gs:506
 function pv_lerRelatorioPecasCilia_(texto, lista) {
   if (!pv_ehRelatorioPecasCilia_(texto)) return null;
   var linhas = vd_semAcento_(String(texto || '').replace(/\r/g, '')).split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
@@ -7729,7 +7734,7 @@ function pv_lerRelatorioPecasCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:584
+// Previsao.gs:589
 function pv_lerPareceresCilia_(texto) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   var reCab = /FLUXO:\s*\d+\s*\|.*?DATA DE CRIACAO:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/g;
@@ -7785,7 +7790,7 @@ function pv_lerPareceresCilia_(texto) {
   return out;
 }
 
-// Previsao.gs:640
+// Previsao.gs:645
 function pv_ultimaAtualizacaoCilia_(texto) {
   var m = vd_semAcento_(String(texto || '')).match(/ULTIMA ATUALIZACAO\s*\(?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/);
   if (!m) return null;
@@ -7794,7 +7799,7 @@ function pv_ultimaAtualizacaoCilia_(texto) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Previsao.gs:652
+// Previsao.gs:657
 function pv_aplicarPareceres_(achados, texto, alvos) {
   var pareceres = pv_lerPareceresCilia_(texto);
   if (!pareceres.length) return 0;
@@ -7837,7 +7842,7 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
   return n;
 }
 
-// Previsao.gs:706
+// Previsao.gs:711
 function pv_soFornecedor_(u, lista) {
   u = vd_semAcento_(String(u || '')).toUpperCase().replace(/\s+/g, ' ').trim();
   if (!u) return false;
@@ -7848,7 +7853,7 @@ function pv_soFornecedor_(u, lista) {
   return false;
 }
 
-// Previsao.gs:716
+// Previsao.gs:721
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
@@ -7981,7 +7986,7 @@ function pv_lerHdiPecas_(texto, lista) {
   return pecas.length ? pecas : null;
 }
 
-// Previsao.gs:848
+// Previsao.gs:853
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
@@ -8074,7 +8079,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:941
+// Previsao.gs:946
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
@@ -8085,7 +8090,7 @@ function pv_enriquecerFo_(texto, fo) {
   return n;
 }
 
-// Previsao.gs:955
+// Previsao.gs:960
 function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   var me = vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state,due' } });
@@ -8099,7 +8104,7 @@ function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   return out;
 }
 
-// Previsao.gs:970
+// Previsao.gs:975
 function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
@@ -8123,7 +8128,7 @@ function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   return out;
 }
 
-// Previsao.gs:994
+// Previsao.gs:999
 function pv_docFornecimento_(texto) {
   var nt = vd_normTexto_(texto);
   if (/STATUS DO PEDIDO|PREVISAO DE ENTREGA|STATUS DAS PECAS/.test(nt) || pv_ehRelatorioPecasCilia_(texto)) return 'Status do Pedido Cilia';
@@ -8131,7 +8136,7 @@ function pv_docFornecimento_(texto) {
   return '';
 }
 
-// Previsao.gs:1002
+// Previsao.gs:1007
 function pv_lerFornecimentoTexto_(card, texto) {
   var itensFo = [];
   (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(i); }); });
