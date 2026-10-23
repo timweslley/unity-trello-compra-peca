@@ -301,3 +301,4 @@ da outra, deixar um recado aqui e no commit.
   (VD_LEITOR_V e VERSAO_LEITOR do servidor, para o cache reler).
 - 17h53 — Weslley (MVU1552 F250): compra cancelada, comprador lançou cotação nova e virou "registro". Agora o Enviar cotação
   pergunta por peça (registro × nova autorização); "nova" cancela a autorizada (INDISPONÍVEL) e devolve o card ao autorizador.
+- 23/10 19h — FUR0C92 (print HDI): cabeçalhos viravam peça, 2 molduras numa linha, fornecedores fora de ordem e código 62022W730P partido; leitor HDI corrigido (amostras antigas iguais).

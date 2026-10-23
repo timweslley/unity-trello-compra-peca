@@ -404,10 +404,10 @@ var PN = { ABA: 'PAINEL', DIAS: 30, AZUL: '#0c66e4', CINZA: '#f1f2f4' };
 // Previsao.gs:10
 var PV = { EM_COTACAO: 'EM COTAÇÃO, AINDA SEM PRAZO', BO: 'B.O. NO PORTAL' };
 
-// Previsao.gs:144
+// Previsao.gs:146
 var PV_INTERNO = false;
 
-// Previsao.gs:145
+// Previsao.gs:147
 var PV_CACHE_TXT = 'PV_TXT_';
 
 // Recebimento.gs:10
@@ -7302,7 +7302,9 @@ function vdf_alterarPrevisao(token, p) {
 // Previsao.gs:109
 function pv_baseFo_(nome, lista) {
   var b = rc_semMarcas_(nome).replace(/\s+[-—]\s+(EM COTA[ÇC][ÃA]O.*|B\.?O\.?\b.*)$/i, '').trim();   // sem 📍/✋ (10/10/2026)
-  b = b.replace(/^(\d{5,})(?=[A-Z])/i, '$1 ');   // código grudado na descrição (OCR do Cilia, 05/10/2026: "100260230EMBLEMA ...")
+  // código grudado na descrição (OCR do Cilia, 05/10/2026: "100260230EMBLEMA ..."). 23/10/2026 (FUR0C92): só quando o que vem
+  // depois é PALAVRA — "62022W730P" (código Mitsubishi) virava "62022 W730P" e a peça não casava com o documento da HDI
+  b = b.replace(/^(\d{5,})(?=[A-Z]{3,}[A-Z\s])/i, '$1 ');
   // sufixo " - FORNECEDOR": testa do pedaço mais comprido para o mais curto, porque o fornecedor lido do
   // portal pode ter " - " e "/" dentro ("MEDIADORA - PRISMATEC / DUNA FIAT", 05/10/2026)
   var partes = b.split(/\s+-\s+/);
@@ -7317,7 +7319,7 @@ function pv_baseFo_(nome, lista) {
   return b;
 }
 
-// Previsao.gs:127
+// Previsao.gs:129
 function pv_achaFo_(itensFo, x) {
   if (x.id) { var porId = itensFo.filter(function (i) { return i.id === x.id; })[0]; if (porId) return porId; }
   var cod = cp_norm_(x.codigo), desc = cp_norm_(x.descricao);
@@ -7326,7 +7328,7 @@ function pv_achaFo_(itensFo, x) {
   return null;
 }
 
-// Previsao.gs:149
+// Previsao.gs:151
 function vdf_previaFornecimento(token, fileId, shortLink, foForm) {
   vdf_usuario_(token);
   var f = vdf_arquivoTemp_(fileId), texto;
@@ -7345,7 +7347,7 @@ function vdf_previaFornecimento(token, fileId, shortLink, foForm) {
   return { doc: doc, fornecimento: !!doc || achados.length > 0, achados: achados };
 }
 
-// Previsao.gs:168
+// Previsao.gs:170
 function pv_fornDoPedido_(token, shortLink, textos) {
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state,due' } });
   var itens = [], vistos = {}, extras = [], faltando = [];
@@ -7370,7 +7372,7 @@ function pv_fornDoPedido_(token, shortLink, textos) {
   return { n: res.n || 0, faltas: res.faltas || [], avisos: res.avisos || [], extras: extras, faltando: faltando };
 }
 
-// Previsao.gs:192
+// Previsao.gs:194
 function vdf_atualizarFornecimento(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -7484,10 +7486,10 @@ function vdf_atualizarFornecimento(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: ops.length + novos.length, lista: movidoF || undefined, avisos: avisos };
 }
 
-// Previsao.gs:306
+// Previsao.gs:308
 function pv_diaNum_(d) { try { return +Utilities.formatDate(new Date(d), 'America/Sao_Paulo', 'yyyyMMdd'); } catch (e) { return 0; } }
 
-// Previsao.gs:312
+// Previsao.gs:314
 function pv_datas_(t, semHora) {
   var out = [], m, re = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b(\s*-?\s*\d{1,2}:\d{2})?/g;
   while ((m = re.exec(t))) {
@@ -7499,7 +7501,7 @@ function pv_datas_(t, semHora) {
   return out;
 }
 
-// Previsao.gs:324
+// Previsao.gs:326
 function pv_fornecedor_(janela, lista) {
   var U = vd_semAcento_(janela);
   var m = U.match(/FORNECEDOR\s*[:\-]?\s*([A-Z0-9][A-Z0-9 .&\/\-]{2,40}?)(?=\s{2,}|\s+\d{1,2}\/\d|\s+PREV|\s+DATA|\s+R\$|$)/);
@@ -7522,7 +7524,7 @@ function pv_fornecedor_(janela, lista) {
   return '';
 }
 
-// Previsao.gs:348
+// Previsao.gs:350
 function pv_fornecedorCurto_(txt, lista) {
   var t = vd_semAcento_(txt).replace(/\s+/g, ' ').trim();
   if (t.indexOf('/') >= 0) t = t.split('/').pop().trim();
@@ -7535,7 +7537,7 @@ function pv_fornecedorCurto_(txt, lista) {
   return r.nome;
 }
 
-// Previsao.gs:370
+// Previsao.gs:372
 function pv_lerStatusCilia_(texto, lista) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   // relatório de peças novo do Cilia ("piece_report", 20/10/2026, TAX1A70): leitor próprio
@@ -7650,13 +7652,13 @@ function pv_lerStatusCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:485
+// Previsao.gs:487
 function pv_ehRelatorioPecasCilia_(texto) {
   var U = vd_semAcento_(String(texto || ''));
   return /FORNECIMENTO\s*\([^)\n]*\d{14}\s*\)/.test(U) && /DATA\/HORA/.test(U) && /\bENTREGA\b/.test(U) && /\bATUALIZACAO\b/.test(U);
 }
 
-// Previsao.gs:499
+// Previsao.gs:501
 function pv_lerRelatorioPecasCilia_(texto, lista) {
   if (!pv_ehRelatorioPecasCilia_(texto)) return null;
   var linhas = vd_semAcento_(String(texto || '').replace(/\r/g, '')).split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
@@ -7727,7 +7729,7 @@ function pv_lerRelatorioPecasCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:582
+// Previsao.gs:584
 function pv_lerPareceresCilia_(texto) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   var reCab = /FLUXO:\s*\d+\s*\|.*?DATA DE CRIACAO:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/g;
@@ -7783,7 +7785,7 @@ function pv_lerPareceresCilia_(texto) {
   return out;
 }
 
-// Previsao.gs:638
+// Previsao.gs:640
 function pv_ultimaAtualizacaoCilia_(texto) {
   var m = vd_semAcento_(String(texto || '')).match(/ULTIMA ATUALIZACAO\s*\(?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/);
   if (!m) return null;
@@ -7792,7 +7794,7 @@ function pv_ultimaAtualizacaoCilia_(texto) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Previsao.gs:650
+// Previsao.gs:652
 function pv_aplicarPareceres_(achados, texto, alvos) {
   var pareceres = pv_lerPareceresCilia_(texto);
   if (!pareceres.length) return 0;
@@ -7835,15 +7837,18 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
   return n;
 }
 
-// Previsao.gs:704
+// Previsao.gs:706
 function pv_soFornecedor_(u, lista) {
   u = vd_semAcento_(String(u || '')).toUpperCase().replace(/\s+/g, ' ').trim();
   if (!u) return false;
-  if (/\b(VEICULOS|AUTOMOVEIS|DISTRIBUIDORA|CONCESSIONARIA|COMERCIO|LTDA|S\/?A|EIRELI|AUTO ?PECAS|AUTOPECAS|MOTORS)\b/.test(u) && !/\b(PARACHOQUE|PARALAMA|FAROL|LANTERNA|PORTA|TAMPA|GRADE|ESPELHO|MOLDURA|EMBLEMA|FRISO|VIDRO|CAPO|SUPORTE)\b/.test(u)) return true;
+  var pecaW = /\b(PARACHOQUE|PARALAMA|FAROL|LANTERNA|PORTA|TAMPA|GRADE|ESPELHO|MOLDURA|EMBLEMA|FRISO|VIDRO|CAPO|SUPORTE)\b/;
+  if (/\b(VEICULOS|AUTOMOVEIS|DISTRIBUIDORA|CONCESSIONARIA|COMERCIO|LTDA|S\/?A|EIRELI|AUTO ?PECAS|AUTOPECAS|MOTORS)\b/.test(u) && !pecaW.test(u)) return true;
+  // 23/10/2026: concessionária "MARCA cidade UF" ("Servopa VW Curitiba PR", "Open Mitsubishi PR") — virava peça no print da HDI
+  if (/\b(VW|FIAT|GM|FORD|TOYOTA|HONDA|HYUNDAI|RENAULT|NISSAN|MITSUBISHI|PEUGEOT|CITROEN|JEEP|CHEVROLET|KIA|BMW|AUDI|VOLVO|CHERY|BYD)\b.*\b(PR|SC|RS|SP|MG|GO|MS|MT|RJ|DF|BA|ES)$/.test(u) && !pecaW.test(u)) return true;
   return false;
 }
 
-// Previsao.gs:711
+// Previsao.gs:716
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
@@ -7883,6 +7888,33 @@ function pv_lerHdiPecas_(texto, lista) {
     // cabeçalho de coluna sozinho na linha (layout em colunas): diz de que coluna são as linhas seguintes
     if (/^(ENTREGA|FORNECEDOR|TEL\.?|E-?MAIL)$/.test(u) && pecas.length) { colunaAtual = u.replace(/\W/g, ''); continue; }
     if (cab.test(u)) continue;
+    // 23/10/2026 (FUR0C92, print da HDI lido pelo OCR): cabeçalho de coluna com dados na mesma linha ("Prev.Entrega 20/10/26",
+    // "Entrega Fornecedor 20/10/26 Open Mitsubishi PR …") virava peça — tira o cabeçalho e segue só com os dados
+    var mCab = l.match(/^((?:Prev\.?\s*Entrega|Entrega|Fornecedor|Tel\.?|E-?mail)\b\s*)+/i);
+    if (mCab && mCab[0].trim() && l.length > mCab[0].length) {
+      l = l.slice(mCab[0].length).trim(); u = vd_semAcento_(l);
+      if (!l) continue;
+      if (!/\d{1,2}\/\d{1,2}\/\d{2,4}/.test(l.split(/\s+/)[0] || '') && !reTel.test(l) && !reMail.test(l)) continue;   // sobrou texto sem dado: era só cabeçalho
+    }
+    // 23/10/2026 (FUR0C92): linha das colunas Entrega/Fornecedor/Tel/E-mail sem a peça ("(45) … mail 16/10/26 ASUKA MOTORS … mail
+    // 20/10/26 Open Mitsubishi PR …"): cada data seguida de nome = fornecedor da próxima peça, na ordem do portal. Uma linha com um
+    // só fornecedor logo depois da peça (layout uma peça por linha: "18/09/26 COMERCIAL OESTE VW SA") é dessa peça.
+    // A data dessas células (coluna Entrega) não é usada: o "entregue" continua vindo só do jeito de antes.
+    var segsF = l.split(/(\b\d{1,2}\/\d{1,2}\/\d{2,4}\b)/);
+    var tiraContato = function (t) { return String(t || '').replace(/\S+@\S+\.\S+/g, ' ').replace(/\(\d{2}\)\s*\d{4,5}-?\d{4}/g, ' ').replace(/\s+/g, ' ').trim(); };
+    if (segsF.length >= 3 && !tiraContato(segsF[0]) && segsF.slice(2).some(function (s, k) { return k % 2 === 0 && /[A-Za-z]{3,}/.test(tiraContato(s)); })) {
+      var nomesF = [];
+      for (var sk = 1; sk < segsF.length; sk += 2) {
+        var nmF = tiraContato(segsF[sk + 1] || ''), ofF = /FORNECIDO PELA OFICINA/i.test(vd_semAcento_(nmF));
+        nmF = nmF.replace(/fornecido pela oficina/i, '').trim();
+        if (/[A-Za-z]{3,}/.test(nmF)) nomesF.push({ nome: pv_fornecedorCurto_(nmF, lista) || nmF });
+        if (ofF) nomesF.push({ oficina: true });
+      }
+      var ultF = pecas[pecas.length - 1];
+      if (nomesF.length === 1 && nomesF[0].nome && ultF && !ultF._temForn && linhaUltimaPeca >= i - 2) { ultF.fornecedor = nomesF[0].nome; ultF._temForn = true; }
+      else nomesF.forEach(function (f) { fornecedores.push(f); });
+      continue;
+    }
     if (/^FORNECIDO PELA OFICINA$/.test(u)) { fornecedores.push({ oficina: true }); continue; }
     // 19/10/2026 (FOB8723): linha só com nomes de fornecedor e datas (coluna Fornecedor do print) não é peça
     var semDatasU = u.replace(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, ' ').replace(/\s+/g, ' ').trim();
@@ -7909,6 +7941,22 @@ function pv_lerHdiPecas_(texto, lista) {
       continue;
     }
     if (!/[A-Z]{3,}/.test(vd_semAcento_(desc))) continue;
+    // 23/10/2026 (FUR0C92): duas peças na mesma linha ("MOLDURA INTERMEDIÁRIA DIR DO PARACHOQUE DIANT MOLDURA INTERMEDIÁRIA ESQ…"):
+    // a 1ª palavra se repete adiante — cada pedaço vira uma peça (a data da linha fica com a primeira)
+    var palD = desc.split(' '), cortes = [0];
+    if (palD.length >= 6 && palD[0].length >= 4 && /^[A-ZÀ-Ü]+$/i.test(palD[0])) {
+      for (var w = 3; w < palD.length - 1; w++) if (vd_semAcento_(palD[w]).toUpperCase() === vd_semAcento_(palD[0]).toUpperCase() && w - cortes[cortes.length - 1] >= 3) cortes.push(w);
+    }
+    if (cortes.length > 1) {
+      cortes.forEach(function (c0, ci) {
+        var dz = palD.slice(c0, ci + 1 < cortes.length ? cortes[ci + 1] : palD.length).join(' ');
+        var px = { descricao: dz.toUpperCase(), previsao: ci === 0 && datas[0] ? datas[0] : '', entregueEm: ci === 0 && datas[1] ? datas[1] : '', entregue: false, fornecedor: '', oficina: oficinaNaLinha, linha: l.slice(0, 120) };
+        px._temForn = temForn || oficinaNaLinha;
+        pecas.push(px);
+      });
+      linhaUltimaPeca = i;
+      continue;
+    }
     var p = { descricao: desc.toUpperCase(), previsao: '', entregueEm: '', entregue: false, fornecedor: '', oficina: oficinaNaLinha, linha: l.slice(0, 120) };
     if (datas[0]) p.previsao = datas[0];
     if (datas[1]) p.entregueEm = datas[1];
@@ -7933,7 +7981,7 @@ function pv_lerHdiPecas_(texto, lista) {
   return pecas.length ? pecas : null;
 }
 
-// Previsao.gs:800
+// Previsao.gs:848
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
@@ -8026,7 +8074,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:893
+// Previsao.gs:941
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
@@ -8037,7 +8085,7 @@ function pv_enriquecerFo_(texto, fo) {
   return n;
 }
 
-// Previsao.gs:907
+// Previsao.gs:955
 function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   var me = vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc', checklists: 'all', checkItem_fields: 'name,state,due' } });
@@ -8051,7 +8099,7 @@ function vdf_lerFornecimento(token, shortLink, base64, mime, nome) {
   return out;
 }
 
-// Previsao.gs:922
+// Previsao.gs:970
 function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } });
@@ -8075,7 +8123,7 @@ function vdf_lerFornecimentoAnexo(token, shortLink, idAnexo) {
   return out;
 }
 
-// Previsao.gs:946
+// Previsao.gs:994
 function pv_docFornecimento_(texto) {
   var nt = vd_normTexto_(texto);
   if (/STATUS DO PEDIDO|PREVISAO DE ENTREGA|STATUS DAS PECAS/.test(nt) || pv_ehRelatorioPecasCilia_(texto)) return 'Status do Pedido Cilia';
@@ -8083,7 +8131,7 @@ function pv_docFornecimento_(texto) {
   return '';
 }
 
-// Previsao.gs:954
+// Previsao.gs:1002
 function pv_lerFornecimentoTexto_(card, texto) {
   var itensFo = [];
   (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(i); }); });
