@@ -284,3 +284,6 @@ da outra, deixar um recado aqui e no commit.
   Ligado no principal (padrão SIM) porque o pedido do Weslley de 23/10 é para os cards reais (DTA9330, GHH1I54, FYS4A72).
 - 10h44 — Weslley (pedido do comprador): anexar arquivo/foto da cotação para registro. Seção "Arquivos da cotação" na aba
   Cotação (2.0, computador e celular), sobe junto com parcial/envio, anexo `💬 COTAÇÃO · PLACA · FORN · dd/MM`.
+  Teste no TESTE (ZZT9C01): arquivo subiu pela tela e foi anexado; achado e corrigido: salvar parcial SÓ com arquivo movia o
+  card para EM COTAÇÃO (regra da parcial) — agora só anexa, sem mexer em coluna/etiqueta. O rotulador 2.0 dos botões de anexo
+  apagava o input das seções novas (Devoluções e Arquivos da cotação) — corrigido (`data-v2c`).

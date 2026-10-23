@@ -1258,6 +1258,13 @@ function vdf_salvarCotacao(token, p) {
   // 10/10/2026 (revisão): "Enviar cotação" em card em FALTA DADOS pulava a validação do pedido (chassi/ano/tipo nunca mais
   // eram cobrados). Salvar parcial continua valendo; enviar só depois de o card estar completo.
   if (!parcial && !registro && vdf_nomeLista_(ctx, card.idList) === VD.LISTA_FALTA) return { ok: false, faltas: ['O card está em FALTA DADOS: corrija o pedido pelo ✏️ Editar peças (o card vai para EM COTAÇÃO sozinho) antes de enviar a cotação. Enquanto isso, use "Salvar parcial".'] };
+  // 23/10/2026: só arquivo da cotação, sem cotação nova — anexa e pronto (o card não muda de coluna nem de etiqueta)
+  if (nada && arqsCot.length) {
+    var axSo = { anexados: [], repetidos: [] };
+    try { axSo = vdf_anexarCompra_(card, arqsCot, token, AX.COT); } catch (e) { console.log('cotação/anexos: ' + e); }
+    try { vd_marcar_(card); } catch (e) {}
+    return { ok: true, parcial: true, soAnexos: true, url: card.shortUrl, nome: card.name, lista: vdf_nomeLista_(ctx, card.idList), n: 0, obs: 0, faltam: [], semCot: 0, anexos: axSo.anexados.length, repetidos: axSo.repetidos };
+  }
   var novaDesc = card.desc;
   if (!nada) novaDesc = vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem);
   // enviar: toda peça precisa de cotação OU de justificativa para não cotar (salvar parcial não exige)
