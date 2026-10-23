@@ -9272,7 +9272,7 @@ document.addEventListener('input', function (e) {
     sec.innerHTML = '<h2>Arquivos da cotação</h2><div class="dica" style="margin-bottom:8px">Arquivo que não é de uma peça específica (ex.: print com várias peças). Opcional: escreva o fornecedor antes de anexar, para o nome do arquivo. Para uma peça ou cotação, use o 📎 ao lado dela.</div><div class="v2a-linha"><input type="text" id="cotArqForn" placeholder="Fornecedor (opcional)" autocomplete="off"></div><div class="v2a-lista"></div>';
     var rod = pn.querySelector(':scope > .item'); if (rod) pn.insertBefore(sec, rod); else pn.appendChild(sec);
     var fornEl = sec.querySelector('#cotArqForn');
-    var w = botao('Anexar print, foto ou PDF', '', fornEl, 'Anexar arquivo geral da cotação'); sec.querySelector('.v2a-linha').appendChild(w);
+    var w = botao('Anexar print, foto ou PDF', '', fornEl, 'Anexar arquivo geral da cotação'); w.querySelector('input[type=file]').id = 'cotArqFile'; sec.querySelector('.v2a-linha').appendChild(w);
     var gerais = anexosCot().filter(function (a) { return true; });
     if (gerais.length) sec.querySelector('.v2a-lista').innerHTML = '<div class="dica" style="margin:0">Já no card: ' + gerais.map(function (a) { return '<a class="v2a-ver" href="' + esc2(a.url) + '" target="_blank" rel="noopener">📎 ' + esc2(a.nome.replace(/^💬 COTAÇÃO · /, '')) + '</a>'; }).join(' ') + '</div>';
   }
