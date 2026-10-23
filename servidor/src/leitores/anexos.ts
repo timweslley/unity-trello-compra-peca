@@ -9,7 +9,7 @@ import { lerTexto, rendimento, type Leitura } from './leitura.js';
 import * as R from './robo.js';
 
 /** Sobe quando os leitores mudam (robo.js regerado, texto.ts, leitura.ts): as leituras antigas são refeitas. */
-export const VERSAO_LEITOR = 4;   // 4 (16/10/2026): texto do OCR do Google, como o robô
+export const VERSAO_LEITOR = 5;   // 5 (23/10/2026): modelo/ano com a marca-d'água "Não Autorizado" depois do ano (TBP3J46) · 4 (16/10): texto do OCR do Google, como o robô
 const MAX_BYTES = 15 * 1024 * 1024;
 const MAX_ANEXOS_CARD = 6;
 

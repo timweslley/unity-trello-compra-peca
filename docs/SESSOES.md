@@ -296,3 +296,6 @@ da outra, deixar um recado aqui e no commit.
   falta de unidade). Parcial agora só exige placa em card novo (servidor + tela).
 - 16h06 — Weslley: "alertar quando abre um card de carro que já existe (ativos)?" — o formulário já avisa (placa e envio); o
   robô passa a avisar uma vez em card criado à mão com placa de outro card aberto (`vd_avisoDuplicado_`, VD_DUP_).
+- 16h12 — TBP3J46 "continua não lendo": o formulário lê pelo servidor com o texto do OCR do Google, onde a marca-d'água sai
+  inteira ("2025 Não Autorizado Placa") — a regra só cobria o pdftotext. Lookahead ganha "NAO "; leitor v5 nos dois lados
+  (VD_LEITOR_V e VERSAO_LEITOR do servidor, para o cache reler).

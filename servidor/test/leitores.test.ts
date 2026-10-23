@@ -69,6 +69,9 @@ describe('dados do veículo (trechos reais)', () => {
     expect(l.origem).toBe('cilia');
     expect(l.ano).toBe('2025');
     expect(l.modelo).toMatch(/RAMPAGE LARAMIE/);
+    const g = lerTexto('CASCO - RAM - RAMPAGE LARAMIE 2.2 TURBO DIESEL 4X4 2025\nNão Autorizado\nPlaca\nTBP-3J46\nSeguradora Allianz Seguros');   // texto do OCR do Google
+    expect(g.ano).toBe('2025');
+    expect(g.modelo).toMatch(/RAMPAGE LARAMIE/);
   });
   it('HDI: Veiculo: código - modelo ano Placa:', () => {
     const l = lerTexto('Veiculo: 0016595 - CHEVROLET COBALT LTZ 1.8 8V ECONO.FLEX 4P AUT. 2015 Placa: ABC1D23');

@@ -1170,8 +1170,8 @@ function vd_extrair_(texto) {
   var ANO = '(19[89]\\d|20[0-4]\\d)';
   // Cilia: "CASCO - CHEVROLET - CRUZE SEDAN (2017 A 2019) LT 1.4 16V TURBO 2017 Autorizado"
   // 23/10/2026 (TBP3J46, Allianz): a marca-d'água "NÃO AUTORIZADO" sai do PDF com as letras soltas ("2025 N AO AU TO R IZ PLACA…")
-  // — depois do ano também valem pedaços de 1–3 letras (3 ou mais)
-  if ((m = U.match(new RegExp('(?:^|\\s)[A-Z]{3,12} - ([A-Z][A-Z .\\-]{1,20}?) - (.{3,100}?) ' + ANO + ' (?=AUTORIZ|CONSTAT|PLACA|NEGAD|EM |ORCAMENT|VISTORIA|CANCEL|PENDEN|[A-Z]{4,}|(?:[A-Z]{1,3} ){3,})')))) {
+  // — depois do ano também valem pedaços de 1–3 letras (3 ou mais); no OCR do Google sai "2025 Não Autorizado Placa" (NAO )
+  if ((m = U.match(new RegExp('(?:^|\\s)[A-Z]{3,12} - ([A-Z][A-Z .\\-]{1,20}?) - (.{3,100}?) ' + ANO + ' (?=AUTORIZ|CONSTAT|PLACA|NEGAD|EM |ORCAMENT|VISTORIA|CANCEL|PENDEN|NAO |[A-Z]{4,}|(?:[A-Z]{1,3} ){3,})')))) {
     r.modelo = (m[1] + ' ' + m[2]).replace(/\(\s*\d{4}\s*A\s*\d{4}\s*\)/, '').replace(/\s+/g, ' ').trim();
     r.ano = m[3]; r.origem = 'cilia';
   }
