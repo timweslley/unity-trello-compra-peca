@@ -8989,9 +8989,13 @@ document.addEventListener('input', function (e) {
 
   function desenhar(it) {
     var linha = it.querySelector(':scope > .v2-fotopeca');
-    var lbl = it.querySelector('.grade > div:has(> .f-codigo) > label span');
-    if (!regra(it)) { if (linha) linha.remove(); it.classList.remove('v2-fp-falta'); return; }
-    if (lbl && /opcional/.test(lbl.textContent)) lbl.textContent = '(ou foto da peça)';
+    // rótulo do código: a peça pode ter nascido como seguradora ("*") ou particular ("(opcional)") — aqui vale "(ou foto da peça)"
+    var lbl = it.querySelector('.grade > div:has(> .f-codigo) > label');
+    if (!regra(it)) {
+      if (lbl && lbl.dataset.fpOrig != null) { lbl.innerHTML = lbl.dataset.fpOrig; delete lbl.dataset.fpOrig; }
+      if (linha) linha.remove(); it.classList.remove('v2-fp-falta'); return;
+    }
+    if (lbl && lbl.dataset.fpOrig == null) { lbl.dataset.fpOrig = lbl.innerHTML; lbl.innerHTML = 'Código da peça <span style="font-size:12px">(ou foto da peça)</span>'; }
     if (!linha) {
       linha = document.createElement('div');
       linha.className = 'v2-fotopeca';
