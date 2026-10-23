@@ -9377,6 +9377,7 @@ document.addEventListener('input', function (e) {
   function botao(rotulo, chave, fornOuEl, titulo, chipsEm) {
     var b = document.createElement('button'); b.type = 'button'; b.className = 'v2a-btn'; b.innerHTML = '📎 ' + esc2(rotulo); b.title = titulo || 'Anexar print, foto ou PDF da cotação';
     var inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true; inp.accept = 'image/*,application/pdf'; inp.style.display = 'none';
+    if (chave) inp.dataset.cola = '1';   // sem a dica "ou cole com Ctrl+V" repetida em cada linha (o colar funciona: ver mousedown abaixo)
     var box = document.createElement('span'); box.className = 'v2a-chips';
     b._chips = box;
     b.onclick = function () { inp.click(); };
@@ -9460,6 +9461,19 @@ document.addEventListener('input', function (e) {
   if (typeof montarOrig === 'function') window.montarCotacao = function () { var r = montarOrig.apply(this, arguments); try { COT_ARQS = []; montarGeral(); agendar(); } catch (e) { console.log('anexos da cotação: ' + e); } return r; };
   var box = document.getElementById('cotItens');
   if (box) new MutationObserver(agendar).observe(box, { childList: true, subtree: true });
+  /* Ctrl+V: o colar vai para o 📎 mais perto do último clique — linha de cotação (salva ou em edição) > peça > seção geral.
+     (o tratador de colar da tela clássica usa ARQ_ALVO = campo de arquivo do bloco clicado; aqui só apontamos o campo certo) */
+  document.addEventListener('mousedown', function (e) {
+    var t = e.target; if (!t || !t.closest) return;
+    var alvo = null, lin = t.closest('#cotItens .cot-lida, #cotItens .cot');
+    if (lin) alvo = lin.querySelector('.v2a-wrap input[type=file]') || (lin.closest('.item') && lin.closest('.item').querySelector('.v2a-peca input[type=file]'));
+    else if (t.closest('#cotItens .item')) alvo = t.closest('#cotItens .item').querySelector('.v2a-peca input[type=file]');
+    else if (t.closest('#secCotArq')) alvo = document.getElementById('cotArqFile');
+    if (alvo) window.ARQ_ALVO = alvo;
+  }, true);
+  // aba Cotação aberta sem clique em peça: colar vai para a seção geral
+  var mostrarOrig = window.mostrarAba;
+  if (typeof mostrarOrig === 'function') window.mostrarAba = function (a) { var r = mostrarOrig.apply(this, arguments); if (a === 'cot') { var g = document.getElementById('cotArqFile'); if (g && !(window.ARQ_ALVO && document.getElementById('cotItens') && document.getElementById('cotItens').contains(window.ARQ_ALVO))) window.ARQ_ALVO = g; } return r; };
 })();
 </script>
 </body>
