@@ -42,7 +42,7 @@ function sd_parte_(nome, fn) {
 
 /**
  * 19/10/2026 (Weslley: "aviso de robô parado"): com o robô rodando no servidor, o acionador de 1 min do Google só vigia.
- * O servidor devolve a SD_ULTIMO_CICLO a cada ciclo; sem batida há mais de 10 min → e-mail (repete de hora em hora
+ * O servidor devolve a SD_ULTIMO_CICLO a cada ciclo; sem batida há mais de 25 min → e-mail (repete de hora em hora
  * enquanto durar) e, quando a batida voltar, e-mail de "voltou". Não liga o robô do Google sozinho (dois robôs ao mesmo
  * tempo duplicariam comentários): voltar para o Google é ROBO_SERVIDOR: OBSERVAR no workflow do servidor.
  */
@@ -51,7 +51,7 @@ function sd_vigiaServidor_() {
   var ult = +(p.getProperty('SD_ULTIMO_CICLO') || 0), av = +(p.getProperty('SD_VIGIA_AV') || 0);
   var min = Math.round((agora - ult) / 60000), hora = function (t) { return Utilities.formatDate(new Date(t), 'America/Sao_Paulo', 'dd/MM HH:mm'); };
   var painel = 'https://compra-peca-858550421734.southamerica-east1.run.app/tarefas/robo';
-  if (ult && agora - ult > 10 * 60000) {
+  if (ult && agora - ult > 25 * 60000) {   // 22/10/2026: varredura a cada 10 min + ciclos pelo aviso do Trello (antes: 10 min)
     if (agora - av < 60 * 60000) return;
     MailApp.sendEmail(SD.EMAIL, 'ALERTA Trello: robô do servidor parado há ' + min + ' min',
       'O robô do quadro Compra de Peça (rodando no servidor) não completa um ciclo desde ' + hora(ult) + ' (' + min + ' min).\n\n' +

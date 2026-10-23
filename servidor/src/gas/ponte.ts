@@ -865,11 +865,36 @@ async function alinharChaveGoogle(): Promise<string> {
  */
 const INTERVALO_RAPIDO_MS = 15_000, SILENCIO_MS = 4_000;
 let chaveOkEm = 0, rapidoTimer: ReturnType<typeof setTimeout> | null = null;
-const estRapido = { pedidos: 0, ciclos: 0, ultimo: '' };
-export function estadoCicloRapido(): Record<string, unknown> { return { ...estRapido, agendado: !!rapidoTimer }; }
+const estRapido = { pedidos: 0, ciclos: 0, ultimo: '', seguimentos: 0, varreduras: 0, pulados: 0 };
+/**
+ * 22/10/2026 (Weslley: "esses ciclos ainda são necessários dado que agora o Trello te avisa de alterações?" → "altera e monitora"):
+ * o card que mudou é tratado pelo aviso do Trello (ciclo rápido) e por um SEGUIMENTO 100 s depois — as travas de coluna/checklist
+ * só julgam movimento com mais de 90 s e as licenças valem 4 min. O despertador de 1 min continua (chave do Google, rotinas
+ * diárias), mas a VARREDURA do quadro só roda a cada ROBO_VARREDURA_MIN minutos (em minuto múltiplo, para os prazos de 5 em 5
+ * continuarem caindo) e, de madrugada (3h–5h59, anexos antigos), a cada minuto. Voltar ao jeito antigo: ROBO_VARREDURA_MIN = 1.
+ */
+const ROBO_VARREDURA_MIN = 10, SEGUIMENTO_MS = 100_000;
+let seguimentoTimer: ReturnType<typeof setTimeout> | null = null, ultimoAviso = 0;
+function agendarSeguimento(): void {
+  if (seguimentoTimer) return;
+  const desde = Date.now();
+  seguimentoTimer = setTimeout(() => {
+    seguimentoTimer = null;
+    const rodar = async (n: number): Promise<void> => {
+      if (roboRodando || Date.now() - roboUltimo < INTERVALO_RAPIDO_MS) { if (n < 12) setTimeout(() => { rodar(n + 1).catch(() => null); }, 10_000); return; }   // até 2 min: licença vale 4 min
+      if (Date.now() - chaveOkEm > 3 * 60_000) return;
+      estRapido.seguimentos++;
+      const r = await rodarRobo('validarDadosPedido', true);
+      if (r.ok !== false || !r.erro) await rodarRobo('verificarAlteracoesDescricao', true);
+    };
+    rodar(0).catch((e) => console.error('[robô] seguimento:', (e as Error).message)).finally(() => { if (ultimoAviso > desde) agendarSeguimento(); });
+  }, SEGUIMENTO_MS);
+}
+export function estadoCicloRapido(): Record<string, unknown> { return { ...estRapido, agendado: !!rapidoTimer, seguimentoAgendado: !!seguimentoTimer, varreduraMin: ROBO_VARREDURA_MIN }; }
 export function pedirCicloRapido(): void {
   if (process.env.ROBO_SERVIDOR !== 'ATIVO') return;
   estRapido.pedidos++;
+  ultimoAviso = Date.now(); agendarSeguimento();
   if (rapidoTimer) clearTimeout(rapidoTimer);
   const espera = Math.max(SILENCIO_MS, roboUltimo + INTERVALO_RAPIDO_MS - Date.now());
   rapidoTimer = setTimeout(() => { rapidoTimer = null; cicloRapido().catch((e) => console.error('[robô] ciclo rápido:', (e as Error).message)); }, espera);
@@ -892,9 +917,15 @@ export async function minutoRobo(): Promise<Record<string, unknown>> {
   if (roboRodando) return { ok: true, pulado: 'robô ainda rodando' };
   const out: Record<string, unknown> = { modo: process.env.ROBO_SERVIDOR === 'ATIVO' ? 'ATIVO' : 'OBSERVAR' };
   try { out.chaveGoogle = await alinharChaveGoogle(); chaveOkEm = Date.now(); } catch (e) { out.chaveGoogle = 'erro: ' + (e as Error).message.slice(0, 120); if (out.modo === 'ATIVO') return { ok: false, ...out, erro: 'não consegui parar o robô do Google — nada rodado' }; }
-  out.ciclo = await rodarRobo('validarDadosPedido');
-  out.log = await rodarRobo('verificarAlteracoesDescricao');
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(new Date()).map((x) => [x.type, x.value]));
+  // varredura: minuto múltiplo de ROBO_VARREDURA_MIN, madrugada (anexos antigos) ou sem ciclo há mais que o intervalo
+  const madrugada = +p.hour >= 3 && +p.hour < 6;
+  const varrer = ROBO_VARREDURA_MIN <= 1 || +p.minute % ROBO_VARREDURA_MIN === 0 || madrugada || Date.now() - roboUltimo > (ROBO_VARREDURA_MIN * 60 + 30) * 1000;
+  if (varrer) {
+    estRapido.varreduras++;
+    out.ciclo = await rodarRobo('validarDadosPedido');
+    out.log = await rodarRobo('verificarAlteracoesDescricao');
+  } else { estRapido.pulados++; out.ciclo = 'pulado (card mudou → aviso do Trello; varredura a cada ' + ROBO_VARREDURA_MIN + ' min)'; }
   const hoje = p.year + '-' + p.month + '-' + p.day, hhmm = p.hour + ':' + p.minute;
   for (const d of diarias) {
     if (hhmm < d.hhmm) continue;
