@@ -299,3 +299,5 @@ da outra, deixar um recado aqui e no commit.
 - 16h12 — TBP3J46 "continua não lendo": o formulário lê pelo servidor com o texto do OCR do Google, onde a marca-d'água sai
   inteira ("2025 Não Autorizado Placa") — a regra só cobria o pdftotext. Lookahead ganha "NAO "; leitor v5 nos dois lados
   (VD_LEITOR_V e VERSAO_LEITOR do servidor, para o cache reler).
+- 17h53 — Weslley (MVU1552 F250): compra cancelada, comprador lançou cotação nova e virou "registro". Agora o Enviar cotação
+  pergunta por peça (registro × nova autorização); "nova" cancela a autorizada (INDISPONÍVEL) e devolve o card ao autorizador.

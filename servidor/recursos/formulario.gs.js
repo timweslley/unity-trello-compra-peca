@@ -275,10 +275,10 @@ var VDF_LISTA_CHEGAR = 'FALTA CHEGAR';
 // FormularioServidor.gs:1038
 var VDF_RX_REMOVE = /^(REMOVIDA|INDISPON[IÍ]VEL)\s*:\s*(.+?)\s+-\s+(.+)\s+-\s+R?\$?\s*([\d.]+(?:,\d{1,2})?)(?:\s+-\s+(.*))?\s*$/i;
 
-// FormularioServidor.gs:1370
+// FormularioServidor.gs:1394
 var VDF_ETIQUETA_PARCIAL = 'COTAÇÃO PARCIAL';
 
-// FormularioServidor.gs:1408
+// FormularioServidor.gs:1432
 var VDF_LISTA_AUTORIZADO = 'AUTORIZADO COMPRA';
 
 // Fornecedores.gs:10
@@ -4883,7 +4883,21 @@ function vdf_salvarCotacao(token, p) {
    * cotação deste envio é de peça autorizada e não há peça nova sem cotação / remoção junto. Para trocar o fornecedor
    * autorizado, o caminho continua sendo "cotação indisponível" na aba Compra. */
   // (revisão 07/10/2026) vale também no "Salvar parcial": cotação só de registro nunca move o card nem põe etiqueta
-  var registro = cots.length > 0 && !rem.length && !semCot.length
+  /* 23/10/2026 (Weslley, MVU1552): compra cancelada → o comprador lança cotação nova e a tela pergunta se é só registro ou se
+   * precisa de NOVA AUTORIZAÇÃO. p.reautorizar = [chaves]: a cotação autorizada dessas peças é cancelada (linha INDISPONÍVEL,
+   * como a "cotação indisponível" da aba Compra) e o card volta para o autorizador. Só no "Enviar"; peça já comprada não entra. */
+  var reaut = {}; var pagosR = [];
+  if (!parcial && (p.reautorizar || []).length) {
+    try { (vd_api_('/cards/' + card.id + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name' } }) || []).forEach(function (k) { if (/^PAGAS/i.test(String(k.name || '').trim())) (k.checkItems || []).forEach(function (i) { pagosR.push(vd_semAcento_(i.name)); }); }); } catch (e) {}
+    (p.reautorizar || []).forEach(function (ch) {
+      if (!porChave[ch] || !autsAntes.some(function (a) { return a.chave === ch; })) return;
+      if (pagosR.some(function (n) { return n.indexOf(ch) >= 0; })) return;   // comprada: a compra tem de ser cancelada antes
+      if (!cots.some(function (c) { return vd_chavePeca_(c.peca) === ch; })) return;   // só com cotação nova nesta gravação
+      reaut[ch] = autsAntes.filter(function (a) { return a.chave === ch; })[0];
+    });
+  }
+  var temReaut = Object.keys(reaut).length > 0;
+  var registro = cots.length > 0 && !rem.length && !semCot.length && !temReaut
     && cots.every(function (c) { return autsAntes.some(function (a) { return a.chave === vd_chavePeca_(c.peca); }); });
   if (registro) parcial = false;
   // 10/10/2026 (revisão): "Enviar cotação" em card em FALTA DADOS pulava a validação do pedido (chassi/ano/tipo nunca mais
@@ -4898,6 +4912,14 @@ function vdf_salvarCotacao(token, p) {
   }
   var novaDesc = card.desc;
   if (!nada) novaDesc = vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem);
+  var linhasReaut = [];
+  if (temReaut) {
+    Object.keys(reaut).forEach(function (ch) {
+      var a0 = reaut[ch], pc = porChave[ch], nomeP = pc.pneu ? 'PNEU ' + String(pc.medida || '').replace(/\s+/g, '') : vd_nomePeca_(pc);
+      linhasReaut.push('INDISPONÍVEL: ' + a0.fornecedor + ' - ' + nomeP + ' - ' + vd_valorBR_(a0.valor) + ' - nova cotação pelo comprador, autorizar de novo');
+    });
+    novaDesc = novaDesc.replace(/\s+$/, '') + '\n\n**RECOTAÇÃO ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy') + ' - ' + me.fullName + '**\n' + linhasReaut.join('\n');
+  }
   // enviar: toda peça precisa de cotação OU de justificativa para não cotar (salvar parcial não exige)
   var cobPrev = vdf_coberturaCotacao_(novaDesc, an.pecas);
   if (!parcial && !registro && cobPrev.faltam.length) return { ok: false, faltas: cobPrev.faltam.map(function (n) { return n + ': sem cotação — lance a cotação, escreva o motivo de não cotar, ou use "Salvar parcial"'; }) };
@@ -4906,6 +4928,7 @@ function vdf_salvarCotacao(token, p) {
     vd_gravarDesc_(card.id, novaDesc, token);
     try { fo_registrarUso_(cots.map(function (c) { return c.fornecedor; }).concat(nt), me.username); } catch (e) {}
     try {
+      if (temReaut) try { ev_registrar_('COTAÇÃO INDISPONÍVEL', card, me.username, Object.keys(reaut).map(function (ch) { var e = ev_peca_(porChave[ch]); e.fornecedor = reaut[ch].fornecedor; e.valor = reaut[ch].valor; e.detalhe = 'nova cotação pelo comprador — autorizar de novo'; return e; })); } catch (e2) {}
       ev_registrar_('COTAÇÃO', card, me.username,
         cots.map(function (c) { var e = ev_peca_(c.peca); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias; e.detalhe = [c.tipo, c.marca].filter(String).join(' ') + (parcial ? ' (parcial)' : registro ? ' (registro, peça já autorizada)' : ''); return e; })
           .concat(semCot.map(function (x) { var e = ev_peca_(x.peca); e.detalhe = 'SEM COTAÇÃO: ' + x.texto; return e; }))
@@ -4956,6 +4979,7 @@ function vdf_salvarCotacao(token, p) {
     if (cob.faltam.length) txt += '\n⏳ **PARCIAL** — falta cotar ou justificar: ' + cob.faltam.join(', ');
     else if (cob.semCot.length) txt += '\n⛔ **NÃO COTADAS:** ' + cob.semCot.map(function (s) { return s.nome + ' (' + s.texto + ')'; }).join('; ');
     if (misto && !cob.faltam.length) txt += '\n👤 Particulares: autoriza o consultor pela aba Autorizar.';
+    if (temReaut) txt += '\n🔁 **Nova autorização necessária** — autorização anterior cancelada: ' + Object.keys(reaut).map(function (ch) { var a0 = reaut[ch]; return vd_nomePeca_(porChave[ch]) + ' (' + a0.fornecedor + ' ' + vd_valorBR_(a0.valor) + ')'; }).join('; ') + '. Autorizar de novo pela aba ✅ Autorizar.';
     txt += txtAxCot;
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
   } catch (e) {}
@@ -4963,7 +4987,7 @@ function vdf_salvarCotacao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length, anexos: axCot.anexados.length, repetidos: axCot.repetidos };
 }
 
-// FormularioServidor.gs:1336
+// FormularioServidor.gs:1360
 function vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem) {
   var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy');
   var ordem = [], grupos = {};
@@ -4985,7 +5009,7 @@ function vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem) {
   return div.bloco.replace(/\s+$/, '') + '\n\n' + resto + '\n\n' + L.join('\n');
 }
 
-// FormularioServidor.gs:1358
+// FormularioServidor.gs:1382
 function vdf_coberturaCotacao_(desc, pecas) {
   var lidas = vd_cotacoesDaDescricao_(desc, pecas);
   var faltam = [], sem = [];
@@ -4998,7 +5022,7 @@ function vdf_coberturaCotacao_(desc, pecas) {
   return { faltam: faltam, semCot: sem };
 }
 
-// FormularioServidor.gs:1372
+// FormularioServidor.gs:1396
 function vdf_etiquetaParcial_(card, por, token) {
   var id = pz_labelId_(card.idBoard, VDF_ETIQUETA_PARCIAL, 'orange');
   var tem = (card.labels || []).some(function (l) { return l.id === id; });
@@ -5006,7 +5030,7 @@ function vdf_etiquetaParcial_(card, por, token) {
   if (!por && tem) vd_api_('/cards/' + card.id + '/idLabels/' + id, { method: 'delete' }, token);
 }
 
-// FormularioServidor.gs:1385
+// FormularioServidor.gs:1409
 function vd_autorizacoesDaDescricao_(desc, pecas) {
   var resto = vd_dividir_(desc).resto;
   if (!resto) return [];
@@ -5030,13 +5054,13 @@ function vd_autorizacoesDaDescricao_(desc, pecas) {
   return Object.keys(porChave).map(function (k) { return porChave[k]; });
 }
 
-// FormularioServidor.gs:1413
+// FormularioServidor.gs:1437
 function vdf_mencao_(us) {
   if (vd_prop_('MENCAO_FLUXO', 'NAO') === 'NAO') return '';
   return (us || []).filter(function (u, i, a) { return u && a.indexOf(u) === i; }).map(function (u) { return '@' + u + ' '; }).join('');
 }
 
-// FormularioServidor.gs:1423
+// FormularioServidor.gs:1447
 function vdf_autorizar(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5219,7 +5243,7 @@ function vdf_autorizar(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, aguarda: aguarda, marcas: marcadas.length, lista: movido || vdf_nomeLista_(ctx, card.idList), alterada: reenvio };
 }
 
-// FormularioServidor.gs:1606
+// FormularioServidor.gs:1630
 function vdf_linhasObs_(p, porChave, rotulo) {
   var linhas = [], txt = [];
   (p.obs || []).forEach(function (o) {
@@ -5234,7 +5258,7 @@ function vdf_linhasObs_(p, porChave, rotulo) {
   return { linhas: linhas, n: linhas.length, texto: txt.length ? '\n📝 ' + txt.map(function (t) { return t.replace(/^- /, ''); }).join(' · ') : '' };
 }
 
-// FormularioServidor.gs:1626
+// FormularioServidor.gs:1650
 function vdf_devolverCotacao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5275,7 +5299,7 @@ function vdf_devolverCotacao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: obsL.n, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:1667
+// FormularioServidor.gs:1691
 function vd_ultimaDevolucao_(desc) {
   var resto = vd_dividir_(desc).resto || '', dev = null;
   resto.split('\n').forEach(function (raw) {
@@ -5287,7 +5311,7 @@ function vd_ultimaDevolucao_(desc) {
   return dev;
 }
 
-// FormularioServidor.gs:1682
+// FormularioServidor.gs:1706
 function vdf_marcarOrdemAutorizada(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5308,7 +5332,7 @@ function vdf_marcarOrdemAutorizada(token, p) {
   return { ok: true, nome: card.name, url: card.shortUrl };
 }
 
-// FormularioServidor.gs:1706
+// FormularioServidor.gs:1730
 function vdf_avisarSolicitante(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5335,7 +5359,7 @@ function vdf_avisarSolicitante(token, p) {
   return { ok: true, nome: card.name, url: card.shortUrl, quem: quem };
 }
 
-// FormularioServidor.gs:1736
+// FormularioServidor.gs:1760
 function vdf_salvarCompra(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5505,7 +5529,7 @@ function vdf_salvarCompra(token, p) {
   return { ok: true, parcial: parcial, url: card.shortUrl, nome: card.name, pagas: n, pendentes: pendentes, foraAut: foraAut, anexos: axC.anexados, repetidos: axC.repetidos, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:1911
+// FormularioServidor.gs:1935
 function vdf_anexarCompra_(card, arqs, token, tipoAx) {   // tipoAx: AX.COMPRA (padrão) ou AX.COT (23/10/2026, anexos da cotação)
   var out = { anexados: [], repetidos: [] };
   if (!arqs || !arqs.length) return out;
@@ -5533,7 +5557,7 @@ function vdf_anexarCompra_(card, arqs, token, tipoAx) {   // tipoAx: AX.COMPRA (
   return out;
 }
 
-// FormularioServidor.gs:1937
+// FormularioServidor.gs:1961
 function vdf_txtAnexosCompra_(ax) {
   var t = '';
   if (ax.anexados.length) t += '\n📎 Negociação/pagamento: ' + ax.anexados.join(' · ');
@@ -5541,7 +5565,7 @@ function vdf_txtAnexosCompra_(ax) {
   return t;
 }
 
-// FormularioServidor.gs:1946
+// FormularioServidor.gs:1970
 function vd_pecasSemCotacao_(card) {
   var desc = card.desc || '', an = vd_analisar_(desc, card.name || '');
   var cot = { cotacoes: [], semCot: [] }, auts = [], compras = [];
@@ -5558,7 +5582,7 @@ function vd_pecasSemCotacao_(card) {
   }).map(vd_nomePeca_);
 }
 
-// FormularioServidor.gs:1962
+// FormularioServidor.gs:1986
 function vd_comprasDaDescricao_(desc) {
   var out = [];
   vd_limpar_(desc).split('\n').forEach(function (l) {
@@ -5573,7 +5597,7 @@ function vd_comprasDaDescricao_(desc) {
   return out;
 }
 
-// FormularioServidor.gs:1988
+// FormularioServidor.gs:2012
 function vdf_pecasDaBase_(placa, sinistro) {
   if (!placa) return null;
   var sin = String(sinistro || '').replace(/\D/g, ''), melhor = null;
@@ -5601,19 +5625,19 @@ function vdf_pecasDaBase_(placa, sinistro) {
     origem: melhor.B.org, rot: melhor.B.rot + ' ' + cl_rotVersao_(melhor.B, melhor.o.versao_baixada || '') };
 }
 
-// FormularioServidor.gs:2016
+// FormularioServidor.gs:2040
 function vdf_rotinaPecasBase(token, p) {
   if (!vdf_ehAutorizador_(vdf_usuario_(token))) throw new Error('Só a diretoria.');
   return { ok: true, base: vdf_pecasDaBase_(p.placa, p.sinistro) };
 }
 
-// FormularioServidor.gs:2022
+// FormularioServidor.gs:2046
 function vdf_fotoPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_FOTO_PECA', 'NAO') === 'SIM'; } catch (e) { return false; } }
 
-// FormularioServidor.gs:2024
+// FormularioServidor.gs:2048
 function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_SO_MO', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// FormularioServidor.gs:2026
+// FormularioServidor.gs:2050
 function vdf_salvar(token, p) {
   var trocasPart = { paraPart: [], paraSeg: [] };
   // 💾 Salvar parcial (13/10/2026, Weslley): grava o que já tem mesmo com dado faltando — o robô põe o card em FALTA DADOS e
@@ -6182,14 +6206,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:2595
+// FormularioServidor.gs:2619
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:2607
+// FormularioServidor.gs:2631
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -6264,21 +6288,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:2684
+// FormularioServidor.gs:2708
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:2690
+// FormularioServidor.gs:2714
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:2696
+// FormularioServidor.gs:2720
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {

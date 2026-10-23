@@ -1252,7 +1252,21 @@ function vdf_salvarCotacao(token, p) {
    * cotação deste envio é de peça autorizada e não há peça nova sem cotação / remoção junto. Para trocar o fornecedor
    * autorizado, o caminho continua sendo "cotação indisponível" na aba Compra. */
   // (revisão 07/10/2026) vale também no "Salvar parcial": cotação só de registro nunca move o card nem põe etiqueta
-  var registro = cots.length > 0 && !rem.length && !semCot.length
+  /* 23/10/2026 (Weslley, MVU1552): compra cancelada → o comprador lança cotação nova e a tela pergunta se é só registro ou se
+   * precisa de NOVA AUTORIZAÇÃO. p.reautorizar = [chaves]: a cotação autorizada dessas peças é cancelada (linha INDISPONÍVEL,
+   * como a "cotação indisponível" da aba Compra) e o card volta para o autorizador. Só no "Enviar"; peça já comprada não entra. */
+  var reaut = {}; var pagosR = [];
+  if (!parcial && (p.reautorizar || []).length) {
+    try { (vd_api_('/cards/' + card.id + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name' } }) || []).forEach(function (k) { if (/^PAGAS/i.test(String(k.name || '').trim())) (k.checkItems || []).forEach(function (i) { pagosR.push(vd_semAcento_(i.name)); }); }); } catch (e) {}
+    (p.reautorizar || []).forEach(function (ch) {
+      if (!porChave[ch] || !autsAntes.some(function (a) { return a.chave === ch; })) return;
+      if (pagosR.some(function (n) { return n.indexOf(ch) >= 0; })) return;   // comprada: a compra tem de ser cancelada antes
+      if (!cots.some(function (c) { return vd_chavePeca_(c.peca) === ch; })) return;   // só com cotação nova nesta gravação
+      reaut[ch] = autsAntes.filter(function (a) { return a.chave === ch; })[0];
+    });
+  }
+  var temReaut = Object.keys(reaut).length > 0;
+  var registro = cots.length > 0 && !rem.length && !semCot.length && !temReaut
     && cots.every(function (c) { return autsAntes.some(function (a) { return a.chave === vd_chavePeca_(c.peca); }); });
   if (registro) parcial = false;
   // 10/10/2026 (revisão): "Enviar cotação" em card em FALTA DADOS pulava a validação do pedido (chassi/ano/tipo nunca mais
@@ -1267,6 +1281,14 @@ function vdf_salvarCotacao(token, p) {
   }
   var novaDesc = card.desc;
   if (!nada) novaDesc = vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem);
+  var linhasReaut = [];
+  if (temReaut) {
+    Object.keys(reaut).forEach(function (ch) {
+      var a0 = reaut[ch], pc = porChave[ch], nomeP = pc.pneu ? 'PNEU ' + String(pc.medida || '').replace(/\s+/g, '') : vd_nomePeca_(pc);
+      linhasReaut.push('INDISPONÍVEL: ' + a0.fornecedor + ' - ' + nomeP + ' - ' + vd_valorBR_(a0.valor) + ' - nova cotação pelo comprador, autorizar de novo');
+    });
+    novaDesc = novaDesc.replace(/\s+$/, '') + '\n\n**RECOTAÇÃO ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy') + ' - ' + me.fullName + '**\n' + linhasReaut.join('\n');
+  }
   // enviar: toda peça precisa de cotação OU de justificativa para não cotar (salvar parcial não exige)
   var cobPrev = vdf_coberturaCotacao_(novaDesc, an.pecas);
   if (!parcial && !registro && cobPrev.faltam.length) return { ok: false, faltas: cobPrev.faltam.map(function (n) { return n + ': sem cotação — lance a cotação, escreva o motivo de não cotar, ou use "Salvar parcial"'; }) };
@@ -1275,6 +1297,7 @@ function vdf_salvarCotacao(token, p) {
     vd_gravarDesc_(card.id, novaDesc, token);
     try { fo_registrarUso_(cots.map(function (c) { return c.fornecedor; }).concat(nt), me.username); } catch (e) {}
     try {
+      if (temReaut) try { ev_registrar_('COTAÇÃO INDISPONÍVEL', card, me.username, Object.keys(reaut).map(function (ch) { var e = ev_peca_(porChave[ch]); e.fornecedor = reaut[ch].fornecedor; e.valor = reaut[ch].valor; e.detalhe = 'nova cotação pelo comprador — autorizar de novo'; return e; })); } catch (e2) {}
       ev_registrar_('COTAÇÃO', card, me.username,
         cots.map(function (c) { var e = ev_peca_(c.peca); e.fornecedor = c.fornecedor; e.valor = c.valor; e.dias = c.dias; e.detalhe = [c.tipo, c.marca].filter(String).join(' ') + (parcial ? ' (parcial)' : registro ? ' (registro, peça já autorizada)' : ''); return e; })
           .concat(semCot.map(function (x) { var e = ev_peca_(x.peca); e.detalhe = 'SEM COTAÇÃO: ' + x.texto; return e; }))
@@ -1325,6 +1348,7 @@ function vdf_salvarCotacao(token, p) {
     if (cob.faltam.length) txt += '\n⏳ **PARCIAL** — falta cotar ou justificar: ' + cob.faltam.join(', ');
     else if (cob.semCot.length) txt += '\n⛔ **NÃO COTADAS:** ' + cob.semCot.map(function (s) { return s.nome + ' (' + s.texto + ')'; }).join('; ');
     if (misto && !cob.faltam.length) txt += '\n👤 Particulares: autoriza o consultor pela aba Autorizar.';
+    if (temReaut) txt += '\n🔁 **Nova autorização necessária** — autorização anterior cancelada: ' + Object.keys(reaut).map(function (ch) { var a0 = reaut[ch]; return vd_nomePeca_(porChave[ch]) + ' (' + a0.fornecedor + ' ' + vd_valorBR_(a0.valor) + ')'; }).join('; ') + '. Autorizar de novo pela aba ✅ Autorizar.';
     txt += txtAxCot;
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
   } catch (e) {}

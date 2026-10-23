@@ -9315,6 +9315,81 @@ document.addEventListener('input', function (e) {
   var mostrarOrig = window.mostrarAba;
   if (typeof mostrarOrig === 'function') window.mostrarAba = function (a) { var r = mostrarOrig.apply(this, arguments); if (a === 'cot') { var g = document.getElementById('cotArqFile'); if (g && !(window.ARQ_ALVO && document.getElementById('cotItens') && document.getElementById('cotItens').contains(window.ARQ_ALVO))) window.ARQ_ALVO = g; } return r; };
 })();
+
+/* 23/10/2026 (Weslley, MVU1552: "compra cancelada, voltou para autorização, comprador inseriu nova cotação — o sistema deve
+ * pedir para confirmar se é cotação de registro ou se precisa de nova autorização; se precisar, o card volta ao autorizador")
+ * — camada 2.0, computador e celular: no Enviar cotação com cotação nova em peça JÁ AUTORIZADA, pergunta por peça:
+ * ( ) só registro (autorização e coluna não mudam)  ( ) nova autorização (a autorizada é cancelada e o card volta ao autorizador).
+ * A escolha vai em p.reautorizar (vdf_salvarCotacao). Peça já comprada não entra (cancele a compra antes). */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('v2') || typeof window.enviarCotacao !== 'function' || typeof window.coletarCotacoes !== 'function') return;
+  var st = document.createElement('style');
+  st.textContent = [
+    '#v2cReaut{position:fixed;inset:0;z-index:2147483000;background:rgba(9,30,66,.45);display:flex;align-items:center;justify-content:center;padding:16px}',
+    '#v2cReaut .cx{background:#fff;border-radius:12px;max-width:560px;width:100%;max-height:90vh;overflow:auto;padding:18px 18px 14px;box-shadow:0 12px 40px rgba(9,30,66,.35);font:inherit;color:#172b4d}',
+    '#v2cReaut h3{margin:0 0 6px;font-size:17px}',
+    '#v2cReaut .dica{font-size:13px;color:#44546f;margin:0 0 12px}',
+    '#v2cReaut .pc{border:1px solid #c1c7d0;border-radius:8px;padding:10px 12px;margin:0 0 10px}',
+    '#v2cReaut .pc b{display:block;margin-bottom:6px}',
+    '#v2cReaut label{display:flex;gap:8px;align-items:flex-start;padding:6px 0;cursor:pointer;font-size:14px}',
+    '#v2cReaut label small{display:block;color:#44546f;font-size:12.5px}',
+    '#v2cReaut .bts{display:flex;gap:10px;justify-content:flex-end;margin-top:6px;flex-wrap:wrap}',
+    '#v2cReaut .bts button{min-height:40px;padding:0 16px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;border:1px solid #c1c7d0;background:#fff;color:#172b4d}',
+    '#v2cReaut .bts button.principal{background:#0c66e4;border-color:#0c66e4;color:#fff}'
+  ].join('\n');
+  document.head.appendChild(st);
+  function esc2(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function fmt(v) { try { return fmtValor(v); } catch (e) { return 'R$ ' + v; } }
+  function autorizadaDe(chave) {
+    var c = window.CARD || {};
+    var a = (c.autorizadas || []).filter(function (x) { return x.chave === chave; })[0];
+    if (!a && typeof autDe === 'function') { try { a = autDe(c, chave); } catch (e) {} }
+    return a || null;
+  }
+  function comprada(chave) { return ((window.CARD || {}).pagas || []).some(function (x) { return String(x.nome || x.name || '').indexOf(chave) >= 0; }); }
+  function nomePeca(chave) { var p = (typeof pecasOficina === 'function' && window.CARD) ? pecasOficina(window.CARD).filter(function (x) { return x.chave === chave; })[0] : null; return p ? p.nome : chave; }
+  var REAUT = null;   // chaves escolhidas para nova autorização (vai no próximo vdf_salvarCotacao)
+  var enviarOrig = window.enviarCotacao;
+  window.enviarCotacao = function (parcial) {
+    if (parcial || REAUT) return enviarOrig.apply(this, arguments);
+    var c; try { c = coletarCotacoes(false); } catch (e) { return enviarOrig.apply(this, arguments); }
+    if (!c || (c.faltas && c.faltas.length)) return enviarOrig.apply(this, arguments);
+    var afetadas = {};
+    (c.cotacoes || []).forEach(function (q) { var a = autorizadaDe(q.chave); if (a && !comprada(q.chave)) afetadas[q.chave] = a; });
+    var chaves = Object.keys(afetadas);
+    if (!chaves.length) return enviarOrig.apply(this, arguments);
+    var self = this, args = arguments;
+    var ov = document.createElement('div'); ov.id = 'v2cReaut'; ov.setAttribute('role', 'alertdialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-labelledby', 'v2cReautT');
+    ov.innerHTML = '<div class="cx"><h3 id="v2cReautT">Peça já autorizada — esta cotação é o quê?</h3>'
+      + '<p class="dica">A peça abaixo já tem fornecedor autorizado. Diga se a cotação nova é só para registro ou se a diretoria precisa autorizar de novo (a autorização atual é cancelada e o card volta para o autorizador).</p>'
+      + chaves.map(function (ch, i) {
+        var a = afetadas[ch];
+        return '<div class="pc"><b>' + esc2(nomePeca(ch)) + '</b><small style="color:#44546f">autorizada: ' + esc2(a.fornecedor) + ' · ' + esc2(fmt(a.valor)) + '</small>'
+          + '<label><input type="radio" name="v2cR' + i + '" value="reg" checked><span>Só registro<small>A autorização e a coluna não mudam.</small></span></label>'
+          + '<label><input type="radio" name="v2cR' + i + '" value="nova"><span>Precisa de nova autorização<small>Cancela a autorização de ' + esc2(a.fornecedor) + ' e manda o card de volta para o autorizador.</small></span></label></div>';
+      }).join('')
+      + '<div class="bts"><button type="button" id="v2cReautNao">Cancelar</button><button type="button" class="principal" id="v2cReautSim">Enviar cotação</button></div></div>';
+    document.body.appendChild(ov);
+    var fechar = function () { ov.remove(); document.removeEventListener('keydown', esc); };
+    var esc = function (e) { if (e.key === 'Escape') fechar(); };
+    document.addEventListener('keydown', esc);
+    ov.querySelector('#v2cReautNao').onclick = fechar;
+    ov.addEventListener('mousedown', function (e) { if (e.target === ov) fechar(); });
+    ov.querySelector('#v2cReautSim').onclick = function () {
+      var escolhidas = chaves.filter(function (ch, i) { var r = ov.querySelector('input[name=v2cR' + i + ']:checked'); return r && r.value === 'nova'; });
+      fechar();
+      REAUT = escolhidas;
+      try { enviarOrig.apply(self, args); } finally { setTimeout(function () { REAUT = null; }, 0); }
+    };
+    setTimeout(function () { var f = ov.querySelector('input[type=radio]'); if (f) f.focus(); }, 30);
+  };
+  var chamarOrig = window.chamar;
+  window.chamar = function (fn) {
+    if (fn === 'vdf_salvarCotacao' && arguments[2] && typeof arguments[2] === 'object' && REAUT && REAUT.length) arguments[2].reautorizar = REAUT.slice();
+    return chamarOrig.apply(this, arguments);
+  };
+})();
 </script>
 </body>
 </html>
