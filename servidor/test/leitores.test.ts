@@ -64,6 +64,12 @@ describe('dados do veículo (trechos reais)', () => {
     expect(l.ano).toBe('2017');
     expect(l.modelo).toMatch(/CRUZE/);
   });
+  it('Cilia: marca-d\'água "NÃO AUTORIZADO" com letras soltas depois do ano (TBP3J46, Allianz)', () => {
+    const l = lerTexto('CASCO - RAM - RAMPAGE LARAMIE 2.2 TURBO DIESEL 4X4 2025 N AO AU TO R IZ Placa Cor Chassi Quilometragem TBP-3J46 preto 98859125FSKS05635');
+    expect(l.origem).toBe('cilia');
+    expect(l.ano).toBe('2025');
+    expect(l.modelo).toMatch(/RAMPAGE LARAMIE/);
+  });
   it('HDI: Veiculo: código - modelo ano Placa:', () => {
     const l = lerTexto('Veiculo: 0016595 - CHEVROLET COBALT LTZ 1.8 8V ECONO.FLEX 4P AUT. 2015 Placa: ABC1D23');
     expect(l.origem).toBe('hdi');

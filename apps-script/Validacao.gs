@@ -753,7 +753,9 @@ function vd_extrair_(texto) {
   while ((m = reRotP.exec(U))) { var pr = m[1] + m[2]; if (r.placasRot.indexOf(pr) < 0) r.placasRot.push(pr); }
   var ANO = '(19[89]\\d|20[0-4]\\d)';
   // Cilia: "CASCO - CHEVROLET - CRUZE SEDAN (2017 A 2019) LT 1.4 16V TURBO 2017 Autorizado"
-  if ((m = U.match(new RegExp('(?:^|\\s)[A-Z]{3,12} - ([A-Z][A-Z .\\-]{1,20}?) - (.{3,100}?) ' + ANO + ' (?=AUTORIZ|CONSTAT|PLACA|NEGAD|EM |ORCAMENT|VISTORIA|CANCEL|PENDEN|[A-Z]{4,})')))) {
+  // 23/10/2026 (TBP3J46, Allianz): a marca-d'água "NÃO AUTORIZADO" sai do PDF com as letras soltas ("2025 N AO AU TO R IZ PLACA…")
+  // — depois do ano também valem pedaços de 1–3 letras (3 ou mais)
+  if ((m = U.match(new RegExp('(?:^|\\s)[A-Z]{3,12} - ([A-Z][A-Z .\\-]{1,20}?) - (.{3,100}?) ' + ANO + ' (?=AUTORIZ|CONSTAT|PLACA|NEGAD|EM |ORCAMENT|VISTORIA|CANCEL|PENDEN|[A-Z]{4,}|(?:[A-Z]{1,3} ){3,})')))) {
     r.modelo = (m[1] + ' ' + m[2]).replace(/\(\s*\d{4}\s*A\s*\d{4}\s*\)/, '').replace(/\s+/g, ' ').trim();
     r.ano = m[3]; r.origem = 'cilia';
   }
@@ -877,7 +879,7 @@ function vd_anxMigrar_() {
  */
 /* Versão do leitor de anexos: quando o leitor de orçamento muda (ex.: 05/10/2026, layout Soma), as leituras
  * guardadas com a versão antiga são lidas de novo — senão "ler de novo" e o robô do complemento devolvem a leitura velha. */
-var VD_LEITOR_V = 3;   // versão do leitor de orçamento (2 = 14/10/2026, código Cilia com ponto no fim; 3 = 21/10/2026, modelo/ano do Cilia particular)
+var VD_LEITOR_V = 4;   // 23/10/2026: marca-d'água "NÃO AUTORIZADO" com letras soltas (TBP3J46) — relê os Cilia   // versão do leitor de orçamento (2 = 14/10/2026, código Cilia com ponto no fim; 3 = 21/10/2026, modelo/ano do Cilia particular)
 var VD_ANX_V = 3;   // 3 (06/10/2026): o cache do orçamento passou a guardar o valor líquido de cada peça
 function vd_lerAnexoTrello_(a, opt) {
   opt = opt || {};

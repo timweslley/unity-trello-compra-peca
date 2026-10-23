@@ -290,3 +290,5 @@ da outra, deixar um recado aqui e no commit.
 - 11h13 — Weslley: "onde está o botão por cotação e por peça?" e "depois de anexado, ver o anexo" → 📎 no cabeçalho da peça, em
   cada cotação salva (tabela) e em cada cotação em edição; links "📎 ver" do que já está no card; nome do anexo com fornecedor e
   peça. Testado no TESTE (ZZT9C01): `💬 COTAÇÃO · ZZT9C01 · AUTOX · GRADE DO PARACHOQUE 🧪 · 23/10`.
+- 15h56 — TBP3J46 (Allianz, Cilia): modelo e ano não lidos — marca-d'água "NÃO AUTORIZADO" com letras soltas depois do ano
+  quebrava a regra CASCO. Corrigido (+ teste); leitor v4. Obs.: o orçamento está "NÃO AUTORIZADO" no Cilia (marca-d'água).
