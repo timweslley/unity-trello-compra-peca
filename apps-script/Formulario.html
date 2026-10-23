@@ -9170,7 +9170,9 @@ document.addEventListener('input', function (e) {
     '.v2a-chip.sobe{color:#44546f;background:#f1f2f4}',
     '.v2a-chip.erro{color:#c62828;background:#ffecec}',
     '#cotItens .cot .v2a-row{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:4px}',
-    '#cotItens .c-acoes .v2a-btn{margin-left:4px}',
+    '.v2c-lin .v2a-wrap{margin-left:4px}',
+    '.v2c-lin .v2a-chips-linha{grid-column:1 / -1;margin:0 0 2px}',
+    '.v2c-lin .v2a-chips-linha:empty{display:none}',
     '#secCotArq .v2a-linha{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
     '#secCotArq .v2a-linha input[type=text]{flex:1 1 180px;min-height:36px;padding:6px 8px;border:1px solid #c1c7d0;border-radius:6px;font:inherit;text-transform:uppercase}',
     '#secCotArq .v2a-lista{margin-top:8px;font-size:13px;color:#172b4d;display:flex;flex-direction:column;gap:4px}',
@@ -9184,14 +9186,18 @@ document.addEventListener('input', function (e) {
   function pecaNome(chave) { var p = (typeof pecasOficina === 'function' && window.CARD) ? pecasOficina(window.CARD).filter(function (x) { return x.chave === chave; })[0] : null; return p ? p.nome : ''; }
   /* anexos "💬 COTAÇÃO" já no card: casados pelo fornecedor e pela peça que estão no nome do anexo */
   function anexosCot() { return ((window.CARD && window.CARD.todosAnexos) || []).filter(function (a) { return /^💬 COTAÇÃO/.test(a.nome || ''); }); }
+  /* partes do nome "💬 COTAÇÃO · PLACA · [FORN] · [PEÇA] · dd/MM": o que fica entre a placa e a data */
+  function partesAnexo(a) { var p = String(a.nome || '').split(' · ').slice(2); if (p.length && /^\d{1,2}\/\d{1,2}/.test(p[p.length - 1])) p.pop(); return p.map(norm).filter(String); }
+  function fornsDoCard() { var out = []; $$('#cotItens > .item').forEach(function (it) { try { JSON.parse(it.dataset.lidas || '[]').forEach(function (q) { var f = norm(q.fornecedor); if (f && out.indexOf(f) < 0) out.push(f); }); } catch (e) {} }); return out; }
   function anexosDe(forn, chave) {
-    var f = norm(forn), pn = norm(pecaNome(chave)).replace(/^[A-Z0-9][A-Z0-9\/.\-]{3,} /, '').slice(0, 40).trim();
+    var f = norm(forn), pn = norm(pecaNome(chave)).replace(/^[A-Z0-9][A-Z0-9\/.\-]{3,} /, '').slice(0, 40).trim().slice(0, 25);
+    var umaPeca = $$('#cotItens > .item').length === 1, forns = fornsDoCard();
     return anexosCot().filter(function (a) {
-      var n = norm(a.nome);
-      if (f && n.indexOf(f) < 0) return false;
-      if (pn && n.indexOf(pn.slice(0, 25)) < 0) return false;
-      if (!f && !pn) return false;
-      return true;
+      var partes = partesAnexo(a);
+      var temForn = partes.some(function (x) { return forns.indexOf(x) >= 0; }), temPeca = partes.some(function (x) { return pn && x.indexOf(pn) >= 0; });
+      if (!partes.length) return umaPeca;                                   // geral: só quando o card tem uma peça só
+      if (f) { if (!partes.some(function (x) { return x === f; })) return false; return temPeca || !partes.some(function (x) { return forns.indexOf(x) < 0; }) || !pn; }   // linha: fornecedor igual; peça só se o nome traz peça
+      return temPeca || (!temForn && umaPeca);                               // peça: nome traz a peça (ou é geral e o card só tem esta)
     });
   }
   function linksVer(lista) {
@@ -9205,7 +9211,7 @@ document.addEventListener('input', function (e) {
     box.querySelectorAll('button[data-rm]').forEach(function (b) { b.onclick = function () { COT_ARQS.splice(+b.dataset.rm, 1); chips(el); }; });
     el.classList.toggle('tem', meus.some(function (a) { return a.fileId; }));
   }
-  function botao(rotulo, chave, fornOuEl, titulo) {
+  function botao(rotulo, chave, fornOuEl, titulo, chipsEm) {
     var b = document.createElement('button'); b.type = 'button'; b.className = 'v2a-btn'; b.innerHTML = '📎 ' + esc2(rotulo); b.title = titulo || 'Anexar print, foto ou PDF da cotação';
     var inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true; inp.accept = 'image/*,application/pdf'; inp.style.display = 'none';
     var box = document.createElement('span'); box.className = 'v2a-chips';
@@ -9221,7 +9227,8 @@ document.addEventListener('input', function (e) {
       });
       inp.value = '';
     });
-    var wrap = document.createElement('span'); wrap.className = 'v2a-wrap'; wrap.appendChild(b); wrap.appendChild(inp); wrap.appendChild(box);
+    var wrap = document.createElement('span'); wrap.className = 'v2a-wrap'; wrap.appendChild(b); wrap.appendChild(inp);
+    if (chipsEm) { box.classList.add('v2a-chips-linha'); chipsEm.appendChild(box); } else wrap.appendChild(box);
     return wrap;
   }
   var pend = 0;
@@ -9240,10 +9247,10 @@ document.addEventListener('input', function (e) {
       var lidas = []; try { lidas = JSON.parse(it.dataset.lidas || '[]'); } catch (e) {}
       it.querySelectorAll('.cot-lida').forEach(function (linha) {
         var q = lidas[+linha.dataset.j]; if (!q) return;
-        var ac2 = linha.querySelector('.c-acoes'); if (!ac2 || ac2.querySelector('.v2a-lin')) return;
+        var ac2 = linha.querySelector('.c-selos') || linha.querySelector('.c-acoes'); if (!ac2 || linha.querySelector('.v2a-lin')) return;
         var ja2 = anexosDe(q.fornecedor, chave);
         if (ja2.length) { var v2 = document.createElement('span'); v2.className = 'v2a-vers'; v2.innerHTML = linksVer(ja2); ac2.appendChild(v2); }
-        var w2 = botao('', chave, q.fornecedor, 'Anexar print, foto ou PDF da cotação de ' + q.fornecedor); w2.classList.add('v2a-lin'); w2.querySelector('button').setAttribute('aria-label', 'Anexar arquivo da cotação de ' + q.fornecedor); ac2.appendChild(w2);
+        var w2 = botao('', chave, q.fornecedor, 'Anexar print, foto ou PDF da cotação de ' + q.fornecedor, linha); w2.classList.add('v2a-lin'); w2.querySelector('button').setAttribute('aria-label', 'Anexar arquivo da cotação de ' + q.fornecedor); ac2.appendChild(w2);
       });
       // por cotação em edição: ao lado do link do anúncio, fornecedor lido na hora do envio
       it.querySelectorAll('.cot').forEach(function (row) {
