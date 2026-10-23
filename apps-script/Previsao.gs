@@ -857,7 +857,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
     var outH = [], usadasH = {}, usadosA = {}, pares = [];
     var tagForn = function (a) { var m = String(a.nome || '').match(/\s-\s([A-Za-zÀ-ÿ]{3,})[^-]*$/); return m ? vd_semAcento_(m[1]).slice(0, 4) : ''; };
     (alvos || []).forEach(function (a, ia) {
-      var tag = tagForn(a), desc = String(a.descricao || a.nome || '').replace(/\s-\s[A-Za-zÀ-ÿ][^-]*$/, '');
+      var tag = tagForn(a), desc = String(a.descricao || a.nome || '').replace(/\s-\s[A-Za-zÀ-ÿ0-9][^-]*$/, '');   // fornecedor pode começar com número ("26 OPEN MITSUBISHI PR", 23/10/2026)
       hdi.forEach(function (p, i) {
         if (p.oficina) return;
         var sim = cp_similar_(desc, p.descricao);
@@ -1029,7 +1029,8 @@ function pv_lerFornecimentoTexto_(card, texto) {
   } else if (hdiL) {
     // "Peças do sinistro" da HDI: FO do documento que não bate com nenhuma peça do card (pela descrição)
     var anC = vd_analisar_(card.desc, card.name);
-    var descsCard = alvos.map(function (a) { return a.descricao || a.nome; }).concat(anC.pecas.concat(anC.naoComprar || []).map(function (p) { return p.descricao || ''; }));
+    // 23/10/2026 (FUR0C92): sem o " - FORNECEDOR" do item (como no casamento) — a peça casada aparecia também como "a mais"
+    var descsCard = alvos.map(function (a) { return String(a.descricao || a.nome || '').replace(/\s-\s[A-Za-zÀ-ÿ0-9][^-]*$/, ''); }).concat(anC.pecas.concat(anC.naoComprar || []).map(function (p) { return p.descricao || ''; }));
     hdiL.forEach(function (p) {
       if (p.oficina) return;
       var dU = vd_semAcento_(p.descricao).toUpperCase();

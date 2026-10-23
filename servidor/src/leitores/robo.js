@@ -1049,7 +1049,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
     var outH = [], usadasH = {}, usadosA = {}, pares = [];
     var tagForn = function (a) { var m = String(a.nome || '').match(/\s-\s([A-Za-zÀ-ÿ]{3,})[^-]*$/); return m ? vd_semAcento_(m[1]).slice(0, 4) : ''; };
     (alvos || []).forEach(function (a, ia) {
-      var tag = tagForn(a), desc = String(a.descricao || a.nome || '').replace(/\s-\s[A-Za-zÀ-ÿ][^-]*$/, '');
+      var tag = tagForn(a), desc = String(a.descricao || a.nome || '').replace(/\s-\s[A-Za-zÀ-ÿ0-9][^-]*$/, '');   // fornecedor pode começar com número ("26 OPEN MITSUBISHI PR", 23/10/2026)
       hdi.forEach(function (p, i) {
         if (p.oficina) return;
         var sim = cp_similar_(desc, p.descricao);
