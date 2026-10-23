@@ -1244,7 +1244,7 @@ function vdf_salvarCotacao(token, p) {
    *  parcial = false -> "enviar": exige toda peça com cotação ou motivo; sem novidade também vale (fecha o que foi salvo parcialmente). */
   var parcial = !!p.parcial;
   var nada = !cots.length && !nt.length && !obs.length && !semCot.length && !rem.length;
-  var arqsCot = (p.anexos || []).filter(function (a) { return a && a.fileId; }).map(function (a) { return { fileId: a.fileId, nome: a.nome, forn: String(a.forn || '').trim().toUpperCase(), peca: '' }; });   // 23/10/2026: print/foto/PDF da cotação
+  var arqsCot = (p.anexos || []).filter(function (a) { return a && a.fileId; }).map(function (a) { return { fileId: a.fileId, nome: a.nome, forn: foNome(a.forn || ''), peca: porChave[a.chave] ? vd_nomePeca_(porChave[a.chave]) : '' }; });   // 23/10/2026: print/foto/PDF da cotação (por peça / por cotação / geral)
   if (nada && parcial && !arqsCot.length) faltas.push('Nada novo para salvar.');
   if (faltas.length) return { ok: false, faltas: faltas };
   /* 07/10/2026 (Weslley): cotação lançada em peça JÁ AUTORIZADA (ou comprada) é só de registro — fica na descrição e na
