@@ -2339,6 +2339,7 @@ function vdf_salvar(token, p) {
     // só mão de obra (23/10/2026): nasce em ENCERRADO — criar não é mover, a trava de colunas (st_executar_) não julga
     var corpo = { idList: soMO ? ctx.listas[RC.LISTA_FIM] : (ctx.listas[rotina && pecas.length ? VD.LISTA_FALTA : VD.LISTA_COTACAO] || ctx.listas[VD.LISTA_COTACAO]), name: titulo, desc: bloco + '\n\n' + VD.MARCADOR, pos: 'top' };
     card = vd_api_('/cards', { method: 'post', payload: corpo }, token);
+    try { PropertiesService.getScriptProperties().setProperty('VD_DUP_' + card.id, '1'); } catch (e) {}   // 23/10/2026: duplicidade já conferida pelo formulário (vd_avisoDuplicado_ não repete)
     vd_fixarTopo_(corpo.idList, token);   // card fixo "NOVO PEDIDO" continua em primeiro (07/10/2026)
     if (soMO) {
       try {

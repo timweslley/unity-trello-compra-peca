@@ -294,3 +294,5 @@ da outra, deixar um recado aqui e no commit.
   quebrava a regra CASCO. Corrigido (+ teste); leitor v4. Obs.: o orçamento está "NÃO AUTORIZADO" no Cilia (marca-d'água).
 - 15h57 — Weslley: "salvar parcial não foi — ele deve exigir nada, é só pra salvar e depois terminar" (TBP3J46 barrava por
   falta de unidade). Parcial agora só exige placa em card novo (servidor + tela).
+- 16h06 — Weslley: "alertar quando abre um card de carro que já existe (ativos)?" — o formulário já avisa (placa e envio); o
+  robô passa a avisar uma vez em card criado à mão com placa de outro card aberto (`vd_avisoDuplicado_`, VD_DUP_).

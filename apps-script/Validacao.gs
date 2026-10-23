@@ -1540,11 +1540,34 @@ function vd_completaAtrasada_(card) {
   } catch (e) { console.log('completaAtrasada: ' + e); return false; }
 }
 
+/** 23/10/2026 (Weslley: "alertar o usuário quando abre um card de carro que já existe"): card novo (criado fora do formulário —
+ *  à mão no Trello, Butler…) cuja placa já tem outro card ABERTO no quadro ganha um aviso, uma vez (VD_DUP_<id>). O formulário
+ *  já faz essa pergunta na hora (aoMudarPlaca / confirmarDuplicado) e marca o card como visto ao criar. */
+function vd_avisoDuplicado_(card, ctx, props) {
+  var k = 'VD_DUP_' + card.id;
+  if (props.getProperty(k)) return;
+  props.setProperty(k, '1');
+  var criadoEm = parseInt(String(card.id).slice(0, 8), 16) * 1000;   // card antigo (antes desta regra) não ganha aviso
+  if (!criadoEm || Date.now() - criadoEm > 2 * 24 * 3600e3) return;
+  var placa = vd_placaDoTexto_(card.name || '');
+  if (!placa || !ctx.modoAtivo) return;
+  var outros = (vd_api_('/boards/' + ctx.board + '/cards', { cru: true, query: { fields: 'name,idList,shortLink,shortUrl' } }) || []).filter(function (c) {
+    return c.id !== card.id && !vdf_cardProtegido_(c.name) && !/^\s*AVISO\b/i.test(c.name || '') && vd_mesmaPlaca_(vd_placaDoTexto_(c.name || '') || '', placa);
+  });
+  if (!outros.length) return;
+  var nomes = {}; Object.keys(ctx.listas || {}).forEach(function (n) { nomes[ctx.listas[n]] = n; });
+  var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
+  vd_comentar_(card, (quem ? '@' + quem + ' ' : '') + '⚠️ **PLACA JÁ TEM CARD ABERTO** — ' + placa + ': ' +
+    outros.slice(0, 3).map(function (c) { return '[' + c.name + '](' + c.shortUrl + ') (' + (nomes[c.idList] || '?') + ')'; }).join('; ') +
+    '\nSe for o mesmo serviço, use o card que já existe (pedido duplicado atrapalha compras e faturamento). Se for outro serviço ou retorno, pode seguir neste.');
+}
+
 /** Confere um card de EM COTAÇÃO / FALTA DADOS. ctx = {board, listas, modoAtivo, prazo, urlForm}. */
 function vd_conferirCard_(card, ctx) {
   var props = PropertiesService.getScriptProperties();
   var nome = card.name || '';
   var res = { card: nome, url: card.shortUrl, acao: '', faltas: [], preenchido: [], avisos: [] };
+  try { vd_avisoDuplicado_(card, ctx, props); } catch (e) { console.log('duplicado: ' + e); }
 
   if (/^\s*AVISO\b/i.test(nome) || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome) || /sem\s+compra\s+de\s+pe[çc]a/i.test(vd_limpar_(String(card.desc || '').split(/=== COTA[ÇC][ÃA]O \(compras\) ===/)[0]))) {   // 13/10/2026: só o pedido conta — o texto antigo guardado abaixo da COTAÇÃO ("SEM COMPRA DE PEÇAS 18/09") fazia o robô ignorar o card inteiro (RAM9I31)
     res.acao = 'ignorado (aviso / sem compra de peça)';

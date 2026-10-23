@@ -43,6 +43,7 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 | `✅ DADOS COMPLETOS → EM COTAÇÃO` (+ "🤖 lido dos anexos", "orçamento importado") | card saiu de FALTA DADOS | não | **F**: só quando o robô leu/importou algo; se foi a equipe que completou pelo formulário, o PEDIDO EDITADO já diz `→ EM COTAÇÃO` |
 | `✅ DADOS COMPLETOS · 🤖 lido dos anexos: …` | card já em EM COTAÇÃO, robô preencheu campo pelo anexo | não | **M** |
 | `🆕 PEÇA NOVA (estava em X) → FALTA DADOS / EM COTAÇÃO: …` | peça nova em card que já passou da cotação | **@criador** (FALTA DADOS) | **J**: a inclusão já sai no PEDIDO EDITADO; robô só diz `→ COLUNA` + o que falta (sem @ se foi pelo formulário) |
+| `⚠️ PLACA JÁ TEM CARD ABERTO — PLACA: [card] (coluna)…` | card criado à mão com placa de outro card aberto (23/10), 1 vez | **@criador** | **M** (correção) |
 | `🆕 PEÇA SEM COTAÇÃO (estava em X) → EM COTAÇÃO` | card devolvido com peça sem cotação | não | **M** |
 | `✔ Card em X (movido por @user) — peça(s) aguardando cotação` | alguém arrastou o card à mão | @quem moveu | **M** (correção de ação manual) |
 | `📄 ORÇAMENTO COMPLEMENTAR (CILIA) — robô · N já estavam · ➕ Oficina: … · 🔄 Atualizada: …` | anexo de orçamento lido pelo robô | @criador se houver peça de oficina | **F**: sem @ quando só atualizou valores; @ só quando entrou peça nova que exige tipo |
