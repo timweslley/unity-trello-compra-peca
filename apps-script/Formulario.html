@@ -8966,7 +8966,7 @@ document.addEventListener('input', function (e) {
     + '.v2-fotopeca .fp-foto{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;background:#f1f2f4;color:#172b4d}'
     + '.v2-fotopeca .fp-tirar{border:0;background:none;color:#ae2e24;cursor:pointer;font-size:13px;padding:0 2px;min-width:24px;min-height:24px}'
     + '.v2toque .v2-fotopeca .fp-tirar{min-width:44px;min-height:44px}'
-    + '.item.v2-fp-falta{box-shadow:0 0 0 2px #ae2e24 inset}';
+    + '.v2pc :is(#itens,#itensPart) > .item > .v2-fotopeca{grid-column:2 / -1;order:3;margin-top:4px}';   // computador: linha inteira, logo abaixo dos tipos
   document.head.appendChild(st);
 
   function norm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim(); }
