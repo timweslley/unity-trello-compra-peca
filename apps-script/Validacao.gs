@@ -631,7 +631,16 @@ function vd_economiaOrc_(valorOrc, valorCot) {
   return { pct: Math.round(pct * 10) / 10, nivel: pct < 20 ? 'ruim' : (pct <= 30 ? 'medio' : 'bom') };
 }
 
-/** Monta o bloco padrão do consultor (usado pelo formulário). extra = {cor, seguradora, sinistro, fo:[], origemOrc} */
+/** 23/10/2026 (Weslley; DTA9330, GHH1I54, FYS4A72): orçamento autorizado só de mão de obra (sem peça de TROCA nem FO). A linha
+ *  começa com "nenhuma peça" de propósito: vd_linhasPecas_ marca semOficina (sem a falta "lista de peças no padrão") e
+ *  vd_linhasConsultor_ a ignora (não vira "linha nova fora do padrão" nem peça nova). */
+var VD_SO_MO_LINHA = 'nenhuma peça pela oficina — orçamento só de mão de obra (sem peça de troca nem fornecimento)';
+/** O bloco PEÇAS do card tem a marca de só mão de obra? (descrição completa) */
+function vd_soMaoDeObra_(desc) {
+  return /(^|\n)NENHUMA PE[ÇC]A[^\n]*M[ÃA]O DE OBRA/i.test(vd_limpar_(vd_dividir_(desc).bloco));
+}
+
+/** Monta o bloco padrão do consultor (usado pelo formulário). extra = {cor, seguradora, sinistro, fo:[], origemOrc, soMaoDeObra} */
 function vd_montarBloco_(d, pecas, obs, rodape, extra) {
   extra = extra || {};
   var L = [];
@@ -647,6 +656,7 @@ function vd_montarBloco_(d, pecas, obs, rodape, extra) {
   L.push('');
   L.push('**PEÇAS:**');
   if (pecas.length) pecas.forEach(function (p, i) { L.push(vd_linhaPeca_(p, i)); });
+  else if (extra.soMaoDeObra && !(extra.fo || []).length && !(extra.foLinhas || []).length) L.push('_' + VD_SO_MO_LINHA + '_');   // 23/10/2026 (vd_soMaoDeObra_)
   else L.push('_nenhuma peça pela oficina — somente fornecimento da seguradora_');
   // linhas de fornecimento: a do orçamento importado agora, ou as que o card já tinha (extra.foLinhas)
   var foL = [];
@@ -2642,7 +2652,9 @@ function vd_vitrine_(desc, nome, pagas) {
   };
 
   L.push('');
-  if (!an.pecas.length) L.push((an.naoComprar || []).length ? '_Nenhuma peça para comprar pela oficina._' : '_Sem peças pela oficina._');
+  // 23/10/2026: orçamento só de mão de obra — card só para registro e faturamento (nasce em ENCERRADO)
+  if (!an.pecas.length && !(an.naoComprar || []).length && vd_soMaoDeObra_(desc)) L.push('🔧 **SÓ MÃO DE OBRA** — orçamento sem peça de troca nem fornecimento: card para registro e faturamento.');
+  else if (!an.pecas.length) L.push((an.naoComprar || []).length ? '_Nenhuma peça para comprar pela oficina._' : '_Sem peças pela oficina._');
   // peças da seguradora primeiro, depois as particulares (cada grupo com título quando há os dois)
   var misto = d.tipo !== 'PARTICULAR' && an.pecas.some(function (x) { return x.particular; }) && an.pecas.some(function (x) { return !x.particular; });
   var ordem = an.pecas.map(function (x, i) { return { p: x, n: i }; });

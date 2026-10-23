@@ -1966,6 +1966,8 @@ function vd_comprasDaDescricao_(desc) {
  * p = {shortLink, dados:{modelo,ano,motor,chassi,placa}, pecas:[...], obs,
  *      novo:{carro,cor,seguradora,sinistro,unidade}, fileIds:[], orcamento:{origem, fo:[]},
  *      rotina:true (só diretoria, card novo: aceita peça sem tipo/código; com peça da oficina nasce em FALTA DADOS PARA COTAR), aviso:'texto p/ equipe',
+ *      soMaoDeObra:true (23/10/2026 — junto com rotina, diretoria, card novo e a chave vdf_soMaoDeObraLigada_: orçamento autorizado só
+ *        de mão de obra, sem peça de TROCA nem FO; exige orcamento.origem; o card nasce em ENCERRADO COMPRAS/FORNEC.),
  *      criarMesmoAssim:true (card novo com placa que já tem card aberto: sem isso devolve {ok:false, duplicado:[{shortLink,nome,lista}]})}
  */
 /** 19/10/2026 — peças do orçamento da placa na base que o robô usa (CILIA-HOJE.json / HDI-HOJE.json): só TROCA, sem serviço
@@ -2005,6 +2007,8 @@ function vdf_rotinaPecasBase(token, p) {
 
 /** 22/10/2026: exigir código ou foto da peça particular/retorno — sempre no TESTE; no principal com VD_FOTO_PECA=SIM. */
 function vdf_fotoPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_FOTO_PECA', 'NAO') === 'SIM'; } catch (e) { return false; } }
+/** 23/10/2026: card da Rotina para orçamento só de mão de obra (p.soMaoDeObra) — sempre no TESTE; no principal com VD_SO_MO=SIM. */
+function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_SO_MO', 'SIM') !== 'NAO'; } catch (e) { return false; } }   // 23/10/2026 10h40: ligado no principal (pedido do Weslley de 23/10); desligar: VD_SO_MO=NAO
 
 function vdf_salvar(token, p) {
   var trocasPart = { paraPart: [], paraSeg: [] };
@@ -2015,6 +2019,11 @@ function vdf_salvar(token, p) {
   p = vdf_entrada_(p);
   var cardCampos = false;
   var ctx = vd_contexto_();
+  // 23/10/2026 (Weslley: "orçamentos só de mão de obra também devem ter card aberto e o robô deve encaminhá-los para ENCERRADO";
+  // DTA9330, GHH1I54, FYS4A72): a Rotina abre o card de orçamento autorizado sem peça de TROCA nem FO direto em ENCERRADO.
+  // Só com rotina + diretoria + card novo + chave (TESTE sempre; principal com VD_SO_MO=SIM). Fora disso o pedido é ignorado
+  // e vale a recusa de sempre ("Adicione pelo menos uma peça").
+  var soMO = !!p.soMaoDeObra && !!p.rotina && !p.shortLink && vdf_ehAutorizador_(me) && vdf_soMaoDeObraLigada_();
   var d = {
     modelo: String(p.dados.modelo || '').trim().toUpperCase(),
     ano: String(p.dados.ano || '').trim(),
@@ -2033,6 +2042,11 @@ function vdf_salvar(token, p) {
   if (p.rotina && !p.shortLink) {
     var daBase = null;
     try { daBase = vdf_pecasDaBase_(p.dados && p.dados.placa, (p.novo || {}).sinistro); } catch (eB) { console.log('rotina/base: ' + eB); }
+    // só mão de obra com peça de troca/fornecimento na base de orçamentos da placa: não é só M.O. — recusa explicando
+    if (soMO && daBase && ((daBase.oficina || []).length || (daBase.fo || []).length)) {
+      return { ok: false, faltas: ['Placa ' + vd_normPlaca_(p.dados && p.dados.placa) + ': não é só mão de obra — o orçamento dela na base do robô (' + daBase.rot + ') tem ' +
+        (daBase.oficina || []).length + ' peça(s) de troca da oficina e ' + (daBase.fo || []).length + ' de fornecimento. Abra o card normal (sem soMaoDeObra) ou confira se é outro sinistro.'] };
+    }
     if (daBase) {
       // 21/10/2026 (FPY5D56, QCJ1I71): o pneu da base vem sem categoria/marca e a API recusava ("falta categoria") mesmo com a
       // Rotina mandando 1ª LINHA — agora a categoria/marca que a Rotina manda para o pneu da mesma medida é aproveitada.
@@ -2107,7 +2121,8 @@ function vdf_salvar(token, p) {
     seguradora: vd_rotuloSeguradora_(tipo, String(n.seguradora || '').trim().toUpperCase()),
     sinistro: String(n.sinistro || '').trim(),
     fo: fo,
-    origemOrc: orc && orc.origem ? orc.origem : ''
+    origemOrc: orc && orc.origem ? orc.origem : '',
+    soMaoDeObra: soMO
   };
   if (!extra.origemOrc && p.shortLink) {
     try {
@@ -2215,7 +2230,19 @@ function vdf_salvar(token, p) {
       try { temFoNoCard = (vd_api_('/cards/' + card.id + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name' } }) || []).some(function (k) { return /^(FORNECIMENTO|PAGAS)/i.test(String(k.name || '').trim()) && (k.checkItems || []).length; }); } catch (e) {}
     }
   }
-  if (!pecas.length && !fo.length && !compFo.length && !temFoNoCard) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora). Se a peça não vai ser comprada, marque 🚫 Não comprar em vez de remover.'] };
+  // 23/10/2026: card só de mão de obra (marca no bloco PEÇAS) continua sem peça quando é editado (unidade, ordem, obs…)
+  var temMoNoCard = false;
+  if (card && !pecas.length && !fo.length && !compFo.length) { try { temMoNoCard = vd_soMaoDeObra_(card.desc); } catch (e) {} }
+  if (temMoNoCard) extra.soMaoDeObra = true;
+  if (soMO) {
+    var faltasMO = [];
+    if (pecas.length || fo.length) faltasMO.push('Orçamento marcado como só mão de obra, mas veio ' + (pecas.length ? pecas.length + ' peça(s) da oficina (' + pecas.slice(0, 4).map(vd_nomePeca_).join('; ') + ')' : '') +
+      (pecas.length && fo.length ? ' e ' : '') + (fo.length ? fo.length + ' peça(s) de fornecimento' : '') + ' — abra o card normal (sem soMaoDeObra).');
+    if (!(orc && orc.origem)) faltasMO.push('Orçamento só de mão de obra: informe orcamento.origem (Cilia, HDI, Websoma…) — é o registro do orçamento autorizado no card.');
+    if (!ctx.listas[RC.LISTA_FIM]) faltasMO.push('Quadro sem a coluna ' + RC.LISTA_FIM + '.');
+    if (faltasMO.length) return { ok: false, faltas: faltasMO };
+  }
+  if (!pecas.length && !fo.length && !compFo.length && !temFoNoCard && !soMO && !temMoNoCard) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora). Se a peça não vai ser comprada, marque 🚫 Não comprar em vez de remover.'] };
   var temOrcNoCard = !!(card && vd_analisar_(card.desc, card.name).doOrcamento);
   if (card && !temOrcNoCard) { try { temOrcNoCard = vd_temOrcAnexo_(vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name' } })); } catch (e) {} }
   var soAcrescentaParticular = !!card && (p.pecas || []).some(function (x) { return x.particular; });
@@ -2295,10 +2322,17 @@ function vdf_salvar(token, p) {
     vd_gravarDesc_(card.id, upd.desc, token, upd.name ? { name: upd.name } : null);
     if (upd.name) card.name = upd.name;
   } else {
-    var corpo = { idList: ctx.listas[rotina && pecas.length ? VD.LISTA_FALTA : VD.LISTA_COTACAO] || ctx.listas[VD.LISTA_COTACAO], name: titulo, desc: bloco + '\n\n' + VD.MARCADOR, pos: 'top' };
+    // só mão de obra (23/10/2026): nasce em ENCERRADO — criar não é mover, a trava de colunas (st_executar_) não julga
+    var corpo = { idList: soMO ? ctx.listas[RC.LISTA_FIM] : (ctx.listas[rotina && pecas.length ? VD.LISTA_FALTA : VD.LISTA_COTACAO] || ctx.listas[VD.LISTA_COTACAO]), name: titulo, desc: bloco + '\n\n' + VD.MARCADOR, pos: 'top' };
     card = vd_api_('/cards', { method: 'post', payload: corpo }, token);
     vd_fixarTopo_(corpo.idList, token);   // card fixo "NOVO PEDIDO" continua em primeiro (07/10/2026)
-    if (rotina) {
+    if (soMO) {
+      try {
+        var avisoMO = String(p.aviso || '').trim();
+        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🤖 **Card aberto pela Rotina Unity** — orçamento só de mão de obra (sem peça de troca nem fornecimento)' +
+          (extra.origemOrc ? ', ' + extra.origemOrc : '') + ': vai direto para **' + RC.LISTA_FIM + '** para registro e faturamento.' + (avisoMO ? '\n' + avisoMO : '') } }, token);
+      } catch (e) {}
+    } else if (rotina) {
       try {
         var avisoR = String(p.aviso || '').trim();
         vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🤖 **Card aberto pela Rotina Unity** a partir de ' + (extra.origemOrc || 'portal/Cilia') + ' — a equipe ainda não tinha feito o pedido.' +
@@ -2486,6 +2520,10 @@ function vdf_salvar(token, p) {
       }
     } else if (c2.idList === ctx.listas[VD.LISTA_COTACAO] || c2.idList === ctx.listas[VD.LISTA_FALTA]) {
       acao = vd_conferirCard_(c2, ctx).acao;
+    } else if (soMO) {
+      // só mão de obra: base de peças registrada já (a regra de peça nova das colunas depois da cotação parte daqui)
+      vd_pkSet_(card.id, vd_linhasConsultor_(an.div.bloco).map(vd_sigItem_));
+      acao = 'card em ' + RC.LISTA_FIM + ' (só mão de obra)';
     }
     vd_marcar_(c2);
   } catch (e) {}
@@ -2498,7 +2536,7 @@ function vdf_salvar(token, p) {
   try {
     var evPecas = (posCot ? novasPecas : an.pecas).map(ev_peca_);
     ev_registrar_(!p.shortLink ? 'PEDIDO' : (posCot && novasPecas.length ? 'PEÇA NOVA' : 'PEDIDO EDITADO'), { name: card.name, shortLink: card.shortLink, shortUrl: card.shortUrl, labels: (typeof c2 !== 'undefined' && c2 && c2.labels) || [] },
-      me.username, evPecas, { tipo: tipo, detalhe: (nFo ? nFo + ' peça(s) FO' : '') });
+      me.username, evPecas, { tipo: tipo, detalhe: soMO ? 'só mão de obra → ' + RC.LISTA_FIM : (nFo ? nFo + ' peça(s) FO' : '') });
   } catch (e) {}
 
   if (trocasPart.paraPart.length || trocasPart.paraSeg.length) {

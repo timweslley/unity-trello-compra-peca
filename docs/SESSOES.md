@@ -276,3 +276,9 @@ da outra, deixar um recado aqui e no commit.
 - 21h40 — AYT6699: ler o orçamento já processado não atualizava o código da peça lançada à mão (sem código) nem a faixa amarelo → verde; corrigido (`casadas`/`atualizar` no `vdf_compararComplemento` + bloco 2.0). Pedido direto do Weslley no card do principal.
 - 22h10 — AYT6699: 1º envio levou a EM COTAÇÃO e o ciclo devolveu a FALTA DADOS 3 s depois com a descrição velha (precisou enviar 2x); `vd_completaAtrasada_` segura a devolução até a cópia oficial bater.
 - 22h30 — Weslley: ciclos de 1 min ainda são necessários com o aviso do Trello? → "altera e monitora" (direto no principal). Varredura a cada 10 min + seguimento 100 s depois de cada aviso; monitoramento provisório agendado (contadores em /tarefas/robo/rapido, consumo de chamadas, MOVIMENTO DESFEITO indevido).
+
+## 23/10/2026 — orçamento só de mão de obra (Weslley: "orçamentos só de mão de obra também devem ter card aberto e o robô deve encaminhá-los para ENCERRADO automaticamente")
+- `vdf_salvar` aceita `soMaoDeObra:true` (Rotina + diretoria + card novo): card sem peça direto em ENCERRADO, vitrine "🔧 SÓ MÃO DE OBRA", recusa se a base da placa tem peça. Casos que motivaram: DTA9330 (Toledo), GHH1I54 e FYS4A72 (Cascavel). TESTE sempre; principal só com OK (`VD_SO_MO=SIM`). Preparado como patch (sem push).
+- 10h40 — Patch da Rotina (sessão Opus) revisado e aplicado por esta sessão: lógica ok (chave por quadro, linha "nenhuma peça…"
+  compatível com vd_linhasPecas_/vd_linhasConsultor_, base VD_PK2_ na criação, ENCERRADO → ENTREGUES pela rotina de 15 dias).
+  Ligado no principal (padrão SIM) porque o pedido do Weslley de 23/10 é para os cards reais (DTA9330, GHH1I54, FYS4A72).
