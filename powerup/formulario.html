@@ -9252,5 +9252,61 @@ document.addEventListener('input', function (e) {
   };
 })();
 </script>
+<script>
+/* 22/10/2026 (Weslley, AYT6699: "quando eu leio um orçamento que o orçamentista já tinha lançado manualmente o sistema não atualiza
+ * o código e a cor de amarelo para verde orçamento") — 2.0:
+ * 1) ao ler o orçamento no ✏️ EDITAR, a peça que o card já tem e que o orçamento traz (vdf_compararComplemento → casadas) passa a
+ *    "do orçamento" (faixa verde) e a peça lançada SEM código recebe o código e o valor do orçamento (a tela clássica só trocava o
+ *    código de peça que já tinha código). Nada é gravado antes do Enviar.
+ * 2) ao abrir o card: peça com "valor no orçamento" em card que tem orçamento conta como do orçamento (verde) — antes a peça de
+ *    orçamento complementar e a de card particular apareciam sempre como "incluída à mão". */
+(function () {
+  if (!document.documentElement.classList.contains('v2')) return;
+  if (typeof chamar !== 'function' || typeof novoItem !== 'function') return;
+  function nc(c) { return String(c || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); }
+  function chaveDe(it) { try { return it.dataset.orig ? String(JSON.parse(it.dataset.orig).chave || '') : ''; } catch (e) { return ''; } }
+  function itens() { return Array.prototype.slice.call(document.querySelectorAll('#itens > .item, #itensPart > .item')); }
+  var novoAnt = window.novoItem;
+  window.novoItem = function (tipo, dados) {
+    var r = novoAnt.apply(this, arguments);
+    try {
+      var el = document.getElementById('it' + seq);
+      if (el && dados && dados.chave && window.CARD && (CARD.doOrcamento || CARD.orcAnexo) && String(dados.valorOrc || '').trim() && !dados.naoComprar) el.dataset.origem = 'orc';
+    } catch (e) {}
+    return r;
+  };
+  function aplicar(r) {
+    if (!r) return;
+    var feitas = [];
+    (r.atualizar || []).forEach(function (u) {
+      if (nc(u.codigoAntigo)) return;   // peça com código: a tela clássica já atualizou
+      var el = itens().filter(function (it) { return chaveDe(it) && chaveDe(it) === u.chave; })[0]; if (!el) return;
+      var muda = [], fc = el.querySelector('.f-codigo'), vi = el.querySelector('.f-valor-orc');
+      if (u.codigo && fc && !nc(fc.value)) { fc.value = u.codigo; fc.dispatchEvent(new Event('input', { bubbles: true })); muda.push('código ' + u.codigo); }
+      if (u.valorOrc && vi) { vi.value = String(fmtValor(u.valorOrc) || u.valorOrc).replace(/^R\$\s*/, ''); vi.dispatchEvent(new Event('input', { bubbles: true })); muda.push('orç. ' + (fmtValor(u.valorOrc) || u.valorOrc)); }
+      if (muda.length) { el.dataset.origem = 'orc'; el.style.boxShadow = '0 0 0 2px var(--amarelo)'; feitas.push(((el.querySelector('.f-desc') || {}).value || '') + ': ' + muda.join(', ')); }
+    });
+    var verdes = 0;
+    (r.casadas || []).forEach(function (k) {
+      itens().forEach(function (it) { if (chaveDe(it) === k && it.dataset.origem !== 'orc') { it.dataset.origem = 'orc'; verdes++; } });
+    });
+    // código atualizado pelo orçamento (tela clássica) também é peça do orçamento
+    (r.atualizar || []).forEach(function (u) { if (!u.codigo) return; itens().forEach(function (it) { var fc = it.querySelector('.f-codigo'); if (fc && nc(fc.value) === nc(u.codigo)) it.dataset.origem = 'orc'; }); });
+    var av = document.getElementById('avisoOrc');
+    if (av && (feitas.length || verdes)) {
+      av.insertAdjacentHTML('beforeend', (feitas.length ? '<br>🔄 Peça lançada sem código — código/valor do orçamento: ' + feitas.map(esc).join('; ') : '')
+        + (verdes ? '<br>✓ ' + verdes + ' peça(s) lançada(s) à mão estão no orçamento: agora aparecem como <b>do orçamento</b> (faixa verde).' : '')
+        + (feitas.length && !/Clique em <b>Enviar<\/b>/.test(av.innerHTML) ? '<br>Clique em <b>Enviar</b> para gravar.' : ''));
+      if (typeof mostrar === 'function') mostrar('avisoOrc', true);
+    }
+  }
+  var chamarAnt = window.chamar;
+  window.chamar = function (fn) {
+    var pr = chamarAnt.apply(this, arguments);
+    if (fn === 'vdf_compararComplemento' && pr && pr.then) pr.then(function (r) { setTimeout(function () { try { aplicar(r); } catch (e) { console.log('orçamento casado: ' + e); } }, 0); }, function () {});
+    return pr;
+  };
+})();
+</script>
 </body>
 </html>

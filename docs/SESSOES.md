@@ -273,3 +273,4 @@ da outra, deixar um recado aqui e no commit.
 
 ## 22/10/2026 — código ou foto na peça particular (Weslley: "obrigar nos orçamentos particulares que o consultor preencha o código ou anexe uma foto da peça")
 - Decisões dele: vale para particular, peça 👤 em card de seguradora e retorno; botão 📷 em cada peça; só peça nova ou alterada. No TESTE (`FOTO_PECA: 'teste'`); principal só com OK (`FOTO_PECA: 'todos'` + `VD_FOTO_PECA=SIM`).
+- 21h40 — AYT6699: ler o orçamento já processado não atualizava o código da peça lançada à mão (sem código) nem a faixa amarelo → verde; corrigido (`casadas`/`atualizar` no `vdf_compararComplemento` + bloco 2.0). Pedido direto do Weslley no card do principal.

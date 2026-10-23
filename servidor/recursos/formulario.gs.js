@@ -2063,7 +2063,8 @@ function cp_comparar_(card, orc, excluirAnexo) {
   var conh = cp_conhecidas_(card, excluirAnexo);
   // atualizar: peça que o card já tem e o orçamento novo traz diferente — código novo (Weslley, 05/10/2026: "pode haver
   // mudança de código da peça, atualizar também") e/ou valor líquido novo. {chave, codigo, valorOrc, descricao}
-  var out = { oficina: [], fo: [], jaTinha: 0, pareadas: [], atualizar: [], paraOficina: [] }, vistos = {}, usadas = {};
+  // casadas (22/10/2026, AYT6699): chave de cada peça do card que o orçamento traz — o formulário marca "do orçamento" (verde)
+  var out = { oficina: [], fo: [], jaTinha: 0, pareadas: [], atualizar: [], paraOficina: [], casadas: [] }, vistos = {}, usadas = {};
   var pecasCard = conh.an.pecas || [];
   var porCodigo = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.codigo); if (k.length >= 4) porCodigo[k] = i; });
   var porDesc = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.descricao); if (k.length >= 4 && !c.pneu) porDesc[k] = i; });
@@ -2081,6 +2082,7 @@ function cp_comparar_(card, orc, excluirAnexo) {
     if (vOrc && vOrc !== vCard) u.valorOrc = vOrc;
     if (p.descricao || p.descricaoOrc) u.descricao = String(p.descricao || p.descricaoOrc).toUpperCase();
     if (u.codigo || u.valorOrc) out.atualizar.push(u);
+    if (out.casadas.indexOf(u.chave) < 0) out.casadas.push(u.chave);
     usadas[i] = 1;
   };
   var junta = function (lista, destino, ehFo) {
@@ -2132,7 +2134,7 @@ function cp_comparar_(card, orc, excluirAnexo) {
   return out;
 }
 
-// Complemento.gs:207
+// Complemento.gs:209
 function cp_foParaOficina_(conh, p, aindaFo) {
   var kc = cp_norm_(p.codigo || p.codigoOrc), desc = p.descricao || p.descricaoOrc || '';
   var foItens = (conh.foItens || []).filter(function (i) { var n = cp_norm_(i.name); return !(aindaFo || []).some(function (k) { return n.indexOf(k) >= 0; }); });
@@ -2155,7 +2157,7 @@ function cp_foParaOficina_(conh, p, aindaFo) {
   return melhor;
 }
 
-// Complemento.gs:230
+// Complemento.gs:232
 function cp_trocarCodigos_(texto, atualizar) {
   var t = String(texto || '');
   (atualizar || []).forEach(function (u) {
@@ -2165,7 +2167,7 @@ function cp_trocarCodigos_(texto, atualizar) {
   return t;
 }
 
-// Complemento.gs:240
+// Complemento.gs:242
 function cp_atualizarNoBloco_(bloco, atualizar) {
   if (!atualizar || !atualizar.length) return bloco;
   var linhas = String(bloco || '').split('\n'), lp = vd_linhasPecas_(bloco);
@@ -2183,13 +2185,13 @@ function cp_atualizarNoBloco_(bloco, atualizar) {
   return linhas.join('\n');
 }
 
-// Complemento.gs:258
+// Complemento.gs:260
 function cp_hoje_() { return Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM'); }
 
-// Complemento.gs:261
+// Complemento.gs:263
 function cp_linhaFo_(n) { return '**' + CP.FO + ':** ' + n + ' peça(s) — ver checklist ' + CP.FO; }
 
-// Complemento.gs:264
+// Complemento.gs:266
 function cp_contarChecklist_(cardId, nome, token) {
   var ls = vd_api_('/cards/' + cardId + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name' } }, token);
   var n = 0;
@@ -2197,7 +2199,7 @@ function cp_contarChecklist_(cardId, nome, token) {
   return n;
 }
 
-// Complemento.gs:275
+// Complemento.gs:277
 function cp_inserirNoBloco_(bloco, novas, nFo) {
   var linhas = String(bloco || '').split('\n');
   var ini = -1;
@@ -2260,13 +2262,13 @@ function cp_inserirNoBloco_(bloco, novas, nFo) {
   return linhas.join('\n');
 }
 
-// Complemento.gs:338
+// Complemento.gs:340
 function cp_nome_(p) {
   return p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + (p.marca ? ' ' + p.marca : '')
     : ((String(p.codigo || p.codigoOrc || '').replace(/\s+/g, '') + ' ').trim() + ' ' + String(p.descricao || p.descricaoOrc || '')).trim() + (p.qtd && +p.qtd > 1 ? ' (x' + p.qtd + ')' : '');
 }
 
-// Complemento.gs:344
+// Complemento.gs:346
 function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTipos, pareadas, atualizadas, paraOficina) {
   var semTipo = novas.some(function (p) { return !(p.tipos || []).length; });
   var t = '📄 **ORÇAMENTO COMPLEMENTAR**' + (origem ? ' (' + origem + ')' : '') + (quem ? ' — ' + quem : ' — robô') + (jaTinha ? ' · ' + jaTinha + ' já estavam no card' : '');
@@ -2287,7 +2289,7 @@ function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTi
   return t;
 }
 
-// Complemento.gs:367
+// Complemento.gs:369
 function vdf_compararComplemento(token, shortLink, o, idAnexo) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name', attachments: 'true', attachment_fields: 'name,date,mimeType' } });
@@ -2322,21 +2324,26 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     foFalta = foFalta.filter(function (p) { var kcF = cp_norm_(p.codigo || p.codigoOrc); if (kcF.length >= 6 && cp_itemColado_(card, kcF)) return true; return !itensFo.some(function (n) { return cp_similar_(p.descricao || '', n.replace(/^\S*\d\S*\s+/, '').replace(/\s+-\s+[^-]+$/, '')) > 0; }); });
     // ...e peça que ERA fornecida (está no checklist FORNECIMENTO) e o orçamento traz como da OFICINA (revertida pela
     // seguradora) entra, casando só pelo CÓDIGO (14/10/2026, JDC7H45: bandeja revertida para a oficina; o card encerrou)
-    var revert = [];
+    var revert = [], cmpOf = null;
+    try { cmpOf = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: [] }, idAnexo); } catch (e) {}
     try {
-      revert = (cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: [] }, idAnexo).paraOficina || []).filter(function (x) {
+      revert = ((cmpOf && cmpOf.paraOficina) || []).filter(function (x) {
         var kcR = cp_norm_(x.peca.codigo || x.peca.codigoOrc);
         return kcR.length >= 6 && cp_norm_(x.item.name).indexOf(kcR) >= 0;
       });
     } catch (e) {}
-    return { oficina: revert.map(function (x) { return x.peca; }), fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - revert.length, pareadas: [], atualizar: [],
+    // 22/10/2026 (Weslley, AYT6699: "leio um orçamento que o orçamentista já tinha lançado manualmente e o sistema não atualiza o
+    // código"): reler o orçamento já processado também atualiza código/valor da peça que o card já tem (casada pelo código ou pela
+    // descrição) — nada da oficina entra de novo; a mudança só vale quando quem editou clicar em Enviar
+    return { oficina: revert.map(function (x) { return x.peca; }), fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - revert.length, pareadas: [],
+      atualizar: (cmpOf && cmpOf.atualizar) || [], casadas: (cmpOf && cmpOf.casadas) || [],
       paraOficina: revert.map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }), jaProcessado: true };
   }
   var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, excluir);
-  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };
+  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], casadas: r.casadas || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };
 }
 
-// Complemento.gs:416
+// Complemento.gs:423
 function cp_itemColado_(card, kc) {
   return (card.checklists || []).some(function (k) {
     return /FORNECIMENTO/i.test(k.name || '') && (k.checkItems || []).some(function (i) {
@@ -2346,7 +2353,7 @@ function cp_itemColado_(card, kc) {
   });
 }
 
-// Complemento.gs:426
+// Complemento.gs:433
 function cp_marcarVistos_(ids) {
   if (!ids || !ids.length) return;
   sg_secao_('CP_VISTOS', function () {   // ler-modificar-gravar protegido (10/10/2026)
@@ -2357,13 +2364,13 @@ function cp_marcarVistos_(ids) {
   });
 }
 
-// Complemento.gs:438
+// Complemento.gs:445
 function cp_ligado_() { return vd_prop_('CP_LIGADO', 'SIM') !== 'NAO'; }
 
-// Complemento.gs:441
+// Complemento.gs:448
 function cp_criadoEm_(id) { return parseInt(String(id).slice(0, 8), 16) * 1000; }
 
-// Complemento.gs:443
+// Complemento.gs:450
 function cp_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || !cp_ligado_()) return 0;
   var props = PropertiesService.getScriptProperties();
@@ -2419,7 +2426,7 @@ function cp_executar_() {
   return n;
 }
 
-// Complemento.gs:500
+// Complemento.gs:507
 function cp_doAnexo_(c, a, ctx) {
   var r = vd_lerAnexoTrello_(a, { orcCompleto: true });
   if (!r || r.erro) return r && r.erro ? 'erro' : false;
@@ -2470,7 +2477,7 @@ function cp_doAnexo_(c, a, ctx) {
   return true;
 }
 
-// Complemento.gs:551
+// Complemento.gs:558
 function cp_aplicar_(card, cmp, o) {
   var nFoTotal = 0;
   if (cmp.fo.length) {
@@ -2501,7 +2508,7 @@ function cp_aplicar_(card, cmp, o) {
   if (cmp.fo.length && !cmp.oficina.length) { try { rc_reavaliarColuna_(card.id, o.token, o.quem || 'robô'); } catch (e) { console.log('complemento/coluna: ' + e); } }
 }
 
-// Complemento.gs:587
+// Complemento.gs:594
 function cp_foNaOficina_(card, token, quem) {
   var an;
   try { an = vd_analisar_(card.desc || '', card.name || ''); } catch (e) { return []; }
@@ -2534,12 +2541,12 @@ function cp_foNaOficina_(card, token, quem) {
   return removidos;
 }
 
-// Complemento.gs:623
+// Complemento.gs:630
 function cp_revLista_(cardId) {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('FO_REV_' + cardId) || '[]'); } catch (e) { return []; }
 }
 
-// Complemento.gs:626
+// Complemento.gs:633
 function cp_revGuardar_(cardId, nomes, por) {
   nomes = (nomes || []).filter(String);
   if (!nomes.length) return;
@@ -2553,7 +2560,7 @@ function cp_revGuardar_(cardId, nomes, por) {
   });
 }
 
-// Complemento.gs:640
+// Complemento.gs:647
 function vdf_foRevertidas(token, shortLink) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard' } });
@@ -2561,7 +2568,7 @@ function vdf_foRevertidas(token, shortLink) {
   return cp_revLista_(card.id).filter(function (x) { return !x.fim; });
 }
 
-// Complemento.gs:648
+// Complemento.gs:655
 function cp_revDosComentarios_(cardId) {
   var acts = vd_api_('/cards/' + cardId + '/actions', { cru: true, query: { filter: 'commentCard', limit: 300, fields: 'data,date' } }) || [];
   var l = [], fim = {};
@@ -2578,7 +2585,7 @@ function cp_revDosComentarios_(cardId) {
   PropertiesService.getScriptProperties().setProperty('FO_REV_' + cardId, JSON.stringify(l.slice(-20)));
 }
 
-// Complemento.gs:664
+// Complemento.gs:671
 function vdf_foRevertidaDevolvida(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);

@@ -131,7 +131,8 @@ function cp_comparar_(card, orc, excluirAnexo) {
   var conh = cp_conhecidas_(card, excluirAnexo);
   // atualizar: peça que o card já tem e o orçamento novo traz diferente — código novo (Weslley, 05/10/2026: "pode haver
   // mudança de código da peça, atualizar também") e/ou valor líquido novo. {chave, codigo, valorOrc, descricao}
-  var out = { oficina: [], fo: [], jaTinha: 0, pareadas: [], atualizar: [], paraOficina: [] }, vistos = {}, usadas = {};
+  // casadas (22/10/2026, AYT6699): chave de cada peça do card que o orçamento traz — o formulário marca "do orçamento" (verde)
+  var out = { oficina: [], fo: [], jaTinha: 0, pareadas: [], atualizar: [], paraOficina: [], casadas: [] }, vistos = {}, usadas = {};
   var pecasCard = conh.an.pecas || [];
   var porCodigo = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.codigo); if (k.length >= 4) porCodigo[k] = i; });
   var porDesc = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.descricao); if (k.length >= 4 && !c.pneu) porDesc[k] = i; });
@@ -149,6 +150,7 @@ function cp_comparar_(card, orc, excluirAnexo) {
     if (vOrc && vOrc !== vCard) u.valorOrc = vOrc;
     if (p.descricao || p.descricaoOrc) u.descricao = String(p.descricao || p.descricaoOrc).toUpperCase();
     if (u.codigo || u.valorOrc) out.atualizar.push(u);
+    if (out.casadas.indexOf(u.chave) < 0) out.casadas.push(u.chave);
     usadas[i] = 1;
   };
   var junta = function (lista, destino, ehFo) {
@@ -398,18 +400,23 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     foFalta = foFalta.filter(function (p) { var kcF = cp_norm_(p.codigo || p.codigoOrc); if (kcF.length >= 6 && cp_itemColado_(card, kcF)) return true; return !itensFo.some(function (n) { return cp_similar_(p.descricao || '', n.replace(/^\S*\d\S*\s+/, '').replace(/\s+-\s+[^-]+$/, '')) > 0; }); });
     // ...e peça que ERA fornecida (está no checklist FORNECIMENTO) e o orçamento traz como da OFICINA (revertida pela
     // seguradora) entra, casando só pelo CÓDIGO (14/10/2026, JDC7H45: bandeja revertida para a oficina; o card encerrou)
-    var revert = [];
+    var revert = [], cmpOf = null;
+    try { cmpOf = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: [] }, idAnexo); } catch (e) {}
     try {
-      revert = (cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: [] }, idAnexo).paraOficina || []).filter(function (x) {
+      revert = ((cmpOf && cmpOf.paraOficina) || []).filter(function (x) {
         var kcR = cp_norm_(x.peca.codigo || x.peca.codigoOrc);
         return kcR.length >= 6 && cp_norm_(x.item.name).indexOf(kcR) >= 0;
       });
     } catch (e) {}
-    return { oficina: revert.map(function (x) { return x.peca; }), fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - revert.length, pareadas: [], atualizar: [],
+    // 22/10/2026 (Weslley, AYT6699: "leio um orçamento que o orçamentista já tinha lançado manualmente e o sistema não atualiza o
+    // código"): reler o orçamento já processado também atualiza código/valor da peça que o card já tem (casada pelo código ou pela
+    // descrição) — nada da oficina entra de novo; a mudança só vale quando quem editou clicar em Enviar
+    return { oficina: revert.map(function (x) { return x.peca; }), fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - revert.length, pareadas: [],
+      atualizar: (cmpOf && cmpOf.atualizar) || [], casadas: (cmpOf && cmpOf.casadas) || [],
       paraOficina: revert.map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }), jaProcessado: true };
   }
   var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, excluir);
-  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };
+  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], casadas: r.casadas || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };
 }
 
 /** Algum item de FORNECIMENTO do card tem esse código colado na descrição (código seguido direto de letra)? */
