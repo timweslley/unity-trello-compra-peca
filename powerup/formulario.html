@@ -9307,6 +9307,79 @@ document.addEventListener('input', function (e) {
     return pr;
   };
 })();
+
+/* 23/10/2026 (comprador, via Weslley: "anexar um arquivo ou foto da cotação para arquivo") — camada 2.0, computador e celular:
+ * na aba 💰 Cotação, seção "Arquivos da cotação": print, foto ou PDF da cotação (opcional: nome do fornecedor para o nome do
+ * anexo). Sobe junto com o Salvar parcial / Enviar cotação (vdf_salvarCotacao, p.anexos) e vai para o card como
+ * "💬 COTAÇÃO · PLACA · FORNECEDOR · dd/MM"; arquivo repetido não sobe. Só anexa — não muda regra nenhuma. */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('v2') || typeof window.enviarCotacao !== 'function') return;
+  var st = document.createElement('style');
+  st.textContent = [
+    '#secCotArq .v2a-linha{display:flex;flex-wrap:wrap;gap:8px;align-items:center}',
+    '#secCotArq .v2a-linha input[type=text]{flex:1 1 180px;min-height:36px;padding:6px 8px;border:1px solid #c1c7d0;border-radius:6px;font:inherit;text-transform:uppercase}',
+    '#secCotArq .v2a-lista{margin-top:8px;font-size:13px;color:#172b4d;display:flex;flex-direction:column;gap:4px}',
+    '#secCotArq .v2a-lista .v2a-rm{margin-left:6px;color:#c62828;cursor:pointer;background:none;border:0;font:inherit;padding:0 4px;min-height:auto}',
+    'html.v2toque #secCotArq .v2a-linha input[type=text]{min-height:44px}'
+  ].join('\n');
+  document.head.appendChild(st);
+  var COT_ARQS = [];
+  function esc2(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function lista(sec) {
+    var l = sec.querySelector('.v2a-lista'); if (!l) return;
+    l.innerHTML = COT_ARQS.map(function (a, i) { return '<div>' + (a.fileId ? '📎 ' : '⏳ ') + esc2(a.nome) + (a.forn ? ' <span style="color:#44546f">(' + esc2(a.forn) + ')</span>' : '') + (a.erro ? ' <span style="color:#c62828">' + esc2(a.erro) + '</span>' : '') + (a.fileId ? '<button type="button" class="v2a-rm" data-i="' + i + '" aria-label="Tirar este arquivo">✕</button>' : '') + '</div>'; }).join('')
+      || '<div class="dica" style="margin:0">Nenhum arquivo ainda.</div>';
+    l.querySelectorAll('.v2a-rm').forEach(function (b) { b.onclick = function () { COT_ARQS.splice(+b.dataset.i, 1); lista(sec); }; });
+  }
+  function montar() {
+    var pn = document.getElementById('painelCot'); if (!pn || document.getElementById('secCotArq')) return;
+    var sec = document.createElement('section'); sec.id = 'secCotArq';
+    sec.innerHTML = '<h2>Arquivos da cotação</h2>'
+      + '<div class="dica" style="margin-bottom:8px">Print, foto ou PDF da cotação do fornecedor — fica no card como registro. Opcional: escreva o fornecedor antes de anexar, para o nome do arquivo.</div>'
+      + '<div class="v2a-linha"><input type="text" id="cotArqForn" placeholder="Fornecedor (opcional)" autocomplete="off">'
+      + '<label class="v2-btnarq" style="cursor:pointer">📎 Anexar print, foto ou PDF<input type="file" id="cotArqFile" multiple accept="image/*,application/pdf" style="display:none"></label></div>'
+      + '<div class="v2a-lista"></div>';
+    var rod = pn.querySelector(':scope > .item');
+    if (rod) pn.insertBefore(sec, rod); else pn.appendChild(sec);
+    lista(sec);
+    var inp = sec.querySelector('#cotArqFile');
+    inp.addEventListener('change', function () {
+      var forn = (sec.querySelector('#cotArqForn').value || '').trim().toUpperCase();
+      Array.prototype.forEach.call(inp.files || [], function (f) {
+        if (f.size > 15 * 1024 * 1024) { COT_ARQS.push({ nome: f.name, forn: forn, erro: 'arquivo muito grande (máx. 15 MB)' }); lista(sec); return; }
+        var a = { nome: f.name, forn: forn, fileId: '' }; COT_ARQS.push(a); lista(sec);
+        lerArquivo(f).then(function (b64) { return chamar('vdf_subirArquivo', TOKEN, b64, f.type || 'application/octet-stream', f.name); })
+          .then(function (r) { a.fileId = r.fileId; lista(sec); })
+          .catch(function (e) { a.erro = e.message; lista(sec); });
+      });
+      inp.value = '';
+    });
+  }
+  // os anexos vão junto no vdf_salvarCotacao (parcial ou envio)
+  var chamarOrig = window.chamar;
+  window.chamar = function (fn) {
+    if (fn === 'vdf_salvarCotacao' && arguments[2] && typeof arguments[2] === 'object') {
+      var prontos = COT_ARQS.filter(function (a) { return a.fileId; });
+      if (prontos.length) arguments[2].anexos = prontos.map(function (a) { return { fileId: a.fileId, nome: a.nome, forn: a.forn }; });
+      if (COT_ARQS.some(function (a) { return !a.fileId && !a.erro; })) { try { errosComprador(['Espere os arquivos da cotação terminarem de subir.']); } catch (e) {} return Promise.reject(new Error('Arquivos ainda subindo.')); }
+      var pr = chamarOrig.apply(this, arguments);
+      pr.then(function (r) { if (r && r.ok) { COT_ARQS = []; var sec = document.getElementById('secCotArq'); if (sec) lista(sec); } });
+      return pr;
+    }
+    return chamarOrig.apply(this, arguments);
+  };
+  // "Salvar parcial" só com arquivo (sem cotação nova): a tela clássica dizia "Nada novo para salvar" — com arquivo pronto, pode
+  var coletarOrig = window.coletarCotacoes;
+  if (typeof coletarOrig === 'function') window.coletarCotacoes = function (parcial) {
+    var c = coletarOrig.apply(this, arguments);
+    if (parcial && c && c.faltas && COT_ARQS.some(function (a) { return a.fileId; })) c.faltas = c.faltas.filter(function (f) { return !/Nada novo para salvar/.test(f); });
+    return c;
+  };
+  var montarOrig = window.montarCotacao;
+  if (typeof montarOrig === 'function') window.montarCotacao = function () { var r = montarOrig.apply(this, arguments); try { COT_ARQS = []; montar(); } catch (e) { console.log('arquivos da cotação: ' + e); } return r; };
+  else { try { montar(); } catch (e) {} }
+})();
 </script>
 </body>
 </html>

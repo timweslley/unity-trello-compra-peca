@@ -1244,7 +1244,8 @@ function vdf_salvarCotacao(token, p) {
    *  parcial = false -> "enviar": exige toda peça com cotação ou motivo; sem novidade também vale (fecha o que foi salvo parcialmente). */
   var parcial = !!p.parcial;
   var nada = !cots.length && !nt.length && !obs.length && !semCot.length && !rem.length;
-  if (nada && parcial) faltas.push('Nada novo para salvar.');
+  var arqsCot = (p.anexos || []).filter(function (a) { return a && a.fileId; }).map(function (a) { return { fileId: a.fileId, nome: a.nome, forn: String(a.forn || '').trim().toUpperCase(), peca: '' }; });   // 23/10/2026: print/foto/PDF da cotação
+  if (nada && parcial && !arqsCot.length) faltas.push('Nada novo para salvar.');
   if (faltas.length) return { ok: false, faltas: faltas };
   /* 07/10/2026 (Weslley): cotação lançada em peça JÁ AUTORIZADA (ou comprada) é só de registro — fica na descrição e na
    * vitrine ("📝 também cotado"), mas não mexe na autorização, não move o card e não menciona ninguém. Vale quando toda
@@ -1289,6 +1290,10 @@ function vdf_salvarCotacao(token, p) {
     try { vdf_etiquetaParcial_(card, parcial || cob.faltam.length > 0, token); } catch (e) {}
   }
   var nPc = Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length;
+  // 23/10/2026 (comprador): print/foto/PDF da cotação anexado ao card como "💬 COTAÇÃO · PLACA · FORN · dd/MM" (repetido não sobe)
+  var axCot = { anexados: [], repetidos: [] };
+  if (arqsCot.length) { try { axCot = vdf_anexarCompra_(card, arqsCot, token, AX.COT); } catch (e) { console.log('cotação/anexos: ' + e); } }
+  var txtAxCot = (axCot.anexados.length ? '\n📎 Cotação: ' + axCot.anexados.join(' · ') : '') + (axCot.repetidos.length ? '\n🗑️ Não anexado (repetido): ' + axCot.repetidos.join(' · ') : '');
   if (registro) {
     try {
       vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '📝 **COTAÇÃO DE REGISTRO** — ' + me.fullName + ' · ' + cots.length + ' cotação(ões) em ' + nPc + ' peça(s) já autorizada(s): a autorização e a coluna não mudam. Para trocar o fornecedor autorizado, use "cotação indisponível" na aba Compra.' } }, token);
@@ -1300,7 +1305,7 @@ function vdf_salvarCotacao(token, p) {
     // salva aos poucos: NÃO comenta no card (21/10/2026, Weslley: "aviso nenhum de cotação parcial, tá tumultuando") —
     // o card não anda e o comprador vê a situação no próprio formulário; o aviso sai só no "Enviar cotação".
     try { vd_marcar_(card); } catch (e) {}
-    return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length };
+    return { ok: true, parcial: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length, anexos: axCot.anexados.length, repetidos: axCot.repetidos };
   }
   try {
     // menciona o setor de compras (quem cuida do card daqui em diante), não o consultor (05/10/2026, Weslley);
@@ -1313,10 +1318,11 @@ function vdf_salvarCotacao(token, p) {
     if (cob.faltam.length) txt += '\n⏳ **PARCIAL** — falta cotar ou justificar: ' + cob.faltam.join(', ');
     else if (cob.semCot.length) txt += '\n⛔ **NÃO COTADAS:** ' + cob.semCot.map(function (s) { return s.nome + ' (' + s.texto + ')'; }).join('; ');
     if (misto && !cob.faltam.length) txt += '\n👤 Particulares: autoriza o consultor pela aba Autorizar.';
+    txt += txtAxCot;
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
-  return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length };
+  return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || vdf_nomeLista_(ctx, card.idList), n: cots.length, obs: obs.length, faltam: cob.faltam, semCot: cob.semCot.length, anexos: axCot.anexados.length, repetidos: axCot.repetidos };
 }
 
 /** Monta a descrição nova com o bloco de cotação deste envio (abaixo do marcador). */
@@ -1895,7 +1901,7 @@ function vdf_salvarCompra(token, p) {
  * Regra do Weslley: tudo o que foi colado vai para o card, exceto cópia idêntica (MD5) de anexo que já está lá.
  * Devolve {anexados:[nome], repetidos:[nome original]}.
  */
-function vdf_anexarCompra_(card, arqs, token) {
+function vdf_anexarCompra_(card, arqs, token, tipoAx) {   // tipoAx: AX.COMPRA (padrão) ou AX.COT (23/10/2026, anexos da cotação)
   var out = { anexados: [], repetidos: [] };
   if (!arqs || !arqs.length) return out;
   var placa = ax_placa_(card), anexosCard = [];
@@ -1912,7 +1918,7 @@ function vdf_anexarCompra_(card, arqs, token) {
       })[0];
       if (igual) { out.repetidos.push((a.nome || f.getName()) + ' (já está no card como «' + igual.name + '»)'); f.setTrashed(true); return; }
       var curto = String(a.peca || '').replace(/^[A-Z0-9][A-Z0-9\/.\-]{3,}\s+/, '').slice(0, 40).trim();   // descrição sem o código
-      var nome = ax_nome_(AX.COMPRA, placa, [a.forn || '', curto]);
+      var nome = ax_nome_(tipoAx || AX.COMPRA, placa, [a.forn || '', curto]);
       var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: blob, name: nome } }, token);
       if (at && at.id) { nome = ax_batizar_(card.id, at.id, nome, anexosCard, token, { nomeAtual: nome, semVersao: true }); anexosCard.push({ id: at.id, name: nome, bytes: bytes, isUpload: true, date: new Date().toISOString() }); hashes[at.id] = md5; }
       f.setTrashed(true);

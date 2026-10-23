@@ -282,3 +282,5 @@ da outra, deixar um recado aqui e no commit.
 - 10h40 — Patch da Rotina (sessão Opus) revisado e aplicado por esta sessão: lógica ok (chave por quadro, linha "nenhuma peça…"
   compatível com vd_linhasPecas_/vd_linhasConsultor_, base VD_PK2_ na criação, ENCERRADO → ENTREGUES pela rotina de 15 dias).
   Ligado no principal (padrão SIM) porque o pedido do Weslley de 23/10 é para os cards reais (DTA9330, GHH1I54, FYS4A72).
+- 10h44 — Weslley (pedido do comprador): anexar arquivo/foto da cotação para registro. Seção "Arquivos da cotação" na aba
+  Cotação (2.0, computador e celular), sobe junto com parcial/envio, anexo `💬 COTAÇÃO · PLACA · FORN · dd/MM`.
