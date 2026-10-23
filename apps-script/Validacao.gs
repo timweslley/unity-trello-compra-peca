@@ -1509,6 +1509,25 @@ function vd_descMudou_(card) {
   } catch (e) { console.log('descMudou: ' + e); return false; }
 }
 
+/* 22/10/2026 (Weslley, AYT6699: "tive que mandar 2x pra sair de FALTA DADOS para EM COTAÇÃO"): o formulário salvou (tipos
+ * marcados) e levou o card para EM COTAÇÃO; 3 s depois o ciclo do robô — com a descrição completa ANTIGA na mão (a gravação
+ * da cópia oficial ainda não tinha chegado) — achou "falta o tipo" e devolveu o card para FALTA DADOS, sem comentário (o aviso
+ * era igual ao anterior). Antes de devolver para FALTA DADOS um card mexido há pouco, o robô confere se a cópia oficial bate com
+ * a descrição que está no Trello e com a que ele leu; se não bate, deixa para o próximo ciclo. */
+function vd_completaAtrasada_(card) {
+  try {
+    var t = Date.parse(card.dateLastActivity || '');
+    if (!t || Date.now() - t > 5 * 60 * 1000) return false;   // card parado: segue a regra de sempre
+    var c = vd_api_('/cards/' + card.id, { cru: true, query: { fields: 'desc' } });
+    var sh = tr_aba_(), cel = sh.getRange('A:A').createTextFinder(card.id).matchEntireCell(true).findNext();
+    if (!cel) return false;
+    var lin = sh.getRange(cel.getRow(), 1, 1, 5).getValues()[0], cmp = String(lin[4] || '');
+    if (!cmp) return false;   // card sem vitrine: a descrição do Trello é a própria
+    if (String(lin[1] || '') !== tr_hash_(String(c.desc || ''))) return true;   // a vitrine no Trello é de outra gravação
+    return cmp !== String(card.desc || '');   // a completa que o ciclo leu é velha
+  } catch (e) { console.log('completaAtrasada: ' + e); return false; }
+}
+
 /** Confere um card de EM COTAÇÃO / FALTA DADOS. ctx = {board, listas, modoAtivo, prazo, urlForm}. */
 function vd_conferirCard_(card, ctx) {
   var props = PropertiesService.getScriptProperties();
@@ -1650,6 +1669,9 @@ function vd_conferirCard_(card, ctx) {
   var soTipo = faltas.length > 0 && faltas.every(function (f) { return /falta (marcar )?o tipo de peça/.test(f); });
   if (faltas.length) {
     res.acao = card.idList === idFalta ? 'continua em FALTA DADOS' : 'vai para FALTA DADOS';
+    if (ctx.modoAtivo && card.idList !== idFalta && vd_completaAtrasada_(card)) {
+      res.acao = 'descrição ainda em gravação (cópia oficial ≠ Trello) — fica para o próximo ciclo'; res.pular = true; return res;
+    }
     if (ctx.modoAtivo) {
       if (card.idList !== idFalta) vd_mover_(card, idFalta, 'top');
       if (sigAtual !== sigAnterior) {
@@ -2069,8 +2091,9 @@ function vd_executarNucleo_() {
     if (!mudou(c) && ctx.modoAtivo) return;
     if (ctx.modoAtivo) ax_padronizarCard_(c, null);
     if (vd_legado_(c.id)) return;   // card antigo: segue o jeito antigo
-    out.push(vd_conferirCard_(c, ctx));
-    if (ctx.modoAtivo) vd_marcar_(c);
+    var rc = vd_conferirCard_(c, ctx);
+    out.push(rc);
+    if (ctx.modoAtivo && !rc.pular) vd_marcar_(c);   // pulado (descrição em gravação): o próximo ciclo olha de novo
   });
   return out;
 }
