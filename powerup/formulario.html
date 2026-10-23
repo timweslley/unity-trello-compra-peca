@@ -9058,7 +9058,7 @@ document.addEventListener('input', function (e) {
         return '<div class="v2d-item" data-id="' + esc2(d.id) + '"><div class="v2d-topo"><b>↩️ ' + esc2(d.peca) + '</b><span class="v2d-meta">' + esc2(meta.replace(d.peca, '').replace(/^\s*-\s*/, '')) + '</span></div>'
           + '<div class="v2d-campos"><div><label>Data da devolução</label><input type="date" class="v2d-data" value="' + esc2(d.dueIso || '') + '"></div>'
           + '<div><label>Nº da NF de devolução</label><input type="text" class="v2d-nf" inputmode="numeric" placeholder="ex.: 12345"></div>'
-          + '<div class="v2d-arq"><label class="v2-btnarq" style="cursor:pointer">📎 Anexar NF (PDF/XML)<input type="file" class="v2d-file" accept="application/pdf,.xml,image/*" style="display:none"></label><div class="v2d-lista"></div></div></div></div>';
+          + '<div class="v2d-arq"><label class="v2-btnarq" data-v2c="1" style="cursor:pointer"><span class="v2i v2i-clip" aria-hidden="true"></span>Anexar NF (PDF/XML)<input type="file" class="v2d-file" accept="application/pdf,.xml,image/*" style="display:none"></label><div class="v2d-lista"></div></div></div></div>';
       }).join('')
       + (feitas.length ? '<div class="dica" style="margin:6px 0 4px">Com NF informada:</div>' + feitas.map(function (d) {
         return '<div class="v2d-item ok"><div class="v2d-topo"><b>✔ ' + esc2(d.peca) + '</b><span class="v2d-meta">NF ' + esc2(d.nf) + ' · ' + esc2(d.nfData) + '</span></div></div>';
@@ -9338,7 +9338,7 @@ document.addEventListener('input', function (e) {
     sec.innerHTML = '<h2>Arquivos da cotação</h2>'
       + '<div class="dica" style="margin-bottom:8px">Print, foto ou PDF da cotação do fornecedor — fica no card como registro. Opcional: escreva o fornecedor antes de anexar, para o nome do arquivo.</div>'
       + '<div class="v2a-linha"><input type="text" id="cotArqForn" placeholder="Fornecedor (opcional)" autocomplete="off">'
-      + '<label class="v2-btnarq" style="cursor:pointer">📎 Anexar print, foto ou PDF<input type="file" id="cotArqFile" multiple accept="image/*,application/pdf" style="display:none"></label></div>'
+      + '<label class="v2-btnarq" data-v2c="1" style="cursor:pointer"><span class="v2i v2i-clip" aria-hidden="true"></span>Anexar print, foto ou PDF<input type="file" id="cotArqFile" multiple accept="image/*,application/pdf" style="display:none"></label></div>'
       + '<div class="v2a-lista"></div>';
     var rod = pn.querySelector(':scope > .item');
     if (rod) pn.insertBefore(sec, rod); else pn.appendChild(sec);
