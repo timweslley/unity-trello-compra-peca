@@ -2809,11 +2809,13 @@ function enviar(ev) {
   enviarPayload(c.payload);
 }
 /* 💾 Salvar parcial (13/10/2026): grava mesmo com dado faltando (tipo, código, chassi, orçamento…); o robô deixa o card em
-   FALTA DADOS e comenta o que falta. Placa, unidade, carro e ao menos uma peça continuam obrigatórios. */
+   FALTA DADOS e comenta o que falta. 23/10/2026 (Weslley): não exige mais nada — só a placa num card novo (título). */
 function enviarParcial() {
   mostrar('erroGeral', false);
   var c = coletar();
-  var duras = c.faltas.filter(function (f) { return /placa|unidade|carro \(nome|pelo menos uma peça|valor inválido/i.test(f); });
+  // 23/10/2026 (Weslley: "salvar parcial não deve exigir nada"): só a placa num card novo (precisa de título) e valor inválido
+  var duras = c.faltas.filter(function (f) { return /valor inválido/i.test(f); });
+  if (!CARD_EDICAO && !placaOk(normPlaca($('placa').value))) duras.push('Dados do carro: falta placa (o card novo precisa dela no título)');
   if (duras.length) return mostrarErros(duras);
   c.payload.parcial = true;
   if (CARD_EDICAO && POS) { var alt = pecasAlteradas(); if (alt.length) return perguntarRecotar(alt, c.payload); }

@@ -5846,7 +5846,7 @@ function vdf_salvar(token, p) {
     if (!ctx.listas[RC.LISTA_FIM]) faltasMO.push('Quadro sem a coluna ' + RC.LISTA_FIM + '.');
     if (faltasMO.length) return { ok: false, faltas: faltasMO };
   }
-  if (!pecas.length && !fo.length && !compFo.length && !temFoNoCard && !soMO && !temMoNoCard) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora). Se a peça não vai ser comprada, marque 🚫 Não comprar em vez de remover.'] };
+  if (!pecas.length && !fo.length && !compFo.length && !temFoNoCard && !soMO && !temMoNoCard && !parcial) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora). Se a peça não vai ser comprada, marque 🚫 Não comprar em vez de remover.'] };
   var temOrcNoCard = !!(card && vd_analisar_(card.desc, card.name).doOrcamento);
   if (card && !temOrcNoCard) { try { temOrcNoCard = vd_temOrcAnexo_(vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name' } })); } catch (e) {} }
   var soAcrescentaParticular = !!card && (p.pecas || []).some(function (x) { return x.particular; });
@@ -5889,10 +5889,11 @@ function vdf_salvar(token, p) {
       faltas.push(vd_nomePeca_(x) + ': peça ' + (tipo === 'RETORNO' ? 'de retorno' : 'particular') + ' sem código — escreva o código ou anexe uma foto da peça (📷 Foto da peça)');
     });
   }
-  if (parcial) faltas = faltas.filter(function (f) { return /^placa|^carro \(nome/i.test(f); });
+  // 23/10/2026 (Weslley: "salvar parcial não deve exigir nada — é só para salvar e terminar depois"): só a placa (card novo precisa de título)
+  if (parcial) faltas = faltas.filter(function (f) { return /^placa/i.test(f) && !p.shortLink; });
   if (faltas.length) return { ok: false, faltas: faltas };
 
-  var titulo = String(n.carro || '').trim() ? vd_titulo_(d.placa, n.carro, extra.cor, extra.seguradora) : '';
+  var titulo = String(n.carro || '').trim() ? vd_titulo_(d.placa, n.carro, extra.cor, extra.seguradora) : (!p.shortLink ? vd_titulo_(d.placa, '', extra.cor, extra.seguradora) : '');   // 23/10/2026: parcial sem carro → título só com placa (o robô pede o carro)
   var novasPecas = posCot ? an.novas : [];
   /* 07/10/2026 (Weslley): peça alterada em card que já andou — quem editou respondeu que a mudança NÃO exige nova cotação
    * (acerto de texto, código atualizado…): não é peça nova, o card fica onde está e as cotações/autorizações seguem o
@@ -6180,14 +6181,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:2593
+// FormularioServidor.gs:2594
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:2605
+// FormularioServidor.gs:2606
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -6262,21 +6263,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:2682
+// FormularioServidor.gs:2683
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:2688
+// FormularioServidor.gs:2689
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:2694
+// FormularioServidor.gs:2695
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {

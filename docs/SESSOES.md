@@ -292,3 +292,5 @@ da outra, deixar um recado aqui e no commit.
   peça. Testado no TESTE (ZZT9C01): `💬 COTAÇÃO · ZZT9C01 · AUTOX · GRADE DO PARACHOQUE 🧪 · 23/10`.
 - 15h56 — TBP3J46 (Allianz, Cilia): modelo e ano não lidos — marca-d'água "NÃO AUTORIZADO" com letras soltas depois do ano
   quebrava a regra CASCO. Corrigido (+ teste); leitor v4. Obs.: o orçamento está "NÃO AUTORIZADO" no Cilia (marca-d'água).
+- 15h57 — Weslley: "salvar parcial não foi — ele deve exigir nada, é só pra salvar e depois terminar" (TBP3J46 barrava por
+  falta de unidade). Parcial agora só exige placa em card novo (servidor + tela).
