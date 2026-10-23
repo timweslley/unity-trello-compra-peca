@@ -9104,5 +9104,149 @@ document.addEventListener('input', function (e) {
   window.montarRecebimento = function (c) { var r = orig.apply(this, arguments); try { desenhar(c); } catch (e) { console.log('devoluções: ' + e); } return r; };
 })();
 </script>
+<script>
+/* 22/10/2026 (Weslley: "obrigar nos orçamentos particulares que o consultor preencha o código ou anexe uma foto da peça") — 2.0:
+ * em peça particular (pedido particular, peça 👤 em card de seguradora) e de retorno, onde o código é opcional, cada peça ganha
+ * "📷 Foto da peça". Sem código e sem foto, a peça nova (ou com descrição mudada) não é enviada. A foto sobe como os outros
+ * anexos (vdf_subirArquivo) e vai para o card com o nome da peça; a peça ganha a marca "| FOTO". A regra é do servidor
+ * (vdf_salvar, vdf_fotoPecaLigada_); aqui só o botão e o aviso no "o que falta".
+ * Liga por PU_CFG.FOTO_PECA: 'teste' (só no TESTE, srv=1) | 'todos' | desligado. */
+(function () {
+  if (!document.documentElement.classList.contains('v2')) return;
+  if (typeof MODO_COMPRAS !== 'undefined' && MODO_COMPRAS) return;
+  var cfg = window.PU_CFG && PU_CFG.FOTO_PECA;
+  var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  if (!document.getElementById('itens') || typeof coletar !== 'function') return;
+
+  var st = document.createElement('style');
+  st.textContent = '.v2-fotopeca{margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:13px;color:#44546f}'
+    + '.v2-fotopeca .fp-bt{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:4px 12px;border:1px solid #c1c7d0;border-radius:var(--r-sm,6px);background:#fff;color:#0c66e4;font-weight:600;cursor:pointer}'
+    + '.v2-fotopeca .fp-bt:hover{background:#e9f2ff;border-color:#0c66e4}'
+    + '.v2toque .v2-fotopeca .fp-bt{min-height:44px;padding:8px 14px;font-size:15px}'
+    + '.v2-fotopeca .fp-falta{color:#ae2e24;font-weight:600}.v2-fotopeca .fp-ok{color:#216e4e;font-weight:600}'
+    + '.v2-fotopeca .fp-foto{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;background:#f1f2f4;color:#172b4d}'
+    + '.v2-fotopeca .fp-tirar{border:0;background:none;color:#ae2e24;cursor:pointer;font-size:13px;padding:0 2px;min-width:24px;min-height:24px}'
+    + '.v2toque .v2-fotopeca .fp-tirar{min-width:44px;min-height:44px}'
+    + '.item.v2-fp-falta{box-shadow:0 0 0 2px #ae2e24 inset}';
+  document.head.appendChild(st);
+
+  function norm(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim(); }
+  function val(it, sel) { var e = it.querySelector(sel); return e ? String(e.value || '').trim() : ''; }
+  function itensPedido() { return Array.prototype.slice.call(document.querySelectorAll('#itens > .item, #itensPart > .item')); }
+  /* onde o código é opcional na tela clássica: peça 👤 particular, ou pedido particular/retorno (fora de card misto) */
+  function regra(it) {
+    if (it.dataset.tipo === 'pneu' || it.dataset.nao === '1') return false;
+    if (it.parentNode && it.parentNode.id === 'itensPart') return true;
+    var misto = typeof modoMisto === 'function' && modoMisto();
+    return !misto && /^(PARTICULAR|RETORNO)$/.test(tipoPedido());
+  }
+  function fotos(it) { return (it.__fotos || []).filter(function (f) { return FILE_IDS.indexOf(f.fileId) >= 0; }); }
+  /* peça que já estava no card com a mesma descrição (sem código): fica como está — a regra vale para peça nova ou alterada */
+  function jaNoCard(it) {
+    if (!it.dataset.orig) return false;
+    try { var o = JSON.parse(it.dataset.orig); return !o.codigo && norm(o.descricao) === norm(val(it, '.f-desc')); } catch (e) { return false; }
+  }
+  function precisa(it) { return regra(it) && !val(it, '.f-codigo') && !!val(it, '.f-desc') && !fotos(it).length && !jaNoCard(it); }
+
+  function desenhar(it) {
+    var linha = it.querySelector(':scope > .v2-fotopeca');
+    var lbl = it.querySelector('.grade > div:has(> .f-codigo) > label span');
+    if (!regra(it)) { if (linha) linha.remove(); it.classList.remove('v2-fp-falta'); return; }
+    if (lbl && /opcional/.test(lbl.textContent)) lbl.textContent = '(ou foto da peça)';
+    if (!linha) {
+      linha = document.createElement('div');
+      linha.className = 'v2-fotopeca';
+      var ancora = (it.querySelector('.f-obs') || {}).parentNode;
+      if (ancora && ancora.parentNode === it) ancora.insertAdjacentElement('afterend', linha); else it.appendChild(linha);
+    }
+    var fs = fotos(it), cod = val(it, '.f-codigo');
+    var h = '<button type="button" class="fp-bt" aria-label="Anexar foto desta peça">📷 Foto da peça</button>'
+      + '<input type="file" class="fp-arq" accept="image/*" multiple hidden>';
+    if (fs.length) h += '<span class="fp-ok">✓ ' + fs.length + ' foto(s) — vai para o card</span>' + fs.map(function (f, i) { return '<span class="fp-foto">' + esc(f.nome) + '<button type="button" class="fp-tirar" data-i="' + i + '" aria-label="Tirar a foto ' + esc(f.nome) + '">✕</button></span>'; }).join('');
+    else if (it.__enviando) h += '<span>Enviando a foto…</span>';
+    else if (precisa(it)) h += '<span class="fp-falta">Sem código: anexe uma foto da peça</span>';
+    else if (!cod && jaNoCard(it)) h += '<span>Já estava no card — foto opcional</span>';
+    else h += '<span>Com código, a foto é opcional</span>';
+    if (linha.__h !== h) { linha.innerHTML = h; linha.__h = h; }
+    it.classList.toggle('v2-fp-falta', !!it.__marcarFalta && precisa(it));
+  }
+  function redesenhar() { itensPedido().forEach(function (it) { try { desenhar(it); } catch (e) {} }); }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target; if (!t || !t.closest) return;
+    var it = t.closest('#itens > .item, #itensPart > .item'); if (!it) return;
+    if (t.closest('.fp-bt')) { var arq = it.querySelector('.fp-arq'); if (arq) arq.click(); return; }
+    var tir = t.closest('.fp-tirar');
+    if (tir) {
+      var f = fotos(it)[+tir.dataset.i]; if (!f) return;
+      it.__fotos = (it.__fotos || []).filter(function (x) { return x !== f; });
+      FILE_IDS = FILE_IDS.filter(function (id) { return id !== f.fileId; });
+      ANEXOS = ANEXOS.filter(function (a) { return a.fileId !== f.fileId; });
+      try { listarAnexos(); } catch (x) {}
+      desenhar(it);
+    }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target; if (!t) return;
+    if (t.classList && t.classList.contains('fp-arq')) {
+      var it = t.closest('.item'), lista = Array.prototype.slice.call(t.files || []); t.value = '';
+      var ruins = lista.filter(function (f) { return !/^image\//i.test(f.type || '') || f.size > 15 * 1024 * 1024; });
+      lista = lista.filter(function (f) { return ruins.indexOf(f) < 0; });
+      if (ruins.length) { try { avisoMov('Só foto (imagem) de até 15 MB: ' + ruins.map(function (f) { return esc(f.name); }).join(', ')); } catch (x) {} }
+      if (!lista.length) return;
+      it.__enviando = true; desenhar(it);
+      var desc = val(it, '.f-desc') || 'peça';
+      lista.reduce(function (pr, f) {
+        return pr.then(function () {
+          return lerArquivo(f).then(function (b64) { return chamar('vdf_subirArquivo', TOKEN, b64, f.type || 'image/jpeg', f.name); }).then(function (r) {
+            FILE_IDS.push(r.fileId);
+            ANEXOS.push({ nome: '📷 ' + desc + ': ' + f.name, fileId: r.fileId, tipo: 'peca' });
+            (it.__fotos = it.__fotos || []).push({ fileId: r.fileId, nome: f.name });
+          });
+        });
+      }, Promise.resolve()).catch(function (x) { try { avisoMov('Não consegui enviar a foto: ' + esc(x.message)); } catch (y) {} })
+        .then(function () { it.__enviando = false; try { listarAnexos(); } catch (x) {} desenhar(it); });
+      return;
+    }
+    if (t.name === 'tipoPedido' || (t.classList && (t.classList.contains('f-nao') || t.type === 'radio'))) setTimeout(redesenhar, 0);
+  });
+  document.addEventListener('input', function (e) {
+    var t = e.target; if (!t || !t.classList) return;
+    if (t.classList.contains('f-codigo') || t.classList.contains('f-desc')) { var it = t.closest('#itens > .item, #itensPart > .item'); if (it) desenhar(it); }
+  });
+  var obs = new MutationObserver(function () { clearTimeout(obs.__t); obs.__t = setTimeout(redesenhar, 30); });
+  ['itens', 'itensPart'].forEach(function (id) { var c = document.getElementById(id); if (c) obs.observe(c, { childList: true }); });
+  redesenhar();
+
+  /* envio: as fotos de cada peça vão com a peça (fotoIds) e o anexo leva o nome da peça; sem código e sem foto entra no "o que falta" */
+  var anterior = window.coletar;
+  window.coletar = function () {
+    var r = anterior.apply(this, arguments);
+    try {
+      if (!r || !r.payload) return r;
+      var misto = typeof modoMisto === 'function' && modoMisto();
+      var todos = Array.prototype.slice.call(document.getElementById('itens').children).concat(misto ? Array.prototype.slice.call(document.getElementById('itensPart').children) : []);
+      var vale = todos.filter(function (el) { return !(itemVazio(el) && el.dataset.nao !== '1'); });   // mesma ordem das peças do envio (coletar)
+      var porArq = {};
+      vale.forEach(function (el, i) {
+        var pc = (r.payload.pecas || [])[i], fs = fotos(el);
+        if (pc && fs.length && el.dataset.tipo !== 'pneu') {
+          pc.fotoIds = fs.map(function (f) { return f.fileId; });
+          fs.forEach(function (f) { porArq[f.fileId] = val(el, '.f-desc'); });
+        }
+        if (precisa(el)) {
+          el.__marcarFalta = true;
+          var n = ((el.querySelector('.num') || {}).textContent || '').trim();
+          (r.faltas = r.faltas || []).push(n + ' (' + val(el, '.f-desc') + '): sem código — escreva o código ou anexe uma foto da peça (📷 Foto da peça)');
+        } else el.__marcarFalta = false;
+        desenhar(el);
+      });
+      (r.payload.arquivos || []).forEach(function (a) { if (a && porArq[a.fileId] != null) { a.tipo = 'peca'; a.peca = porArq[a.fileId]; } });
+    } catch (e) { console.log('foto da peça: ' + e); }
+    return r;
+  };
+})();
+</script>
 </body>
 </html>

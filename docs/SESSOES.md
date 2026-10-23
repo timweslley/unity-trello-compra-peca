@@ -270,3 +270,6 @@ da outra, deixar um recado aqui e no commit.
   09/10, troca) e AAZ0E84 (calha de chuva, Mercado Livre, 13/10) — incluídas via `vdf_incluirDevolucao` (diretoria). Fora:
   ATP5105 (ventoinha voltou ao estoque WEV, interno), FOB8723/JDC7H45 (movimentos internos de estoque), 2 cards antigos de
   fev/set em PENDÊNCIA (fluxo antigo).
+
+## 22/10/2026 — código ou foto na peça particular (Weslley: "obrigar nos orçamentos particulares que o consultor preencha o código ou anexe uma foto da peça")
+- Decisões dele: vale para particular, peça 👤 em card de seguradora e retorno; botão 📷 em cada peça; só peça nova ou alterada. No TESTE (`FOTO_PECA: 'teste'`); principal só com OK (`FOTO_PECA: 'todos'` + `VD_FOTO_PECA=SIM`).

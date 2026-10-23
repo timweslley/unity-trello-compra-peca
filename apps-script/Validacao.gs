@@ -369,8 +369,8 @@ var VD_ROT_EXTRA = {
 
 /** Assinatura de uma linha de peça (para saber se é peça nova). */
 function vd_sigItem_(linha) {
-  // "| ORÇ R$ x" (valor da peça no orçamento) e "| OBS: texto" (observação do consultor) não entram na assinatura: informativos, não travam nem contam como peça nova
-  return vd_semAcento_(vd_limpar_(linha)).replace(/\s*\|\s*ORC\.?\s*R?\$?\s*[\d.,]+/gi, '').replace(/\s*\|\s*OBS\.?\s*[:\-]\s*[^|]*/gi, '').replace(/^\s*(?:\d+\s*[.)\-]|[-•*])\s*/, '').replace(/\s*\|\s*/g, '|').replace(/\s+/g, ' ').trim();
+  // "| ORÇ R$ x" (valor da peça no orçamento), "| OBS: texto" (observação do consultor) e "| FOTO" (22/10/2026) não entram na assinatura: informativos, não travam nem contam como peça nova
+  return vd_semAcento_(vd_limpar_(linha)).replace(/\s*\|\s*ORC\.?\s*R?\$?\s*[\d.,]+/gi, '').replace(/\s*\|\s*OBS\.?\s*[:\-]\s*[^|]*/gi, '').replace(/\s*\|\s*FOTO\s*(?=\||$)/gi, '').replace(/^\s*(?:\d+\s*[.)\-]|[-•*])\s*/, '').replace(/\s*\|\s*/g, '|').replace(/\s+/g, ' ').trim();
 }
 
 /** 20/10/2026 (QAX3J48): formas da assinatura sem as marcas do complementar ("| COMPL: AUTORIZADO…" e "| COMPLEMENTO dd/mm").
@@ -505,8 +505,10 @@ function vd_analisar_(desc, nomeCard, opts) {
 function vd_analisarPeca_(linha, n, opts) {
   opts = opts || {};
   var partes = linha.split('|').map(function (s) { return s.trim(); });
-  var qtd = '', part = false, partPor = '', comp = false, compData = '', compStatus = '', compPor = '', nao = false, naoMotivo = '', valorOrc = '', obs = '';
+  var qtd = '', part = false, partPor = '', comp = false, compData = '', compStatus = '', compPor = '', nao = false, naoMotivo = '', valorOrc = '', obs = '', foto = false;
   partes = partes.filter(function (s) {
+    // 22/10/2026 (Weslley): "| FOTO" = o consultor anexou foto da peça no pedido (peça particular/retorno sem código)
+    if (/^FOTO$/i.test(s)) { foto = true; return false; }
     var m = s.match(/^QTD\.?\s*:?\s*(\d+)$/i);
     if (m) { qtd = m[1]; return false; }
     // observação do consultor sobre a peça (06/10/2026): "OBS: fotos em anexo" — informativa, vai para o comprador
@@ -558,13 +560,13 @@ function vd_analisarPeca_(linha, n, opts) {
     else if (!vd_medidaPneu_(medida)) faltas.push(rot + ': medida fora do padrão (ex.: 195/65R15)');
     if (!catMarca && !nao) faltas.push(rot + ': falta categoria (IMPORTADO / 1ª LINHA) ou marca');
     if (nao) faltas = [];
-    return { pneu: true, medida: medida, categoria: vd_categPneu_(catMarca), marca: vd_categPneu_(catMarca) ? '' : catMarca, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, compStatus: compStatus, compPor: compPor, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, faltas: faltas, texto: linha };
+    return { pneu: true, medida: medida, categoria: vd_categPneu_(catMarca), marca: vd_categPneu_(catMarca) ? '' : catMarca, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, compStatus: compStatus, compPor: compPor, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, foto: foto || undefined, faltas: faltas, texto: linha };
   }
   var codigo = partes[0] || '', descr = partes[1] || '', tiposTxt = partes.slice(2).join('/');
   rot = 'item ' + n + ' (' + (descr || codigo || linha).slice(0, 40) + ')';
   if (partes.length < 2) {
     faltas.push(rot + ': fora do padrão CÓDIGO | DESCRIÇÃO | TIPO');
-    return { pneu: false, codigo: '', descricao: linha, tipos: [], qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, compStatus: compStatus, compPor: compPor, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, faltas: faltas, texto: linha };
+    return { pneu: false, codigo: '', descricao: linha, tipos: [], qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, compStatus: compStatus, compPor: compPor, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, foto: foto || undefined, faltas: faltas, texto: linha };
   }
   // 13/10/2026 (Weslley): "ACESSORIO" no lugar do código = peça que nem o Cilia tem código — vale, não cobra; a peça fica
   // identificada pela descrição (vários acessórios no mesmo pedido não se confundem) e a linha continua "ACESSORIO | …"
@@ -581,7 +583,7 @@ function vd_analisarPeca_(linha, n, opts) {
   else if (!tipos.length) faltas.push(rot + ': falta o tipo de peça (GENUÍNO, ORIGINAL, PARALELO ou USADO)');
   if (tipos.length > 2) faltas.push(rot + ': no máximo 2 tipos por peça');
   if (nao) faltas = [];
-  return { pneu: false, codigo: codigo, acessorio: acessorio || undefined, descricao: descr, tipos: tipos, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, compStatus: compStatus, compPor: compPor, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, faltas: faltas, texto: linha };
+  return { pneu: false, codigo: codigo, acessorio: acessorio || undefined, descricao: descr, tipos: tipos, qtd: qtd, particular: part, partPor: partPor, complemento: comp, compData: compData, compStatus: compStatus, compPor: compPor, naoComprar: nao, naoMotivo: naoMotivo, valorOrc: valorOrc, obs: obs, foto: foto || undefined, faltas: faltas, texto: linha };
 }
 
 /** Texto curto da situação do complementar na seguradora (vitrine/comentário). */
@@ -605,7 +607,8 @@ function vd_linhaPeca_(p, i) {
   var q = (p.qtd && +p.qtd > 1 ? ' | QTD ' + p.qtd : '') + (p.complemento && !p.particular ? ' | COMPLEMENTO' + (p.compData ? ' ' + p.compData : '') : '') + (p.complemento && !p.particular && p.compStatus ? ' | COMPL: ' + p.compStatus + (p.compPor ? ' ' + String(p.compPor).replace(/\|/g, '/').trim() : '') : '') + (p.particular ? ' | PARTICULAR' + (p.partPor ? ' @' + p.partPor : '') : '')
     + (p.naoComprar ? ' | NÃO COMPRAR' + (p.naoMotivo ? ': ' + String(p.naoMotivo).replace(/\|/g, '/').trim() : '') : '')
     + (vd_valorOrcTxt_(p.valorOrc) ? ' | ORÇ ' + vd_valorOrcTxt_(p.valorOrc) : '')
-    + (p.obs ? ' | OBS: ' + String(p.obs).replace(/\|/g, '/').replace(/\s*\n\s*/g, ' ').trim() : '');
+    + (p.obs ? ' | OBS: ' + String(p.obs).replace(/\|/g, '/').replace(/\s*\n\s*/g, ' ').trim() : '')
+    + (p.foto && !p.pneu ? ' | FOTO' : '');
   if (p.pneu) return (i + 1) + '. PNEU | ' + p.medida + ' | ' + (p.categoria || p.marca) + q;
   return (i + 1) + '. ' + (p.codigo || (p.acessorio ? 'ACESSORIO' : '')) + ' | ' + p.descricao + ' | ' + (p.tipos || []).join('/') + q;
 }
@@ -2631,7 +2634,7 @@ function vd_vitrine_(desc, nome, pagas) {
     var k = vd_chavePeca_(p);
     var titulo = p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + ((p.marca || p.categoria) ? ' ' + (p.marca || p.categoria) : '') : String(p.descricao || '').toUpperCase();
     var cab = (i + 1) + '. **' + vd_md_(titulo) + '**' + (!p.pneu && p.codigo ? ' · ' + vd_md_(p.codigo) : '') + (p.qtd && +p.qtd > 1 ? ' · QTD ' + p.qtd : '') + (p.particular && d.tipo !== 'PARTICULAR' && !misto ? ' · 👤 PARTICULAR' : '') + (p.complemento && !p.particular ? ' · ➕ complemento' + (p.compData ? ' ' + p.compData : '') + vd_complTxt_(p) : '')
-      + (vd_valorOrcTxt_(p.valorOrc) ? ' · 📄 orç. ' + vd_valorOrcTxt_(p.valorOrc) : '');
+      + (vd_valorOrcTxt_(p.valorOrc) ? ' · 📄 orç. ' + vd_valorOrcTxt_(p.valorOrc) : '') + (p.foto ? ' · 📷 foto' : '');
     var sub = [];
     // 15/10/2026 (Weslley, BET7D44): observação escrita na peça no pedido ("Separado do estoque") aparece na descrição —
     // antes ficava só na descrição completa guardada e não se via no card
@@ -2700,7 +2703,7 @@ function vd_vitrine_(desc, nome, pagas) {
 
   // legenda: só dos ícones que aparecem neste card
   var txt = L.join('\n');
-  var leg = [['👤', 'peça particular (cliente paga — autoriza o consultor)'], ['➕', 'peça de orçamento complementar'], ['✅', 'autorizada'], ['🛒', 'comprada (✔ marcada no PAGAS)'], ['⏳', 'aguardando cotação'], ['⛔', 'não cotada'], ['🚫', 'não comprar (decisão do consultor)'], ['📝', 'observação'], ['↩️', 'devolvida para cotação'], ['📦', 'peças da seguradora'], ['📄', 'valor líquido da peça no orçamento da seguradora'], ['📍', 'onde a peça está guardada'], ['✋', 'quem retirou a peça e quando'], ['🟢', 'economia sobre o orçamento: 🟢 acima de 30% · 🟡 20–30% · 🔴 abaixo de 20% ou mais caro']]
+  var leg = [['👤', 'peça particular (cliente paga — autoriza o consultor)'], ['➕', 'peça de orçamento complementar'], ['✅', 'autorizada'], ['🛒', 'comprada (✔ marcada no PAGAS)'], ['⏳', 'aguardando cotação'], ['⛔', 'não cotada'], ['🚫', 'não comprar (decisão do consultor)'], ['📝', 'observação'], ['📷', 'foto da peça anexada no card'], ['↩️', 'devolvida para cotação'], ['📦', 'peças da seguradora'], ['📄', 'valor líquido da peça no orçamento da seguradora'], ['📍', 'onde a peça está guardada'], ['✋', 'quem retirou a peça e quando'], ['🟢', 'economia sobre o orçamento: 🟢 acima de 30% · 🟡 20–30% · 🔴 abaixo de 20% ou mais caro']]
     .filter(function (x) { return txt.indexOf(x[0]) >= 0 || (x[0] === '🟢' && /🟡|🔴/.test(txt)); }).map(function (x) { return x[0] + ' ' + x[1]; });
   if (an.pecas.length) leg.push('linhas sem ícone = cotações, da mais barata para a mais cara');
   if (leg.length) txt += '\n\n_' + leg.join(' · ') + ' · histórico nos comentários_';

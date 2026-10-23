@@ -42,6 +42,9 @@ window.PU_CFG = {
   /* 20/10/2026: ajustes visuais do celular (topo sem corte, previsão como selo + "Chegou tudo" no recebimento, botão do rodapé
    * sem corte, barra do WhatsApp sem subtítulo). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley). */
   VISUAL_CEL: 'todos',   // 20/10/2026 23h20 — Weslley: "se tiver ok dá pra por no principal" (conferido no TESTE nas 4 telas; voltar: 'teste')
+  /* 22/10/2026 (Weslley): peça particular/retorno sem código precisa de foto da peça (📷 em cada peça do pedido).
+   * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley + propriedade VD_FOTO_PECA=SIM no robô); outro valor desliga. */
+  FOTO_PECA: 'teste',
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:

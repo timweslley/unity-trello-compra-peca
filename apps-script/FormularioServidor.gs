@@ -490,7 +490,7 @@ function vdf_montarCard_(c, lista, me) {
     shortLink: c.shortLink, url: c.shortUrl, nome: c.name, lista: lista, posCotacao: vdf_ehPosCotacao_(lista),
     dados: an.dados, obs: obs,
     pecas: (function () {
-      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, acessorio: !!p.acessorio, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', complemento: !!p.complemento, compData: p.compData || '', compStatus: p.compStatus || '', compPor: p.compPor || '', valorOrc: vd_valorOrcTxt_(p.valorOrc), obs: p.obs || '', travada: vdf_travaPeca_(p, autorizadas, c), podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; })
+      return an.pecas.map(function (p) { return { pneu: p.pneu, codigo: p.codigo, acessorio: !!p.acessorio, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: vdf_pecaParticular_(p, c, an), partPor: p.partPor || '', complemento: !!p.complemento, compData: p.compData || '', compStatus: p.compStatus || '', compPor: p.compPor || '', valorOrc: vd_valorOrcTxt_(p.valorOrc), obs: p.obs || '', foto: !!p.foto, travada: vdf_travaPeca_(p, autorizadas, c), podeAut: vdf_podeAutorizarPeca_(me, c, an, p, criador), chave: vd_chavePeca_(p), nome: vd_nomePeca_(p) }; })
         // peças "não comprar": o formulário de edição mostra (chip marcado); cotação/autorização/compra não (sem chave)
         .concat((an.naoComprar || []).map(function (p) { return { pneu: p.pneu, codigo: p.codigo, acessorio: !!p.acessorio, descricao: p.descricao, tipos: p.tipos, medida: p.medida, categoria: p.categoria, marca: p.marca, qtd: p.qtd, particular: false, partPor: '', complemento: !!p.complemento, compData: p.compData || '', naoComprar: true, naoMotivo: p.naoMotivo || '', valorOrc: vd_valorOrcTxt_(p.valorOrc), obs: p.obs || '', travada: '', podeAut: false, chave: '', nome: vd_nomePeca_(p) }; }));
     })(),
@@ -2003,6 +2003,9 @@ function vdf_rotinaPecasBase(token, p) {
   return { ok: true, base: vdf_pecasDaBase_(p.placa, p.sinistro) };
 }
 
+/** 22/10/2026: exigir código ou foto da peça particular/retorno — sempre no TESTE; no principal com VD_FOTO_PECA=SIM. */
+function vdf_fotoPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_FOTO_PECA', 'NAO') === 'SIM'; } catch (e) { return false; } }
+
 function vdf_salvar(token, p) {
   var trocasPart = { paraPart: [], paraSeg: [] };
   // 💾 Salvar parcial (13/10/2026, Weslley): grava o que já tem mesmo com dado faltando — o robô põe o card em FALTA DADOS e
@@ -2071,6 +2074,8 @@ function vdf_salvar(token, p) {
     pecas[i].valorOrc = vd_valorOrcTxt_(x.valorOrc);
     // observação do consultor sobre a peça (06/10/2026): vai na linha da peça ("| OBS: …") e aparece para o comprador
     pecas[i].obs = String(x.obs || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 120);
+    // 22/10/2026 (Weslley): foto da peça (📷 no pedido) — só vale a foto que vai junto nesta gravação (está em fileIds)
+    if (!pecas[i].pneu && (x.fotoIds || []).some(function (fid) { return (p.fileIds || []).indexOf(fid) >= 0; })) pecas[i].foto = true;
   });
   // peça particular dentro do pedido de seguradora: guarda quem lançou (é quem autoriza)
   if (vd_tipoNormPedido_(n.tipo) !== 'PARTICULAR') {
@@ -2229,6 +2234,8 @@ function vdf_salvar(token, p) {
       if (totFoC) extra.foLinhas.push(cp_linhaFo_(totFoC));
     } catch (e) { console.log('FO complemento: ' + e); }
   }
+  // 22/10/2026: peça que já tinha foto (| FOTO) continua com a marca quando o pedido é reenviado
+  if (pecasAntes) pecas.forEach(function (x) { var o = pecasAntes[vd_chavePeca_(x)]; if (o && o.foto && !x.pneu) x.foto = true; });
   var bloco = vd_montarBloco_(d, pecas, obs, 'Pedido enviado por ' + me.fullName + ' pelo formulário em ' + agora, extra);
   var an = vd_analisar_(bloco, d.placa, posCot ? { base: baseSigs, tipo: tipo } : { tipo: tipo });
   var faltas = an.faltas.slice();
@@ -2240,6 +2247,17 @@ function vdf_salvar(token, p) {
   // 19/10/2026: limpeza de card que a Rotina abriu (vdf_limparCardRotina) tolera o mesmo que a Rotina tolerou ao abrir
   var limpezaRotina = !!p.limpezaRotina && vdf_ehAutorizador_(me) && !!p.shortLink;
   if (rotina || limpezaRotina) { faltasRotina = faltas.filter(function (f) { return /falta o tipo de pe|falta o c[óo]digo|fora do padr|falta categoria/i.test(f); }); faltas = faltas.filter(function (f) { return faltasRotina.indexOf(f) < 0; }); }   // 21/10/2026: pneu sem categoria também abre o card (vai para FALTA DADOS) em vez de recusar
+  /* 22/10/2026 (Weslley): peça particular (pedido particular, peça 👤 em card de seguradora) e de retorno — onde o código é
+   * opcional — precisa do código OU de uma foto da peça (📷 no pedido). Só peça nova ou alterada (peça que já estava no card
+   * fica como está). TESTE sempre; principal com a propriedade VD_FOTO_PECA=SIM. */
+  if (!rotina && !limpezaRotina && vdf_fotoPecaLigada_()) {
+    pecas.forEach(function (x) {
+      if (x.pneu || x.naoComprar || x.codigo || x.foto) return;
+      if (!(particular || semSeguradora || x.particular)) return;
+      if (pecasAntes && pecasAntes[vd_chavePeca_(x)]) return;
+      faltas.push(vd_nomePeca_(x) + ': peça ' + (tipo === 'RETORNO' ? 'de retorno' : 'particular') + ' sem código — escreva o código ou anexe uma foto da peça (📷 Foto da peça)');
+    });
+  }
   if (parcial) faltas = faltas.filter(function (f) { return /^placa|^carro \(nome/i.test(f); });
   if (faltas.length) return { ok: false, faltas: faltas };
 
@@ -2364,6 +2382,7 @@ function vdf_salvar(token, p) {
           var nomeAx = ehCapa ? ax_nome_(AX.FOTO, d.placa, ['capa'])
             : inf.tipo === 'orc' || inf.tipo === 'orc+' ? ax_nome_(inf.tipo === 'orc+' ? AX.ORC_MAIS : AX.ORC, d.placa, [vd_semSeguradora_(extra.tipo) ? '' : extra.seguradora, ax_origem_(inf.origem || extra.origemOrc)])
             : inf.tipo === 'forn' ? ax_nome_(AX.FO, d.placa, [pv_docFornecimento_(txtForn) || 'Status do Pedido'])
+            : inf.tipo === 'peca' ? ax_nome_(AX.FOTO, d.placa, ['peça ' + String(inf.peca || '').replace(/[·|]/g, ' ').trim().toUpperCase().slice(0, 40)])
             : inf.tipo === 'outro' ? ''
             : ehImg ? ax_nome_(AX.FOTO, d.placa, []) : '';
           if (nomeAx) { at.name = ax_batizar_(card.id, at.id, nomeAx, jaNoCard, token, { semVersao: ehCapa || ehImg }); jaNoCard.push({ id: at.id, name: at.name, date: new Date().toISOString() }); }
