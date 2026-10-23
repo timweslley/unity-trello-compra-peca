@@ -9181,6 +9181,7 @@ document.addEventListener('input', function (e) {
   ].join('\n');
   document.head.appendChild(st);
   var COT_ARQS = [];   // {nome, fileId, erro, chave, forn, fornEl, chips}
+  function qa(sel, raiz) { return Array.prototype.slice.call((raiz || document).querySelectorAll(sel)); }
   function esc2(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function norm(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim(); }
   function pecaNome(chave) { var p = (typeof pecasOficina === 'function' && window.CARD) ? pecasOficina(window.CARD).filter(function (x) { return x.chave === chave; })[0] : null; return p ? p.nome : ''; }
@@ -9188,10 +9189,10 @@ document.addEventListener('input', function (e) {
   function anexosCot() { return ((window.CARD && window.CARD.todosAnexos) || []).filter(function (a) { return /^💬 COTAÇÃO/.test(a.nome || ''); }); }
   /* partes do nome "💬 COTAÇÃO · PLACA · [FORN] · [PEÇA] · dd/MM": o que fica entre a placa e a data */
   function partesAnexo(a) { var p = String(a.nome || '').split(' · ').slice(2); if (p.length && /^\d{1,2}\/\d{1,2}/.test(p[p.length - 1])) p.pop(); return p.map(norm).filter(String); }
-  function fornsDoCard() { var out = []; $$('#cotItens > .item').forEach(function (it) { try { JSON.parse(it.dataset.lidas || '[]').forEach(function (q) { var f = norm(q.fornecedor); if (f && out.indexOf(f) < 0) out.push(f); }); } catch (e) {} }); return out; }
+  function fornsDoCard() { var out = []; qa('#cotItens > .item').forEach(function (it) { try { JSON.parse(it.dataset.lidas || '[]').forEach(function (q) { var f = norm(q.fornecedor); if (f && out.indexOf(f) < 0) out.push(f); }); } catch (e) {} }); return out; }
   function anexosDe(forn, chave) {
     var f = norm(forn), pn = norm(pecaNome(chave)).replace(/^[A-Z0-9][A-Z0-9\/.\-]{3,} /, '').slice(0, 40).trim().slice(0, 25);
-    var umaPeca = $$('#cotItens > .item').length === 1, forns = fornsDoCard();
+    var umaPeca = qa('#cotItens > .item').length === 1, forns = fornsDoCard();
     return anexosCot().filter(function (a) {
       var partes = partesAnexo(a);
       var temForn = partes.some(function (x) { return forns.indexOf(x) >= 0; }), temPeca = partes.some(function (x) { return pn && x.indexOf(pn) >= 0; });
