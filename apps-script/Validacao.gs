@@ -743,6 +743,9 @@ function vd_extrair_(texto) {
   var reRot = /CHASSI[S]?\s*(?:N[ºO°.]*)?\s*[:.\-]?\s*([A-HJ-NPR-Z0-9][A-HJ-NPR-Z0-9 .\-]{15,22})/g;
   while ((m = reRot.exec(U))) { var c = vd_normChassi_(m[1]).slice(0, 17); if (vd_chassiValido_(c) && r.chassis.indexOf(c) < 0) r.chassis.push(c); }
   if (!r.chassis.length) { var reSolto = /\b([A-HJ-NPR-Z0-9]{17})\b/g; while ((m = reSolto.exec(U))) { if (vd_chassiValido_(m[1]) && /^[1-9A-HJ-NPR-Z]/.test(m[1]) && r.chassis.indexOf(m[1]) < 0) r.chassis.push(m[1]); } }
+  // 26/10/2026 (Weslley, APO0I47): o próprio orçamento traz o chassi com tamanho errado ("9BWB05W58P078022", 16) — não é
+  // preenchido, mas o robô avisa para a equipe conferir no documento do carro (antes parecia falha de leitura)
+  if (!r.chassis.length) { var mInv = U.match(/CHASSI[S]?\s*(?:N[ºO°.]*)?\s*[:.\-]?\s*([A-Z0-9]{10,20})\b/); if (mInv && mInv[1].length !== 17 && /\d{4}/.test(mInv[1]) && /[A-Z]/.test(mInv[1])) r.chassiInvalido = mInv[1]; }
   var reP = /\b([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/g;
   // 16/10/2026: horário ("DAS 8H00 ÀS 20H00") e câmbio + ano ("FLEX AUT 2020") não são placa
   var naoPlaca = function (a, b) { return (/^(DAS|AS|ATE|DES)$/.test(a) && /^\dH[0-5]\d$/.test(b)) || (/^(AUT|MEC|MAN|ANO|MOD|CVT)$/.test(a) && /^(19|20)\d\d$/.test(b)); };
@@ -937,7 +940,7 @@ function vd_lerAnexoTrello_(a, opt) {
     var js = JSON.stringify(r);
     if (js.length > VD_ANXS.MAX && r.orc) { delete r.orc; r.orcGrande = true; js = JSON.stringify(r); }
     // falha ao guardar (planilha fora do ar) não pode derrubar a leitura: segue sem guardar (10/10/2026)
-    try { vd_anxSet_(a.id, js.length > VD_ANXS.MAX ? JSON.stringify({ v: VD_ANX_V, chassis: r.chassis, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor, orcamento: r.orcamento, orcGrande: !!r.orcamento, seguradora: r.seguradora, cor: r.cor, sinistro: r.sinistro, doc: r.doc, docNome: r.docNome, nf: r.nf }) : js); }
+    try { vd_anxSet_(a.id, js.length > VD_ANXS.MAX ? JSON.stringify({ v: VD_ANX_V, chassis: r.chassis, chassiInvalido: r.chassiInvalido, placas: r.placas, placasRot: r.placasRot, modelo: r.modelo, ano: r.ano, motor: r.motor, orcamento: r.orcamento, orcGrande: !!r.orcamento, seguradora: r.seguradora, cor: r.cor, sinistro: r.sinistro, doc: r.doc, docNome: r.docNome, nf: r.nf }) : js); }
     catch (e) { console.log('cache do anexo ' + a.name + ': ' + e); }
     if (orcFull) r.orcFull = orcFull;
   }
@@ -1001,6 +1004,7 @@ function vd_lerAnexosCard_(card, placa, prazo, batizar) {
     chassis: chassis.map(function (c) { return { v: c, anexo: origemDe(c) }; }),
     chassi: chassis.length === 1 ? { v: chassis[0], anexo: origemDe(chassis[0]) } : null,
     chassiDivergente: chassis.length > 1 ? chassis : null,
+    chassiInvalido: chassis.length ? null : pega('chassiInvalido'),   // 26/10/2026 (APO0I47)
     modelo: pega('modelo'),
     ano: pega('ano'),
     motor: pega('motor'),
@@ -1645,6 +1649,7 @@ function vd_conferirCard_(card, ctx) {
     poe(!d.motor, lido.motor, VD_ROT.motor, 'MOTOR/VERSÃO', 'motor/versão');
     poe(!d.ano, lido.ano, VD_ROT.ano, 'ANO', 'ano');
     poe(!d.modelo, lido.modelo, VD_ROT.modelo, 'MODELO', 'modelo');
+    if (!d.chassi && lido.chassiInvalido) res.avisos.push('o anexo ' + lido.chassiInvalido.anexo + ' traz o chassi ' + lido.chassiInvalido.v + ' com ' + lido.chassiInvalido.v.length + ' caracteres (chassi tem 17) — confira no documento do carro e preencha pelo ✏️ EDITAR');
     if (!d.chassi && lido.chassiDivergente) avisoAnexo = 'chassi divergente nos anexos (' + lido.chassiDivergente.join(' / ') + ')';
     else if (!d.chassi && lido.semPlaca) avisoAnexo = 'os anexos lidos não mostram a placa ' + d.placa + ', então o chassi não foi puxado';
 

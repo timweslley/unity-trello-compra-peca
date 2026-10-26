@@ -794,6 +794,7 @@ function vdf_respostaLeitura_(r, orc, placa) {
     placaSug: placaSug,
     chassi: confere && r.chassis.length === 1 ? r.chassis[0] : '',
     chassiDivergente: r.chassis.length > 1 ? r.chassis : null,
+    chassiInvalido: !r.chassis.length && r.chassiInvalido ? r.chassiInvalido : '',   // 26/10/2026 (APO0I47)
     modelo: r.modelo || '', ano: r.ano || '', motor: r.motor || '',
     carro: vd_carroCurto_(r.modelo || ''),
     cor: orc.cor || '', seguradora: orc.seguradora || '', sinistro: orc.sinistro || '',

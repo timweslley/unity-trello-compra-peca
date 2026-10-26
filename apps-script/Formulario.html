@@ -9391,5 +9391,25 @@ document.addEventListener('input', function (e) {
   };
 })();
 </script>
+<script>
+/* 26/10/2026 (Weslley, APO0I47: "robô não leu chassi do orçamento") — 2.0: o documento traz o chassi com tamanho errado (o
+ * próprio orçamento, ex.: 16 caracteres). O formulário não preenche (como antes), mas a dica da leitura diz o que achou e o que fazer. */
+(function () {
+  var orig = window.aplicarLeitura; if (typeof orig !== 'function') return;
+  window.aplicarLeitura = function (r, dica, sufixo) {
+    var ret = orig.apply(this, arguments);
+    try {
+      var ch = document.getElementById('chassi');
+      if (r && r.chassiInvalido && dica && ch && String(ch.value || '').replace(/[\s.\-]/g, '').length !== 17) {
+        var d = document.createElement('div');
+        d.className = 'aviso erro'; d.style.marginTop = '8px';
+        d.textContent = '⚠️ O documento traz o chassi ' + r.chassiInvalido + ' com ' + r.chassiInvalido.length + ' caracteres (chassi tem 17) — confira no documento do carro e digite o chassi certo.';
+        dica.appendChild(d);
+      }
+    } catch (e) {}
+    return ret;
+  };
+})();
+</script>
 </body>
 </html>

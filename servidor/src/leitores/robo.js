@@ -155,13 +155,13 @@ function cp_similar_(descA, descB) {
   return n >= 0.5 ? n : 0;
 }
 
-// FormularioServidor.gs:891
+// FormularioServidor.gs:892
 function vd_dataCurta_(s) {
   var iso = vd_dataBR_(s);
   return iso ? Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM') : String(s || '');
 }
 
-// FormularioServidor.gs:897
+// FormularioServidor.gs:898
 function vd_dataBR_(s) {
   var iso = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3], 12, 0, 0).toISOString();
@@ -173,7 +173,7 @@ function vd_dataBR_(s) {
   return isNaN(d.getTime()) ? '' : d.toISOString();
 }
 
-// FormularioServidor.gs:909
+// FormularioServidor.gs:910
 function vd_valorNum_(s) {
   s = String(s == null ? '' : s).replace(/R\$/i, '').replace(/\s/g, '');
   if (!s) return NaN;
@@ -182,7 +182,7 @@ function vd_valorNum_(s) {
   return parseFloat(s);
 }
 
-// FormularioServidor.gs:918
+// FormularioServidor.gs:919
 function vd_valorBR_(v) {
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   if (isNaN(n)) return '';
@@ -1207,6 +1207,9 @@ function vd_extrair_(texto) {
   var reRot = /CHASSI[S]?\s*(?:N[ºO°.]*)?\s*[:.\-]?\s*([A-HJ-NPR-Z0-9][A-HJ-NPR-Z0-9 .\-]{15,22})/g;
   while ((m = reRot.exec(U))) { var c = vd_normChassi_(m[1]).slice(0, 17); if (vd_chassiValido_(c) && r.chassis.indexOf(c) < 0) r.chassis.push(c); }
   if (!r.chassis.length) { var reSolto = /\b([A-HJ-NPR-Z0-9]{17})\b/g; while ((m = reSolto.exec(U))) { if (vd_chassiValido_(m[1]) && /^[1-9A-HJ-NPR-Z]/.test(m[1]) && r.chassis.indexOf(m[1]) < 0) r.chassis.push(m[1]); } }
+  // 26/10/2026 (Weslley, APO0I47): o próprio orçamento traz o chassi com tamanho errado ("9BWB05W58P078022", 16) — não é
+  // preenchido, mas o robô avisa para a equipe conferir no documento do carro (antes parecia falha de leitura)
+  if (!r.chassis.length) { var mInv = U.match(/CHASSI[S]?\s*(?:N[ºO°.]*)?\s*[:.\-]?\s*([A-Z0-9]{10,20})\b/); if (mInv && mInv[1].length !== 17 && /\d{4}/.test(mInv[1]) && /[A-Z]/.test(mInv[1])) r.chassiInvalido = mInv[1]; }
   var reP = /\b([A-Z]{3})[\s\-]?(\d[A-Z0-9]\d{2})\b/g;
   // 16/10/2026: horário ("DAS 8H00 ÀS 20H00") e câmbio + ano ("FLEX AUT 2020") não são placa
   var naoPlaca = function (a, b) { return (/^(DAS|AS|ATE|DES)$/.test(a) && /^\dH[0-5]\d$/.test(b)) || (/^(AUT|MEC|MAN|ANO|MOD|CVT)$/.test(a) && /^(19|20)\d\d$/.test(b)); };
@@ -1257,7 +1260,7 @@ function vd_extrair_(texto) {
   return r;
 }
 
-// Validacao.gs:1026
+// Validacao.gs:1030
 function vd_dicaNorm_(t) {
   var s = vd_semAcento_(t);
   if (/^GENU/.test(s)) return 'GENUÍNO';
@@ -1268,14 +1271,14 @@ function vd_dicaNorm_(t) {
   return '';
 }
 
-// Validacao.gs:1062
+// Validacao.gs:1066
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
 
-// Validacao.gs:1084
+// Validacao.gs:1088
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4
