@@ -47,7 +47,7 @@ window.PU_CFG = {
   FOTO_PECA: 'teste',
   /* 26/10/2026 (Weslley): aba Cotação — comprador corrige o código da peça (botão "Código") e põe obs. em cada cotação.
    * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley); outro valor desliga (a obs. já gravada continua aparecendo). */
-  COT_CODIGO_OBS: 'teste',
+  COT_CODIGO_OBS: 'todos',   // 26/10/2026 11h09 — Weslley: "pode publicar no principal" (voltar: 'teste')
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:

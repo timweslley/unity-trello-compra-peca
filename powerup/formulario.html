@@ -9523,9 +9523,13 @@ document.addEventListener('input', function (e) {
   function nomePeca(chave) { var p = (typeof pecasOficina === 'function' && window.CARD) ? pecasOficina(window.CARD).filter(function (x) { return x.chave === chave; })[0] : null; return p ? p.nome : chave; }
   var REAUT = null;   // chaves escolhidas para nova autorização (vai no próximo vdf_salvarCotacao)
   var enviarOrig = window.enviarCotacao;
+  /* 26/10/2026 (Weslley, MVU1552 de novo: a cotação nova depois da compra cancelada foi salva só como registro): a pergunta vale
+     também no "Salvar parcial" (antes só no Enviar, e o parcial virava registro calado) e, na peça com a compra cancelada ou
+     devolvida, já vem marcada "Precisa de nova autorização". Nova autorização escolhida no parcial = a cotação é enviada. */
+  function cancelada(chave) { return (((window.CARD || {}).cotacoes || {}).obs || []).some(function (o) { return o.chave === chave && /^\((compra cancelada|devolvida)\b/i.test(String(o.texto || '')); }); }
   window.enviarCotacao = function (parcial) {
-    if (parcial || REAUT) return enviarOrig.apply(this, arguments);
-    var c; try { c = coletarCotacoes(false); } catch (e) { return enviarOrig.apply(this, arguments); }
+    if (REAUT) return enviarOrig.apply(this, arguments);
+    var c; try { c = coletarCotacoes(!!parcial); } catch (e) { return enviarOrig.apply(this, arguments); }
     if (!c || (c.faltas && c.faltas.length)) return enviarOrig.apply(this, arguments);
     var afetadas = {};
     (c.cotacoes || []).forEach(function (q) { var a = autorizadaDe(q.chave); if (a && !comprada(q.chave)) afetadas[q.chave] = a; });
@@ -9537,10 +9541,12 @@ document.addEventListener('input', function (e) {
       + '<p class="dica">A peça abaixo já tem fornecedor autorizado. Diga se a cotação nova é só para registro ou se a diretoria precisa autorizar de novo (a autorização atual é cancelada e o card volta para o autorizador).</p>'
       + chaves.map(function (ch, i) {
         var a = afetadas[ch];
-        return '<div class="pc"><b>' + esc2(nomePeca(ch)) + '</b><small style="color:#44546f">autorizada: ' + esc2(a.fornecedor) + ' · ' + esc2(fmt(a.valor)) + '</small>'
-          + '<label><input type="radio" name="v2cR' + i + '" value="reg" checked><span>Só registro<small>A autorização e a coluna não mudam.</small></span></label>'
-          + '<label><input type="radio" name="v2cR' + i + '" value="nova"><span>Precisa de nova autorização<small>Cancela a autorização de ' + esc2(a.fornecedor) + ' e manda o card de volta para o autorizador.</small></span></label></div>';
+        var cx = cancelada(ch);
+        return '<div class="pc"><b>' + esc2(nomePeca(ch)) + '</b><small style="color:#44546f">autorizada: ' + esc2(a.fornecedor) + ' · ' + esc2(fmt(a.valor)) + (cx ? ' · <b style="display:inline;color:#ae2e24">compra cancelada</b>' : '') + '</small>'
+          + '<label><input type="radio" name="v2cR' + i + '" value="reg"' + (cx ? '' : ' checked') + '><span>Só registro<small>A autorização e a coluna não mudam.</small></span></label>'
+          + '<label><input type="radio" name="v2cR' + i + '" value="nova"' + (cx ? ' checked' : '') + '><span>Precisa de nova autorização<small>Cancela a autorização de ' + esc2(a.fornecedor) + ' e manda o card de volta para o autorizador.</small></span></label></div>';
       }).join('')
+      + (parcial ? '<p class="dica">Com "Precisa de nova autorização", a cotação é <b>enviada</b> para o autorizador (não fica só salva).</p>' : '')
       + '<div class="bts"><button type="button" id="v2cReautNao">Cancelar</button><button type="button" class="principal" id="v2cReautSim">Enviar cotação</button></div></div>';
     document.body.appendChild(ov);
     var fechar = function () { ov.remove(); document.removeEventListener('keydown', esc); };
@@ -9548,11 +9554,16 @@ document.addEventListener('input', function (e) {
     document.addEventListener('keydown', esc);
     ov.querySelector('#v2cReautNao').onclick = fechar;
     ov.addEventListener('mousedown', function (e) { if (e.target === ov) fechar(); });
+    var escolhidasAgora = function () { return chaves.filter(function (ch, i) { var r = ov.querySelector('input[name=v2cR' + i + ']:checked'); return r && r.value === 'nova'; }); };
+    var rotulo = function () { var b = ov.querySelector('#v2cReautSim'); if (b) b.textContent = parcial && !escolhidasAgora().length ? 'Salvar parcial' : (escolhidasAgora().length ? 'Enviar para autorização' : 'Enviar cotação'); };
+    ov.addEventListener('change', rotulo); rotulo();
     ov.querySelector('#v2cReautSim').onclick = function () {
-      var escolhidas = chaves.filter(function (ch, i) { var r = ov.querySelector('input[name=v2cR' + i + ']:checked'); return r && r.value === 'nova'; });
+      var escolhidas = escolhidasAgora();
       fechar();
       REAUT = escolhidas;
-      try { enviarOrig.apply(self, args); } finally { setTimeout(function () { REAUT = null; }, 0); }
+      // nova autorização no "Salvar parcial": vai como envio (o servidor só cancela a autorizada no envio)
+      var a2 = Array.prototype.slice.call(args); if (parcial && escolhidas.length) a2[0] = false;
+      try { enviarOrig.apply(self, a2); } finally { setTimeout(function () { REAUT = null; }, 0); }
     };
     setTimeout(function () { var f = ov.querySelector('input[type=radio]'); if (f) f.focus(); }, 30);
   };
