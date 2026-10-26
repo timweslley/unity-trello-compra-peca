@@ -143,7 +143,41 @@ function vdf_usuario_(token) {
   if (JSON.parse(membros).indexOf(me.id) < 0) {
     throw new Error('Sua conta do Trello (' + me.username + ') não participa do quadro. Peça para ser adicionado.');
   }
+  VDF_ME = { username: me.username, fullName: me.fullName, token: token };   // 26/10/2026: assinatura "@usuario fez…" dos comentários
   return me;
+}
+
+/* 26/10/2026 (Weslley): "registrar os eventos do formulário com o @ de quem fez a alteração — @fulano registrou compra,
+ * @fulano alterou o prazo x pelo motivo z". Todo comentário do formulário (postado com o token de quem usa a tela) passa a
+ * começar com "@usuario <o que fez> — 📄 **TÍTULO**…"; o "— Nome" depois do título sai (quem fez já está no @).
+ * Vale só para comentário com o token de quem está no formulário; comentário do robô fica como está.
+ * Desligar: propriedade VD_ASSINAR_COMENT = NAO. */
+var VDF_ME = null;
+var VDF_ACOES = [
+  [/CÓDIGO CORRIGIDO/, 'corrigiu o código'], [/COTAÇÃO DE REGISTRO/, 'registrou cotação (só registro)'],
+  [/COTAÇÃO INDISPONÍVEL/, 'marcou cotação indisponível'], [/COTAÇÃO DEVOLVIDA/, 'devolveu para cotação'], [/^COTAÇÃO$/, 'lançou a cotação'],
+  [/AUTORIZAÇÃO ALTERADA/, 'alterou a autorização'], [/^AUTORIZADO$/, 'autorizou'], [/Peças marcadas na autorização/i, 'marcou peças na autorização'],
+  [/ORDEM AUTORIZADA PENDENTE/, 'conferiu a ordem no Databox'], [/^ORDEM AUTORIZADA$/, 'marcou ordem autorizada'],
+  [/^COMPLEMENTAR$/, 'registrou o complementar'], [/^COMPLEMENTO$/, 'marcou complemento'],
+  [/COMPRA PARCIAL/, 'registrou compra (parcial)'], [/COMPRA CANCELADA/, 'cancelou a compra'], [/^COMPRA$/, 'registrou compra'],
+  [/QUEM PAGA MUDOU/, 'mudou quem paga'], [/PEDIDO EDITADO/, 'editou o pedido'], [/^NÃO COMPRAR$/, 'marcou não comprar'],
+  [/Peça removida do pedido/i, 'removeu peça com compra'], [/Peça alterada sem nova cotação/i, 'alterou peça sem nova cotação'],
+  [/PREVISÃO ALTERADA/, 'alterou o prazo'], [/^FORNECIMENTO$/, 'atualizou o fornecimento'], [/FO REVERTIDA/, 'registrou FO revertida'],
+  [/^RETIRADA$/, 'registrou retirada'], [/NF DE DEVOLUÇÃO/, 'registrou NF de devolução'], [/^RECEBIMENTO$/, 'registrou recebimento'],
+  [/^PEÇAS — local/, 'registrou local/devolução de peça'], [/Encerrado sem peças/i, 'encerrou sem peças'], [/Compras do card antigo/i, 'passou as compras para o padrão novo']
+];
+function vdf_assinarComentario_(texto, token) {
+  if (!VDF_ME || !token || token !== VDF_ME.token || !VDF_ME.username || vd_prop_('VD_ASSINAR_COMENT', 'SIM') === 'NAO') return texto;
+  var t = String(texto || ''), u = String(VDF_ME.username), nome = String(VDF_ME.fullName || '');
+  var m = t.match(/^((?:@[\w.\-]+\s+)*)(\S+\s+)?\*\*([^*\n]+)\*\*/);   // menções já existentes + emoji + **TÍTULO**
+  if (!m) return t;
+  if (new RegExp('^@' + u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s', 'i').test(t)) return t;   // já assinado
+  var titulo = m[3].trim(), acao = '';
+  VDF_ACOES.some(function (a) { if (a[0].test(titulo)) { acao = a[1]; return true; } return false; });
+  if (!acao) return t;
+  var resto = t.slice(m[0].length), esc = function (s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+  if (nome) resto = resto.replace(new RegExp('^\\s*(?:—\\s*|marcad[oa]s? por\\s+)' + esc(nome) + '(?:\\s*\\(' + esc(u) + '\\))?'), '');
+  return (m[1] || '') + '@' + u + ' ' + acao + ' — ' + (m[2] || '') + '**' + titulo + '**' + resto;
 }
 
 /** Quem pode registrar COMPRA (aba Compra): propriedade VD_COMPRADORES = usernames do Trello separados por vírgula. */

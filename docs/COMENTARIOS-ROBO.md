@@ -17,6 +17,10 @@ quando sai, se menciona alguém) e a proposta. Depois de decidido, vira regra em
 4. **Nunca o mesmo aviso duas vezes** (assinatura por card + estado, como já fazem FALTA DADOS, SLA e autorização).
 5. "Salvar parcial" de qualquer aba **não comenta** (cotação já é assim desde 21/10 17h22).
 
+## Assinatura "@quem fez" (26/10/2026, Weslley)
+
+Todo comentário do formulário (postado com o token de quem usa a tela) começa com `@usuario <o que fez> — <emoji> **TÍTULO** …` (ex.: `@comprasunity registrou compra — 🛒 **COMPRA** · 8 item(ns) → **FALTA CHEGAR**`); o "— Nome" depois do título sai. Prazo: `@fulano alterou o prazo — 📅 **PREVISÃO ALTERADA**` + linhas `PEÇA: de 22/10 para 03/11 pelo motivo: …`. O @ é do próprio autor do comentário (o Trello não notifica a pessoa dela mesma). Comentário do robô não muda. Tabela de verbos: `VDF_ACOES` (FormularioServidor.gs); desligar: propriedade `VD_ASSINAR_COMENT = NAO`. A aba EVENTOS ganhou a coluna **Registro** com a mesma frase (`ev_frase_`).
+
 ## Inventário
 
 Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J** juntar com outro · **F** mudar o formato · **?** decidir.

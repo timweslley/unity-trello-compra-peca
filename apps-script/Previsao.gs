@@ -61,7 +61,7 @@ function vdf_alterarPrevisao(token, p) {
       if (!/^\d+$/.test(dias)) return faltas.push(nome + ': prazo em dias úteis (número).');
       if (!motivo) return faltas.push(nome + ': escreva o motivo da mudança de prazo.');
       cots.push({ peca: peca, a: a, q: q || {}, dias: dias, motivo: motivo });
-      linhas.push('- ' + nome + ' (' + a.fornecedor + '): ' + (q && q.dias !== '' && q.dias != null ? q.dias + ' → ' : '') + dias + ' d.u. — ' + motivo);
+      linhas.push('- ' + nome + ' (' + a.fornecedor + '): ' + (q && q.dias !== '' && q.dias != null ? 'de ' + q.dias + ' para ' : '') + '**' + dias + ' d.u.** pelo motivo: ' + motivo);   // 26/10/2026: "alterou o prazo x pelo motivo z"
       var e = ev_peca_(peca); e.fornecedor = a.fornecedor; e.valor = a.valor; e.dias = dias; e.detalhe = 'PRAZO AUTORIZADO ALTERADO: ' + motivo; evs.push(e);
       return;
     }
@@ -72,7 +72,7 @@ function vdf_alterarPrevisao(token, p) {
     if (pv_mesmoDia_(nova, velha)) return;
     if (velha && !motivo) return faltas.push(pv_curto_(it.item.name) + ': escreva o motivo da mudança de previsão.');
     mudar.push({ it: it, nova: nova });
-    linhas.push('- ' + pv_curto_(it.item.name) + ': ' + (velha ? vd_dataCurta_(velha) : 'sem previsão') + ' → **' + vd_dataCurta_(nova) + '**' + (motivo ? ' — ' + motivo : ''));
+    linhas.push('- ' + pv_curto_(it.item.name) + ': ' + (velha ? 'de ' + vd_dataCurta_(velha) + ' para' : 'sem previsão →') + ' **' + vd_dataCurta_(nova) + '**' + (motivo ? ' pelo motivo: ' + motivo : ''));
     evs.push({ peca: pv_curto_(it.item.name), previsao: nova, detalhe: 'PREVISÃO ' + (velha ? vd_dataCurta_(velha) + ' → ' : '') + vd_dataCurta_(nova) + ' (' + it.lista + ')' + (motivo ? ': ' + motivo : '') });
   });
   if (faltas.length) return { ok: false, faltas: faltas };

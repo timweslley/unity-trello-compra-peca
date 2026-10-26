@@ -131,6 +131,7 @@ function vd_api_(caminho, opts, tokenUsuario) {
     params.payload = opts.multipart;
   } else if (opts.payload) {
     if (params.method === 'post' && /\/actions\/comments/.test(caminho) && opts.payload.text) {
+      try { if (typeof vdf_assinarComentario_ === 'function') opts.payload.text = vdf_assinarComentario_(opts.payload.text, tokenUsuario); } catch (e) {}   // "@fulano registrou compra" (26/10/2026)
       try { opts.payload.text = es_filtrarMencoes_(opts.payload.text); } catch (e) {}
       try { opts.payload.text = tst_filtrarMencoes_(caminho, opts.payload.text); } catch (e) {}   // card do teste completo: ninguém é notificado
       if (VD_SEM_MENCOES) opts.payload.text = String(opts.payload.text).replace(/(^|[^A-Za-z0-9_.])@([A-Za-z0-9_.\-]{3,})/g, '$1👤$2');   // teste (CiliaApi.gs): ninguém é notificado

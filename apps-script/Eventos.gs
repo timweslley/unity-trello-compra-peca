@@ -8,9 +8,28 @@
 var EV = {
   ABA: 'EVENTOS',
   CAB: ['Data/hora', 'Evento', 'Card', 'Link', 'Placa', 'Unidade', 'Tipo do pedido', 'Peça', 'Particular',
-        'Fornecedor', 'Valor', 'Prazo (dias úteis)', 'Previsão', 'Usuário', 'Detalhe', 'Quadro']
+        'Fornecedor', 'Valor', 'Prazo (dias úteis)', 'Previsão', 'Usuário', 'Detalhe', 'Quadro', 'Registro']
 };
+/* 26/10/2026 (Weslley): coluna "Registro" = frase pronta "@usuario <o que fez> …" (ex.: "@comprasunity registrou compra — PEÇA",
+ * "@comprasunity alterou o prazo de PEÇA de 22/10 para 03/11 pelo motivo: …"). Robô/rotina sem usuário do Trello: sem @. */
+var EV_VERBOS = { 'COTAÇÃO': 'lançou cotação', 'COTAÇÃO INDISPONÍVEL': 'marcou cotação indisponível', 'AUTORIZAÇÃO': 'autorizou', 'COMPRA': 'registrou compra',
+  'COMPRA CANCELADA': 'cancelou a compra', 'PREVISÃO': 'alterou o prazo', 'FORNECIMENTO': 'atualizou o fornecimento', 'RECEBIMENTO': 'registrou recebimento',
+  'RETIRADA': 'registrou retirada', 'DEVOLUÇÃO': 'registrou devolução', 'DEVOLUÇÃO FO': 'registrou devolução de FO', 'PEDIDO EDITADO': 'editou o pedido',
+  'COMPLEMENTO': 'marcou complemento', 'CÓDIGO CORRIGIDO': 'corrigiu o código', 'COLUNA': 'moveu o card', 'FATURADO': 'registrou faturamento' };
+function ev_frase_(evento, usuario, it) {
+  it = it || {};
+  var u = String(usuario || '').trim(), quem = /^[a-z0-9_.\-]{3,}$/i.test(u) && !/^rob/i.test(u) ? '@' + u : (u || 'robô');
+  var verbo = EV_VERBOS[evento] || String(evento || '').toLowerCase();
+  var det = String(it.detalhe || '').trim(), peca = String(it.peca || '').trim();
+  if (evento === 'PREVISÃO') {
+    var mp = det.match(/^PREVIS[ÃA]O\s+(?:(\S+)\s+→\s+)?(\S+)(?:\s+\(([^)]*)\))?(?::\s*(.*))?$/), ma = det.match(/^PRAZO AUTORIZADO ALTERADO:\s*(.*)$/);
+    if (mp) return quem + ' alterou o prazo de ' + peca + (mp[1] ? ' de ' + mp[1] : '') + ' para ' + mp[2] + (mp[4] ? ' pelo motivo: ' + mp[4] : '');
+    if (ma) return quem + ' alterou o prazo autorizado de ' + peca + (it.dias !== '' && it.dias != null ? ' para ' + it.dias + ' d.u.' : '') + ' pelo motivo: ' + ma[1];
+  }
+  return quem + ' ' + verbo + (peca ? ' — ' + peca : '') + (det ? ' (' + det + ')' : '');
+}
 
+var EV_CAB_OK = false;
 function ev_ligado_() { return vd_prop_('EV_LIGADO', 'SIM') !== 'NAO'; }
 
 function ev_aba_() {
@@ -24,6 +43,8 @@ function ev_aba_() {
     sh.getRange('K:K').setNumberFormat('R$ #,##0.00');
     sh.getRange('M:M').setNumberFormat('dd/MM/yyyy');
   }
+  // aba antiga (16 colunas): ganha o título da coluna nova uma vez
+  if (!EV_CAB_OK) { try { if (sh.getRange(1, EV.CAB.length).getValue() !== EV.CAB[EV.CAB.length - 1]) sh.getRange(1, EV.CAB.length).setValue(EV.CAB[EV.CAB.length - 1]).setFontWeight('bold'); } catch (e) {} EV_CAB_OK = true; }
   return sh;
 }
 
@@ -68,7 +89,7 @@ function ev_registrar_(evento, card, usuario, itens, extra) {
         placa, ev_unidade_(card), tipo, it.peca || '', it.particular ? 'SIM' : '',
         it.fornecedor || '', (it.valor === 0 || it.valor) && !isNaN(+it.valor) ? +it.valor : '',
         it.dias === 0 || it.dias ? it.dias : '', prev && !isNaN(prev) ? prev : '',
-        usuario || '', it.detalhe || extra.detalhe || '', vd_board_()];
+        usuario || '', it.detalhe || extra.detalhe || '', vd_board_(), ev_frase_(evento, usuario, { peca: it.peca, dias: it.dias, detalhe: it.detalhe || extra.detalhe || '' })];
     };
     var linhas = (itens && itens.length ? itens : [null]).map(base).map(function (l) { return l.map(sg_celula_); });
     // appendRow é atômico por linha: robô e formulário podem gravar ao mesmo tempo sem se atropelar
