@@ -8999,8 +8999,9 @@ document.addEventListener('input', function (e) {
   var orig = window.montarCotacao; if (typeof orig !== 'function') return;
   var norm = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim(); };
   var st = document.createElement('style');
-  st.textContent = '#cotItens > .item.v2c-comprada > :not(.item-topo):not(.v2c-compradaaviso):not(.v2c-compradaver) { display:none !important; }'
-    + '#cotItens > .item.v2c-comprada.v2c-vercot > * { display:revert !important; }'
+  // 26/10/2026 (Weslley, BET7D44: "ver cotações" não abria nada): a regra que mostra (.v2c-vercot > *) perdia para a que esconde
+  // (os :not() contam como classe e ela ficava mais forte); agora a que esconde não vale quando a peça está aberta
+  st.textContent = '#cotItens > .item.v2c-comprada:not(.v2c-vercot) > :not(.item-topo):not(.v2c-compradaaviso):not(.v2c-compradaver) { display:none !important; }'
     + '#cotItens > .item.v2c-comprada .item-topo button { display:none !important; }'
     + '#cotItens > .item.v2c-comprada { opacity:.85; }'
     + '.v2c-compradaaviso { color:#1b6b2f; font-weight:600; margin:2px 0 6px; }'
