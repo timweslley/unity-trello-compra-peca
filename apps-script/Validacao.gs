@@ -1853,6 +1853,10 @@ function vd_conferirPosCotacao_(card, ctx) {
       }
       return res;
     }
+    // 26/10/2026 (AYT6699): card esperando autorização com "quem paga" trocado — COTAÇÃO FINALIZADA ↔ PENDENTE AUTORIZAR
+    if (ctx.modoAtivo && (card.idList === ctx.listas[VDF_LISTA_FINALIZADA] || card.idList === ctx.listas[VDF_LISTA_PENDENTE])) {
+      try { var mvQ = rc_reavaliarColuna_(card.id, null, 'robô'); if (mvQ) { res.acao = '→ ' + mvQ; return res; } } catch (e) { console.log('pós-cotação/quem paga: ' + e); }
+    }
     res.acao = res.pagas ? 'pagas' : 'sem peça nova';
     return res;
   }

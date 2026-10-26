@@ -306,3 +306,4 @@ da outra, deixar um recado aqui e no commit.
 - 26/10 10h45 — APO0I47: orçamento Cilia com chassi de 16 caracteres; robô e formulário passam a avisar (não preenchem).
 - 26/10 11h — Weslley: comprador corrige o código da peça na Cotação (código da concessionária) e põe obs. em cada cotação; ligado no principal (`COT_CODIGO_OBS: 'todos'`, OK 11h09).
 - 26/10 11h10 — MVU1552: cotação nova após compra cancelada foi salva como registro (Salvar parcial não perguntava); pergunta registro × nova autorização agora também no parcial, pré-marcada "nova" em peça com compra cancelada.
+- 26/10 11h40 — AYT6699: criado PARTICULAR pelo consultor (08/10); título trocado para ALLIANZ em 19/10 sem mudar o tipo do pedido; a edição de 22/10 voltou PARTICULAR. Weslley mudou para seguradora e o card ficou em COTAÇÃO FINALIZADA → regra FINALIZADA ↔ PENDENTE pelo quem paga. PYU9B65: diretoria converte card de seguradora sem peça da seguradora em particular.

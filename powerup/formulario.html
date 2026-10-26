@@ -6180,7 +6180,12 @@ iniciar();
     try { pintarObrigatorios(); } catch (x) {}
     var bal = g('v2tipoConf'); if (!bal) { bal = document.createElement('div'); bal.id = 'v2tipoConf'; topo.appendChild(bal); }
     var h, foco = 'v2tipoNao';
-    if (cardSeg && r.value === 'PARTICULAR') {
+    if (cardSeg && r.value === 'PARTICULAR' && typeof window.v2ConverteParticular === 'function' && window.v2ConverteParticular()) {
+      // 26/10/2026 (Weslley, PYU9B65): card de seguradora sem peça da seguradora — a diretoria converte o card inteiro em particular
+      h = '<p class="v2-bt">Mudar quem paga deste card de <b>Seguradora</b> para <b>Particular</b>?</p>'
+        + '<div class="dica">O card não tem peça da seguradora: ele todo passa a ser particular — sai a seguradora e o sinistro, o título termina em PARTICULAR e quem autoriza é o consultor.</div>'
+        + '<div class="bts"><button type="button" class="principal" id="v2tipoSim">Sim, mudar</button><button type="button" class="secundario" id="v2tipoNao">Não</button></div>';
+    } else if (cardSeg && r.value === 'PARTICULAR') {
       h = '<p class="v2-bt">Fazer um <b>pedido particular</b> (o cliente paga) separado neste card?</p>'
         + '<div class="dica">As peças da seguradora continuam como estão. Você lança só as peças do cliente — quem autoriza é você.</div>'
         + '<div class="bts"><button type="button" class="principal" id="v2tipoSim">Sim, pedido particular</button><button type="button" class="secundario" id="v2tipoNao">Não</button></div>';
@@ -9771,6 +9776,49 @@ document.addEventListener('input', function (e) {
   })(window.montarCotacao);
   var box0 = document.getElementById('cotItens');
   if (box0) new MutationObserver(agendar).observe(box0, { childList: true, subtree: true });
+})();
+</script>
+<script>
+/* 26/10/2026 (Weslley, PYU9B65: "o cabeçalho não aparece quando tento mudar para particular um pedido") — 2.0:
+ * card de SEGURADORA sem nenhuma peça da seguradora (só peça particular, ou nenhuma) + diretoria: marcar "Particular" converte o
+ * card inteiro (antes era sempre o "pedido particular separado", sem o cabeçalho do carro). O cabeçalho aparece, seguradora e
+ * sinistro saem, as peças particulares passam para a lista do pedido e o envio vai como PARTICULAR (o servidor já aceita a troca
+ * de tipo da diretoria; a marca "| PARTICULAR @quem" sair da linha não é peça nova). Voltar para "Seguradora" desfaz. */
+(function () {
+  if (!document.documentElement.classList.contains('v2')) return;
+  if (typeof window.modoMisto !== 'function' || typeof window.aoMudarTipo !== 'function') return;
+  /* pode converter: card de seguradora em edição, sem peça da seguradora, aberto pela diretoria */
+  window.v2ConverteParticular = function () {
+    var c = window.CARD;
+    if (!window.CARD_EDICAO || !c || c.tipo === 'PARTICULAR' || c.tipo === 'RETORNO' || !c.diretoria) return false;
+    return !(c.pecas || []).some(function (p) { return p.chave && !p.particular; });
+  };
+  function convertendo() { return tipoPedido() === 'PARTICULAR' && window.v2ConverteParticular(); }
+  var mistoOrig = window.modoMisto;
+  window.modoMisto = function () { return convertendo() ? false : mistoOrig.apply(this, arguments); };
+  var tipoOrig = window.aoMudarTipo;
+  window.aoMudarTipo = function () {
+    try {
+      var itens = document.getElementById('itens'), part = document.getElementById('itensPart');
+      if (itens && part) {
+        if (convertendo()) {
+          // as peças particulares vão para a lista do pedido (o card todo é do cliente); item vazio do formulário sai
+          Array.prototype.slice.call(itens.children).forEach(function (el) { if (typeof itemVazio === 'function' && itemVazio(el) && el.dataset.nao !== '1') el.remove(); });
+          Array.prototype.slice.call(part.children).forEach(function (el) { el.dataset.v2conv = '1'; itens.appendChild(el); });
+        } else {
+          Array.prototype.slice.call(itens.querySelectorAll(':scope > [data-v2conv="1"]')).forEach(function (el) { delete el.dataset.v2conv; part.appendChild(el); });
+        }
+      }
+    } catch (e) { console.log('converter para particular: ' + e); }
+    var r = tipoOrig.apply(this, arguments);
+    try {
+      if (convertendo()) {
+        var dt = document.getElementById('dicaTitulo'); if (dt) dt.textContent = 'O card todo passa a ser particular: o título fica PLACA CARRO COR PARTICULAR.';
+        if (!document.getElementById('itens').children.length && typeof novoItem === 'function') novoItem('peca');
+      }
+    } catch (e) {}
+    return r;
+  };
 })();
 </script>
 </body>

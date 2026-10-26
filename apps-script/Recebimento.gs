@@ -543,6 +543,19 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
       }
     } catch (e) { console.log('coluna/já comprado: ' + e); }
   }
+  /* 26/10/2026 (Weslley, AYT6699: "mudei para seguradora e continua em COTAÇÃO FINALIZADA, deveria ir para PENDENTE AUTORIZAR"):
+   * quem paga mudou depois da cotação e ninguém autorizou ainda — COTAÇÃO FINALIZADA (só peça particular: o consultor autoriza)
+   * ↔ PENDENTE AUTORIZAR (tem peça da seguradora: a diretoria autoriza), a mesma regra do "Enviar cotação". */
+  if (!alvo && !semCompleta && (lista === VDF_LISTA_FINALIZADA || lista === VDF_LISTA_PENDENTE) && !vd_legado_(card.id)) {
+    try {
+      var anT = vd_analisar_(card.desc, card.name);
+      if ((anT.pecas || []).length && !vd_autorizacoesDaDescricao_(card.desc, anT.pecas).length && !vdf_coberturaCotacao_(card.desc, anT.pecas).faltam.length) {
+        var soPartT = anT.pecas.every(function (x) { return vdf_pecaParticular_(x, card, anT); });
+        var certaT = soPartT ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE;
+        if (certaT !== lista) { alvo = certaT; soFo = soPartT ? 'pedido particular: quem autoriza é o consultor' : 'tem peça da seguradora: quem autoriza é a diretoria'; }
+      }
+    } catch (e) { console.log('coluna/quem paga: ' + e); }
+  }
   if (!alvo || !ctx.listas[alvo]) return '';
   var movido = vdf_moverPara_(card, ctx, alvo, token, usuario || 'robô');
   if (movido && lista !== VDF_LISTA_CHEGAR) {

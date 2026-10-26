@@ -2376,6 +2376,12 @@ function vdf_salvar(token, p) {
       var troca = function (sig) { trocas.forEach(function (u) { sig = sig.replace(new RegExp('(^|[^A-Z0-9])' + vd_semAcento_(u.codigoAntigo).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Z0-9])'), '$1' + vd_semAcento_(u.codigo)); }); return sig; };
       baseSigs = baseSigs.map(troca); baseTodas = baseTodas.map(troca);
     }
+    /* 26/10/2026 (Weslley, PYU9B65): card de seguradora só com peça particular convertido em PARTICULAR pela diretoria — a marca
+     * "| PARTICULAR @quem" sai das linhas (o card todo é do cliente); não é peça nova, o card fica onde está */
+    if (posCot && tipo === 'PARTICULAR') {
+      var semMarcaPart = function (sig) { return String(sig || '').replace(/\|\s*PARTICULAR(?:\s+@[^|]*)?(?=\||$)/gi, ''); };
+      baseSigs = baseSigs.map(semMarcaPart); baseTodas = baseTodas.map(semMarcaPart);
+    }
   }
 
   var comp = card && p.complemento ? p.complemento : null;
