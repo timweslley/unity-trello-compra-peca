@@ -2671,7 +2671,8 @@ function vd_vitrine_(desc, nome, pagas) {
   if (dev) L.push('', '↩️ **Devolvida para cotação**' + (dev.quem ? ' por ' + vd_md_(dev.quem) : '') + (dev.geral ? ': ' + vd_md_(dev.geral) : ''));
 
   var prazoTxt = function (q) { return q.dias !== '' && q.dias != null ? q.dias + (+q.dias === 1 ? ' dia útil' : ' dias úteis') : (q.data ? 'até ' + q.data : ''); };
-  var linkTxt = function (q) { return q && q.link ? ' · [🔗 anúncio](' + q.link + ')' : ''; };   // link do anúncio informado na cotação (Mercado Livre etc.)
+  // link do anúncio informado na cotação (Mercado Livre etc.); antes dele, a obs. do comprador nesta cotação (26/10/2026)
+  var linkTxt = function (q) { return (q && q.nota ? ' · 📝 ' + vd_md_(q.nota) : '') + (q && q.link ? ' · [🔗 anúncio](' + q.link + ')' : ''); };
   var fornTxt = function (f) { return String(f || '').replace(/[\s\-–:]+$/, ''); };
   var tipoTxt = function (q) { return [q.tipo ? vd_tit_(q.tipo) : '', q.marca || ''].filter(String).join(' '); };
   // economia da cotação sobre o valor líquido do orçamento (faixas do Weslley, 05/10/2026): 🟢 > 30% · 🟡 20–30% · 🔴 < 20% ou mais caro

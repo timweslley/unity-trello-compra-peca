@@ -1071,7 +1071,15 @@ function vdf_encurtarLink_(u) {
 /** Tira o link do fim da linha de cotação ("- [🔗 link](url)" ou "- url") e devolve {linha, link}. */
 function vdf_tirarLinkCot_(l) {
   var m = l.match(/^(.*?)\s+-\s+(?:\[[^\]]*\]\()?(https?:\/\/[^\s)]+)\)?\s*$/i);
-  return m ? { linha: m[1], link: m[2] } : { linha: l, link: '' };
+  var r = m ? { linha: m[1], link: m[2], nota: '' } : { linha: l, link: '', nota: '' };
+  // 26/10/2026: "- 📝 texto" = obs. do comprador nesta cotação (fica entre o prazo e o link)
+  var n = r.linha.match(/^(.*?)\s+-\s+📝\s*(.*)$/);
+  if (n) { r.linha = n[1]; r.nota = n[2].trim(); }
+  return r;
+}
+/** Obs. do comprador numa cotação: uma linha, sem link (o link tem campo próprio) e sem marcação, até 200 caracteres. */
+function vdf_notaCot_(s) {
+  return String(s || '').replace(/\s*\n\s*/g, ' ').replace(/https?:\/\/\S+/gi, '').replace(/\*\*|__|\[|\]/g, '').replace(/📝/g, '').replace(/\s{2,}/g, ' ').trim().slice(0, 200);
 }
 
 function vd_cotacoesDaDescricao_(desc, pecas) {
@@ -1149,7 +1157,7 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     var tipo = '', marca = tm;
     var mt = tm.match(/^(GENU[IÍ]NO|ORIGINAL|PARALEL[OA]|USAD[OA])\b\s*(.*)$/i);
     if (mt) { tipo = vd_tipoNorm_(mt[1]); marca = mt[2].trim(); }
-    var qn = { chave: peca.chave, fornecedor: forn, obs: obs, tipo: tipo, marca: marca, valor: vd_valorNum_(m[3]), dias: m[4] !== undefined ? +m[4] : '', data: m[5] || '', link: tl.link };
+    var qn = { chave: peca.chave, fornecedor: forn, obs: obs, tipo: tipo, marca: marca, valor: vd_valorNum_(m[3]), dias: m[4] !== undefined ? +m[4] : '', data: m[5] || '', link: tl.link, nota: tl.nota || '' };
     if (recot && caiu[peca.chave]) qn.nova = caiu[peca.chave];
     // 19/10/2026 (revisão, ZZT9C01): cotação nova igual a uma que já está no card (mesmo fornecedor, tipo, marca, valor e prazo)
     // fica numa linha só — a mais nova, com a marca de "cotação nova"; antes aparecia duas vezes e ia para o "também cotado"
@@ -1200,7 +1208,119 @@ function vdf_linkComprador_(card, ctx, token) {
  * Grava o bloco de cotação abaixo do marcador e move o card:
  * seguradora -> PENDENTE AUTORIZAR, particular -> COTAÇÃO FINALIZADA.
  */
+/* 26/10/2026 (Weslley: "o comprador tem de poder alterar o código da peça quando acha o correto durante a cotação, vindo da
+ * concessionária") — p.codigos = [{chave, codigo}] vai junto com o Salvar parcial / Enviar cotação (ou sozinho).
+ * Ordem: primeiro a cotação deste envio (as linhas usam o código antigo), depois a troca, que regrava a linha da peça no pedido
+ * e as linhas do card que são dessa peça (cotações, OBS, SEM COTAÇÃO, autorização). Peça já comprada não troca (diretoria).
+ * A base de "peça nova" (VD_PK2_) troca a assinatura antiga pela nova: código corrigido não é peça nova. */
 function vdf_salvarCotacao(token, p) {
+  var cods = (p && p.codigos) || [];
+  if (!cods.length) return vdf_salvarCotacaoBase_(token, p);
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) corrige o código na cotação — sua conta: ' + me.username + '.'] };
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl', checklists: 'all', checkItem_fields: 'name' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  var an0 = vd_analisar_(card.desc, card.name);
+  var v = vdf_validarCodigos_(p.codigos, card, an0);
+  if (v.faltas.length) return { ok: false, faltas: v.faltas };
+  var q = {}; Object.keys(p).forEach(function (k) { if (k !== 'codigos') q[k] = p[k]; });
+  var soCodigo = !(q.cotacoes || []).length && !(q.nt || []).length && !(q.obs || []).length && !(q.semCot || []).length && !(q.remover || []).length && !(q.anexos || []).length;
+  var r;
+  // só código no "Salvar parcial": não passa pela cotação (lá daria "Nada novo para salvar"); no "Enviar" a cotação confere a cobertura como sempre
+  if (soCodigo && q.parcial) r = { ok: true, parcial: true, soCodigo: true, url: card.shortUrl, nome: card.name, lista: vdf_nomeLista_(vd_contexto_(), card.idList), n: 0, obs: 0, faltam: (function () { try { return vdf_coberturaCotacao_(card.desc, an0.pecas).faltam; } catch (e) { return []; } })(), semCot: 0 };
+  else { r = vdf_salvarCotacaoBase_(token, q); if (!r || !r.ok) return r; }
+  var t = vdf_trocarCodigosCard_(token, me, p.shortLink, v.trocas);
+  r.codigos = t.n; r.codigosTxt = t.txt;
+  return r;
+}
+
+/** Normaliza o código digitado pelo comprador: maiúsculo, sem espaço; '' se não parece código (4–40, com número). */
+function vdf_codigoLimpo_(s) {
+  var c = String(s || '').replace(/\s+/g, '').toUpperCase();
+  return /^[A-Z0-9][A-Z0-9.\-\/]{3,39}$/.test(c) && /\d/.test(c) ? c : '';
+}
+/** Confere as trocas pedidas: peça existe, não é pneu, não foi comprada, código válido, diferente e sem repetir outra peça. */
+function vdf_validarCodigos_(lista, card, an) {
+  var faltas = [], trocas = [];
+  var porChave = {}; an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
+  var pagas = [];
+  (card.checklists || []).forEach(function (k) { if (/^PAGAS/i.test(String(k.name || '').trim())) (k.checkItems || []).forEach(function (i) { pagas.push(vd_semAcento_(i.name)); }); });
+  var compras = []; try { compras = vd_comprasDaDescricao_(card.desc); } catch (e) {}
+  var usados = {}; an.pecas.forEach(function (x) { var c = vd_semAcento_(String(x.codigo || '').replace(/\s+/g, '')); if (c) usados[c] = vd_chavePeca_(x); });
+  (lista || []).forEach(function (x) {
+    var peca = porChave[x && x.chave];
+    if (!peca) return faltas.push('Peça não encontrada no pedido (' + String((x && x.chave) || '?') + ') — abra o card de novo.');
+    var nome = vd_nomePeca_(peca), ch = vd_chavePeca_(peca);
+    if (peca.pneu) return faltas.push(nome + ': pneu não tem código para corrigir.');
+    var novo = vdf_codigoLimpo_(x.codigo);
+    if (!novo) return faltas.push(nome + ': código novo inválido — use só letras, números, ponto, traço ou barra (mín. 4, com número).');
+    var antigo = String(peca.codigo || '').replace(/\s+/g, '').toUpperCase();
+    if (novo === antigo) return;
+    if (usados[vd_semAcento_(novo)] && usados[vd_semAcento_(novo)] !== ch) return faltas.push(nome + ': o código ' + novo + ' já é de outra peça do card.');
+    var comprada = pagas.some(function (n) { return vd_casaItem_(n, ch); })
+      || compras.some(function (c) { var ck = vd_semAcento_(String(c.codigo || '').replace(/\s+/g, '') || c.descricao || ''); return ck && ck === ch; });
+    if (comprada) return faltas.push(nome + ': já comprada — o código não muda mais pela cotação (fale com a diretoria).');
+    trocas.push({ chave: ch, antigo: antigo, codigo: novo });
+  });
+  return { faltas: faltas, trocas: trocas };
+}
+/** Aplica as trocas de código no card (relido): linha da peça no pedido + linhas do card dessa peça; base de peça nova; evento; comentário. */
+function vdf_trocarCodigosCard_(token, me, shortLink, trocas) {
+  if (!trocas || !trocas.length) return { n: 0, txt: [] };
+  var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,shortLink,shortUrl,idList' } });
+  var an = vd_analisar_(card.desc, card.name);
+  var chaves = vdf_chavesPecas_(an.pecas);
+  var div = vd_dividir_(card.desc), bloco = div.bloco, resto = div.temMarcador ? div.resto : VD.MARCADOR;
+  var feitas = [], pares = [], escRx = function (s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+  trocas.forEach(function (t) {
+    var peca = an.pecas.filter(function (x) { return vd_chavePeca_(x) === t.chave; })[0];
+    if (!peca) return;
+    var nova = JSON.parse(JSON.stringify(peca)); nova.codigo = t.codigo; if (nova.acessorio) nova.acessorio = false;
+    var linhaNova = vd_linhaPeca_(nova, 0).replace(/^1\. /, ''), achou = false, sigNova = '';
+    bloco = bloco.split('\n').map(function (l) {
+      if (achou || vd_sigItem_(l) !== peca.sig) return l;
+      achou = true;
+      var mNum = l.match(/^(\s*\d+\s*[.)\-]\s*)/), nl = (mNum ? mNum[1].replace(/\s+$/, ' ') : '') + linhaNova;
+      sigNova = vd_sigItem_(nl);
+      return nl;
+    }).join('\n');
+    if (!achou) return;
+    // linhas abaixo do marcador que são desta peça (pelo código/descrição antigos): o código antigo vira o novo; sem código, o novo entra antes da descrição
+    var descU = String(peca.descricao || '').trim().toUpperCase();
+    resto = resto.split('\n').map(function (raw, i) {
+      if (i === 0) return raw;
+      var l = vd_limpar_(raw).trim(); if (!l) return raw;
+      var k = vdf_pecaDoTexto_(l, chaves); if (!k || k.chave !== t.chave) return raw;
+      if (t.antigo) return raw.replace(new RegExp('(^|[^A-Z0-9])' + escRx(t.antigo) + '(?![A-Z0-9])', 'i'), '$1' + t.codigo);
+      var ix = raw.toUpperCase().indexOf(descU);
+      return ix >= 0 && descU ? raw.slice(0, ix) + t.codigo + ' ' + raw.slice(ix) : raw;
+    }).join('\n');
+    feitas.push({ peca: peca, nova: nova, antigo: t.antigo, codigo: t.codigo });
+    if (sigNova) pares.push({ antes: peca.sig, depois: sigNova });
+  });
+  if (!feitas.length) return { n: 0, txt: [] };
+  vd_backup_(card, 'código corrigido na cotação por ' + me.username);
+  vd_gravarDesc_(card.id, bloco.replace(/\s+$/, '') + '\n\n' + resto.replace(/^\s+/, ''), token);
+  // base de "peça nova": a assinatura antiga dá lugar à nova (peça que ainda não estava na base continua fora dela)
+  try {
+    var props = PropertiesService.getScriptProperties(), kPk = 'VD_PK2_' + card.id, bt = props.getProperty(kPk);
+    if (bt !== null) {
+      var base = JSON.parse(bt).map(vd_pkH_), mudou = false;
+      pares.forEach(function (x) { var i = base.indexOf(vd_pkH_(x.antes)); if (i >= 0) { base[i] = vd_pkH_(x.depois); mudou = true; } });
+      if (mudou) props.setProperty(kPk, JSON.stringify(base));
+    }
+  } catch (e) { console.log('código corrigido/base: ' + e); }
+  var txt = feitas.map(function (f) { return String(f.peca.descricao || '').toUpperCase() + ': ' + (f.antigo || 'sem código') + ' → ' + f.codigo; });
+  try { ev_registrar_('CÓDIGO CORRIGIDO', card, me.username, feitas.map(function (f) { var e = ev_peca_(f.nova); e.detalhe = 'código ' + (f.antigo || '(sem)') + ' → ' + f.codigo + ' (cotação)'; return e; })); } catch (e) {}
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🔁 **CÓDIGO CORRIGIDO NA COTAÇÃO** — ' + me.fullName + '\n' + txt.map(function (s) { return '- ' + s; }).join('\n') + '\nAs cotações e a autorização desta peça seguem o código novo.' } }, token);
+  } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { n: feitas.length, txt: txt };
+}
+
+function vdf_salvarCotacaoBase_(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
   if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) lança cotação — sua conta: ' + me.username + '.'] };
@@ -1215,7 +1335,7 @@ function vdf_salvarCotacao(token, p) {
   var foNome = function (x) { try { return fo_resolver_(x, foLista).nome || String(x || '').trim().toUpperCase(); } catch (e) { return String(x || '').trim().toUpperCase(); } };
   var cots = (p.cotacoes || []).map(function (c, i) {
     var peca = porChave[c.chave];
-    var r = { peca: peca, fornecedor: foNome(c.fornecedor), tipo: vd_tipoNorm_(c.tipo || '') || '', marca: String(c.marca || '').trim().toUpperCase(), valor: vd_valorNum_(c.valor), dias: String(c.dias == null ? '' : c.dias).trim(), link: vdf_linkCot_(c.link) };
+    var r = { peca: peca, fornecedor: foNome(c.fornecedor), tipo: vd_tipoNorm_(c.tipo || '') || '', marca: String(c.marca || '').trim().toUpperCase(), valor: vd_valorNum_(c.valor), dias: String(c.dias == null ? '' : c.dias).trim(), link: vdf_linkCot_(c.link), nota: vdf_notaCot_(c.nota) };
     var rot = 'cotação ' + (i + 1) + (peca ? ' (' + vd_nomePeca_(peca) + ')' : '');
     if (!peca) faltas.push(rot + ': peça não encontrada no pedido');
     if (!r.fornecedor) faltas.push(rot + ': falta o fornecedor');
@@ -1365,6 +1485,7 @@ function vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem) {
     if (!grupos[c.fornecedor]) { grupos[c.fornecedor] = []; ordem.push(c.fornecedor); }
     var nomeP = c.peca.pneu ? 'PNEU ' + String(c.peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(c.peca);
     grupos[c.fornecedor].push(nomeP + (c.tipo || c.marca ? ' - ' + [c.tipo, c.marca].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(c.valor) + (c.dias !== '' ? ' - ' + c.dias + (c.dias === '1' ? ' dia útil' : ' dias úteis') : '')
+      + (c.nota ? ' - 📝 ' + c.nota : '')   // 26/10/2026: obs. do comprador nesta cotação (antes do link, que fica sempre no fim)
       + (c.link ? ' - [🔗 link](' + c.link + ')' : ''));   // link do anúncio (Mercado Livre etc.): vira link clicável na descrição
   });
   var L = ['**COTAÇÃO ' + agora + ' - ' + me.fullName + '**'];

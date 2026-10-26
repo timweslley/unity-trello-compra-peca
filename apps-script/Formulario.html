@@ -7400,6 +7400,16 @@ iniciar();
   }
   function reposBaloes() { $$('.v2c-flutua').forEach(function (b) { if (b.style.display !== 'none' && b._gatilho) { if (!b._gatilho.offsetParent) fecharBalao(b, false); else posBalao(b, b._gatilho); } }); }
   window.addEventListener('scroll', reposBaloes, true); window.addEventListener('resize', reposBaloes);
+  /* 26/10/2026: o mesmo balão para os blocos 2.0 que vêm depois (código corrigido / obs. da cotação): computador = balão flutuante;
+     celular = balão do pedido (como o "Devolver para cotação"), com a mesma trava de 400 ms nos botões */
+  window.V2_BALAO = {
+    abrir: function (id, gat, html, foco) {
+      if (compPC()) return balaoComp(id, gat, html, foco);
+      var b = g(id); if (!b) { b = document.createElement('div'); b.id = id; }
+      abrirBalao(b, gat, html, foco); b.classList.add('v2c-balao'); b._t0 = performance.now(); return b;
+    },
+    fechar: function (b, devolver) { fecharBalao(b, devolver); }
+  };
   /* clique duplo não confirma: os botões do balão só valem 400 ms depois de ele abrir */
   document.addEventListener('click', function (e) {
     var bt = e.target && e.target.closest && e.target.closest('.v2c-balao button'); if (!bt) return;
@@ -9409,6 +9419,185 @@ document.addEventListener('input', function (e) {
     } catch (e) {}
     return ret;
   };
+})();
+</script>
+<script>
+/* 26/10/2026 (Weslley) — aba Cotação, camada 2.0, computador e celular:
+ *  1) "tem que ser possível o comprador alterar o código da peça quando acha o correto durante a cotação (concessionária)":
+ *     botão "Código" em cada peça → balão com o código correto (obrigatório). Fica pendente na tela ("vai com o salvar") e vai
+ *     em p.codigos no Salvar parcial / Enviar cotação (vdf_salvarCotacao): a linha da peça no pedido, as cotações e a autorização
+ *     passam para o código novo; peça já comprada não troca.
+ *  2) "o comprador também precisa pôr obs. dentro de cada cotação": campo "Obs. desta cotação" em cada cotação nova/editada
+ *     (q.nota → linha "… - 📝 texto" no card). A obs. aparece na tabela da Cotação, na Autorização e na Compra.
+ * Liga por PU_CFG.COT_CODIGO_OBS: 'teste' (só no TESTE, srv=1) | 'todos' | desligado. A obs. já gravada aparece sempre. */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('v2')) return;
+  function esc2(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var st = document.createElement('style');
+  st.textContent = [
+    '.selo.v2n-nota{background:#fff7d6;color:#172b4d;border:1px solid #f5cd47;font-weight:400;white-space:normal;text-align:left;max-width:100%}',
+    '.cot .q-nota-caixa,.v2 .cot.v2-sheet .q-nota-caixa,.v2pc #comprador.v2c .cot.v2c-nova > .q-nota-caixa{grid-column:1 / -1}',
+    '.cot .q-nota-caixa input{width:100%;max-width:none;box-sizing:border-box}',
+    '.v2k-btn{display:inline-flex;align-items:center;gap:4px;min-height:28px;padding:0 8px;border:1px solid #c1c7d0;border-radius:var(--r-sm,6px);background:#fff;color:#44546f;font:inherit;font-size:12.5px;cursor:pointer;white-space:nowrap}',
+    '.v2k-btn:hover{background:#e9f2ff;color:#0055cc;border-color:#0c66e4}',
+    '.v2k-btn.tem{color:#0055cc;border-color:#0c66e4}',
+    'html.v2toque .v2k-btn{min-height:44px;font-size:14px}',
+    '.v2k-aviso{margin:2px 0 8px;padding:6px 10px;border-left:4px solid #0c66e4;background:#e9f2ff;color:#172b4d;font-size:13.5px;border-radius:var(--r-sm,6px);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}',
+    '.v2k-aviso button{min-height:28px;padding:0 8px;border:1px solid #8590a2;border-radius:var(--r-sm,6px);background:#fff;color:#44546f;font:inherit;font-size:12.5px;cursor:pointer}',
+    'html.v2toque .v2k-aviso button{min-height:44px;font-size:14px}',
+    '#v2kCod{width:100%;box-sizing:border-box;margin:2px 0;font:inherit;font-size:15px;padding:8px;border:1px solid #8590a2;border-radius:var(--r-sm,6px);text-transform:uppercase}',
+    '#v2kCod[aria-invalid=true]{border:2px solid #c9372c;background:#ffeceb}',
+    '#v2kErro{color:#ae2e24;font-size:13px;margin:2px 0 4px}',
+    'html.v2toque #v2kCod{min-height:44px}'
+  ].join('\n');
+  document.head.appendChild(st);
+
+  /* obs. da cotação já gravada: selo amarelo antes do "anúncio" (a tabela 2.0 leva os selos para a coluna da direita) */
+  if (typeof window.linkCot === 'function') {
+    var linkOrig = window.linkCot;
+    window.linkCot = function (q) { return (q && q.nota ? ' <span class="selo v2n-nota">📝 ' + esc2(q.nota) + '</span>' : '') + linkOrig.apply(this, arguments); };
+  }
+
+  var cfg = window.PU_CFG && PU_CFG.COT_CODIGO_OBS;
+  var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  if (typeof window.novaCot !== 'function' || typeof window.coletarCotacoes !== 'function' || typeof window.montarCotacao !== 'function') return;
+
+  /* ---------- 2) obs. em cada cotação ---------- */
+  var nNota = 0;
+  var novaOrig = window.novaCot;
+  window.novaCot = function (item, pre) {
+    var r = novaOrig.apply(this, arguments);
+    try {
+      var rows = item.querySelectorAll('.cot-novas .cot'), row = rows[rows.length - 1];
+      if (row && !row.querySelector('.q-nota')) {
+        var id = 'v2nNota' + (++nNota);
+        var cx = document.createElement('div'); cx.className = 'q-nota-caixa';
+        cx.innerHTML = '<label for="' + id + '">Obs. desta cotação (opcional)</label><input type="text" id="' + id + '" class="q-nota" maxlength="200" autocomplete="off" placeholder="Ex.: só 1 no estoque; frete à parte; chega amanhã cedo">';
+        var lk = row.querySelector('.q-link-caixa');
+        if (lk && lk.parentNode === row) row.insertBefore(cx, lk.nextSibling); else row.appendChild(cx);
+        var nm = (item.querySelector('.item-topo strong') || {}).textContent || '';
+        cx.querySelector('input').setAttribute('aria-description', 'cotação nova — ' + nm.trim());
+        if (pre && pre.nota) cx.querySelector('input').value = pre.nota;
+      }
+    } catch (e) { console.log('obs da cotação: ' + e); }
+    return r;
+  };
+
+  /* ---------- 1) código corrigido pelo comprador ---------- */
+  var CODS = {};   // chave da peça → {codigo, antigo, nome}
+  function pecaDe(chave) { return ((typeof pecasOficina === 'function' && window.CARD) ? pecasOficina(window.CARD) : []).filter(function (x) { return x.chave === chave; })[0] || null; }
+  function codAtual(p) { return String((p && p.codigo) || '').replace(/\s+/g, '').toUpperCase(); }
+  function descDe(p) { return String((p && (p.descricao || p.nome)) || '').toUpperCase(); }
+  function limpo(s) { var c = String(s || '').replace(/\s+/g, '').toUpperCase(); return /^[A-Z0-9][A-Z0-9.\-\/]{3,39}$/.test(c) && /\d/.test(c) ? c : ''; }
+  function comprada(it) { return it.classList.contains('v2c-comprada'); }
+
+  window.coletarCotacoes = (function (orig) {
+    return function (parcial) {
+      var c = orig.apply(this, arguments);
+      try {
+        // a obs. de cada linha, na mesma ordem e com o mesmo filtro (linha vazia não conta) da tela clássica
+        var notas = [];
+        Array.prototype.forEach.call(document.getElementById('cotItens').children, function (item) {
+          Array.prototype.forEach.call(item.querySelectorAll('.cot'), function (row) {
+            var f = row.querySelector('.q-forn'), v = row.querySelector('.q-valor');
+            if (!(f && f.value.trim()) && !(v && v.value.trim())) return;
+            var n = row.querySelector('.q-nota'); notas.push(n ? n.value.trim() : '');
+          });
+        });
+        if (c && c.cotacoes && notas.length === c.cotacoes.length) c.cotacoes.forEach(function (q, i) { if (notas[i]) q.nota = notas[i]; });
+        if (parcial && c && c.faltas && Object.keys(CODS).length) c.faltas = c.faltas.filter(function (f) { return !/Nada novo para salvar/.test(f); });
+      } catch (e) { console.log('obs/código da cotação: ' + e); }
+      return c;
+    };
+  })(window.coletarCotacoes);
+
+  var ULT = null;
+  var chamarOrig = window.chamar;
+  window.chamar = function (fn) {
+    if (fn === 'vdf_salvarCotacao' && arguments[2] && typeof arguments[2] === 'object' && Object.keys(CODS).length) {
+      arguments[2].codigos = Object.keys(CODS).map(function (ch) { return { chave: ch, codigo: CODS[ch].codigo }; });
+      return chamarOrig.apply(this, arguments).then(function (r) { if (r && r.ok) { ULT = (r.codigosTxt || []).slice(); CODS = {}; } return r; });
+    }
+    return chamarOrig.apply(this, arguments);
+  };
+  if (typeof window.sucesso === 'function') {
+    var sucOrig = window.sucesso;
+    window.sucesso = function (h) {
+      if (ULT && ULT.length && typeof h === 'string') { arguments[0] = h + '<br>🔁 Código corrigido: ' + ULT.map(esc2).join(' · ') + ' — o card já usa o código novo.'; }
+      ULT = null;
+      return sucOrig.apply(this, arguments);
+    };
+  }
+
+  function avisoDe(it) {
+    var ch = it.dataset.chave, x = CODS[ch], av = it.querySelector(':scope > .v2k-aviso'), bt = it.querySelector('.v2k-btn');
+    if (bt) { bt.classList.toggle('tem', !!x); bt.setAttribute('aria-label', (x ? 'Código novo ' + x.codigo + ' — trocar' : 'Corrigir o código') + ' — ' + ((pecaDe(ch) || {}).nome || '')); }
+    if (!x) { if (av) av.remove(); return; }
+    if (!av) {
+      av = document.createElement('div'); av.className = 'v2k-aviso'; av.setAttribute('role', 'status');
+      var topo = it.querySelector(':scope > .item-topo'), depois = topo;
+      while (depois && depois.nextElementSibling && /v2c-compradaaviso|v2c-compradaver/.test(depois.nextElementSibling.className)) depois = depois.nextElementSibling;
+      if (depois) depois.insertAdjacentElement('afterend', av); else it.insertBefore(av, it.firstChild);
+    }
+    av.innerHTML = '<span>🔁 Código novo: <b>' + esc2(x.codigo) + '</b> (no pedido: ' + esc2(x.antigo || 'sem código') + ') — vai para o card quando você <b>salvar</b>.</span>'
+      + '<button type="button" class="v2k-desf">Desfazer</button><input type="hidden" class="v2k-pend" value="' + esc2(ch + '=' + x.codigo) + '">';
+    av.querySelector('.v2k-desf').onclick = function () { delete CODS[ch]; avisoDe(it); var b = it.querySelector('.v2k-btn'); if (b) b.focus(); };
+  }
+
+  function abrir(it, bt) {
+    var ch = it.dataset.chave, p = pecaDe(ch); if (!p || !window.V2_BALAO) return;
+    var antigo = codAtual(p), x = CODS[ch];
+    var bal = V2_BALAO.abrir('v2kBal', bt, '<p class="v2-bt">Corrigir o código da peça</p>'
+      + '<div class="dica"><b>' + esc2(descDe(p)) + '</b> · código no pedido: ' + esc2(antigo || 'sem código') + '. Use quando a cotação (ex.: concessionária) mostrou o código certo — o card todo passa a usar o novo.</div>'
+      + '<label for="v2kCod" style="display:block;font-weight:600;margin:8px 0 2px">Código correto <span class="obr">*</span></label>'
+      + '<input type="text" id="v2kCod" autocomplete="off" spellcheck="false" maxlength="40" aria-required="true" aria-describedby="v2kErro" value="' + esc2(x ? x.codigo : antigo) + '">'
+      + '<div id="v2kErro" role="alert"></div>'
+      + '<div class="bts"><button type="button" class="principal" id="v2kSim">Usar este código</button><button type="button" class="secundario" id="v2kNao">Cancelar</button></div>', 'v2kCod');
+    var inp = document.getElementById('v2kCod'), er = document.getElementById('v2kErro');
+    try { inp.select(); } catch (e) {}
+    var erro = function (t) { inp.setAttribute('aria-invalid', 'true'); er.textContent = t; inp.focus(); };
+    inp.addEventListener('input', function () { inp.removeAttribute('aria-invalid'); er.textContent = ''; });
+    inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('v2kSim').click(); } });
+    document.getElementById('v2kNao').onclick = function () { V2_BALAO.fechar(bal, true); };
+    document.getElementById('v2kSim').onclick = function () {
+      var v = String(inp.value || '').trim();
+      if (!v) return erro('Digite o código correto da peça.');
+      var c = limpo(v);
+      if (!c) return erro('Código inválido: use só letras, números, ponto, traço ou barra (mínimo 4, com número).');
+      var outra = pecasOficina(window.CARD).filter(function (q) { return q.chave !== ch && (codAtual(q) === c || (CODS[q.chave] && CODS[q.chave].codigo === c)); })[0];
+      if (outra) return erro('Este código já é de outra peça do card: ' + (outra.nome || '') + '.');
+      if (c === antigo) delete CODS[ch]; else CODS[ch] = { codigo: c, antigo: antigo };
+      V2_BALAO.fechar(bal, true); avisoDe(it);
+    };
+  }
+
+  function decorar() {
+    var box = document.getElementById('cotItens'); if (!box) return;
+    Array.prototype.forEach.call(box.querySelectorAll(':scope > .item'), function (it) {
+      if (it.dataset.pneu === '1' || comprada(it)) return;
+      var ac = it.querySelector(':scope > .item-topo > .v2c-acoes') || it.querySelector(':scope > .item-topo');
+      if (!ac) return;
+      var ja = it.querySelector('.v2k-btn');
+      if (ja) { if (ja.parentNode !== ac) ac.insertBefore(ja, ac.firstChild); return; }   // as ações 2.0 da peça podem nascer depois
+      var b = document.createElement('button'); b.type = 'button'; b.className = 'v2k-btn'; b.innerHTML = '✏️ Código';
+      b.title = 'Corrigir o código da peça (ex.: a concessionária passou o código certo)';
+      b.onclick = function () { abrir(it, b); };
+      ac.insertBefore(b, ac.firstChild);
+      avisoDe(it);
+    });
+  }
+  var pend = 0;
+  function agendar() { if (pend) return; pend = requestAnimationFrame(function () { pend = 0; try { decorar(); } catch (e) { console.log('código na cotação: ' + e); } }); }
+  window.montarCotacao = (function (orig) {
+    return function () {
+      CODS = {};   // card aberto de novo (ou outro card): começa sem código pendente
+      var r = orig.apply(this, arguments); agendar(); return r;
+    };
+  })(window.montarCotacao);
+  var box0 = document.getElementById('cotItens');
+  if (box0) new MutationObserver(agendar).observe(box0, { childList: true, subtree: true });
 })();
 </script>
 </body>

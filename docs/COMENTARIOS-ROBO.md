@@ -59,6 +59,7 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 | `💰 COTAÇÃO — Nome · N cotação(ões) em N peça(s) → PENDENTE AUTORIZAR` (+ ⏳ PARCIAL / ⛔ NÃO COTADAS / 👤 particulares) | Enviar cotação | não (21/10) | **M** |
 | `💾 COTAÇÃO PARCIAL salva` | Salvar parcial | — | **S** (feito 21/10 17h22) |
 | `📝 COTAÇÃO DE REGISTRO — …peças já autorizadas` | cotação em peça já autorizada | não | **M** |
+| `🔁 CÓDIGO CORRIGIDO NA COTAÇÃO — Nome` + `- PEÇA: antigo → novo` (26/10/2026) | comprador corrigiu o código da peça na aba Cotação | não | **M** |
 | `⚠️ COTAÇÃO INDISPONÍVEL — Nome → COLUNA` | comprador marcou cotação autorizada como indisponível | não (21/10) | **M** |
 
 ### 4. Autorização (diretoria / consultor) — vdf_autorizar, vdf_devolverCotacao

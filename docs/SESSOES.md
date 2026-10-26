@@ -304,3 +304,4 @@ da outra, deixar um recado aqui e no commit.
 - 23/10 19h — FUR0C92 (print HDI): cabeçalhos viravam peça, 2 molduras numa linha, fornecedores fora de ordem e código 62022W730P partido; leitor HDI corrigido (amostras antigas iguais).
 - 23/10 19h30 — SFL9F03: "QTD 1" lido como fornecedor no Status das Peças do Cilia; leitor e gravação corrigidos, itens LANTERNA e CALOTA limpos.
 - 26/10 10h45 — APO0I47: orçamento Cilia com chassi de 16 caracteres; robô e formulário passam a avisar (não preenchem).
+- 26/10 11h — Weslley: comprador corrige o código da peça na Cotação (código da concessionária) e põe obs. em cada cotação; no TESTE (`COT_CODIGO_OBS`).

@@ -45,6 +45,9 @@ window.PU_CFG = {
   /* 22/10/2026 (Weslley): peça particular/retorno sem código precisa de foto da peça (📷 em cada peça do pedido).
    * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley + propriedade VD_FOTO_PECA=SIM no robô); outro valor desliga. */
   FOTO_PECA: 'teste',
+  /* 26/10/2026 (Weslley): aba Cotação — comprador corrige o código da peça (botão "Código") e põe obs. em cada cotação.
+   * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley); outro valor desliga (a obs. já gravada continua aparecendo). */
+  COT_CODIGO_OBS: 'teste',
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
