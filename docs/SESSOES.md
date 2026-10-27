@@ -364,3 +364,5 @@ da outra, deixar um recado aqui e no commit.
 - 13h26 — Weslley: FOB8723 "veio para a diretoria autorizar, está certo?". Não: a peça nova (parabarro) é particular, as da
   seguradora já estavam compradas — a regra de quem decide olhava todas as peças. Agora olha só as que esperam decisão;
   FOB8723 devolvido a COTAÇÃO FINALIZADA pelo `vdf_reavaliarColuna`.
+- 13h50 — Weslley: "pode mover" (FOB8723) e "aplica a melhora no principal do kit" → `COT_KIT: 'todos'`. A reavaliação de
+  coluna passa a conferir a cobertura de cotação só nas peças pendentes (as compradas antes da autorização não têm linha).

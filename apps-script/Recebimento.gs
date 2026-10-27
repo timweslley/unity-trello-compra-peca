@@ -570,9 +570,11 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   if (!alvo && !semCompleta && (lista === VDF_LISTA_FINALIZADA || lista === VDF_LISTA_PENDENTE) && !vd_legado_(card.id)) {
     try {
       var anT = vd_analisar_(card.desc, card.name);
-      if ((anT.pecas || []).length && !vd_autorizacoesDaDescricao_(card.desc, anT.pecas).length && !vdf_coberturaCotacao_(card.desc, anT.pecas).faltam.length) {
-        // 27/10/2026 (FOB8723): quem decide = peças que ainda esperam decisão (fora do PAGAS); se não sobrou nenhuma, todas
-        var pendT = vdf_pecasAguardandoDecisao_(card, anT, []), baseT = pendT.length ? pendT : anT.pecas;
+      // 27/10/2026 (FOB8723): quem decide = peças que ainda esperam decisão (fora do PAGAS); se não sobrou nenhuma, todas.
+      // A cobertura de cotação também é só delas (peça comprada antes da autorização não tem linha de cotação).
+      var autsT = vd_autorizacoesDaDescricao_(card.desc, anT.pecas);
+      var pendT = vdf_pecasAguardandoDecisao_(card, anT, autsT), baseT = pendT.length ? pendT : anT.pecas;
+      if ((anT.pecas || []).length && !autsT.length && !vdf_coberturaCotacao_(card.desc, baseT).faltam.length) {
         var soPartT = baseT.every(function (x) { return vdf_pecaParticular_(x, card, anT); });
         var certaT = soPartT ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE;
         if (certaT !== lista) { alvo = certaT; soFo = soPartT ? 'pedido particular: quem autoriza é o consultor' : 'tem peça da seguradora: quem autoriza é a diretoria'; }
