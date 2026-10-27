@@ -2727,7 +2727,10 @@ function vdf_salvar(token, p) {
         try { var mvS = rc_reavaliarColuna_(card.id, token, me.username); if (mvS) acao = 'card → ' + mvS; } catch (e) { console.log('salvar/coluna: ' + e); }
       }
     } else if (c2.idList === ctx.listas[VD.LISTA_COTACAO] || c2.idList === ctx.listas[VD.LISTA_FALTA]) {
-      acao = vd_conferirCard_(c2, ctx).acao;
+      // 27/10/2026 (BBI3942, 30 s para criar o card): foto/capa/outro anexo que acabou de subir não passa pelo OCR AGORA
+      // (7 s cada, com a pessoa esperando) — o orçamento já foi lido antes de salvar; o robô lê o resto no próximo ciclo se precisar.
+      VD_PULAR_ANEXOS = idsSubidos.filter(function (id) { return idsLidos.indexOf(id) < 0 && idsForn.indexOf(id) < 0; });
+      try { acao = vd_conferirCard_(c2, ctx).acao; } finally { VD_PULAR_ANEXOS = []; }
     } else if (soMO) {
       // só mão de obra: base de peças registrada já (a regra de peça nova das colunas depois da cotação parte daqui)
       vd_pkSet_(card.id, vd_linhasConsultor_(an.div.bloco).map(vd_sigItem_));

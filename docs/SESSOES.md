@@ -338,3 +338,7 @@ da outra, deixar um recado aqui e no commit.
   criação, embora o formulário já tenha feito a pergunta — o ciclo rápido do webhook leu as propriedades antes de a marca
   VD_DUP_ sair da gravação (corrida de sempre, 1º caso real da regra de 23/10). Correção: card com o marcador do formulário
   na descrição não ganha o aviso. `/tarefas/exportar` ganha a tabela `execucao` (só tempos, sem card) para a diretoria.
+- 09h55 — Achado o grosso dos 30 s do BBI3942 (reproduzido no TESTE com 3 fotos: 36,8 s): depois de criar o card o formulário
+  roda a conferência do robô, que baixa e passa OCR em cada foto recém-subida (~7 s por foto) procurando dados do carro — com a
+  pessoa esperando. Agora foto/capa/outro anexo que acabou de subir fica fora do OCR dessa conferência (o orçamento já foi lido
+  antes; o robô lê o resto no ciclo seguinte se o card precisar). `/tarefas/execucoes` ganha a lista `formulario`.

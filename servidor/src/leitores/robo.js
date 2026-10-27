@@ -1260,7 +1260,7 @@ function vd_extrair_(texto) {
   return r;
 }
 
-// Validacao.gs:1031
+// Validacao.gs:1033
 function vd_dicaNorm_(t) {
   var s = vd_semAcento_(t);
   if (/^GENU/.test(s)) return 'GENUÍNO';
@@ -1271,14 +1271,14 @@ function vd_dicaNorm_(t) {
   return '';
 }
 
-// Validacao.gs:1067
+// Validacao.gs:1069
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
   });
 }
 
-// Validacao.gs:1089
+// Validacao.gs:1091
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4

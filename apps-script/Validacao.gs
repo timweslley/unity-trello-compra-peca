@@ -971,8 +971,10 @@ function vd_placaDosAnexos_(card, prazo) {
 }
 
 /** Lê os anexos do card (com cache) e devolve os dados achados que batem com a placa. */
+/** 27/10/2026: anexos que a gravação do formulário acabou de subir como foto/capa/outro — não ler na hora (o robô lê depois). */
+var VD_PULAR_ANEXOS = [];
 function vd_lerAnexosCard_(card, placa, prazo, batizar) {
-  var anexos = (card.attachments || []).filter(function (x) { return vd_anexoLegivel_(x) && !ax_ehNota_(x.name); }).slice(0, VD.MAX_ANEXOS_CARD);   // nota fiscal não é orçamento (10/10/2026)
+  var anexos = (card.attachments || []).filter(function (x) { return vd_anexoLegivel_(x) && !ax_ehNota_(x.name) && VD_PULAR_ANEXOS.indexOf(x.id) < 0; }).slice(0, VD.MAX_ANEXOS_CARD);   // nota fiscal não é orçamento (10/10/2026)
 
   var achados = [];
   for (var i = 0; i < anexos.length; i++) {
