@@ -370,6 +370,8 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
       gas_linha: 'SELECT * FROM gas_linha ORDER BY aba, linha',
       gas_propriedade: 'SELECT chave, valor, alterada_em FROM gas_propriedade',
       config: 'SELECT * FROM config',
+      // 27/10/2026: tempos das chamadas (sem conteúdo de card) — para conferir o salvamento mais rápido
+      execucao: 'SELECT quando, quadro, fn, ms, fila_ms, ok, erro, frio, rede FROM execucao WHERE ($1::timestamptz IS NULL OR quando >= $1) ORDER BY quando',
     };
     const sql = TABELAS[String(b.tabela || '')];
     if (!sql) return resp.code(400).send({ ok: false, erro: 'tabela inválida', tabelas: Object.keys(TABELAS) });
@@ -377,7 +379,7 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
     let quadro: string | null = null;
     if (b.quadro) { const [q] = await consulta<{ id: string }>(`SELECT id FROM trello_quadro WHERE short_link = $1 OR id = $1`, [String(b.quadro)]); quadro = q ? q.id : String(b.quadro); }
     const desde = b.desde ? new Date(String(b.desde)).toISOString() : null;
-    const soData = /^SELECT \* FROM (evento|pedido_historico)/.test(sql);
+    const soData = /^SELECT \* FROM (evento|pedido_historico)/.test(sql) || sql.includes('FROM execucao');
     const params = sql.includes('$2') ? [quadro, desde] : sql.includes('$1') ? [soData ? desde : quadro] : [];
     const linhas = await consulta<Record<string, unknown>>(sql, params);
     console.log(`[exportar] ${usuario} ${b.tabela} ${linhas.length} linhas`);

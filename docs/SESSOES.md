@@ -334,3 +334,7 @@ da outra, deixar um recado aqui e no commit.
   mesma chamada sem gravação no meio (ev_unidade_ ×3 customFieldItems, vd_marcar_/cf_sincronizar_). Servidor ganha memória
   de GET repetido dentro da chamada (esvaziada em qualquer POST/PUT/DELETE ao Trello) — `memo.get` em ops. Máscara da
   trilha corrigida (shortLink sem dígito aparecia).
+- 09h40 — BBI3942 (Jeziel, card novo pelo formulário 09h03): o robô comentou "PLACA JÁ TEM CARD ABERTO" 19 s depois da
+  criação, embora o formulário já tenha feito a pergunta — o ciclo rápido do webhook leu as propriedades antes de a marca
+  VD_DUP_ sair da gravação (corrida de sempre, 1º caso real da regra de 23/10). Correção: card com o marcador do formulário
+  na descrição não ganha o aviso. `/tarefas/exportar` ganha a tabela `execucao` (só tempos, sem card) para a diretoria.

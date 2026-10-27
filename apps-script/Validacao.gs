@@ -1551,6 +1551,9 @@ function vd_completaAtrasada_(card) {
 function vd_avisoDuplicado_(card, ctx, props) {
   var k = 'VD_DUP_' + card.id;
   if (props.getProperty(k)) return;
+  // 27/10/2026 (BBI3942): card criado pelo formulário nasce com o marcador "=== COTAÇÃO ===" na descrição — o formulário já
+  // perguntou sobre a placa repetida; o ciclo rápido do webhook chegava antes de a marca VD_DUP_ sair da gravação (corrida).
+  try { if (vd_dividir_(card.desc).temMarcador) { props.setProperty(k, '1'); return; } } catch (e) {}
   props.setProperty(k, '1');
   var criadoEm = parseInt(String(card.id).slice(0, 8), 16) * 1000;   // card antigo (antes desta regra) não ganha aviso
   if (!criadoEm || Date.now() - criadoEm > 2 * 24 * 3600e3) return;
