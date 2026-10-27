@@ -556,7 +556,10 @@ export interface Execucao {
   memoGet?: Map<string, Resposta>;
 }
 const execucoes: Execucao[] = [];
+/** 27/10/2026: as chamadas do formulário à parte — o robô (ciclo por minuto) empurrava as gravações da equipe para fora da lista de 60 em poucos minutos */
+const execucoesForm: Execucao[] = [];
 export function ultimasExecucoes(): Execucao[] { return execucoes.slice().reverse().map((e) => ({ ...e, memoGet: undefined })); }
+export function ultimasExecucoesForm(): Execucao[] { return execucoesForm.slice().reverse().map((e) => ({ ...e, memoGet: undefined })); }
 
 function contar(atual: Execucao | null, m: { op: string; dados: unknown }, ms: number) {
   if (!atual) return;
@@ -717,6 +720,7 @@ class Contexto {
     const p = this.fila.then(async () => {
       ex.filaMs = Date.now() - chegou;
       execucoes.push(ex); if (execucoes.length > 60) execucoes.shift();
+      if (this.nome !== 'robo' && this.nome !== 'retrato') { execucoesForm.push(ex); if (execucoesForm.length > 80) execucoesForm.shift(); }
       this.atual = ex;
       const t0 = Date.now();
       try {
