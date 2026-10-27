@@ -854,8 +854,11 @@ export async function refazerPlanilhaPendentes(): Promise<number> {
     try {
       const v = (typeof l.valor === 'string' ? JSON.parse(l.valor) : l.valor) as { aba: string; fixas: Record<string, unknown[]>; novas: unknown[][] };
       if (!(await abasReais()).includes(v.aba)) { console.warn('[planilha pendente] aba inexistente', v.aba); continue; }
-      await gravarLinhasPlanilha(CFG.planilhaId, v.aba, v.fixas || {});
-      await anexarLinhasPlanilha(CFG.planilhaId, v.aba, v.novas || []);
+      // célula com objeto (bug de quem gravou) vira texto, para não perder a linha inteira
+      const sane = (x: unknown) => (x && typeof x === 'object' && !('$d' in (x as object))) ? JSON.stringify(x) : x;
+      const fixas: Record<string, unknown[]> = {}; for (const [k, lin] of Object.entries(v.fixas || {})) fixas[k] = (lin as unknown[]).map(sane);
+      await gravarLinhasPlanilha(CFG.planilhaId, v.aba, fixas);
+      await anexarLinhasPlanilha(CFG.planilhaId, v.aba, (v.novas || []).map((lin) => (lin as unknown[]).map(sane)));
       await consulta(`DELETE FROM guardado WHERE nome = $1`, [l.nome]); n++;
     } catch (e) { erroPlanilhaPendente = l.nome + ': ' + (e as Error).message.slice(0, 300); console.error('[planilha pendente] refazer', erroPlanilhaPendente); break; }
   }

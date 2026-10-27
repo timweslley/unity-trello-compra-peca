@@ -4614,7 +4614,7 @@ function vdf_registrarTrocasFo_(card, token, origem, usuario) {
   var txt = '🔁 **CÓDIGO ALTERADO NO FORNECIMENTO**' + (origem ? ' — ' + origem : '') + '\n' +
     trocas.map(function (t) { return '- ' + t.desc + ': ' + t.antigo + ' → **' + t.novo + '** (o item do checklist já está com o código novo; o antigo fica anotado nele como "🔁 ex")'; }).join('\n');
   try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token); } catch (e) { console.log('trocas FO/comentário: ' + e); }
-  try { ev_registrar_('CÓDIGO CORRIGIDO', card, usuario || 'robô', trocas.map(function (t) { return { peca: { codigo: t.novo, descricao: t.desc }, detalhe: 'código ' + t.antigo + ' → ' + t.novo + ' (fornecimento' + (origem ? ', ' + origem : '') + ')' }; })); } catch (e) {}
+  try { ev_registrar_('CÓDIGO CORRIGIDO', card, usuario || 'robô', trocas.map(function (t) { var e = ev_peca_({ codigo: t.novo, descricao: t.desc }); e.detalhe = 'código ' + t.antigo + ' → ' + t.novo + ' (fornecimento' + (origem ? ', ' + origem : '') + ')'; return e; })); } catch (e) {}
   return txt;
 }
 
