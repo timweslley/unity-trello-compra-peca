@@ -327,3 +327,10 @@ da outra, deixar um recado aqui e no commit.
   do robô por trás de cada chamada. Enviar pedido no TESTE (ZZT9C01, sem alteração): 16 → 12 chamadas ao Trello, 3,75 → 3,2 s
   (no principal o ganho é maior: lá saem ainda a licença e a planilha do Google de antes da resposta). O que resta
   (vd_gravarDesc_, rc_reavaliarColuna_, vd_marcar_/cf_sincronizar_ relendo o card) fica para outra rodada.
+
+## 27/10/2026 — conferência do salvamento mais rápido (Weslley: "Conferir se tudo está ok")
+- 09h22 — Servidor `71f1447` ATIVO, banco e webhook ok. 1º envio real depois da mudança (Recebimento, 09h14): 8,3 s na tela;
+  licença (3,0 s) e planilha (1,45 s) rodaram depois da resposta — ontem seria ~12,8 s. Trilha: o mesmo card lido 6× na
+  mesma chamada sem gravação no meio (ev_unidade_ ×3 customFieldItems, vd_marcar_/cf_sincronizar_). Servidor ganha memória
+  de GET repetido dentro da chamada (esvaziada em qualquer POST/PUT/DELETE ao Trello) — `memo.get` em ops. Máscara da
+  trilha corrigida (shortLink sem dígito aparecia).

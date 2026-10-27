@@ -270,6 +270,17 @@ async function buscar(p: Pedido, ctx: Contexto) {
     const r = await buscarPrincipal(p, ctx);
     if (r) return r;
   }
+  // 27/10/2026 (velocidade): dentro de UMA chamada, o mesmo GET ao Trello repetido sem nenhuma gravação no meio devolve a
+  // resposta de antes (ev_unidade_ lia customFieldItems 3× seguidas; vd_marcar_/cf_sincronizar_ reliam o card). Qualquer
+  // POST/PUT/DELETE ao Trello esvazia a memória da chamada.
+  const trelloApi = /^https:\/\/api\.trello\.com\//.test(p.url);
+  if (trelloApi && ctx.atual) {
+    if (p.metodo !== 'GET') ctx.atual.memoGet = undefined;
+    else {
+      const m = ctx.atual.memoGet?.get(p.url);
+      if (m) { ctx.atual.ops['memo.get'] = { n: (ctx.atual.ops['memo.get']?.n || 0) + 1, ms: 0 }; return m; }
+    }
+  }
   const ttl = p.metodo === 'GET' ? validadeMemoria(p.url) : 0;
   const chave = ttl ? p.url + '|' + (p.cabecalhos.Authorization || p.cabecalhos.authorization || '') : '';
   if (ttl) {
@@ -283,6 +294,7 @@ async function buscar(p: Pedido, ctx: Contexto) {
     if (memoria.size > 500) memoria.clear();
     memoria.set(chave, { ate: Date.now() + ttl, r });
   }
+  if (trelloApi && ctx.atual && p.metodo === 'GET' && r.status === 200) (ctx.atual.memoGet ||= new Map()).set(p.url, r);
   return r;
 }
 
@@ -540,9 +552,11 @@ export interface Execucao {
   guardado?: number; aoVivo?: number; ultimaAtividade?: number; usarGuardado?: boolean;
   /** 26/10/2026: trilha das chamadas de rede (método + caminho com ids mascarados + ms), só em memória, para achar repetição */
   trilha?: string[];
+  /** 27/10/2026: GETs ao Trello já respondidos nesta chamada (esvaziado em qualquer gravação); não sai no JSON */
+  memoGet?: Map<string, Resposta>;
 }
 const execucoes: Execucao[] = [];
-export function ultimasExecucoes(): Execucao[] { return execucoes.slice().reverse(); }
+export function ultimasExecucoes(): Execucao[] { return execucoes.slice().reverse().map((e) => ({ ...e, memoGet: undefined })); }
 
 function contar(atual: Execucao | null, m: { op: string; dados: unknown }, ms: number) {
   if (!atual) return;
@@ -551,7 +565,7 @@ function contar(atual: Execucao | null, m: { op: string; dados: unknown }, ms: n
   for (const p of pedidos as Array<{ url?: string; metodo?: string; quem?: string }>) {
     let k = '?', caminho = '?';
     try {
-      const u = new URL(String(p.url)), seg = u.pathname.split('/').filter(Boolean).map((x) => /\d/.test(x) && x.length > 6 ? ':id' : x);
+      const u = new URL(String(p.url)), seg = u.pathname.split('/').filter(Boolean).map((x) => /^[a-f0-9]{24}$/.test(x) || (x.length === 8 && /[A-Z0-9]/.test(x)) ? ':id' : x);   // id longo ou shortLink
       k = (p.metodo || 'GET') + ' ' + u.host + '/' + seg.slice(0, 2).join('/');
       caminho = (p.metodo || 'GET') + ' /' + seg.join('/') + (u.search ? '?' + [...u.searchParams.keys()].filter((q) => q !== 'key' && q !== 'token').join(',') : '');
     } catch { /* */ }
