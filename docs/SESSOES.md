@@ -310,3 +310,4 @@ da outra, deixar um recado aqui e no commit.
 - 26/10 14h20 — BET7D44: "ver cotações" da peça já comprada (aba Cotação) não abria — a regra que esconde vencia a que mostra (CSS); corrigido. Nenhuma cotação perdida (26 no card).
 - 26/10 15h20 — Weslley: comentários do formulário com "@quem fez + o que fez" (prazo com "pelo motivo"); coluna Registro na EVENTOS.
 - 26/10 21h — Painel "Desempenho Compra de Peça" (artefato) com tempo por etapa e por pessoa; coletor em tools/desempenho/coletar-navegador.js (só leitura, roda no navegador) e tarefa agendada semanal (1º dia útil da semana) que atualiza o painel.
+- 26/10 21h15 — TCL9H02: pedido particular montado do orçamento Cilia #000092 cruzado com a lista do Vilson (11 pedir, 17 não comprar). Correção: Salvar parcial da cotação com o card em FALTA DADOS não tira mais o card de FALTA DADOS.

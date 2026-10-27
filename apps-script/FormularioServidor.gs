@@ -1471,7 +1471,12 @@ function vdf_salvarCotacaoBase_(token, p) {
   var misto = !particular && an.pecas.some(function (x) { return x.particular; });
   var movido = '';
   if (!registro) {
-    try { movido = vdf_moverPara_(card, ctx, parcial || cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token, me.username); } catch (e) {}
+    // 26/10/2026 (Weslley, TCL9H02): "Salvar parcial" com o card em FALTA DADOS guarda a cotação mas NÃO tira o card de lá —
+    // ele ia para EM COTAÇÃO com o pedido incompleto (o robô devolvia logo depois). Sai de FALTA DADOS só quando o pedido completar.
+    var emFalta = vdf_nomeLista_(ctx, card.idList) === VD.LISTA_FALTA;
+    if (!(emFalta && (parcial || cob.faltam.length))) {
+      try { movido = vdf_moverPara_(card, ctx, parcial || cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token, me.username); } catch (e) {}
+    }
     try { vdf_etiquetaParcial_(card, parcial || cob.faltam.length > 0, token); } catch (e) {}
   }
   var nPc = Object.keys(cots.reduce(function (a, c) { a[c.chave || vd_chavePeca_(c.peca)] = 1; return a; }, {})).length;
