@@ -443,7 +443,7 @@ var RC = { LISTA_FIM: 'ENCERRADO COMPRAS/FORNEC.', LOCAIS_MAX: 60 };
 // Recebimento.gs:17
 var RC_RE_MARCA = /\s*·\s*(📍|✋|↩️?)\s*([^·]*?)\s*(?=\s*·\s*(?:📍|✋|↩️?)|$)/g;
 
-// Recebimento.gs:600
+// Recebimento.gs:602
 var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF' };
 
 // Saude.gs:12
@@ -9047,7 +9047,9 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
       // A cobertura de cotação também é só delas (peça comprada antes da autorização não tem linha de cotação).
       var autsT = vd_autorizacoesDaDescricao_(card.desc, anT.pecas);
       var pendT = vdf_pecasAguardandoDecisao_(card, anT, autsT), baseT = pendT.length ? pendT : anT.pecas;
-      if ((anT.pecas || []).length && !autsT.length && !vdf_coberturaCotacao_(card.desc, baseT).faltam.length) {
+      // autorização "aberta" = autorizada e ainda não comprada (a diretoria já decidiu, espera a compra): aí não mexe
+      var pagasT = vdf_itensPagas_(card), autAberta = autsT.some(function (a) { return !pagasT.some(function (n) { return vd_casaItem_(n, a.chave); }); });
+      if ((anT.pecas || []).length && !autAberta && !vdf_coberturaCotacao_(card.desc, baseT).faltam.length) {
         var soPartT = baseT.every(function (x) { return vdf_pecaParticular_(x, card, anT); });
         var certaT = soPartT ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE;
         if (certaT !== lista) { alvo = certaT; soFo = soPartT ? 'pedido particular: quem autoriza é o consultor' : 'tem peça da seguradora: quem autoriza é a diretoria'; }
@@ -9064,7 +9066,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   return movido;
 }
 
-// Recebimento.gs:602
+// Recebimento.gs:604
 function rc_checklistDev_(card, token) {
   var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
   if (k) return k;
@@ -9073,10 +9075,10 @@ function rc_checklistDev_(card, token) {
   return k;
 }
 
-// Recebimento.gs:610
+// Recebimento.gs:612
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// Recebimento.gs:611
+// Recebimento.gs:613
 function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
@@ -9089,7 +9091,7 @@ function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   return novo;
 }
 
-// Recebimento.gs:623
+// Recebimento.gs:625
 function rc_devolucoes_(card) {
   var out = [];
   (card.checklists || []).forEach(function (k) {
@@ -9103,10 +9105,10 @@ function rc_devolucoes_(card) {
   return out;
 }
 
-// Recebimento.gs:635
+// Recebimento.gs:637
 function rc_devolucoesPendentes_(card) { return rc_devolucoes_(card).filter(function (d) { return !d.ok; }); }
 
-// Recebimento.gs:638
+// Recebimento.gs:640
 function vdf_salvarDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -9162,7 +9164,7 @@ function vdf_salvarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:697
+// Recebimento.gs:699
 function vdf_reavaliarColuna(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
@@ -9175,7 +9177,7 @@ function vdf_reavaliarColuna(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:708
+// Recebimento.gs:710
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };

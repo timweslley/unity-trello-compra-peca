@@ -574,7 +574,9 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
       // A cobertura de cotação também é só delas (peça comprada antes da autorização não tem linha de cotação).
       var autsT = vd_autorizacoesDaDescricao_(card.desc, anT.pecas);
       var pendT = vdf_pecasAguardandoDecisao_(card, anT, autsT), baseT = pendT.length ? pendT : anT.pecas;
-      if ((anT.pecas || []).length && !autsT.length && !vdf_coberturaCotacao_(card.desc, baseT).faltam.length) {
+      // autorização "aberta" = autorizada e ainda não comprada (a diretoria já decidiu, espera a compra): aí não mexe
+      var pagasT = vdf_itensPagas_(card), autAberta = autsT.some(function (a) { return !pagasT.some(function (n) { return vd_casaItem_(n, a.chave); }); });
+      if ((anT.pecas || []).length && !autAberta && !vdf_coberturaCotacao_(card.desc, baseT).faltam.length) {
         var soPartT = baseT.every(function (x) { return vdf_pecaParticular_(x, card, anT); });
         var certaT = soPartT ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE;
         if (certaT !== lista) { alvo = certaT; soFo = soPartT ? 'pedido particular: quem autoriza é o consultor' : 'tem peça da seguradora: quem autoriza é a diretoria'; }
