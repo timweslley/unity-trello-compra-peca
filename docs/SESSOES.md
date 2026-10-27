@@ -378,3 +378,7 @@ da outra, deixar um recado aqui e no commit.
 - 15h45 — Passada de leitura nos 280 cards abertos (fora ENTREGUES): 85 com orçamento Cilia; nenhuma troca pendente além do
   KPJ9A04. O único candidato (BCB8218, "663111S000 1632439") era o nº de catálogo do Cilia ao lado do código Hyundai, não
   troca — regra apertada: o 2º número só vale como código novo se for da mesma família do 1º (`vd_mesmaFamiliaCodigo_`).
+- 18h20 — Balanço do dia: envios do formulário ~2× mais rápidos que sexta/segunda (Enviar pedido 13,2 s → 4,1 s de mediana;
+  cotação 9,0 → 3,1 s; recebimento 11,1 → 6,6 s; compra 11,9 → 8,1 s; autorização 10,2 → 6,1 s); 0 erro de gravação em
+  86 envios. Pendência: 1 gravação da aba EVENTOS falhou às 15h04 (4 linhas, KPJ9A04) — `POST /tarefas/pendentes` passa a
+  refazer também as pendências da planilha (antes só propriedades).

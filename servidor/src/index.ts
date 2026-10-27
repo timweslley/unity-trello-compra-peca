@@ -12,7 +12,7 @@ import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
 import { retratar, retratarTodos } from './retrato.js';
-import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, ultimasExecucoesForm, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo, minutoRobo, testeDrive, compararRobo, tamanhoProps, pedirCicloRapido, estadoCicloRapido, batidaNoGoogle } from './gas/ponte.js';
+import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, ultimasExecucoesForm, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, refazerPlanilhaPendentes, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo, minutoRobo, testeDrive, compararRobo, tamanhoProps, pedirCicloRapido, estadoCicloRapido, batidaNoGoogle } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /* 21/10/2026 — últimas 24 h de ações do quadro principal recebidas pelo webhook, só o que o monitoramento precisa e nada
@@ -393,7 +393,7 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
 
   /** Gravações do principal que ficaram pendentes (sem conteúdo de card). POST refaz as de propriedades. */
   app.get('/tarefas/pendentes', async () => ({ ok: true, pendentes: await resumoPendentes() }));
-  app.post('/tarefas/pendentes', async () => ({ ok: true, refeitas: await refazerPropsPendentes(), pendentes: await resumoPendentes() }));
+  app.post('/tarefas/pendentes', async () => ({ ok: true, refeitas: await refazerPropsPendentes(), planilhaRefeitas: await refazerPlanilhaPendentes(), pendentes: await resumoPendentes() }));
 
   /** Leitura dos anexos de UM card (pelo código do link): só dados de peças, sem placa/chassi/nomes. ?forcar=1 relê. */
   app.get('/tarefas/leitura/:card', async (req, resp) => {

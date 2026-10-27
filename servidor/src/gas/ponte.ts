@@ -844,6 +844,22 @@ async function refazerPropsPendentes(): Promise<number> {
   finally { refazendo = false; }
   return n;
 }
+/** 27/10/2026: refaz as gravações da planilha que falharam (linhas fixas por número + novas por append), na ordem. */
+export async function refazerPlanilhaPendentes(): Promise<number> {
+  if (!CFG.planilhaId) return 0;
+  let n = 0;
+  const linhas = await consulta<{ nome: string; valor: string }>(`SELECT nome, valor FROM guardado WHERE nome LIKE 'planilha_pendente_%' ORDER BY nome LIMIT 20`);
+  for (const l of linhas) {
+    try {
+      const v = (typeof l.valor === 'string' ? JSON.parse(l.valor) : l.valor) as { aba: string; fixas: Record<string, unknown[]>; novas: unknown[][] };
+      if (!(await abasReais()).includes(v.aba)) { console.warn('[planilha pendente] aba inexistente', v.aba); continue; }
+      await gravarLinhasPlanilha(CFG.planilhaId, v.aba, v.fixas || {});
+      await anexarLinhasPlanilha(CFG.planilhaId, v.aba, v.novas || []);
+      await consulta(`DELETE FROM guardado WHERE nome = $1`, [l.nome]); n++;
+    } catch (e) { console.error('[planilha pendente] refazer', l.nome, (e as Error).message); break; }
+  }
+  return n;
+}
 /** Resumo das gravações pendentes (sem conteúdo de card): nomes das abas, número de linhas e chaves de propriedades. */
 export async function resumoPendentes(): Promise<unknown> {
   const linhas = await consulta<{ nome: string; valor: string; em: string }>(`SELECT nome, valor, em FROM guardado WHERE nome LIKE 'props_pendentes_%' OR nome LIKE 'planilha_pendente_%' ORDER BY nome`).catch(() => []);
