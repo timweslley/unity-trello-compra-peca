@@ -845,9 +845,10 @@ async function refazerPropsPendentes(): Promise<number> {
   return n;
 }
 /** 27/10/2026: refaz as gravações da planilha que falharam (linhas fixas por número + novas por append), na ordem. */
+export let erroPlanilhaPendente = '';
 export async function refazerPlanilhaPendentes(): Promise<number> {
   if (!CFG.planilhaId) return 0;
-  let n = 0;
+  let n = 0; erroPlanilhaPendente = '';
   const linhas = await consulta<{ nome: string; valor: string }>(`SELECT nome, valor FROM guardado WHERE nome LIKE 'planilha_pendente_%' ORDER BY nome LIMIT 20`);
   for (const l of linhas) {
     try {
@@ -856,7 +857,7 @@ export async function refazerPlanilhaPendentes(): Promise<number> {
       await gravarLinhasPlanilha(CFG.planilhaId, v.aba, v.fixas || {});
       await anexarLinhasPlanilha(CFG.planilhaId, v.aba, v.novas || []);
       await consulta(`DELETE FROM guardado WHERE nome = $1`, [l.nome]); n++;
-    } catch (e) { console.error('[planilha pendente] refazer', l.nome, (e as Error).message); break; }
+    } catch (e) { erroPlanilhaPendente = l.nome + ': ' + (e as Error).message.slice(0, 300); console.error('[planilha pendente] refazer', erroPlanilhaPendente); break; }
   }
   return n;
 }
