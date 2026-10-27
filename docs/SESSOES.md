@@ -342,3 +342,6 @@ da outra, deixar um recado aqui e no commit.
   roda a conferência do robô, que baixa e passa OCR em cada foto recém-subida (~7 s por foto) procurando dados do carro — com a
   pessoa esperando. Agora foto/capa/outro anexo que acabou de subir fica fora do OCR dessa conferência (o orçamento já foi lido
   antes; o robô lê o resto no ciclo seguinte se o card precisar). `/tarefas/execucoes` ganha a lista `formulario`.
+- 09h45 — Publicado (`709c211`). Mesmo pedido novo com 3 fotos no TESTE: 36,8 s → **12,6 s** (o que sobra é o Trello: 3
+  uploads de ~2 s cada em sequência + ~5 s de leituras/gravações). Cards de teste ZZT9C02/ZZT9C03 renomeados e arquivados.
+  Próximo: subir as fotos em paralelo (fetchAll) e cortar as 4 releituras do card no fim do vdf_salvar.
