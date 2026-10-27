@@ -555,7 +555,7 @@ var VD_SO_MO_LINHA = 'nenhuma peça pela oficina — orçamento só de mão de o
 var VD_ANXS = { ABA: 'ANEXOS', SH: null, ROW: null, MAX: 45000 };
 
 // Validacao.gs:886
-var VD_LEITOR_V = 6;
+var VD_LEITOR_V = 7;
 
 // Validacao.gs:887
 var VD_ANX_V = 3;
