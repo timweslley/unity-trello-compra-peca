@@ -10007,7 +10007,7 @@ document.addEventListener('input', function (e) {
     var ex = {};
     ((c && c.recebiveis) || []).forEach(function (it) { if (it && it.exCodigo) ex[it.id] = it.exCodigo; });
     if (!Object.keys(ex).length) return;
-    ['#recItens', '#retItens', '#fornItens'].forEach(function (sel) {
+    ['#recItens', '#recJa', '#retItens', '#fornItens'].forEach(function (sel) {   // recJa = peças já recebidas (lista separada)
       Array.prototype.slice.call(document.querySelectorAll(sel + ' .item[data-id]')).forEach(function (d) {
         var cod = ex[d.dataset.id]; if (!cod || d.querySelector('.v2ex')) return;
         var topo = d.querySelector('.item-topo') || d;
