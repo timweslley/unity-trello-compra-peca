@@ -318,3 +318,7 @@ da outra, deixar um recado aqui e no commit.
   no principal?" — é (esse caminho só existe no principal).
 - 22h35 — Passo 1 no servidor (`ponte.ts`): licença das travas e gravação da planilha depois de responder à tela; abas
   pré-lidas em paralelo. Detalhe em `docs/PROJETO-SERVIDOR.md` (diário 26/10). Acompanhar em `/tarefas/execucoes`.
+- 22h50 — Passo 2: `vdf_salvar` lê o card UMA vez (com checklists e anexos) e reaproveita nas conferências de peça travada,
+  FORNECIMENTO no checklist, orçamento anexado, anexo repetido e link 💰 (eram até 5 leituras a mais, ~0,25 s cada); o
+  servidor passa a guardar a trilha das chamadas de rede de cada execução (`trilha` em `/tarefas/execucoes`) para achar
+  repetições. Conferir no TESTE (ZZT9C01) assim que publicar; o Weslley autorizou fazer direto no principal.

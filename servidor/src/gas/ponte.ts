@@ -538,6 +538,8 @@ export interface Execucao {
   rede: Record<string, { n: number; ms: number }>;
   /** principal: respostas servidas da memória (conferidas) × lidas ao vivo; última atividade vista nos cards conferidos */
   guardado?: number; aoVivo?: number; ultimaAtividade?: number; usarGuardado?: boolean;
+  /** 26/10/2026: trilha das chamadas de rede (método + caminho com ids mascarados + ms), só em memória, para achar repetição */
+  trilha?: string[];
 }
 const execucoes: Execucao[] = [];
 export function ultimasExecucoes(): Execucao[] { return execucoes.slice().reverse(); }
@@ -547,9 +549,14 @@ function contar(atual: Execucao | null, m: { op: string; dados: unknown }, ms: n
   const o = (atual.ops[m.op] ||= { n: 0, ms: 0 }); o.n++; o.ms += ms;
   const pedidos = m.op === 'fetch' ? [m.dados] : m.op === 'fetchAll' ? (m.dados as unknown[]) : [];
   for (const p of pedidos as Array<{ url?: string; metodo?: string }>) {
-    let k = '?';
-    try { const u = new URL(String(p.url)); k = (p.metodo || 'GET') + ' ' + u.host + '/' + u.pathname.split('/').filter(Boolean).slice(0, 2).map((x) => /\d/.test(x) && x.length > 6 ? ':id' : x).join('/'); } catch { /* */ }
+    let k = '?', caminho = '?';
+    try {
+      const u = new URL(String(p.url)), seg = u.pathname.split('/').filter(Boolean).map((x) => /\d/.test(x) && x.length > 6 ? ':id' : x);
+      k = (p.metodo || 'GET') + ' ' + u.host + '/' + seg.slice(0, 2).join('/');
+      caminho = (p.metodo || 'GET') + ' /' + seg.join('/') + (u.search ? '?' + [...u.searchParams.keys()].filter((q) => q !== 'key' && q !== 'token').join(',') : '');
+    } catch { /* */ }
     const r = (atual.rede[k] ||= { n: 0, ms: 0 }); r.n++; r.ms += m.op === 'fetch' ? ms : 0;
+    if ((atual.trilha ||= []).length < 80) atual.trilha.push(caminho + ' ' + (m.op === 'fetch' ? ms : '∥') + 'ms');
   }
 }
 

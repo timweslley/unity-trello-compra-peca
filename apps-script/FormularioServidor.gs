@@ -1229,9 +1229,9 @@ function vdf_moverPara_(card, ctx, nomeLista, token, usuario) {
 }
 
 /** Card já existe: garante o link do comprador nos anexos. */
-function vdf_linkComprador_(card, ctx, token) {
+function vdf_linkComprador_(card, ctx, token, anexos) {
   try {
-    var ans = vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,url' } });
+    var ans = anexos || vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,url' } });
     if (ans.some(function (a) { return VD_LINK.RX_COMPRA.test(a.name || ''); })) return;
     vd_api_('/cards/' + card.id + '/attachments', { method: 'post', payload: { url: ctx.urlForm + '?card=' + card.shortLink + '&modo=compras', name: VD_LINK.COMPRA, setCover: false } }, token);
   } catch (e) {}
@@ -2322,13 +2322,6 @@ function vdf_salvar(token, p) {
     origemOrc: orc && orc.origem ? orc.origem : '',
     soMaoDeObra: soMO
   };
-  if (!extra.origemOrc && p.shortLink) {
-    try {
-      var cAnt = vd_api_('/cards/' + p.shortLink, { query: { fields: 'desc' } });
-      var mOrc = vd_limpar_(cAnt.desc || '').match(/OR[ÇC]AMENTO IMPORTADO \(([^)]*)\)/i);
-      if (mOrc) extra.origemOrc = mOrc[1];
-    } catch (e) {}
-  }
   var obs = String(p.obs || '').replace(/\s*\n\s*/g, ' ').trim();
   var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm');
 
@@ -2336,7 +2329,12 @@ function vdf_salvar(token, p) {
   var card = null, lista = '', posCot = false, baseSigs = null, baseTodas = null;
   var naoAntes = {}, pecasAntes = null;   // 21/10/2026: como o pedido estava antes desta gravação (para dizer o que mudou e quem mudou)
   if (p.shortLink) {
-    card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard' } });
+    // 26/10/2026 (velocidade): o card vem UMA vez com checklists e anexos — as conferências abaixo (peça travada, FORNECIMENTO
+    // no checklist, orçamento anexado, anexo repetido, link 💰) reaproveitam esta leitura em vez de pedir o card de novo
+    card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,fileName,bytes,date,isUpload,url' } });
+    if (!extra.origemOrc) {
+      try { var mOrc = vd_limpar_(card.desc || '').match(/OR[ÇC]AMENTO IMPORTADO \(([^)]*)\)/i); if (mOrc) extra.origemOrc = mOrc[1]; } catch (e) {}
+    }
     try {
       var anAntes = vd_analisar_(card.desc, card.name); pecasAntes = {};
       (anAntes.pecas || []).forEach(function (x) { pecasAntes[vd_chavePeca_(x)] = x; });
@@ -2363,7 +2361,7 @@ function vdf_salvar(token, p) {
     // peça já autorizada ou comprada: não muda nem sai do pedido (só a diretoria)
     if (!vdf_ehAutorizador_(me)) {
       try {
-        var cTr = vd_api_('/cards/' + card.id, { query: { fields: 'name', checklists: 'all', checkItem_fields: 'name' } });
+        var cTr = card;   // checklists já vieram na leitura inicial (26/10/2026)
         var anTr = vd_analisar_(card.desc, card.name), autsTr = vd_autorizacoesDaDescricao_(card.desc, anTr.pecas);
         var novasSig = pecas.map(function (x) { return vdf_sigTrava_(x); });
         var travaErr = [];
@@ -2431,7 +2429,7 @@ function vdf_salvar(token, p) {
     try { temFoNoCard = /^FORNECIMENTO/i.test(vd_limpar_(vd_dividir_(card.desc).bloco).split('\n').filter(function (l) { return /^FORNECIMENTO\b/i.test(l.trim()); }).join('\n')); } catch (e) {}
     // card do fluxo antigo (descrição fora do padrão): vale o checklist FORNECIMENTO/PAGAS com itens (13/10/2026, UIC5G94)
     if (!temFoNoCard) {
-      try { temFoNoCard = (vd_api_('/cards/' + card.id + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name' } }) || []).some(function (k) { return /^(FORNECIMENTO|PAGAS)/i.test(String(k.name || '').trim()) && (k.checkItems || []).length; }); } catch (e) {}
+      try { temFoNoCard = (card.checklists || []).some(function (k) { return /^(FORNECIMENTO|PAGAS)/i.test(String(k.name || '').trim()) && (k.checkItems || []).length; }); } catch (e) {}
     }
   }
   // 23/10/2026: card só de mão de obra (marca no bloco PEÇAS) continua sem peça quando é editado (unidade, ordem, obs…)
@@ -2448,7 +2446,7 @@ function vdf_salvar(token, p) {
   }
   if (!pecas.length && !fo.length && !compFo.length && !temFoNoCard && !soMO && !temMoNoCard && !parcial) return { ok: false, faltas: ['Adicione pelo menos uma peça (ou importe um orçamento com peças da seguradora). Se a peça não vai ser comprada, marque 🚫 Não comprar em vez de remover.'] };
   var temOrcNoCard = !!(card && vd_analisar_(card.desc, card.name).doOrcamento);
-  if (card && !temOrcNoCard) { try { temOrcNoCard = vd_temOrcAnexo_(vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name' } })); } catch (e) {} }
+  if (card && !temOrcNoCard) { try { temOrcNoCard = vd_temOrcAnexo_(card.attachments || []); } catch (e) {} }
   var soAcrescentaParticular = !!card && (p.pecas || []).some(function (x) { return x.particular; });
   if (!parcial && !semSeguradora && !posCot && !(orc && orc.origem) && !temOrcNoCard && !soAcrescentaParticular && !comp) {
     return { ok: false, faltas: ['Pedido de seguradora: anexe o orçamento autorizado (PDF do Cilia, HDI ou Websoma) na seção Documento — o formulário importa as peças dele. Se for cliente particular ou retorno (oficina paga), marque isso no tipo do pedido.'] };
@@ -2555,7 +2553,7 @@ function vdf_salvar(token, p) {
   try { if (vdf_gravarOrdem_(card.id, p.dados.ordem)) cardCampos = true; } catch (e) { console.log('ordem: ' + e); }
   try { if (vdf_gravarUnidade_(card, n.unidade)) cardCampos = true; } catch (e) { console.log('unidade: ' + e); }
   if (cardCampos) { try { cf_sincronizar_(card.id); } catch (e) {} }
-  vdf_linkComprador_(card, ctx, token);
+  vdf_linkComprador_(card, ctx, token, card.attachments || (p.shortLink ? null : []));   // anexos da leitura inicial; card novo ainda não tem o link 💰
 
   var nFo = 0;
   try { nFo = vdf_checklistFornecimento_(card.id, fo, token); } catch (e) {}
@@ -2583,9 +2581,7 @@ function vdf_salvar(token, p) {
   var anexados = 0, capaOk = false, repetidos = [], idsSubidos = [], idsLidos = [];
   // anexos que já estão no card (mesmo nome e tamanho) não sobem de novo
   var jaNoCard = [];
-  if (p.shortLink && (p.fileIds || []).length) {
-    try { jaNoCard = vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,fileName,bytes,date,isUpload' } }, token); } catch (e) {}
-  }
+  if (p.shortLink && (p.fileIds || []).length) jaNoCard = card.attachments || [];   // da leitura inicial (nada subiu ainda nesta gravação)
   // o que o formulário sabe de cada arquivo (tipo: 'orc' | 'orc+' | 'capa' | ''; origem: Cilia/HDI/Websoma) — nome padronizado (05/10/2026)
   var infoArq = {}, textosForn = [], idsForn = [];
   (p.arquivos || []).forEach(function (x) { if (x && x.fileId) infoArq[x.fileId] = x; });

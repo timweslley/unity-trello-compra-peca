@@ -61,3 +61,6 @@
   seguinte espera a planilha, no máximo 20 s; a licença tem fila própria e o robô só julga movimento com mais de 90 s);
   as abas que a função leu da última vez são pré-lidas em paralelo no começo da chamada seguinte (`abasPorFuncao`).
   Ganho esperado ~4 s por envio. Passo 2 (menos leituras repetidas do card em `vdf_salvar`) fica para conferir no TESTE.
+- 26/10/2026 22h50 — Passo 2: `vdf_salvar` com uma leitura só do card (checklists + anexos) reaproveitada nas conferências;
+  `Execucao.trilha` (método + caminho com ids mascarados + ms, só em memória) em `/tarefas/execucoes`. Próximo: usar a trilha
+  para fazer o mesmo em `vdf_salvarCotacao` (9 leituras de card por envio).
