@@ -137,3 +137,7 @@ Weslley ou vão direto para o banco do unityOS — **nunca neste repositório (p
 Toda mudança de regra: atualizar `ESPECIFICACAO-SISTEMA.md` (a seção da regra) **e** este arquivo (§4 se for regra que
 engana, §5 se mexer em dado, §7 pendências) no mesmo commit, e uma linha em `SESSOES.md`. O desenvolvedor acompanha
 pelo histórico do Git (`git log -- docs/`).
+
+> 27/10/2026 — Regra de encerramento: o card só vai para ENCERRADO quando toda peça da oficina está resolvida (comprada e
+> recebida, 🚫 não comprar ou fornecimento). Peça cotada sem autorização e sem 🚫 = "sem decisão" → o card volta para quem
+> decide (PENDENTE AUTORIZAR / COTAÇÃO FINALIZADA). Detalhe em `docs/ESPECIFICACAO-SISTEMA.md` §13 (27/10).

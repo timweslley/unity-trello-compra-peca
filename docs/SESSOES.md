@@ -345,3 +345,7 @@ da outra, deixar um recado aqui e no commit.
 - 09h45 — Publicado (`709c211`). Mesmo pedido novo com 3 fotos no TESTE: 36,8 s → **12,6 s** (o que sobra é o Trello: 3
   uploads de ~2 s cada em sequência + ~5 s de leituras/gravações). Cards de teste ZZT9C02/ZZT9C03 renomeados e arquivados.
   Próximo: subir as fotos em paralelo (fetchAll) e cortar as 4 releituras do card no fim do vdf_salvar.
+- 11h53 — Weslley: ATP5105 "está como encerrado mas não está completo, tem coisa sem autorizar". Autorização de 14/10 com 3
+  peças; 4 ficaram sem decisão ("Verificar com Edilson"), e o sistema chamava isso de "não comprar" sem marcar 🚫. Tudo
+  recebido hoje → ENCERRADO. Regra nova (OK dele): peça sem decisão segura o card — volta para PENDENTE AUTORIZAR. Função
+  `vdf_reavaliarColuna` (diretoria) para devolver o ATP5105 pelo caminho oficial.

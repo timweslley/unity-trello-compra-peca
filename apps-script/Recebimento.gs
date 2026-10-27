@@ -508,7 +508,29 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
     } catch (e) { console.log('coluna/sem compra: ' + e); }
   }
   if (semCompra) alvo = VDF_LISTA_AUTORIZADO;
-  else if (lista === VDF_LISTA_CHEGAR && itens.length && !pend.length) alvo = RC.LISTA_FIM;
+  else if ((lista === VDF_LISTA_CHEGAR || (lista === RC.LISTA_FIM && opt.reavaliar)) && itens.length && !pend.length) {
+    if (lista === VDF_LISTA_CHEGAR) alvo = RC.LISTA_FIM;
+    // 27/10/2026 (Weslley, ATP5105 — "encerrado mas não está completo, tem coisa sem autorizar"): peça da oficina cotada que
+    // ninguém autorizou nem marcou 🚫 não comprar é "sem decisão" — tudo comprado chegou, mas o card NÃO encerra: volta para
+    // quem decide (PENDENTE AUTORIZAR / COTAÇÃO FINALIZADA; EM COTAÇÃO se faltar cotação).
+    if (!semCompleta && !vd_legado_(card.id)) {
+      try {
+        var anP = vd_analisar_(card.desc, card.name), autsP = vd_autorizacoesDaDescricao_(card.desc, anP.pecas), pagasP = vdf_itensPagas_(card);
+        var semDec = (anP.pecas || []).filter(function (x) {
+          var k = vd_chavePeca_(x);
+          return k && !x.naoComprar && !autsP.some(function (a) { return a.chave === k; }) && !pagasP.some(function (n) { return vd_casaItem_(n, k); });
+        });
+        if (semDec.length) {
+          var faltamP = [];
+          try { faltamP = vdf_coberturaCotacao_(card.desc, semDec).faltam || []; } catch (e) {}
+          var soPartP = semDec.every(function (x) { return vdf_pecaParticular_(x, card, anP); });
+          alvo = faltamP.length ? VD.LISTA_COTACAO : (soPartP ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE);
+          soFo = 'tudo que foi comprado chegou, mas ' + semDec.length + ' peça(s) ainda sem decisão: ' + semDec.map(vd_nomePeca_).join('; ') +
+            ' — ' + (faltamP.length ? 'falta cotação do comprador' : 'autorizar ou marcar 🚫 não comprar pela aba ✅ Autorizar');
+        }
+      } catch (e) { console.log('coluna/sem decisão: ' + e); }
+    }
+  }
   else if (lista === VDF_LISTA_AUTORIZADO && !semCompleta) {
     // toda peça autorizada já está no PAGAS (ex.: a não autorizada foi removida do pedido)
     var anA = vd_analisar_(card.desc, card.name), autsA = vd_autorizacoesDaDescricao_(card.desc, anA.pecas);
@@ -558,7 +580,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   }
   if (!alvo || !ctx.listas[alvo]) return '';
   var movido = vdf_moverPara_(card, ctx, alvo, token, usuario || 'robô');
-  if (movido && lista !== VDF_LISTA_CHEGAR) {
+  if (movido && (lista !== VDF_LISTA_CHEGAR || alvo !== RC.LISTA_FIM)) {   // FALTA CHEGAR → ENCERRADO já tem o "✅ Tudo recebido" do recebimento
     try {
       vd_comentar_(card, '↪️ Card → **' + movido + '** (' + (semCompra ? 'peça autorizada sem compra — verificar compra do item' : soFo || (alvo === VDF_LISTA_CHEGAR ? pend.length + ' peça(s) para chegar' : 'tudo recebido')) + ').');
     } catch (e) {}
@@ -667,6 +689,19 @@ function vdf_salvarDevolucao(token, p) {
 
 /** 21/10/2026 (Weslley: "os que ainda não foram entregues dá pra incluir") — diretoria inclui no checklist DEVOLUÇÕES uma devolução
  *  feita antes do controle existir (ou registrada fora do formulário). p = {shortLink, peca, fornecedor, valor, data:'aaaa-mm-dd', motivo, fo} */
+/** 27/10/2026 (diretoria): reavalia a coluna de um card pelo caminho oficial (licença das travas) — inclusive card em ENCERRADO
+ *  com peça sem decisão (ATP5105). p = {shortLink}. Devolve {movido, lista}. */
+function vdf_reavaliarColuna(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
+  p = vdf_entrada_(p);
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,idList,shortLink,shortUrl' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  var movido = '';
+  try { movido = rc_reavaliarColuna_(card.id, token, me.username, { reavaliar: true }); } catch (e) { return { ok: false, faltas: ['Não consegui reavaliar: ' + e] }; }
+  var ctx = vd_contexto_();
+  return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };

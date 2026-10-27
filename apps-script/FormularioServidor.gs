@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_servidorProps', 'vdf_limparCardRotina', 'vdf_rotinaPecasBase', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_incluirDevolucao'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_incluirDevolucao', 'vdf_reavaliarColuna'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -1773,7 +1773,8 @@ function vdf_autorizar(token, p) {
   try { ev_registrar_('AUTORIZAÇÃO', card, me.username, evAut, { detalhe: (fechar ? 'enviada (fecha as parciais)' : '') + (aguarda.length ? ' aguardando: ' + aguarda.join('; ') : '') }); } catch (e) {}
   if (!aguarda.length) { try { movido = vdf_moverPara_(card, ctx, VDF_LISTA_AUTORIZADO, token, me.username); } catch (e) {} }
   // "sem autorização" só conta as peças que ESTA pessoa podia autorizar
-  var semAut = an.pecas.filter(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador) && !temAut(x); }).length;   // autorizada antes (ex.: complemento) não conta
+  // 27/10/2026 (ATP5105): peça não autorizada e não marcada 🚫 fica "sem decisão" (o card não encerra com ela assim) — antes o comentário dizia "não comprar"
+  var semAut = an.pecas.filter(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador) && !temAut(x) && !x.naoComprar; }).length;   // autorizada antes (ex.: complemento) não conta
   try {
     var compr = String(vd_prop_('VD_COMPRADORES', VDF_COMPRADORES_PADRAO)).split(/[,;\s]+/).filter(function (u) { return u && u.toLowerCase() !== String(me.username).toLowerCase(); })[0];
     if (reenvio) {
@@ -1785,7 +1786,7 @@ function vdf_autorizar(token, p) {
       total = totC; linhas = autsAgora.map(function (a) { return a.chave; });
     } else {
       vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: vdf_mencao_([compr]) + '✅ **AUTORIZADO** — ' + me.fullName + ' · ' + linhas.length + ' peça(s) · ' + vd_valorBR_(total) + (movido ? ' → **' + movido + '**' : '') +
-        (semAut ? '\n⛔ Sem autorização (não comprar): ' + semAut + ' peça(s)' : '') + (typeof txtM === 'string' ? txtM : '') + obsL.texto + (aguarda.length ? '\n⏳ Aguarda: ' + aguarda.join('; ') : '') } }, token);
+        (semAut ? '\n⏳ Sem decisão: ' + semAut + ' peça(s) — autorizar depois ou marcar 🚫 não comprar (o card não encerra com peça sem decisão)' : '') + (typeof txtM === 'string' ? txtM : '') + obsL.texto + (aguarda.length ? '\n⏳ Aguarda: ' + aguarda.join('; ') : '') } }, token);
     }
   } catch (e) {}
   try { propsA.setProperty(kEnv, agora); } catch (e) {}   // daqui em diante, reenvio compara com esta autorização

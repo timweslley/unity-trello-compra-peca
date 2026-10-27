@@ -689,3 +689,9 @@ seção 10) · `usuario` (username trello, nome, papéis, unidade).
   repetido ao Trello dentro da mesma chamada responde da memória. (4) Foto/capa/outro anexo recém-subido não passa pelo OCR
   na conferência feita pela gravação do formulário — o robô lê no ciclo seguinte se o card ainda precisar de dado do carro.
   (5) Card criado pelo formulário não recebe o aviso "PLACA JÁ TEM CARD ABERTO" do robô (o formulário já perguntou).
+- **27/10/2026 — peça sem decisão não deixa o card encerrar (Weslley, ATP5105).** Peça da oficina cotada que ninguém
+  autorizou nem marcou 🚫 não comprar é "sem decisão" (o comentário da autorização passa a dizer "⏳ Sem decisão: N peça(s)",
+  não mais "não comprar"). Com tudo que foi comprado recebido, o card só vai para ENCERRADO se toda peça estiver resolvida
+  (comprada, 🚫 ou fornecimento); senão volta para PENDENTE AUTORIZAR (COTAÇÃO FINALIZADA se só particular; EM COTAÇÃO se
+  faltar cotação) com o comentário "↪️ Card → … (tudo que foi comprado chegou, mas N peça(s) ainda sem decisão: …)".
+  `vdf_reavaliarColuna` (diretoria) reavalia a coluna de um card pelo caminho oficial, inclusive em ENCERRADO.
