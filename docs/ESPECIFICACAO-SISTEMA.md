@@ -312,8 +312,19 @@ checklist casa pelo prefixo `chave + ' '` (código/pneu) ou `chave + ' - '` (des
   assinatura antiga pela nova (não é peça nova); evento `CÓDIGO CORRIGIDO` e comentário `🔁 CÓDIGO CORRIGIDO NA COTAÇÃO`.
   Recusa: pneu, peça já comprada (PAGAS/COMPRADO), código inválido (4–40, com número) ou de outra peça do card.
   Toda peça precisa de cotação **ou** justificativa para o card seguir.
+  **Cotação de KIT** (27/10/2026, TESTE — chave `PU_CFG.COT_KIT`): `p.kits=[{chaves:[2+], fornecedor, tipo, marca, valor, dias,
+  nota}]` no `vdf_salvarCotacao` vira **uma linha por peça** com o valor **rateado** (`vdf_kitRateio_`: proporcional ao valor
+  líquido do orçamento × qtd; sem orçamento em alguma peça, partes iguais; centavos que sobram na última; o valor da linha é o da
+  unidade) e a marca `… - prazo - 🧩 KIT <id> R$ <total> (<n> peças) - 📝 obs - [🔗 link]` (lida em `vdf_tirarLinkCot_` → `q.kit
+  {id,total,n}`). Recusa: menos de 2 peças, pneu, peça já autorizada, fornecedor/valor/prazo inválidos. Remover uma linha do kit
+  na tela remove todas as linhas do kit (vão como `REMOVIDA:` de cada peça).
 - Autorização: vale a mais recente por peça; `DEVOLVIDA PARA COTAÇÃO` anula todas, menos as listadas logo abaixo em `MANTIDA (comprada): <chave>` (peças já no PAGAS); `INDISPONÍVEL` do mesmo
   fornecedor anula a daquela peça. A cotação autorizada tem de existir no card (mesmo fornecedor e valor).
+  **Kit** (27/10/2026): o kit se autoriza inteiro — se a escolha final (nova ou já autorizada) de uma peça é a linha de um kit,
+  todas as peças do kit têm de estar no mesmo kit (`vdf_kitConferirAutorizacao_`; senão falta "Kit X cobre A + B: autorize todas
+  pelo kit, ou escolha outra cotação para cada uma"). Na tela (TESTE), quadro **"Kit ou avulsas?"** antes das peças: A) kit ·
+  B) avulsas (melhor cotação sem kit de cada peça; "incompleto" se faltar) · C) não autorizar; já vem marcado o mais barato.
+  A compra segue por peça com o valor rateado (a soma fecha com a nota do kit).
 - Compra: **não vai para a descrição** — vira item no checklist `PAGAS` (`PAGAS PARTICULAR`, `PAGAS COMPLEMENTO`)
   com nome `CÓDIGO DESCRIÇÃO - FORNECEDOR - R$ x` e `due` = previsão (data ou hoje + dias úteis).
   "Fora da autorização" (sem autorização, fornecedor/valor/prazo diferente) exige justificativa, vai no comentário

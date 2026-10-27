@@ -1115,6 +1115,9 @@ function vdf_tirarLinkCot_(l) {
   // 26/10/2026: "- 📝 texto" = obs. do comprador nesta cotação (fica entre o prazo e o link)
   var n = r.linha.match(/^(.*?)\s+-\s+📝\s*(.*)$/);
   if (n) { r.linha = n[1]; r.nota = n[2].trim(); }
+  // 27/10/2026 (Weslley, kit): "- 🧩 KIT <id> R$ <total do kit> (<n> peças)" = esta cotação faz parte de um kit (valor da linha = parte rateada)
+  var k = r.linha.match(/^(.*?)\s+-\s+🧩\s*KIT\s+([A-Z0-9]{2,10})\s+R?\$?\s*([\d.]+(?:,\d{1,2})?)\s*\((\d+)\s*PE[ÇC]AS?\)\s*$/i);
+  if (k) { r.linha = k[1]; r.kit = { id: k[2].toUpperCase(), total: vd_valorNum_(k[3]), n: +k[4] }; }
   return r;
 }
 /** Obs. do comprador numa cotação: uma linha, sem link (o link tem campo próprio) e sem marcação, até 200 caracteres. */
@@ -1198,13 +1201,14 @@ function vd_cotacoesDaDescricao_(desc, pecas) {
     var mt = tm.match(/^(GENU[IÍ]NO|ORIGINAL|PARALEL[OA]|USAD[OA])\b\s*(.*)$/i);
     if (mt) { tipo = vd_tipoNorm_(mt[1]); marca = mt[2].trim(); }
     var qn = { chave: peca.chave, fornecedor: forn, obs: obs, tipo: tipo, marca: marca, valor: vd_valorNum_(m[3]), dias: m[4] !== undefined ? +m[4] : '', data: m[5] || '', link: tl.link, nota: tl.nota || '' };
+    if (tl.kit) qn.kit = tl.kit;
     if (recot && caiu[peca.chave]) qn.nova = caiu[peca.chave];
     // 19/10/2026 (revisão, ZZT9C01): cotação nova igual a uma que já está no card (mesmo fornecedor, tipo, marca, valor e prazo)
     // fica numa linha só — a mais nova, com a marca de "cotação nova"; antes aparecia duas vezes e ia para o "também cotado"
     if (vd_ajustes1910_()) {
       for (var id = out.cotacoes.length - 1; id >= 0; id--) {
         var qd = out.cotacoes[id];
-        if (qd.chave === qn.chave && qd.fornecedor === qn.fornecedor && Math.abs(qd.valor - qn.valor) < 0.005 && (qd.tipo || '') === (qn.tipo || '') && (qd.marca || '') === (qn.marca || '') && String(qd.dias) === String(qn.dias)) { if (!qn.link && qd.link) qn.link = qd.link; out.cotacoes.splice(id, 1); }
+        if (qd.chave === qn.chave && qd.fornecedor === qn.fornecedor && Math.abs(qd.valor - qn.valor) < 0.005 && (qd.tipo || '') === (qn.tipo || '') && (qd.marca || '') === (qn.marca || '') && String(qd.dias) === String(qn.dias) && ((qd.kit || {}).id || '') === ((qn.kit || {}).id || '')) { if (!qn.link && qd.link) qn.link = qd.link; out.cotacoes.splice(id, 1); }
       }
     }
     out.cotacoes.push(qn);
@@ -1360,6 +1364,72 @@ function vdf_trocarCodigosCard_(token, me, shortLink, trocas) {
   return { n: feitas.length, txt: txt };
 }
 
+/* ---------- 27/10/2026 (Weslley): cotação de KIT ----------
+ * "existem peças que podem vir em kits … ou temos que dividir o valor entre as duas peças ou colocar o custo em uma e deixar
+ * outra sem comprar". O comprador lança UMA cotação (fornecedor, tipo, marca, valor do kit, prazo) para 2+ peças do pedido; o
+ * servidor grava uma linha por peça com o valor RATEADO (proporcional ao valor líquido do orçamento de cada peça; sem orçamento
+ * em alguma peça, partes iguais) e a marca "- 🧩 KIT <id> R$ <total> (<n> peças)". A soma das partes fecha com o valor do kit.
+ * Autorização: o kit é autorizado inteiro (todas as peças pelo kit) ou não é — conferido em vdf_autorizar. */
+function vdf_kitRateio_(total, pecas) {
+  var qs = pecas.map(function (p) { return vd_qtdNum_(p.qtd); });
+  var orc = pecas.map(function (p) { var v = vd_valorNum_(vd_valorOrcTxt_(p.valorOrc)); return isNaN(v) ? 0 : v; });
+  var porOrc = orc.every(function (v) { return v > 0; });
+  var pesos = pecas.map(function (p, i) { return porOrc ? orc[i] * qs[i] : qs[i]; });
+  var soma = pesos.reduce(function (a, b) { return a + b; }, 0) || 1;
+  var cent = Math.round(total * 100), usados = 0;
+  var unit = pecas.map(function (p, i) {
+    var parte = i === pecas.length - 1 ? cent - usados : Math.round(cent * pesos[i] / soma);
+    var u = Math.round(parte / qs[i]);   // valor da linha é o da unidade
+    usados += u * qs[i];
+    return u / 100;
+  });
+  return { unit: unit, criterio: porOrc ? 'orçamento' : 'partes iguais' };
+}
+function vdf_kitExpandir_(k, porChave, foNome, auts, idsUsados, i) {
+  var faltas = [], rot = 'kit ' + (i + 1);
+  var chaves = (k && k.chaves || []).filter(function (c, j, a) { return c && a.indexOf(c) === j; });
+  var pecas = chaves.map(function (c) { return porChave[c]; });
+  if (chaves.length < 2) faltas.push(rot + ': escolha pelo menos 2 peças do pedido');
+  if (pecas.some(function (x) { return !x; })) faltas.push(rot + ': peça não encontrada no pedido — abra o card de novo');
+  var forn = foNome(k && k.fornecedor), valor = vd_valorNum_(k && k.valor), dias = String(k && k.dias == null ? '' : k.dias).trim();
+  if (!forn) faltas.push(rot + ': falta o fornecedor');
+  if (isNaN(valor) || valor <= 0) faltas.push(rot + ': valor do kit inválido');
+  if (dias !== '' && !/^\d+$/.test(dias)) faltas.push(rot + ': prazo em dias úteis (número)');
+  pecas.forEach(function (x) {
+    if (!x) return;
+    if (x.pneu) faltas.push(rot + ': pneu não entra em kit');
+    if ((auts || []).some(function (a) { return a.chave === vd_chavePeca_(x); })) faltas.push(rot + ': ' + vd_nomePeca_(x) + ' já está autorizada — kit só com peças ainda não autorizadas');
+  });
+  if (faltas.length) return { faltas: faltas, cots: [] };
+  var id; do { id = 'K' + Math.floor(Math.random() * 1679616).toString(36).toUpperCase(); } while (idsUsados[id]);
+  idsUsados[id] = 1;
+  var rt = vdf_kitRateio_(valor, pecas), tipo = vd_tipoNorm_(k.tipo || '') || '', marca = String(k.marca || '').trim().toUpperCase();
+  var kit = { id: id, total: Math.round(valor * 100) / 100, n: pecas.length };
+  return { faltas: [], cots: pecas.map(function (x, j) {
+    return { peca: x, fornecedor: forn, tipo: tipo, marca: marca, valor: rt.unit[j], dias: dias, link: vdf_linkCot_(k.link) || '', nota: vdf_notaCot_(k.nota), kit: kit };
+  }) };
+}
+
+/** Escolha final de cada peça (a nova desta autorização, senão a já autorizada) → kit dela; kit com peça fora = falta. */
+function vdf_kitConferirAutorizacao_(escolhas, lidas, autsAntes, porChave, naoComprar) {
+  var kitDe = function (ch, forn, valor) { var q = lidas.filter(function (x) { return x.chave === ch && x.fornecedor === forn && Math.abs(x.valor - valor) < 0.005; })[0]; return q && q.kit ? q.kit.id : ''; };
+  var final = {};
+  (autsAntes || []).forEach(function (a) { final[a.chave] = kitDe(a.chave, a.fornecedor, +a.valor || 0); });
+  escolhas.forEach(function (e) { if (porChave[e.chave]) final[e.chave] = kitDe(e.chave, String(e.fornecedor || '').trim().toUpperCase(), vd_valorNum_(e.valor)); });
+  Object.keys(naoComprar || {}).forEach(function (ch) { final[ch] = null; });
+  var faltas = [], vistos = {};
+  Object.keys(final).forEach(function (ch) {
+    var id = final[ch]; if (!id || vistos[id]) return; vistos[id] = 1;
+    var membros = lidas.filter(function (q) { return q.kit && q.kit.id === id; }).map(function (q) { return q.chave; }).filter(function (c, j, a) { return a.indexOf(c) === j; });
+    var fora = membros.filter(function (c) { return final[c] !== id; });
+    if (fora.length) {
+      var q0 = lidas.filter(function (q) { return q.kit && q.kit.id === id; })[0];
+      faltas.push('Kit ' + q0.fornecedor + ' ' + vd_valorBR_(q0.kit.total) + ' cobre ' + membros.map(function (c) { return porChave[c] ? vd_nomePeca_(porChave[c]) : c; }).join(' + ') + ': autorize todas essas peças pelo kit, ou escolha outra cotação para cada uma.');
+    }
+  });
+  return faltas;
+}
+
 function vdf_salvarCotacaoBase_(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -1385,6 +1455,16 @@ function vdf_salvarCotacaoBase_(token, p) {
     if (r.link === null) faltas.push(rot + ': link inválido — cole o endereço completo, começando com http (ou deixe vazio)');
     return r;
   });
+  // 27/10/2026 (Weslley): cotação de KIT — um preço para várias peças; vira uma linha por peça com o valor rateado
+  if ((p.kits || []).length) {
+    var autsK = []; try { autsK = vd_autorizacoesDaDescricao_(card.desc, an.pecas); } catch (e) {}
+    var idsUsados = {}; try { vd_cotacoesDaDescricao_(card.desc, an.pecas).cotacoes.forEach(function (q) { if (q.kit) idsUsados[q.kit.id] = 1; }); } catch (e) {}
+    (p.kits || []).forEach(function (k, i) {
+      var ex = vdf_kitExpandir_(k, porChave, foNome, autsK, idsUsados, i);
+      faltas = faltas.concat(ex.faltas);
+      cots = cots.concat(ex.cots);
+    });
+  }
   var nt = (p.nt || []).map(foNome).filter(String);
   var obs = (p.obs || []).map(function (o) { return { peca: porChave[o.chave], texto: String(o.texto || '').replace(/\s*\n\s*/g, ' ').trim() }; }).filter(function (o) { return o.peca && o.texto; });
   var semCot = (p.semCot || []).map(function (o) { return { peca: porChave[o.chave], chave: o.chave, texto: String(o.texto || '').replace(/\s*\n\s*/g, ' ').trim() }; }).filter(function (o) { return o.peca && o.texto; });
@@ -1530,6 +1610,7 @@ function vdf_descComCotacao_(card, an, me, cots, nt, obs, semCot, rem) {
     if (!grupos[c.fornecedor]) { grupos[c.fornecedor] = []; ordem.push(c.fornecedor); }
     var nomeP = c.peca.pneu ? 'PNEU ' + String(c.peca.medida || '').replace(/\s+/g, '') : vd_nomePeca_(c.peca);
     grupos[c.fornecedor].push(nomeP + (c.tipo || c.marca ? ' - ' + [c.tipo, c.marca].filter(String).join(' ') : '') + ' - ' + vd_valorBR_(c.valor) + (c.dias !== '' ? ' - ' + c.dias + (c.dias === '1' ? ' dia útil' : ' dias úteis') : '')
+      + (c.kit ? ' - 🧩 KIT ' + c.kit.id + ' ' + vd_valorBR_(c.kit.total) + ' (' + c.kit.n + ' peças)' : '')   // 27/10/2026: parte de um kit (antes da obs.)
       + (c.nota ? ' - 📝 ' + c.nota : '')   // 26/10/2026: obs. do comprador nesta cotação (antes do link, que fica sempre no fim)
       + (c.link ? ' - [🔗 link](' + c.link + ')' : ''));   // link do anúncio (Mercado Livre etc.): vira link clicável na descrição
   });
@@ -1663,6 +1744,8 @@ function vdf_autorizar(token, p) {
     ea.detalhe = doPeca.length > 1 ? 'menor ' + vd_valorBR_(Math.min.apply(null, doPeca)) + ' · maior ' + vd_valorBR_(Math.max.apply(null, doPeca)) + ' · ' + doPeca.length + ' cotações' : '1 cotação';
     evAut.push(ea);
   });
+  // 27/10/2026 (Weslley): kit se autoriza inteiro — todas as peças pelo kit, ou nenhuma pelo kit
+  try { faltas = faltas.concat(vdf_kitConferirAutorizacao_(p.escolhas || [], lidas, autsAntes, porChave, naoComprarAgora)); } catch (e) { console.log('kit/autorização: ' + e); }
   // marcas na linha da peça (bloco do consultor): troca só a linha daquela peça, o resto do bloco fica igual
   var div = vd_dividir_(card.desc);
   var blocoNovo = div.bloco, marcadas = [];

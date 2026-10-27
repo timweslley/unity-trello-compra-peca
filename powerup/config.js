@@ -48,6 +48,9 @@ window.PU_CFG = {
   /* 26/10/2026 (Weslley): aba Cotação — comprador corrige o código da peça (botão "Código") e põe obs. em cada cotação.
    * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley); outro valor desliga (a obs. já gravada continua aparecendo). */
   COT_CODIGO_OBS: 'todos',   // 26/10/2026 11h09 — Weslley: "pode publicar no principal" (voltar: 'teste')
+  /* 27/10/2026 (Weslley): cotação de KIT — um preço para várias peças, valor dividido entre elas; na autorização, kit × avulsas.
+   * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley); outro valor desliga (o selo 🧩 das linhas já gravadas continua). */
+  COT_KIT: 'teste',
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:

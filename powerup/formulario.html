@@ -9822,5 +9822,337 @@ document.addEventListener('input', function (e) {
   };
 })();
 </script>
+<script>
+/* 27/10/2026 (Weslley: "existem peças que podem vir em kits … ou temos que dividir o valor entre as duas peças ou colocar o custo
+ * em uma e deixar outra sem comprar" + "e quando existir cotação de kit e também de itens individuais?") — camada 2.0:
+ *  COTAÇÃO: botão "🧩 Cotação de kit" — um preço para 2+ peças (fornecedor, tipo, marca, valor do kit, prazo, obs.). O kit fica
+ *    pendente na tela ("vai com o salvar") e as peças dele contam como cotadas. Vai em p.kits no Salvar parcial / Enviar cotação;
+ *    o servidor grava uma linha por peça com o valor RATEADO (proporcional ao orçamento; sem orçamento, partes iguais) e a marca
+ *    "🧩 KIT <id> R$ <total> (<n> peças)". Remover uma linha do kit remove o kit inteiro.
+ *  AUTORIZAÇÃO: para cada kit, um quadro "cenários" antes das peças: A) kit · B) avulsas (melhor cotação de cada peça; incompleto
+ *    se faltar cotação avulsa de alguma) · C) não autorizar. Já vem marcado o mais barato; escolher o cenário marca as peças.
+ *    Kit escolhido numa peça marca o kit nas outras; escolha mista vira aviso (o servidor também recusa kit pela metade).
+ * Liga por PU_CFG.COT_KIT: 'teste' (só no TESTE, srv=1) | 'todos'. O selo "🧩 kit" das cotações já gravadas aparece sempre. */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('v2')) return;
+  function e2(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
+  var st = document.createElement('style');
+  st.textContent = [
+    '.selo.v2kt-selo{background:#f3f0ff;color:#352c63;border:1px solid #9f8fef;font-weight:600}',
+    '#v2ktBarra{margin:0 0 10px;padding:8px 10px;border:1px dashed #9f8fef;border-radius:var(--r-sm,6px);background:#faf8ff;color:#172b4d;font-size:13.5px}',
+    '#v2ktBarra .v2kt-topo{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}',
+    '#v2ktBarra .v2kt-topo .dica{margin:0}',
+    '.v2kt-btn{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;border:1px solid #6e5dc6;border-radius:var(--r-sm,6px);background:#fff;color:#352c63;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}',
+    '.v2kt-btn:hover{background:#f3f0ff}',
+    'html.v2toque .v2kt-btn{min-height:44px;font-size:15px}',
+    '.v2kt-pend{margin-top:8px;padding:6px 8px;border-left:4px solid #6e5dc6;background:#fff;border-radius:var(--r-sm,6px)}',
+    '.v2kt-pend ul{margin:4px 0 0 18px;padding:0}',
+    '.v2kt-pend button,.v2kt-aviso button{min-height:28px;padding:0 8px;border:1px solid #8590a2;border-radius:var(--r-sm,6px);background:#fff;color:#44546f;font:inherit;font-size:12.5px;cursor:pointer;margin-left:6px}',
+    'html.v2toque .v2kt-pend button,html.v2toque .v2kt-aviso button{min-height:44px;font-size:14px}',
+    '.v2kt-aviso{margin:2px 0 8px;padding:6px 10px;border-left:4px solid #6e5dc6;background:#f3f0ff;color:#172b4d;font-size:13.5px;border-radius:var(--r-sm,6px)}',
+    '#v2ktBal .v2kt-pecas{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px;max-height:200px;overflow:auto}',
+    '#v2ktBal .v2kt-pecas label{display:flex;gap:8px;align-items:center;font-weight:400;min-height:32px}',
+    'html.v2toque #v2ktBal .v2kt-pecas label{min-height:44px}',
+    '#v2ktBal .v2kt-grade{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}',
+    '#v2ktBal .v2kt-grade label{display:block;font-weight:600;margin:2px 0}',
+    '#v2ktBal .v2kt-grade .inteiro{grid-column:1 / -1}',
+    '#v2ktBal input,#v2ktBal select{width:100%;box-sizing:border-box;font:inherit;padding:6px 8px;border:1px solid #8590a2;border-radius:var(--r-sm,6px)}',
+    '#v2ktBal input[type=checkbox]{width:auto}',
+    'html.v2toque #v2ktBal input:not([type=checkbox]),html.v2toque #v2ktBal select{min-height:44px}',
+    '#v2ktBal [aria-invalid=true]{border:2px solid #c9372c;background:#ffeceb}',
+    '#v2ktErro{color:#ae2e24;font-size:13px;margin:4px 0}',
+    '#v2ktPrev{font-size:13px;color:#44546f;margin:4px 0}',
+    '.v2kt-cen{margin:4px 0 12px;padding:10px 12px;border:1px solid #9f8fef;border-left:6px solid #6e5dc6;border-radius:var(--r-sm,6px);background:#faf8ff;color:#172b4d}',
+    '.v2kt-cen h3{margin:0 0 2px;font-size:15px}',
+    '.v2kt-cen .v2kt-sub{font-size:13px;color:#44546f;margin-bottom:6px}',
+    '.v2kt-op{display:block;padding:6px 8px;margin:4px 0;border:1px solid #c1c7d0;border-radius:var(--r-sm,6px);background:#fff;cursor:pointer}',
+    '.v2kt-op.marcado{border:2px solid #0c66e4;background:#e9f2ff}',
+    '.v2kt-op.inc{cursor:not-allowed;color:#626f86;background:#f7f8f9}',
+    '.v2kt-op .v2kt-l1{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}',
+    '.v2kt-op .v2kt-tot{font-weight:700;margin-left:auto}',
+    '.v2kt-op .v2kt-det{font-size:12.5px;color:#44546f;margin:2px 0 0 26px}',
+    '.v2kt-op .v2kt-bom{color:#216e4e;font-weight:600}',
+    'html.v2toque .v2kt-op{min-height:44px}',
+    '.v2kt-mist{margin-top:6px;padding:6px 8px;border-left:4px solid #e2b203;background:#fff7d6;font-size:13px}'
+  ].join('\n');
+  document.head.appendChild(st);
+
+  /* selo do kit nas cotações já gravadas (Cotação, Autorização e Compra) */
+  if (typeof window.linkCot === 'function') {
+    var linkOrig = window.linkCot;
+    window.linkCot = function (q) { return (q && q.kit ? ' <span class="selo v2kt-selo" title="Parte rateada de um kit: o kit inteiro custa ' + e2(fmtValor(q.kit.total)) + ' e cobre ' + q.kit.n + ' peças">🧩 kit ' + e2(fmtValor(q.kit.total)) + ' · ' + q.kit.n + ' peças</span>' : '') + linkOrig.apply(this, arguments); };
+  }
+
+  var cfg = window.PU_CFG && PU_CFG.COT_KIT;
+  var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  if (typeof window.montarCotacao !== 'function' || typeof window.coletarCotacoes !== 'function' || typeof window.montarAutorizacao !== 'function') return;
+
+  function pecas() { return (typeof pecasOficina === 'function' && window.CARD) ? pecasOficina(window.CARD) : []; }
+  function pecaDe(ch) { return pecas().filter(function (p) { return p.chave === ch; })[0] || null; }
+  function qtdN(p) { var n = parseFloat(String((p && p.qtd) || '').replace(',', '.')); return n > 0 ? n : 1; }
+  function num(v) { var n = lerValorBR(v); return isNaN(n) ? NaN : n; }
+  /* mesma conta do servidor (vdf_kitRateio_) — aqui só para mostrar antes de salvar */
+  function rateio(total, ps) {
+    var orc = ps.map(function (p) { var v = num(p.valorOrc); return v > 0 ? v : 0; }), porOrc = orc.every(function (v) { return v > 0; });
+    var pesos = ps.map(function (p, i) { return porOrc ? orc[i] * qtdN(p) : qtdN(p); }), soma = pesos.reduce(function (a, b) { return a + b; }, 0) || 1;
+    var cent = Math.round(total * 100), us = 0;
+    return { criterio: porOrc ? 'proporcional ao orçamento' : 'em partes iguais (falta o valor do orçamento em alguma peça)', unit: ps.map(function (p, i) {
+      var parte = i === ps.length - 1 ? cent - us : Math.round(cent * pesos[i] / soma), u = Math.round(parte / qtdN(p)); us += u * qtdN(p); return u / 100; }) };
+  }
+  function nomeCurto(p) { return (p._n ? p._n + ') ' : '') + (p.nome || p.descricao || ''); }
+
+  /* ================= COTAÇÃO ================= */
+  var KITS = [], nk = 0;
+  function elegiveis() {
+    return $$('#cotItens > .item').filter(function (it) { return it.dataset.pneu !== '1' && !it.classList.contains('v2c-comprada') && !(window.CARD && typeof autDe === 'function' && autDe(window.CARD, it.dataset.chave)); })
+      .map(function (it) { return pecaDe(it.dataset.chave); }).filter(Boolean);
+  }
+  function barra() {
+    var cot = document.getElementById('cotItens'); if (!cot) return;
+    var b = document.getElementById('v2ktBarra');
+    if (elegiveis().length < 2) { if (b) b.remove(); return; }
+    if (!b) { b = document.createElement('div'); b.id = 'v2ktBarra'; b.setAttribute('role', 'region'); b.setAttribute('aria-label', 'Cotação de kit'); cot.parentNode.insertBefore(b, cot); }
+    var h = '<div class="v2kt-topo"><button type="button" class="v2kt-btn" id="v2ktAbrir">🧩 Cotação de kit</button><span class="dica">Duas ou mais peças vêm juntas num jogo/kit com um preço só? Lance aqui: o valor é dividido entre as peças.</span></div>';
+    KITS.forEach(function (k, i) {
+      var ps = k.chaves.map(pecaDe), rt = rateio(num(k.valor), ps);
+      h += '<div class="v2kt-pend" role="status"><b>🧩 Kit ' + e2(k.fornecedor) + ' · ' + e2([k.tipo, k.marca].filter(String).join(' ')) + ' · ' + e2(fmtValor(k.valor)) + (k.dias !== '' ? ' · ' + e2(k.dias) + (+k.dias === 1 ? ' dia útil' : ' dias úteis') : '') + '</b> — vai para o card quando você <b>salvar</b>.'
+        + '<button type="button" data-k="' + i + '" class="v2kt-desf">Desfazer</button>'
+        + '<ul>' + ps.map(function (p, j) { return '<li>' + e2(nomeCurto(p)) + ' → <b>' + e2(fmtValor(rt.unit[j])) + '</b>' + (p.valorOrc ? ' <span class="dica">(orç. ' + e2(fmtValor(p.valorOrc)) + ')</span>' : '') + '</li>'; }).join('') + '</ul>'
+        + '<div class="dica">Divisão ' + e2(rt.criterio) + '.' + (k.nota ? ' 📝 ' + e2(k.nota) : '') + '</div></div>';
+    });
+    b.innerHTML = h;
+    document.getElementById('v2ktAbrir').onclick = function () { abrirKit(this); };
+    $$('.v2kt-desf', b).forEach(function (x) { x.onclick = function () { KITS.splice(+x.dataset.k, 1); cobrir(); barra(); var a = document.getElementById('v2ktAbrir'); if (a) a.focus(); }; });
+  }
+  /* peça coberta por kit pendente conta como cotada (mesma marca que a tela usa para "motivo já no card") */
+  function cobrir() {
+    var cob = {}; KITS.forEach(function (k) { k.chaves.forEach(function (c) { cob[c] = k; }); });
+    $$('#cotItens > .item').forEach(function (it) {
+      var k = cob[it.dataset.chave], av = it.querySelector(':scope > .v2kt-aviso');
+      if (k) {
+        if (!('v2ktOrig' in it.dataset)) it.dataset.v2ktOrig = it.dataset.semja || '';
+        it.dataset.semja = '1';
+        if (!av) { av = document.createElement('div'); av.className = 'v2kt-aviso'; av.setAttribute('role', 'status'); var tp = it.querySelector(':scope > .item-topo'); if (tp) tp.insertAdjacentElement('afterend', av); else it.insertBefore(av, it.firstChild); }
+        var outras = k.chaves.filter(function (c) { return c !== it.dataset.chave; }).map(function (c) { return nomeCurto(pecaDe(c) || {}); });
+        av.innerHTML = '🧩 Nesta cotação vai no <b>kit ' + e2(k.fornecedor) + ' ' + e2(fmtValor(k.valor)) + '</b>, junto com ' + e2(outras.join(', ')) + ' — vai para o card quando você salvar.';
+      } else {
+        if ('v2ktOrig' in it.dataset) { it.dataset.semja = it.dataset.v2ktOrig; delete it.dataset.v2ktOrig; }
+        if (av) av.remove();
+      }
+      var bx = it.querySelector('.semcot-box'); if (bx && k) bx.classList.add('oculto'); else if (bx && typeof atualizarPecaCot === 'function') atualizarPecaCot(it);
+    });
+    // a coluna lateral ("o que falta") recalcula com qualquer mudança dentro da lista
+    var cot = document.getElementById('cotItens'); if (cot) cot.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+  function abrirKit(bt) {
+    if (!window.V2_BALAO) return;
+    var ps = elegiveis(); if (ps.length < 2) return;
+    var tipos = (window.CFG && CFG.tipos) || ['GENUÍNO', 'ORIGINAL', 'PARALELO', 'USADO'];
+    var jaNoKit = {}; KITS.forEach(function (k) { k.chaves.forEach(function (c) { jaNoKit[c] = 1; }); });
+    var ancora = html.classList.contains('v2pc') ? (document.getElementById('v2ktBarra') || bt) : bt;   // no computador o balão fica largo como a barra
+    var bal = V2_BALAO.abrir('v2ktBal', ancora, '<p class="v2-bt">🧩 Cotação de kit</p>'
+      + '<div class="dica">Um preço só para várias peças (ex.: jogo de frisos). O valor do kit é dividido entre as peças, proporcional ao orçamento de cada uma.</div>'
+      + '<fieldset style="border:0;padding:0;margin:6px 0 0"><legend style="font-weight:600">Peças que vêm no kit <span class="obr">*</span> (2 ou mais)</legend><div class="v2kt-pecas" id="v2ktPecas">'
+      + ps.map(function (p) { return '<label><input type="checkbox" value="' + e2(p.chave) + '"' + (jaNoKit[p.chave] ? ' disabled' : '') + '> <span>' + e2(nomeCurto(p)) + (p.valorOrc ? ' <span class="dica" style="white-space:nowrap">· orç. ' + e2(fmtValor(p.valorOrc)) + '</span>' : '') + (jaNoKit[p.chave] ? ' <span class="dica">(já em outro kit)</span>' : '') + '</span></label>'; }).join('')
+      + '</div></fieldset>'
+      + '<div class="v2kt-grade">'
+      + '<div class="inteiro"><label for="v2ktForn">Fornecedor <span class="obr">*</span></label><input type="text" id="v2ktForn" list="dlForn" autocomplete="off" class="maiusc" placeholder="Comece a digitar…"></div>'
+      + '<div><label for="v2ktTipo">Tipo</label><select id="v2ktTipo">' + tipos.map(function (t) { return '<option>' + e2(t) + '</option>'; }).join('') + '</select></div>'
+      + '<div><label for="v2ktMarca">Marca (opcional)</label><input type="text" id="v2ktMarca" class="maiusc" placeholder="Ex.: GRID"></div>'
+      + '<div><label for="v2ktValor">Valor do kit (R$) <span class="obr">*</span></label><input type="text" id="v2ktValor" inputmode="decimal" placeholder="Ex.: 85,00"></div>'
+      + '<div><label for="v2ktDias">Prazo (dias úteis)</label><input type="text" id="v2ktDias" inputmode="numeric" placeholder="Ex.: 1"></div>'
+      + '<div class="inteiro"><label for="v2ktNota">Obs. do kit (opcional)</label><input type="text" id="v2ktNota" maxlength="200" placeholder="Ex.: jogo de friso dividido em dois"></div>'
+      + '</div><div id="v2ktPrev" aria-live="polite"></div><div id="v2ktErro" role="alert"></div>'
+      + '<div class="bts"><button type="button" class="principal" id="v2ktSim">Usar este kit</button><button type="button" class="secundario" id="v2ktNao">Cancelar</button></div>', 'v2ktForn');
+    var g = function (id) { return document.getElementById(id); };
+    var marcadas = function () { return $$('#v2ktPecas input:checked').map(function (x) { return x.value; }); };
+    var prev = function () {
+      var cs = marcadas(), v = num(g('v2ktValor').value);
+      if (cs.length < 2 || !(v > 0)) { g('v2ktPrev').textContent = ''; return; }
+      var pp = cs.map(pecaDe), rt = rateio(v, pp), so = pp.reduce(function (a, p) { return a + (num(p.valorOrc) > 0 ? num(p.valorOrc) * qtdN(p) : 0); }, 0);
+      g('v2ktPrev').innerHTML = 'Fica assim: ' + pp.map(function (p, j) { return e2(p._n ? 'peça ' + p._n : (p.descricao || '')) + ' <b>' + e2(fmtValor(rt.unit[j])) + '</b>'; }).join(' · ') + ' (' + e2(rt.criterio.replace(/ \(.*/, '')) + ')'
+        + (so > 0 && pp.every(function (p) { return num(p.valorOrc) > 0; }) ? ' — orçamento somado ' + e2(fmtValor(so)) + seloEco(so, v) : '');
+    };
+    $$('#v2ktBal input, #v2ktBal select').forEach(function (x) { x.addEventListener('input', function () { x.removeAttribute('aria-invalid'); g('v2ktErro').textContent = ''; prev(); }); x.addEventListener('change', prev); });
+    g('v2ktForn').addEventListener('change', function () { if (typeof nomeForn === 'function') this.value = nomeForn(this.value); });
+    g('v2ktNao').onclick = function () { V2_BALAO.fechar(bal, true); };
+    g('v2ktSim').onclick = function () {
+      var cs = marcadas(), f = g('v2ktForn').value.trim().toUpperCase(), v = g('v2ktValor').value.trim(), d = g('v2ktDias').value.trim();
+      var erro = function (t, el) { if (el) { el.setAttribute('aria-invalid', 'true'); el.focus(); } g('v2ktErro').textContent = t; };
+      if (cs.length < 2) return erro('Marque pelo menos 2 peças que vêm no kit.', g('v2ktPecas').querySelector('input:not(:disabled)'));
+      if (!f) return erro('Digite o fornecedor do kit.', g('v2ktForn'));
+      if (!(num(v) > 0)) return erro('Digite o valor do kit, maior que zero (ex.: 85,00).', g('v2ktValor'));
+      if (d && !/^\d+$/.test(d)) return erro('Prazo em dias úteis: só número (ex.: 1).', g('v2ktDias'));
+      KITS.push({ n: ++nk, chaves: cs, fornecedor: typeof nomeForn === 'function' ? nomeForn(f) : f, tipo: g('v2ktTipo').value, marca: g('v2ktMarca').value.trim().toUpperCase(), valor: v, dias: d, nota: g('v2ktNota').value.trim() });
+      V2_BALAO.fechar(bal, true); cobrir(); barra();
+    };
+  }
+  window.coletarCotacoes = (function (orig) {
+    return function () {
+      var c = orig.apply(this, arguments);
+      try { if (c && KITS.length) { c.faltas = (c.faltas || []).filter(function (f) { return !/Nada novo para salvar|Lance pelo menos uma cota/.test(f); }); c.nada = false; } } catch (e) { console.log('kit/coletar: ' + e); }
+      return c;
+    };
+  })(window.coletarCotacoes);
+  var chamarOrig = window.chamar;
+  window.chamar = function (fn) {
+    if (fn === 'vdf_salvarCotacao' && KITS.length && arguments[2] && typeof arguments[2] === 'object') {
+      arguments[2].kits = KITS.map(function (k) { return { chaves: k.chaves, fornecedor: k.fornecedor, tipo: k.tipo, marca: k.marca, valor: k.valor, dias: k.dias, nota: k.nota }; });
+      return chamarOrig.apply(this, arguments).then(function (r) { if (r && r.ok) { KITS = []; } return r; });
+    }
+    return chamarOrig.apply(this, arguments);
+  };
+  /* remover uma linha de kit já gravada = remover o kit inteiro (as outras peças do kit acompanham) */
+  if (typeof window.removerCot === 'function') {
+    var remOrig = window.removerCot, sinc = false;
+    window.removerCot = function (btn) {
+      var r = remOrig.apply(this, arguments);
+      if (sinc) return r;
+      try {
+        var linha = btn.closest('.cot-lida'), it = linha.closest('.item'), q = JSON.parse(it.dataset.lidas || '[]')[+linha.dataset.j];
+        if (q && q.kit) {
+          var rem = linha.classList.contains('removida'); sinc = true;
+          $$('#cotItens > .item').forEach(function (o) {
+            var ls = []; try { ls = JSON.parse(o.dataset.lidas || '[]'); } catch (e) {}
+            $$('.cot-lida', o).forEach(function (l) {
+              var x = ls[+l.dataset.j]; if (!x || !x.kit || x.kit.id !== q.kit.id || l === linha || l.classList.contains('removida') === rem) return;
+              var b = l.querySelector('button[onclick^="removerCot"]'); if (!b) return;
+              window.removerCot(b); b.textContent = rem ? 'Desfazer' : 'Remover'; b.classList.toggle('v2c-desf', rem);
+            });
+          });
+          sinc = false;
+        }
+      } catch (e) { sinc = false; console.log('kit/remover: ' + e); }
+      return r;
+    };
+  }
+  function decorarLidas() {
+    $$('#cotItens > .item').forEach(function (it) {
+      var ls = []; try { ls = JSON.parse(it.dataset.lidas || '[]'); } catch (e) {}
+      $$('.cot-lida', it).forEach(function (l) {
+        var q = ls[+l.dataset.j]; if (!q || !q.kit) return;
+        var ed = l.querySelector('button[onclick^="editarCot"]'); if (ed && !ed.hidden) { ed.hidden = true; }   // kit não se edita por peça: remova e lance de novo
+        var rb = l.querySelector('button[onclick^="removerCot"]'); if (rb && !rb.dataset.v2kt) { rb.dataset.v2kt = '1'; rb.title = 'Remove o kit inteiro (todas as peças do kit)'; }
+      });
+    });
+  }
+  window.montarCotacao = (function (orig) {
+    return function () {
+      KITS = [];
+      var r = orig.apply(this, arguments);
+      try { barra(); requestAnimationFrame(function () { try { decorarLidas(); barra(); } catch (e) {} }); } catch (e) { console.log('kit/cotação: ' + e); }
+      return r;
+    };
+  })(window.montarCotacao);
+  var boxC = document.getElementById('cotItens');
+  if (boxC) new MutationObserver(function () { try { decorarLidas(); } catch (e) {} }).observe(boxC, { childList: true, subtree: true });
+
+  /* ================= AUTORIZAÇÃO ================= */
+  var SINC_A = false;
+  function itensDoKit(id) {
+    return $$('#autItens > .item').filter(function (it) {
+      var cs = []; try { cs = JSON.parse(it.dataset.cots || '[]'); } catch (e) {}
+      return cs.some(function (q) { return q.kit && q.kit.id === id; });
+    });
+  }
+  function cotsDe(it) { try { return JSON.parse(it.dataset.cots || '[]'); } catch (e) { return []; } }
+  function idxKit(it, id) { var cs = cotsDe(it); for (var j = 0; j < cs.length; j++) if (cs[j].kit && cs[j].kit.id === id) return j; return -1; }
+  function idxAvulsa(it) { var cs = cotsDe(it), m = -1; cs.forEach(function (q, j) { if (!q.kit && (m < 0 || q.valor < cs[m].valor)) m = j; }); return m; }
+  function marcar(it, val) {
+    var r = it.querySelector('input[type=radio][value="' + val + '"]'); if (!r || r.disabled) return;
+    if (!r.checked) { r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+  }
+  function prazoTx(d) { return d === '' || d == null || !isFinite(d) ? 'sem prazo' : d + (+d === 1 ? ' dia útil' : ' dias úteis'); }
+  function cenarios(id) {
+    var its = itensDoKit(id); if (its.length < 2) return null;
+    var k0 = null, prK = 0, okA = true;
+    its.forEach(function (it) { var j = idxKit(it, id), q = cotsDe(it)[j]; if (!k0) k0 = q; prK = Math.max(prK, isFinite(+q.dias) && q.dias !== '' ? +q.dias : 0); });
+    var av = its.map(function (it) { var j = idxAvulsa(it); return j < 0 ? null : { it: it, j: j, q: cotsDe(it)[j] }; });
+    var compB = av.every(Boolean), totB = 0, prB = 0;
+    if (compB) av.forEach(function (a) { totB += a.q.valor * qtdN(pecaDe(a.it.dataset.chave)); prB = Math.max(prB, isFinite(+a.q.dias) && a.q.dias !== '' ? +a.q.dias : 0); });
+    var orc = 0, temOrc = true; its.forEach(function (it) { var p = pecaDe(it.dataset.chave) || {}, v = num(p.valorOrc); if (v > 0) orc += v * qtdN(p); else temOrc = false; });
+    return { its: its, k: k0, totA: k0.kit.total, prA: prK, av: av, compB: compB, totB: totB, prB: prB, orc: temOrc ? orc : 0 };
+  }
+  function estado(id) {
+    var c = cenarios(id); if (!c) return '';
+    var sel = c.its.map(function (it) { var r = it.querySelector('input[type=radio]:checked'); return r ? r.value : ''; });
+    if (c.its.every(function (it, i) { return sel[i] !== '' && +sel[i] === idxKit(it, id); })) return 'A';
+    if (sel.every(function (v) { return v === ''; })) return 'N';
+    if (c.its.every(function (it, i) { return sel[i] !== '' && !(cotsDe(it)[+sel[i]] || {}).kit; })) return 'B';
+    return 'MIX';
+  }
+  function painel(id) {
+    var c = cenarios(id); if (!c) return;
+    var pid = 'v2ktCen_' + id, d = document.getElementById(pid);
+    if (!d) { d = document.createElement('div'); d.id = pid; d.className = 'v2kt-cen'; d.dataset.fora = '1'; d.setAttribute('role', 'radiogroup'); c.its[0].parentNode.insertBefore(d, c.its[0]); }
+    var nomes = c.its.map(function (it) { return nomeCurto(pecaDe(it.dataset.chave) || {}); });
+    var st0 = estado(id), nm = 'v2ktc_' + id, melhorA = !c.compB || c.totA <= c.totB;
+    d.setAttribute('aria-label', 'Kit ou avulsas — ' + nomes.join(' + '));
+    var ecoK = function (tot) { var e = c.orc ? ecoOrc(c.orc, tot) : null; if (!e) return ''; return ' <span class="selo-eco ' + e.nivel + '" title="Comparado com a soma do orçamento das peças">' + (e.pct >= 0 ? (e.nivel === 'ruim' ? 'só ' : '') + Math.abs(e.pct).toFixed(0) + '% abaixo do orç.' : Math.abs(e.pct).toFixed(0) + '% acima do orç.') + '</span>'; };
+    var ecoA = ecoK(c.totA), ecoB = c.compB ? ecoK(c.totB) : '';
+    var dif = c.compB ? Math.abs(c.totB - c.totA) : 0, difP = c.compB ? c.prB - c.prA : 0;
+    var op = function (v, cls, l1, det, dis) { return '<label class="v2kt-op ' + cls + (st0 === v ? ' marcado' : '') + '"><span class="v2kt-l1"><input type="radio" name="' + nm + '" value="' + v + '"' + (st0 === v ? ' checked' : '') + (dis ? ' disabled' : '') + '> ' + l1 + '</span>' + (det ? '<div class="v2kt-det">' + det + '</div>' : '') + '</label>'; };
+    var h = '<h3>🧩 Kit ou avulsas?</h3><div class="v2kt-sub">' + e2(nomes.join(' + ')) + (c.orc ? ' · orçamento somado ' + e2(fmtValor(c.orc)) : '') + ' — escolha um caminho para as ' + c.its.length + ' peças juntas.</div>';
+    h += op('A', '', '<b>Kit ' + e2(c.k.fornecedor) + '</b> · ' + e2([c.k.tipo, c.k.marca].filter(String).join(' ') || '—') + ' · ' + e2(prazoTx(c.prA)) + '<span class="v2kt-tot">' + e2(fmtValor(c.totA)) + '</span>' + ecoA + (melhorA && c.compB ? ' <span class="v2kt-bom">mais barato</span>' : ''),
+      c.its.map(function (it) { var q = cotsDe(it)[idxKit(it, id)]; return e2(nomeCurto(pecaDe(it.dataset.chave) || {})) + ' ' + e2(fmtValor(q.valor)); }).join(' · ') + (c.k.nota ? ' · 📝 ' + e2(c.k.nota) : ''));
+    if (c.compB) h += op('B', '', '<b>Avulsas</b> (melhor cotação de cada peça) · ' + e2(prazoTx(c.prB)) + '<span class="v2kt-tot">' + e2(fmtValor(c.totB)) + '</span>' + ecoB + (!melhorA ? ' <span class="v2kt-bom">mais barato</span>' : ' <span class="dica">(+' + e2(fmtValor(dif)) + (difP > 0 ? ' · +' + difP + ' d.u.' : '') + ')</span>'),
+      c.av.map(function (a) { return e2(nomeCurto(pecaDe(a.it.dataset.chave) || {})) + ': ' + e2(a.q.fornecedor) + ' ' + e2(a.q.tipo || '') + ' ' + e2(fmtValor(a.q.valor)) + ' · ' + e2(prazoTx(a.q.dias)); }).join('<br>'));
+    else h += op('B', 'inc', '<b>Avulsas</b> — incompleto', 'Falta cotação avulsa de: ' + e2(c.av.map(function (a, i) { return a ? '' : nomes[i]; }).filter(String).join(', ')) + '. Para comparar, o comprador precisa cotar essa(s) peça(s) separada(s).', true);
+    h += op('N', '', 'Não autorizar estas peças', '');
+    if (st0 === 'MIX') h += '<div class="v2kt-mist" role="alert">⚠️ Escolha misturada: o kit só vale com as ' + c.its.length + ' peças juntas. Escolha um dos caminhos acima (ou outra cotação avulsa em cada peça).</div>';
+    else if (st0 === 'B' && !c.its.every(function (it) { var r = it.querySelector('input[type=radio]:checked'); return r && +r.value === idxAvulsa(it); })) h += '<div class="dica" style="margin-top:4px">Avulsas escolhidas peça a peça abaixo.</div>';
+    d.innerHTML = h;
+    $$('input[type=radio]', d).forEach(function (r) {
+      r.onchange = function () {
+        SINC_A = true;
+        try { c.its.forEach(function (it) { marcar(it, r.value === 'A' ? String(idxKit(it, id)) : r.value === 'B' ? String(idxAvulsa(it)) : ''); }); } finally { SINC_A = false; }
+        painel(id); if (typeof totalAut === 'function') totalAut();
+      };
+    });
+  }
+  function kitsAbertos() {
+    var ids = []; $$('#autItens > .item').forEach(function (it) { if (it.dataset.fora) return; cotsDe(it).forEach(function (q) { if (q.kit && ids.indexOf(q.kit.id) < 0) ids.push(q.kit.id); }); });
+    return ids;
+  }
+  function iniciarAut() {
+        kitsAbertos().forEach(function (id) {
+          var cn = cenarios(id); if (!cn) return;
+          // peça já autorizada antes fica como está; senão já vem marcado o caminho mais barato
+          var ja = cn.its.some(function (it) { return !!it.dataset.ja; });
+          if (!ja) { SINC_A = true; try { var A = !cn.compB || cn.totA <= cn.totB; cn.its.forEach(function (it) { marcar(it, String(A ? idxKit(it, id) : idxAvulsa(it))); }); } finally { SINC_A = false; } }
+          painel(id);
+        });
+        if (typeof totalAut === 'function') totalAut();
+  }
+  window.montarAutorizacao = (function (orig) {
+    return function (c) {
+      var r = orig.apply(this, arguments);
+      try { iniciarAut(); } catch (e) { console.log('kit/autorização: ' + e); }
+      return r;
+    };
+  })(window.montarAutorizacao);
+  var boxA = document.getElementById('autItens');
+  if (boxA) boxA.addEventListener('change', function (ev) {
+    var r = ev.target; if (SINC_A || !r || r.type !== 'radio' || !/^aut_/.test(r.name)) return;
+    var it = r.closest('.item'); if (!it) return;
+    var q = r.value === '' ? null : cotsDe(it)[+r.value];
+    SINC_A = true;
+    try { if (q && q.kit) itensDoKit(q.kit.id).forEach(function (o) { if (o !== it) marcar(o, String(idxKit(o, q.kit.id))); }); } finally { SINC_A = false; }
+    kitsAbertos().forEach(painel);
+  });
+  /* o card pode ter chegado antes deste bloco ser lido (resposta rápida do servidor): monta agora */
+  if (window.CARD) {
+    try {
+      // as telas foram montadas antes deste bloco: com cotação de kit no card, monta de novo para sair o selo 🧩 (nada foi mexido ainda)
+      var temKit = ((window.CARD.cotacoes && window.CARD.cotacoes.cotacoes) || []).some(function (q) { return q.kit; });
+      if (temKit && !document.querySelector('.v2kt-selo')) { window.montarCotacao(window.CARD); window.montarAutorizacao(window.CARD); }
+      else { barra(); decorarLidas(); iniciarAut(); }
+    } catch (e) { console.log('kit/início: ' + e); }
+  }
+})();
+</script>
 </body>
 </html>

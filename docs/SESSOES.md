@@ -349,3 +349,15 @@ da outra, deixar um recado aqui e no commit.
   peças; 4 ficaram sem decisão ("Verificar com Edilson"), e o sistema chamava isso de "não comprar" sem marcar 🚫. Tudo
   recebido hoje → ENCERRADO. Regra nova (OK dele): peça sem decisão segura o card — volta para PENDENTE AUTORIZAR. Função
   `vdf_reavaliarColuna` (diretoria) para devolver o ATP5105 pelo caminho oficial.
+
+## 27/10/2026 — cotação de KIT (Weslley: "peças que podem vir em kits… dividir o valor entre as duas peças ou colocar o custo em uma e deixar outra sem comprar")
+- Desenho aprovado na conversa: um preço para várias peças, valor dividido proporcional ao orçamento; na autorização, cenários
+  kit × avulsas ("e quando existir cotação de kit e também de itens individuais?"). Só no TESTE (`COT_KIT: 'teste'`).
+- Servidor: `vdf_kitExpandir_`/`vdf_kitRateio_` (cotação), marca `🧩 KIT` na linha, `q.kit` na leitura, `vdf_kitConferirAutorizacao_`
+  (kit pela metade é recusado), selo na vitrine. Tela 2.0: botão "🧩 Cotação de kit" (balão), kit pendente com a divisão, peças do
+  kit contam como cotadas, remover uma linha remove o kit; Autorizar ganha o quadro "Kit ou avulsas?".
+- Conferido fora do ar: rateio (85,00 → 56,14 + 28,86; sem orçamento 33,33/33,33/33,34), gravação/leitura da linha, recusa de kit
+  pela metade, telas no computador e no celular com dados de teste. Aguardando o Weslley olhar no TESTE.
+- 13h25 — Patch da outra sessão (`Cotação de KIT no TESTE`, Opus 5.5) conferido e aplicado aqui (Weslley: "pedi na sessão
+  errada, confere pra gente e aplica"): aplicou limpo sobre a main; tela e servidor conferidos contra as diretrizes; só no
+  TESTE (`COT_KIT: 'teste'`). Para o principal: `'todos'` com OK do Weslley.
