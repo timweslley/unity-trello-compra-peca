@@ -311,3 +311,10 @@ da outra, deixar um recado aqui e no commit.
 - 26/10 15h20 — Weslley: comentários do formulário com "@quem fez + o que fez" (prazo com "pelo motivo"); coluna Registro na EVENTOS.
 - 26/10 21h — Painel "Desempenho Compra de Peça" (artefato) com tempo por etapa e por pessoa; coletor em tools/desempenho/coletar-navegador.js (só leitura, roda no navegador) e tarefa agendada semanal (1º dia útil da semana) que atualiza o painel.
 - 26/10 21h15 — TCL9H02: pedido particular montado do orçamento Cilia #000092 cruzado com a lista do Vilson (11 pedir, 17 não comprar). Correção: Salvar parcial da cotação com o card em FALTA DADOS não tira mais o card de FALTA DADOS.
+
+## 26/10/2026 — velocidade do salvamento (Weslley: "a demora no salvamento pode ser corrigida? ou melhorada?")
+- 22h16 — Medição nos envios do próprio Weslley (vd_tempos): Enviar pedido 10–16 s, cotação 4–10 s. Conta por dentro: Trello
+  3–8 s (chamadas em sequência), licença das travas 2,3 s, planilha do Google 1,5–2,5 s. Weslley: "não é seguro fazer direto
+  no principal?" — é (esse caminho só existe no principal).
+- 22h35 — Passo 1 no servidor (`ponte.ts`): licença das travas e gravação da planilha depois de responder à tela; abas
+  pré-lidas em paralelo. Detalhe em `docs/PROJETO-SERVIDOR.md` (diário 26/10). Acompanhar em `/tarefas/execucoes`.

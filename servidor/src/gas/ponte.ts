@@ -406,12 +406,22 @@ async function propsParaGravacao(): Promise<Record<string, string>> {
   return { ...espelhoProps!.v };
 }
 let filaDevolver: Promise<unknown> = Promise.resolve();
+/** 26/10/2026: licenças das travas têm fila própria — não ficam atrás de uma devolução de propriedades em repetição. */
+let filaLicencas: Promise<unknown> = Promise.resolve();
 let abasReaisCache: { v: string[]; em: number } | null = null;
 async function abasReais(): Promise<string[]> {
   if (!CFG.planilhaId) return [];
   if (!abasReaisCache || Date.now() - abasReaisCache.em > 10 * 60_000) abasReaisCache = { v: await listarAbasPlanilha(CFG.planilhaId), em: Date.now() };
   return abasReaisCache.v;
 }
+/** Uma aba inteira da planilha real (gravação remota); aba inexistente ou 'backup' = vazia. */
+async function lerAbaRemota(nome: string): Promise<unknown[][]> {
+  if (nome === 'backup' || !CFG.planilhaId || !(await abasReais()).includes(nome)) return [];
+  return (await lerAbaPlanilha(CFG.planilhaId, nome)).map(reviverData(ABAS_COPIADAS[nome] || []));
+}
+/** 26/10/2026 (Weslley: "a demora no salvamento"): quais abas cada função leu da última vez — a próxima chamada da mesma
+ *  função já pede todas em paralelo no começo (4 leituras em sequência = ~1,2 s; em paralelo = o tempo da maior). */
+const abasPorFuncao = new Map<string, Set<string>>();
 
 /**
  * 17/10/2026 — gravações do quadro principal pelo servidor (passo 2 da virada): o código do robô roda aqui, mas as
@@ -435,8 +445,9 @@ async function atenderRemoto(op: string, d: any, ctx: Contexto): Promise<unknown
     case 'aba.lista': return ['backup', ...(await abasReais()).filter((n) => n !== 'backup')];
     case 'aba.criar': console.warn('[gravação do principal] aba nova não criada pelo servidor:', d?.nome); return null;
     case 'aba.ler': {
-      if (d === 'backup' || !CFG.planilhaId || !(await abasReais()).includes(d)) { ctx.tam[d] = 0; return []; }
-      const v = (await lerAbaPlanilha(CFG.planilhaId, d)).map(reviverData(ABAS_COPIADAS[d] || []));
+      ctx.abasLidas.add(d);
+      // 26/10/2026: a aba pode já estar vindo (pré-leitura em paralelo no começo da chamada) — senão lê agora
+      const v = await (ctx.pre.get(d) || lerAbaRemota(d));
       ctx.tam[d] = v.length;
       return v;
     }
@@ -626,6 +637,11 @@ class Contexto {
   licencas: Record<string, { v: string; seg: number }> = {};
   emails: Array<Record<string, unknown>> = [];
   marcadores = new Map<string, string>();
+  /** 26/10/2026: abas pré-lidas em paralelo nesta chamada, abas que ela leu, e a gravação da planilha da chamada anterior
+   *  (feita depois de responder; a próxima chamada espera por ela antes de ler a planilha, para não ler desatualizado). */
+  pre = new Map<string, Promise<unknown[][]>>();
+  abasLidas = new Set<string>();
+  private abasPendentes: Promise<void> = Promise.resolve();
   constructor(readonly nome: 'teste' | 'principal' | 'retrato' | 'principalGrava' | 'testeRemoto' | 'robo', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false, readonly remoto = false, public observar = false) {}
 
   private fixas(): Record<string, string> {
@@ -688,6 +704,13 @@ class Contexto {
         let extra: Record<string, unknown> = this.nome === 'principal' ? { props: await propsDoPrincipal() } : {};
         if (this.remoto) {
           this.pend = { set: {}, del: new Set() }; this.tam = {}; this.bufAbas = {}; this.licencas = {}; this.emails = [];
+          this.pre = new Map(); this.abasLidas = new Set();
+          // a planilha da chamada anterior ainda pode estar sendo gravada: espera (no máximo 20 s) antes de ler de novo
+          const tEsp = Date.now();
+          await Promise.race([this.abasPendentes, new Promise<void>((ok) => setTimeout(ok, 20_000))]);
+          if (Date.now() - tEsp > 50) ex.ops['planilha.espera'] = { n: 1, ms: Date.now() - tEsp };
+          // pré-leitura em paralelo das abas que esta função leu da última vez (o erro, se houver, aparece no aba.ler)
+          for (const a of abasPorFuncao.get(ex.fn) || []) { const p = lerAbaRemota(a); p.catch(() => null); this.pre.set(a, p); }
           try { extra = { props: await propsParaGravacao(), propsTrocar: true }; } catch (e) { throw new Error('servidor (nada gravado): ' + (e as Error).message); }
           if (this.nome === 'robo') this.observar = process.env.ROBO_SERVIDOR !== 'ATIVO';
           // OBSERVAR: o robô-sombra anda com os PRÓPRIOS marcadores de ações (senão só veria o que o Google já tratou)
@@ -699,7 +722,13 @@ class Contexto {
         finally { if (this.remoto && this.observar) { ex.ops['observar'] = { n: Object.keys(this.pend.set).length + this.pend.del.size, ms: Object.keys(this.bufAbas).length };
           for (const [k, v] of Object.entries(this.pend.set)) if (/(_ACT|ULTIMA|DESDE|VERIFICACAO)/.test(k)) this.marcadores.set(k, v);
           ex.propsObs = [...Object.keys(this.pend.set), ...[...this.pend.del].map((k) => '-' + k)].slice(0, 60); this.bufAbas = {}; this.licencas = {}; }
-          else if (this.remoto) { await this.gravarAbas(ex); await this.enviarLicencas(ex); this.devolverProps(ex); if (this.quadro === QUADRO_PRINCIPAL_SL) marcarGravacaoPrincipal(); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
+          else if (this.remoto) {
+            // 26/10/2026: planilha (registro) e licenças das travas vão DEPOIS de responder à tela — eram ~3 s de espera por
+            // envio. A próxima chamada espera a planilha (abasPendentes); o robô só julga movimentos com mais de 90 s.
+            if (this.abasLidas.size) abasPorFuncao.set(ex.fn, new Set(this.abasLidas));
+            const buf = this.bufAbas; this.bufAbas = {};
+            this.abasPendentes = this.gravarAbas(ex, buf).catch(() => undefined);
+            this.enviarLicencas(ex); this.devolverProps(ex); if (this.quadro === QUADRO_PRINCIPAL_SL) marcarGravacaoPrincipal(); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
         return r;
@@ -714,12 +743,12 @@ class Contexto {
     return p;
   }
   /** Grava na planilha real o que a chamada juntou (uma chamada por aba para as linhas que mudaram e outra para as novas). */
-  private async gravarAbas(ex: Execucao): Promise<void> {
-    const t0 = Date.now(), n = Object.keys(this.bufAbas).length;
-    try { await this.gravarAbas2(ex); } finally { if (n) ex.ops['planilha.fim'] = { n, ms: Date.now() - t0 }; }
+  private async gravarAbas(ex: Execucao, buf: Contexto['bufAbas']): Promise<void> {
+    const t0 = Date.now(), n = Object.keys(buf).length;
+    try { await this.gravarAbas2(ex, buf); } finally { if (n) ex.ops['planilha.fim'] = { n, ms: Date.now() - t0 }; }
   }
-  private async gravarAbas2(ex: Execucao): Promise<void> {
-    for (const [aba, b] of Object.entries(this.bufAbas)) {
+  private async gravarAbas2(ex: Execucao, buf: Contexto['bufAbas']): Promise<void> {
+    for (const [aba, b] of Object.entries(buf)) {
       const novas = Object.entries(b.novas).sort((x, y) => +x[0] - +y[0]).map(([, v]) => v);
       try {
         await gravarLinhasPlanilha(CFG.planilhaId, aba, b.fixas);
@@ -732,21 +761,23 @@ class Contexto {
           ['planilha_pendente_' + Date.now() + '_' + aba, JSON.stringify({ aba, fixas: b.fixas, novas })]).catch(() => null);
       }
     }
-    this.bufAbas = {};
   }
-  /** Licenças das travas (checklist/coluna) no cache do Apps Script — ANTES de responder: o robô confere a cada minuto
-   * (e só ações com mais de 90 s, desde 17/10/2026). Falhou: segue em segundo plano com as propriedades. */
-  private async enviarLicencas(ex: Execucao): Promise<void> {
+  /** Licenças das travas (checklist/coluna) no cache do Apps Script — logo depois de responder (26/10/2026; antes
+   * esperava ~2 s do Google antes de responder): o robô confere a cada minuto e só ações com mais de 90 s (desde 17/10).
+   * Vai na fila de devolução, antes das propriedades desta chamada; falhou: tenta de novo com prazo maior. */
+  private enviarLicencas(ex: Execucao): void {
     const lic = this.licencas; this.licencas = {};
     const emails = this.emails; this.emails = [];
     if (emails.length) filaDevolver = filaDevolver.then(() => chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { emails }], 60_000)).catch((e) => console.error('[robô] e-mail:', (e as Error).message));
     if (!Object.keys(lic).length) return;
     const t0 = Date.now();
-    try { await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { cache: lic }], 15_000); }
-    catch (e) {
-      console.error('[gravação do principal] licenças', (e as Error).message);
-      filaDevolver = filaDevolver.then(() => chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { cache: lic }], 40_000)).catch(() => null);
-    } finally { ex.ops['licencas'] = { n: Object.keys(lic).length, ms: Date.now() - t0 }; }
+    filaLicencas = filaLicencas.then(async () => {
+      try { await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { cache: lic }], 15_000); }
+      catch (e) {
+        console.error('[gravação do principal] licenças', (e as Error).message);
+        await chamarAppsScript('vdf_servidorProps', [CFG.trello.token, { cache: lic }], 40_000).catch(() => null);
+      } finally { ex.ops['licencas'] = { n: Object.keys(lic).length, ms: Date.now() - t0 }; }
+    }).catch(() => null);
   }
   /** Devolve ao Apps Script as propriedades que a chamada mudou (assinatura da TRAVA etc.) — até 3 tentativas. */
   private devolverProps(ex: Execucao): void {

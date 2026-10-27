@@ -54,3 +54,10 @@
 - 21/10/2026 20:11 — Tabela de fases atualizada com o que já aconteceu (3–5 concluídas 17–20/10; 6 substituída pelo unityOS). A "última
   migração" (props, planilha, OCR, e-mail para o servidor) foi avaliada e **não será feita**: o unityOS absorve o módulo em ~1 semana
   depois do comando do Weslley; até lá, o pacote de entrega é mantido a cada mudança de regra.
+- 26/10/2026 22h30 — Weslley: "a demora no salvamento pode ser corrigida?". Medido no navegador dele: Enviar pedido 10–16 s,
+  Enviar cotação 4–10 s. Por dentro (`/tarefas/execucoes`): Trello 16–35 chamadas em sequência (~0,25 s cada) = 3–8 s;
+  licença das travas ao Apps Script antes de responder = ~2,3 s; planilha do Google lida aba por aba (3–4 abas) + gravada
+  antes de responder = 1,5–2,5 s. **Passo 1 (só `src/gas/ponte.ts`)**: licença e planilha vão depois da resposta (a chamada
+  seguinte espera a planilha, no máximo 20 s; a licença tem fila própria e o robô só julga movimento com mais de 90 s);
+  as abas que a função leu da última vez são pré-lidas em paralelo no começo da chamada seguinte (`abasPorFuncao`).
+  Ganho esperado ~4 s por envio. Passo 2 (menos leituras repetidas do card em `vdf_salvar`) fica para conferir no TESTE.
