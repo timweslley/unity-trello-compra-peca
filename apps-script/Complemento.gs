@@ -565,6 +565,53 @@ function cp_doAnexo_(c, a, ctx) {
   return true;
 }
 
+/** 27/10/2026 (Weslley, KPJ9A04: "consegue dar uma passada em todos os cards e já ajeitar isso?") — diretoria.
+ *  Relê o orçamento Cilia mais novo do card (leitor v6: código antigo riscado + novo) e, para cada peça cujo código
+ *  antigo ainda está no card (item FO ou peça da oficina), troca pelo novo e registra — só o que é troca de código, nada mais.
+ *  p = {shortLink, aplicar:true|false}. Devolve {trocas:[{onde, desc, antigo, novo}], anexo, aplicado}. */
+function vdf_varrerTrocasCodigo(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
+  p = vdf_entrada_(p);
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url,date' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: true, trocas: [], anexo: '', aplicado: false };
+  var cilia = (card.attachments || []).filter(function (a) { return /CILIA/i.test(a.name || '') && /^📄 OR[ÇC]\+? · /.test(a.name || '') && vd_anexoLegivel_(a); })
+    .sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
+  if (!cilia.length) return { ok: true, trocas: [], anexo: '', aplicado: false };
+  var a = cilia[0], r = null;
+  try { r = vd_lerAnexoTrello_(a, { orcCompleto: true }); } catch (e) { return { ok: false, faltas: ['não li o anexo: ' + e] }; }
+  var orc = r && (r.orcFull || (r.orc ? { oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : null));
+  if (!orc) return { ok: true, trocas: [], anexo: a.name, aplicado: false, semLeitura: true };
+  var an = vd_analisar_(card.desc, card.name);
+  var itensFo = []; (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(vd_semAcento_(i.name)); }); });
+  var trocas = [], foAplicar = [], atualizar = [];
+  (orc.fo || []).forEach(function (x) {
+    var ka = String(x.codigoAntigo || '').replace(/\s+/g, ''), kn = String(x.codigo || '').replace(/\s+/g, '');
+    if (!ka || !kn || ka === kn) return;
+    if (itensFo.some(function (n) { return vd_casaItem_(n, vd_semAcento_(ka)); }) && !itensFo.some(function (n) { return vd_casaItem_(n, vd_semAcento_(kn)); })) {
+      trocas.push({ onde: 'FORNECIMENTO', desc: x.descricao, antigo: ka, novo: kn }); foAplicar.push(x);
+    }
+  });
+  (orc.oficina || []).forEach(function (x) {
+    var ka = String(x.codigoAntigo || '').replace(/\s+/g, ''), kn = String(x.codigo || '').replace(/\s+/g, '');
+    if (!ka || !kn || ka === kn) return;
+    var pc = (an.pecas || []).filter(function (c) { return cp_norm_(c.codigo) === cp_norm_(ka); })[0];
+    if (pc && !(an.pecas || []).some(function (c) { return cp_norm_(c.codigo) === cp_norm_(kn); })) {
+      trocas.push({ onde: 'oficina', desc: x.descricao, antigo: ka, novo: kn }); atualizar.push({ chave: vd_chavePeca_(pc), codigoAntigo: pc.codigo || '', codigo: kn, descricao: String(x.descricao || '').toUpperCase() });
+    }
+  });
+  if (!trocas.length || !p.aplicar) return { ok: true, trocas: trocas, anexo: a.name, aplicado: false };
+  var ctx = vd_contexto_();
+  if (foAplicar.length) {
+    vdf_checklistFornecimento_(card.id, foAplicar, null, 'FORNECIMENTO');
+    try { vdf_registrarTrocasFo_(card, null, 'orçamento CILIA · ' + a.name, me.username); } catch (e) {}
+  }
+  if (atualizar.length) {
+    cp_aplicar_(card, { oficina: [], fo: [], jaTinha: 0, pareadas: [], atualizar: atualizar, paraOficina: [], casadas: [] }, { origem: 'CILIA', anexo: a.name, quem: me.username, token: null, ctx: ctx });
+  }
+  return { ok: true, trocas: trocas, anexo: a.name, aplicado: true };
+}
+
 /** Aplica o complemento num card (robô). cmp = {oficina, fo, jaTinha}. */
 function cp_aplicar_(card, cmp, o) {
   var nFoTotal = 0;

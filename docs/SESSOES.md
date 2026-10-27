@@ -372,3 +372,6 @@ da outra, deixar um recado aqui e no commit.
   O orçamento Cilia 15613.3 traz 3 peças com o código antigo riscado + o novo (CÓDIGO DIFERENTE); o leitor pegava o
   riscado e ignorava o novo ("nenhuma peça nova"). Leitor corrigido (v6), troca casada pelo código antigo, registrada em
   comentário + evento, antigo guardado no item ("🔁 ex") e mostrado na tela. Aplicar no KPJ9A04 pelo "Importar de novo".
+- 15h14 — Weslley: "consegue dar uma passada em todos os cards e já ajeitar isso?" → `vdf_varrerTrocasCodigo` (diretoria):
+  relê o Cilia mais novo do card e troca só o que é código antigo → novo (FO e oficina), registrando. Cache compacto do
+  orçamento passa a guardar o código antigo ([5]). Varredura: primeiro só listar, depois aplicar.

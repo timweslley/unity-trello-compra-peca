@@ -1068,7 +1068,7 @@ function vd_avisosTipo_(pecas, orcamento) {
 /* ---- peças do orçamento em formato curto (cabe no cache de 9 KB) ---- */
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
-    return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
+    return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc), p.codigoAntigo || ''];   // [4] = valor líquido no orçamento (06/10/2026) · [5] = código antigo riscado (27/10/2026)
   });
 }
 /* ============================ CSS (concessionária fornece tudo) ============================
@@ -1092,7 +1092,7 @@ function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4
       ? { pneu: true, medida: x[1], marca: x[2], categoria: '', qtd: x[3] }
-      : { pneu: false, codigo: x[0], descricao: vd_limparDescricao_(x[1]), tipos: [], qtd: x[2], dica: x[3] || '', valorOrc: x[4] || '' };
+      : { pneu: false, codigo: x[0], descricao: vd_limparDescricao_(x[1]), tipos: [], qtd: x[2], dica: x[3] || '', valorOrc: x[4] || '', codigoAntigo: x[5] || '' };
   });
 }
 

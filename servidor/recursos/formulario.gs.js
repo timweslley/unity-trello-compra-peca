@@ -235,7 +235,7 @@ var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, REPETIR_FATURAR_DU: 5, 
 
 // FormularioServidor.gs:26
 var VDF_API = ['vdf_servidorProps', 'vdf_limparCardRotina', 'vdf_rotinaPecasBase', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_incluirDevolucao', 'vdf_reavaliarColuna'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_incluirDevolucao', 'vdf_reavaliarColuna', 'vdf_varrerTrocasCodigo'];
 
 // FormularioServidor.gs:68
 var VDF_PROPS_SERVIDOR = ['RC_LOCAIS', 'RC_QUEM', 'VD_COMPRADORES', 'VD_AUTORIZADORES', 'FAT_USUARIOS', 'DU_EXTRAS', 'DU_REMOVER',
@@ -2524,7 +2524,51 @@ function cp_doAnexo_(c, a, ctx) {
   return true;
 }
 
-// Complemento.gs:569
+// Complemento.gs:572
+function vdf_varrerTrocasCodigo(token, p) {
+  var me = vdf_usuario_(token);
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
+  p = vdf_entrada_(p);
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url,date' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: true, trocas: [], anexo: '', aplicado: false };
+  var cilia = (card.attachments || []).filter(function (a) { return /CILIA/i.test(a.name || '') && /^📄 OR[ÇC]\+? · /.test(a.name || '') && vd_anexoLegivel_(a); })
+    .sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
+  if (!cilia.length) return { ok: true, trocas: [], anexo: '', aplicado: false };
+  var a = cilia[0], r = null;
+  try { r = vd_lerAnexoTrello_(a, { orcCompleto: true }); } catch (e) { return { ok: false, faltas: ['não li o anexo: ' + e] }; }
+  var orc = r && (r.orcFull || (r.orc ? { oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : null));
+  if (!orc) return { ok: true, trocas: [], anexo: a.name, aplicado: false, semLeitura: true };
+  var an = vd_analisar_(card.desc, card.name);
+  var itensFo = []; (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(vd_semAcento_(i.name)); }); });
+  var trocas = [], foAplicar = [], atualizar = [];
+  (orc.fo || []).forEach(function (x) {
+    var ka = String(x.codigoAntigo || '').replace(/\s+/g, ''), kn = String(x.codigo || '').replace(/\s+/g, '');
+    if (!ka || !kn || ka === kn) return;
+    if (itensFo.some(function (n) { return vd_casaItem_(n, vd_semAcento_(ka)); }) && !itensFo.some(function (n) { return vd_casaItem_(n, vd_semAcento_(kn)); })) {
+      trocas.push({ onde: 'FORNECIMENTO', desc: x.descricao, antigo: ka, novo: kn }); foAplicar.push(x);
+    }
+  });
+  (orc.oficina || []).forEach(function (x) {
+    var ka = String(x.codigoAntigo || '').replace(/\s+/g, ''), kn = String(x.codigo || '').replace(/\s+/g, '');
+    if (!ka || !kn || ka === kn) return;
+    var pc = (an.pecas || []).filter(function (c) { return cp_norm_(c.codigo) === cp_norm_(ka); })[0];
+    if (pc && !(an.pecas || []).some(function (c) { return cp_norm_(c.codigo) === cp_norm_(kn); })) {
+      trocas.push({ onde: 'oficina', desc: x.descricao, antigo: ka, novo: kn }); atualizar.push({ chave: vd_chavePeca_(pc), codigoAntigo: pc.codigo || '', codigo: kn, descricao: String(x.descricao || '').toUpperCase() });
+    }
+  });
+  if (!trocas.length || !p.aplicar) return { ok: true, trocas: trocas, anexo: a.name, aplicado: false };
+  var ctx = vd_contexto_();
+  if (foAplicar.length) {
+    vdf_checklistFornecimento_(card.id, foAplicar, null, 'FORNECIMENTO');
+    try { vdf_registrarTrocasFo_(card, null, 'orçamento CILIA · ' + a.name, me.username); } catch (e) {}
+  }
+  if (atualizar.length) {
+    cp_aplicar_(card, { oficina: [], fo: [], jaTinha: 0, pareadas: [], atualizar: atualizar, paraOficina: [], casadas: [] }, { origem: 'CILIA', anexo: a.name, quem: me.username, token: null, ctx: ctx });
+  }
+  return { ok: true, trocas: trocas, anexo: a.name, aplicado: true };
+}
+
+// Complemento.gs:616
 function cp_aplicar_(card, cmp, o) {
   var nFoTotal = 0;
   if (cmp.fo.length) {
@@ -2556,7 +2600,7 @@ function cp_aplicar_(card, cmp, o) {
   if (cmp.fo.length && !cmp.oficina.length) { try { rc_reavaliarColuna_(card.id, o.token, o.quem || 'robô'); } catch (e) { console.log('complemento/coluna: ' + e); } }
 }
 
-// Complemento.gs:606
+// Complemento.gs:653
 function cp_foNaOficina_(card, token, quem) {
   var an;
   try { an = vd_analisar_(card.desc || '', card.name || ''); } catch (e) { return []; }
@@ -2589,12 +2633,12 @@ function cp_foNaOficina_(card, token, quem) {
   return removidos;
 }
 
-// Complemento.gs:642
+// Complemento.gs:689
 function cp_revLista_(cardId) {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('FO_REV_' + cardId) || '[]'); } catch (e) { return []; }
 }
 
-// Complemento.gs:645
+// Complemento.gs:692
 function cp_revGuardar_(cardId, nomes, por) {
   nomes = (nomes || []).filter(String);
   if (!nomes.length) return;
@@ -2608,7 +2652,7 @@ function cp_revGuardar_(cardId, nomes, por) {
   });
 }
 
-// Complemento.gs:659
+// Complemento.gs:706
 function vdf_foRevertidas(token, shortLink) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard' } });
@@ -2616,7 +2660,7 @@ function vdf_foRevertidas(token, shortLink) {
   return cp_revLista_(card.id).filter(function (x) { return !x.fim; });
 }
 
-// Complemento.gs:667
+// Complemento.gs:714
 function cp_revDosComentarios_(cardId) {
   var acts = vd_api_('/cards/' + cardId + '/actions', { cru: true, query: { filter: 'commentCard', limit: 300, fields: 'data,date' } }) || [];
   var l = [], fim = {};
@@ -2633,7 +2677,7 @@ function cp_revDosComentarios_(cardId) {
   PropertiesService.getScriptProperties().setProperty('FO_REV_' + cardId, JSON.stringify(l.slice(-20)));
 }
 
-// Complemento.gs:683
+// Complemento.gs:730
 function vdf_foRevertidaDevolvida(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -10993,7 +11037,7 @@ function vd_avisosTipo_(pecas, orcamento) {
 // Validacao.gs:1069
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
-    return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc)];   // [4] = valor líquido no orçamento (06/10/2026)
+    return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc), p.codigoAntigo || ''];   // [4] = valor líquido no orçamento (06/10/2026) · [5] = código antigo riscado (27/10/2026)
   });
 }
 
@@ -11017,7 +11061,7 @@ function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4
       ? { pneu: true, medida: x[1], marca: x[2], categoria: '', qtd: x[3] }
-      : { pneu: false, codigo: x[0], descricao: vd_limparDescricao_(x[1]), tipos: [], qtd: x[2], dica: x[3] || '', valorOrc: x[4] || '' };
+      : { pneu: false, codigo: x[0], descricao: vd_limparDescricao_(x[1]), tipos: [], qtd: x[2], dica: x[3] || '', valorOrc: x[4] || '', codigoAntigo: x[5] || '' };
   });
 }
 
