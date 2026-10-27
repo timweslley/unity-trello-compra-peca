@@ -496,7 +496,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   if (semCompleta) console.log('coluna: ' + card.shortLink + ' sem descrição completa — só a regra dos checklists vale');
   var ctx = vd_contexto_(), lista = vdf_nomeLista_(ctx, card.idList);
   var itens = vdf_itensRecebimento_(card), pend = itens.filter(function (i) { return !i.ok; });
-  var alvo = '';
+  var alvo = '', soFo = '';
   // compra cancelada / peça devolvida ao fornecedor (10/10/2026): peça autorizada sem item PAGAS -> volta para AUTORIZADO COMPRA
   // (só quando quem chamou acabou de cancelar/devolver — opt.semCompra — para não mexer em card antigo com PAGAS fora do padrão)
   var semCompra = false;
@@ -540,7 +540,6 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   else if ((lista === RC.LISTA_FIM || lista === 'ENTREGUES') && pend.length) alvo = VDF_LISTA_CHEGAR;
   // sem peça da oficina para comprar (só FO, ou tudo marcado 🚫 não comprar) em qualquer coluna antes da compra:
   // não tem o que cotar/autorizar -> FALTA CHEGAR (FO pendente) ou ENCERRADO (nada a receber). 05/10/2026 (QPG1B84)
-  var soFo = '';
   if (!alvo && !semCompleta && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
       itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista) || i.ok; }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido; PAGAS já recebido não impede (13/10/2026, BBG3844: tudo 🚫 e compras antigas ✔)
     var an = vd_analisar_(card.desc, card.name);

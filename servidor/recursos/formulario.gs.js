@@ -443,7 +443,7 @@ var RC = { LISTA_FIM: 'ENCERRADO COMPRAS/FORNEC.', LOCAIS_MAX: 60 };
 // Recebimento.gs:17
 var RC_RE_MARCA = /\s*·\s*(📍|✋|↩️?)\s*([^·]*?)\s*(?=\s*·\s*(?:📍|✋|↩️?)|$)/g;
 
-// Recebimento.gs:597
+// Recebimento.gs:596
 var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF' };
 
 // Saude.gs:12
@@ -8875,7 +8875,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   if (semCompleta) console.log('coluna: ' + card.shortLink + ' sem descrição completa — só a regra dos checklists vale');
   var ctx = vd_contexto_(), lista = vdf_nomeLista_(ctx, card.idList);
   var itens = vdf_itensRecebimento_(card), pend = itens.filter(function (i) { return !i.ok; });
-  var alvo = '';
+  var alvo = '', soFo = '';
   // compra cancelada / peça devolvida ao fornecedor (10/10/2026): peça autorizada sem item PAGAS -> volta para AUTORIZADO COMPRA
   // (só quando quem chamou acabou de cancelar/devolver — opt.semCompra — para não mexer em card antigo com PAGAS fora do padrão)
   var semCompra = false;
@@ -8919,7 +8919,6 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   else if ((lista === RC.LISTA_FIM || lista === 'ENTREGUES') && pend.length) alvo = VDF_LISTA_CHEGAR;
   // sem peça da oficina para comprar (só FO, ou tudo marcado 🚫 não comprar) em qualquer coluna antes da compra:
   // não tem o que cotar/autorizar -> FALTA CHEGAR (FO pendente) ou ENCERRADO (nada a receber). 05/10/2026 (QPG1B84)
-  var soFo = '';
   if (!alvo && !semCompleta && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
       itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista) || i.ok; }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido; PAGAS já recebido não impede (13/10/2026, BBG3844: tudo 🚫 e compras antigas ✔)
     var an = vd_analisar_(card.desc, card.name);
@@ -8967,7 +8966,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   return movido;
 }
 
-// Recebimento.gs:599
+// Recebimento.gs:598
 function rc_checklistDev_(card, token) {
   var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
   if (k) return k;
@@ -8976,10 +8975,10 @@ function rc_checklistDev_(card, token) {
   return k;
 }
 
-// Recebimento.gs:607
+// Recebimento.gs:606
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// Recebimento.gs:608
+// Recebimento.gs:607
 function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
@@ -8992,7 +8991,7 @@ function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   return novo;
 }
 
-// Recebimento.gs:620
+// Recebimento.gs:619
 function rc_devolucoes_(card) {
   var out = [];
   (card.checklists || []).forEach(function (k) {
@@ -9006,10 +9005,10 @@ function rc_devolucoes_(card) {
   return out;
 }
 
-// Recebimento.gs:632
+// Recebimento.gs:631
 function rc_devolucoesPendentes_(card) { return rc_devolucoes_(card).filter(function (d) { return !d.ok; }); }
 
-// Recebimento.gs:635
+// Recebimento.gs:634
 function vdf_salvarDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -9065,7 +9064,7 @@ function vdf_salvarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:694
+// Recebimento.gs:693
 function vdf_reavaliarColuna(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
@@ -9078,7 +9077,7 @@ function vdf_reavaliarColuna(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:705
+// Recebimento.gs:704
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
