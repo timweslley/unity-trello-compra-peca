@@ -366,3 +366,5 @@ da outra, deixar um recado aqui e no commit.
   FOB8723 devolvido a COTAÇÃO FINALIZADA pelo `vdf_reavaliarColuna`.
 - 13h50 — Weslley: "pode mover" (FOB8723) e "aplica a melhora no principal do kit" → `COT_KIT: 'todos'`. A reavaliação de
   coluna passa a conferir a cobertura de cotação só nas peças pendentes (as compradas antes da autorização não têm linha).
+- 13h58 — FOB8723 → COTAÇÃO FINALIZADA pelo `vdf_reavaliarColuna` (precisou de 2 ajustes na regra: cobertura de cotação só
+  das peças pendentes; autorização já comprada não conta como "aberta"). Kit no principal publicado (`d1ab820`).
