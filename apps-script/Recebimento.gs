@@ -571,7 +571,9 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
     try {
       var anT = vd_analisar_(card.desc, card.name);
       if ((anT.pecas || []).length && !vd_autorizacoesDaDescricao_(card.desc, anT.pecas).length && !vdf_coberturaCotacao_(card.desc, anT.pecas).faltam.length) {
-        var soPartT = anT.pecas.every(function (x) { return vdf_pecaParticular_(x, card, anT); });
+        // 27/10/2026 (FOB8723): quem decide = peças que ainda esperam decisão (fora do PAGAS); se não sobrou nenhuma, todas
+        var pendT = vdf_pecasAguardandoDecisao_(card, anT, []), baseT = pendT.length ? pendT : anT.pecas;
+        var soPartT = baseT.every(function (x) { return vdf_pecaParticular_(x, card, anT); });
         var certaT = soPartT ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE;
         if (certaT !== lista) { alvo = certaT; soFo = soPartT ? 'pedido particular: quem autoriza é o consultor' : 'tem peça da seguradora: quem autoriza é a diretoria'; }
       }

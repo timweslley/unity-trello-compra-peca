@@ -338,6 +338,14 @@ function vdf_itensPagas_(c) {
   (c.checklists || []).forEach(function (k) { if (/^PAGAS/i.test(String(k.name || '').trim())) (k.checkItems || []).forEach(function (i) { out.push(vd_semAcento_(i.name)); }); });
   return out;
 }
+/** 27/10/2026: peças da oficina que ainda esperam decisão — sem 🚫 não comprar, sem autorização (auts) e fora do PAGAS (c.checklists). */
+function vdf_pecasAguardandoDecisao_(c, an, auts) {
+  var pagas = vdf_itensPagas_(c);
+  return ((an && an.pecas) || []).filter(function (x) {
+    var k = vd_chavePeca_(x);
+    return k && !x.naoComprar && !(auts || []).some(function (a) { return a.chave === k; }) && !pagas.some(function (n) { return vd_casaItem_(n, k); });
+  });
+}
 /** '' (livre) | 'AUTORIZADA' | 'COMPRADA' */
 function vdf_travaPeca_(p, auts, c) {
   var k = vd_chavePeca_(p);
@@ -1435,7 +1443,7 @@ function vdf_salvarCotacaoBase_(token, p) {
   p = vdf_entrada_(p);
   if (!vdf_podeComprar_(me)) return { ok: false, faltas: ['Só o setor de compras (ou a diretoria) lança cotação — sua conta: ' + me.username + '.'] };
   var ctx = vd_contexto_();
-  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels' } });
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state' } });   // 27/10/2026: checklists para saber o que já foi comprado (quem decide)
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro — não recebe cotação nem compra.'] };
   var an = vd_analisar_(card.desc, card.name);
   var porChave = {};
@@ -1553,8 +1561,13 @@ function vdf_salvarCotacaoBase_(token, p) {
    * particular: COTAÇÃO FINALIZADA), avisando as peças não cotadas e o motivo. */
   var cob = cobPrev;
   // só peças particulares -> COTAÇÃO FINALIZADA (o consultor autoriza); havendo peça da seguradora -> PENDENTE AUTORIZAR
-  var particular = an.pecas.length ? an.pecas.every(function (x) { return vdf_pecaParticular_(x, card, an); }) : vdf_ehParticular_(card, an);
-  var misto = !particular && an.pecas.some(function (x) { return x.particular; });
+  // 27/10/2026 (Weslley, FOB8723): quem decide é definido pelas peças que AINDA esperam decisão (sem 🚫, sem autorização, fora
+  // do PAGAS) — peça da seguradora já comprada não manda o card para a diretoria por causa de uma particular nova
+  var pendDec = [];
+  try { pendDec = vdf_pecasAguardandoDecisao_(card, an, autsAntes.filter(function (a) { return !reaut[a.chave]; })); } catch (e) { pendDec = []; }
+  var baseQuem = pendDec.length ? pendDec : an.pecas;
+  var particular = baseQuem.length ? baseQuem.every(function (x) { return vdf_pecaParticular_(x, card, an); }) : vdf_ehParticular_(card, an);
+  var misto = !particular && baseQuem.some(function (x) { return x.particular; });
   var movido = '';
   if (!registro) {
     // 26/10/2026 (Weslley, TCL9H02): "Salvar parcial" com o card em FALTA DADOS guarda a cotação mas NÃO tira o card de lá —

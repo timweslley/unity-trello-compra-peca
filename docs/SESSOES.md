@@ -361,3 +361,6 @@ da outra, deixar um recado aqui e no commit.
 - 13h25 — Patch da outra sessão (`Cotação de KIT no TESTE`, Opus 5.5) conferido e aplicado aqui (Weslley: "pedi na sessão
   errada, confere pra gente e aplica"): aplicou limpo sobre a main; tela e servidor conferidos contra as diretrizes; só no
   TESTE (`COT_KIT: 'teste'`). Para o principal: `'todos'` com OK do Weslley.
+- 13h26 — Weslley: FOB8723 "veio para a diretoria autorizar, está certo?". Não: a peça nova (parabarro) é particular, as da
+  seguradora já estavam compradas — a regra de quem decide olhava todas as peças. Agora olha só as que esperam decisão;
+  FOB8723 devolvido a COTAÇÃO FINALIZADA pelo `vdf_reavaliarColuna`.

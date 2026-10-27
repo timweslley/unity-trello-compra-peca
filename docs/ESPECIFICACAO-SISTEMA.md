@@ -706,3 +706,7 @@ seção 10) · `usuario` (username trello, nome, papéis, unidade).
   (comprada, 🚫 ou fornecimento); senão volta para PENDENTE AUTORIZAR (COTAÇÃO FINALIZADA se só particular; EM COTAÇÃO se
   faltar cotação) com o comentário "↪️ Card → … (tudo que foi comprado chegou, mas N peça(s) ainda sem decisão: …)".
   `vdf_reavaliarColuna` (diretoria) reavalia a coluna de um card pelo caminho oficial, inclusive em ENCERRADO.
+- **27/10/2026 — quem decide é definido pelas peças que ainda esperam decisão (Weslley, FOB8723).** No Enviar cotação e na
+  reavaliação de coluna, "só particular → COTAÇÃO FINALIZADA (consultor) / tem seguradora → PENDENTE AUTORIZAR (diretoria)"
+  olha só as peças sem 🚫, sem autorização e fora do PAGAS (`vdf_pecasAguardandoDecisao_`); peça da seguradora já comprada
+  não leva o card à diretoria por causa de uma particular nova.
