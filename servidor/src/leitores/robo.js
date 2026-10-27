@@ -373,7 +373,15 @@ function vd_secao_(U, inicio, finais) {
   return resto.slice(0, fim);
 }
 
-// Orcamento.gs:206
+// Orcamento.gs:208
+function vd_mesmaFamiliaCodigo_(a, b) {
+  a = String(a || '').toUpperCase(); b = String(b || '').toUpperCase();
+  if (!a || !b || a === b) return false;
+  var da = /^\d+$/.test(a), db = /^\d+$/.test(b);
+  return da === db && Math.abs(a.length - b.length) <= 1 && a.length >= 6 && b.length >= 6;
+}
+
+// Orcamento.gs:214
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
   // 17/10/2026 (Weslley: "sem cobertura não entra pra compra"): no Cilia, os itens do bloco "ITENS DO TIPO SEM COBERTURA" (até
@@ -521,7 +529,9 @@ function vd_lerOrcamento_(texto) {
     // código com ponto no fim ("1312791700. BRAÇO OSCILANTE", 14/10/2026, JDC7H45): o item sumia e o preço OFICINA ficava sem dono
     var filaCi = [];
     while ((m = reCi.exec(U))) {
-      if (m[2]) { filaCi.push({ qtd: m[1], codigo: m[3] || m[2], codigoAntigo: m[3] ? m[2] : '', tipo: m[4] || m[5] || '', desc: m[6] }); continue; }
+      // o 2º número só é código NOVO quando é da mesma família do 1º (BCB8218: "663111S000 1632439" = código Hyundai + nº do catálogo do Cilia, não troca)
+      var trocaCod = !!(m[3] && vd_mesmaFamiliaCodigo_(m[2], m[3]));
+      if (m[2]) { filaCi.push({ qtd: m[1], codigo: trocaCod ? m[3] : m[2], codigoAntigo: trocaCod ? m[2] : '', tipo: m[4] || m[5] || '', desc: m[6] }); continue; }
       var it = filaCi.shift();
       if (!it) continue;   // preço sem item antes (cabeçalho, serviços): ignora
       // Cilia: "OFICINA R$ unit [R$ total] [desc %]" — o valor unitário líquido; formato confirmado no 1º PDF real (05/10/2026)
@@ -1291,4 +1301,4 @@ function vd_orcExpandir_(lista) {
   });
 }
 
-export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_PALAVRAS_PECA, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_ehRelatorioPecasCilia_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerRelatorioPecasCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_soFornecedor_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };
+export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_PALAVRAS_PECA, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_ehRelatorioPecasCilia_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerRelatorioPecasCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_soFornecedor_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaFamiliaCodigo_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };

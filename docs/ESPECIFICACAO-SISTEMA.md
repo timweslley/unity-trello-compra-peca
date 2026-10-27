@@ -712,7 +712,9 @@ seção 10) · `usuario` (username trello, nome, papéis, unidade).
   não leva o card à diretoria por causa de uma particular nova.
 - **27/10/2026 — código da peça alterado (Weslley, KPJ9A04: "quero que o robô altere e registre a alteração").**
   Leitor Cilia: linha com dois códigos ("1 52141759 52055306 GENUÍNA PARACHOQUE…", legenda CÓDIGO DIFERENTE) = antigo
-  riscado + novo; o novo vale (`codigo`) e o antigo vai em `codigoAntigo` (leitor v6 nos dois lados). Complementar e
+  riscado + novo; o novo vale (`codigo`) e o antigo vai em `codigoAntigo` (leitor v6 nos dois lados) — só quando os dois são da
+  mesma família (ambos numéricos ou ambos alfanuméricos, ≥ 6 caracteres, tamanhos iguais ou ±1; `vd_mesmaFamiliaCodigo_`);
+  senão o 2º número é o nº de catálogo do Cilia (BCB8218: "663111S000 1632439") e o 1º continua valendo. Complementar e
   checklist FORNECIMENTO casam a peça pelo código antigo (além da descrição) e trocam o código do item; o antigo fica no
   item como marca `· 🔁 ex ANTIGO` (`rc_marcas_`/`exCodigo`), o card recebe o comentário "🔁 CÓDIGO ALTERADO NO FORNECIMENTO —
   orçamento X: DESC: antigo → novo" e o evento CÓDIGO CORRIGIDO. Vale também para a troca vinda do Status do Pedido (marca

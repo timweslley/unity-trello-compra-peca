@@ -203,6 +203,14 @@ function vd_secao_(U, inicio, finais) {
   return resto.slice(0, fim);
 }
 
+/** 27/10/2026: dois códigos na mesma linha do Cilia — o 2º é troca de código só se parece com o 1º (ambos só dígitos ou ambos
+ *  alfanuméricos, tamanhos iguais ou com 1 de diferença). Senão é o nº de catálogo do Cilia e o 1º continua valendo. */
+function vd_mesmaFamiliaCodigo_(a, b) {
+  a = String(a || '').toUpperCase(); b = String(b || '').toUpperCase();
+  if (!a || !b || a === b) return false;
+  var da = /^\d+$/.test(a), db = /^\d+$/.test(b);
+  return da === db && Math.abs(a.length - b.length) <= 1 && a.length >= 6 && b.length >= 6;
+}
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
   // 17/10/2026 (Weslley: "sem cobertura não entra pra compra"): no Cilia, os itens do bloco "ITENS DO TIPO SEM COBERTURA" (até
@@ -350,7 +358,9 @@ function vd_lerOrcamento_(texto) {
     // código com ponto no fim ("1312791700. BRAÇO OSCILANTE", 14/10/2026, JDC7H45): o item sumia e o preço OFICINA ficava sem dono
     var filaCi = [];
     while ((m = reCi.exec(U))) {
-      if (m[2]) { filaCi.push({ qtd: m[1], codigo: m[3] || m[2], codigoAntigo: m[3] ? m[2] : '', tipo: m[4] || m[5] || '', desc: m[6] }); continue; }
+      // o 2º número só é código NOVO quando é da mesma família do 1º (BCB8218: "663111S000 1632439" = código Hyundai + nº do catálogo do Cilia, não troca)
+      var trocaCod = !!(m[3] && vd_mesmaFamiliaCodigo_(m[2], m[3]));
+      if (m[2]) { filaCi.push({ qtd: m[1], codigo: trocaCod ? m[3] : m[2], codigoAntigo: trocaCod ? m[2] : '', tipo: m[4] || m[5] || '', desc: m[6] }); continue; }
       var it = filaCi.shift();
       if (!it) continue;   // preço sem item antes (cabeçalho, serviços): ignora
       // Cilia: "OFICINA R$ unit [R$ total] [desc %]" — o valor unitário líquido; formato confirmado no 1º PDF real (05/10/2026)

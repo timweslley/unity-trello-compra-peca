@@ -375,3 +375,6 @@ da outra, deixar um recado aqui e no commit.
 - 15h14 — Weslley: "consegue dar uma passada em todos os cards e já ajeitar isso?" → `vdf_varrerTrocasCodigo` (diretoria):
   relê o Cilia mais novo do card e troca só o que é código antigo → novo (FO e oficina), registrando. Cache compacto do
   orçamento passa a guardar o código antigo ([5]). Varredura: primeiro só listar, depois aplicar.
+- 15h45 — Passada de leitura nos 280 cards abertos (fora ENTREGUES): 85 com orçamento Cilia; nenhuma troca pendente além do
+  KPJ9A04. O único candidato (BCB8218, "663111S000 1632439") era o nº de catálogo do Cilia ao lado do código Hyundai, não
+  troca — regra apertada: o 2º número só vale como código novo se for da mesma família do 1º (`vd_mesmaFamiliaCodigo_`).
