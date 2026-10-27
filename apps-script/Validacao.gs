@@ -883,7 +883,7 @@ function vd_anxMigrar_() {
  */
 /* Versão do leitor de anexos: quando o leitor de orçamento muda (ex.: 05/10/2026, layout Soma), as leituras
  * guardadas com a versão antiga são lidas de novo — senão "ler de novo" e o robô do complemento devolvem a leitura velha. */
-var VD_LEITOR_V = 5;   // 23/10/2026: marca-d'água "NÃO AUTORIZADO" com letras soltas (TBP3J46) — relê os Cilia   // versão do leitor de orçamento (2 = 14/10/2026, código Cilia com ponto no fim; 3 = 21/10/2026, modelo/ano do Cilia particular)
+var VD_LEITOR_V = 6;   // 27/10/2026: Cilia com código antigo riscado + código novo (KPJ9A04) — relê os Cilia   // 23/10/2026: marca-d'água "NÃO AUTORIZADO" com letras soltas (TBP3J46) — relê os Cilia   // versão do leitor de orçamento (2 = 14/10/2026, código Cilia com ponto no fim; 3 = 21/10/2026, modelo/ano do Cilia particular)
 var VD_ANX_V = 3;   // 3 (06/10/2026): o cache do orçamento passou a guardar o valor líquido de cada peça
 function vd_lerAnexoTrello_(a, opt) {
   opt = opt || {};
@@ -1799,6 +1799,7 @@ function vd_importarOrcamento_(card, an, lido, ctx) {
   card.desc = upd.desc;
   if (upd.name) card.name = upd.name;
   try { vdf_checklistFornecimento_(card.id, o.fo); } catch (e) {}
+  try { vdf_registrarTrocasFo_(card, null, 'orçamento ' + (o.origem || ''), 'robô'); } catch (e) {}   // 27/10/2026: código trocado no FO fica registrado
   return { texto: texto, titulo: titulo };
 }
 

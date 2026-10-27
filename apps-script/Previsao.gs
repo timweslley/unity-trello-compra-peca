@@ -225,6 +225,8 @@ function vdf_atualizarFornecimento(token, p) {
     }
     if (querNome) {
       var marcasIt = rc_marcas_(it.name);   // 📍 local / ✋ retirada no fim do nome ficam (10/10/2026)
+      // 27/10/2026 (KPJ9A04): o documento trouxe código novo → o antigo fica no item como "🔁 ex" (a troca já sai no comentário 🚚)
+      if (x.codigoNovo) { var exC = (baseOrig.match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s/i) || [])[1] || ''; if (exC && !marcasIt.exCodigo && vd_semAcento_(exC) !== vd_semAcento_(codNovo)) marcasIt.exCodigo = exC; }
       var antigoForn = (marcasIt.base.slice(baseOrig.length).match(/^\s+-\s+([^-—]+?)(?:\s+[-—]|$)/) || [])[1] || '';
       if (/^QTD\b/i.test(antigoForn)) antigoForn = '';   // "- QTD 1" de leitura antiga não é fornecedor
       var nm = rc_comMarcas_(nomeNovo(base, { fornecedor: x.fornecedor !== undefined ? x.fornecedor : antigoForn, situacao: x.situacao }), marcasIt);

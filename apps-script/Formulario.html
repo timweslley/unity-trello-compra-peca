@@ -9992,5 +9992,38 @@ document.addEventListener('input', function (e) {
   }
 })();
 </script>
+<script>
+/* 27/10/2026 (Weslley, KPJ9A04: "o código foi alterado, tem como documentar essa mudança também nos formulários?") — camada 2.0:
+ * item do checklist FORNECIMENTO/PAGAS que teve o código trocado (orçamento com o antigo riscado, ou Status do Pedido) guarda o
+ * antigo na marca "🔁 ex CÓDIGO"; aqui ele aparece como selo nas abas Recebimento, Retirada e Fornecimento. Só aparência. */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('v2')) return;
+  function e2(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var st = document.createElement('style');
+  st.textContent = '.selo.v2ex{background:#fff7d6;color:#533f04;border:1px solid #e2b203;font-weight:600;margin-left:6px}';
+  document.head.appendChild(st);
+  function selar(c) {
+    var ex = {};
+    ((c && c.recebiveis) || []).forEach(function (it) { if (it && it.exCodigo) ex[it.id] = it.exCodigo; });
+    if (!Object.keys(ex).length) return;
+    ['#recItens', '#retItens', '#fornItens'].forEach(function (sel) {
+      Array.prototype.slice.call(document.querySelectorAll(sel + ' .item[data-id]')).forEach(function (d) {
+        var cod = ex[d.dataset.id]; if (!cod || d.querySelector('.v2ex')) return;
+        var topo = d.querySelector('.item-topo') || d;
+        var sp = document.createElement('span'); sp.className = 'selo v2ex'; sp.title = 'O código desta peça foi alterado (orçamento ou Status do Pedido). O item já está com o código novo; este era o antigo.';
+        sp.textContent = '🔁 código antes: ' + cod;
+        topo.appendChild(sp);
+      });
+    });
+  }
+  ['montarRecebimento', 'montarRetirada', 'montarFornecimento'].forEach(function (fn) {
+    if (typeof window[fn] !== 'function') return;
+    var orig = window[fn];
+    window[fn] = function (c) { var r = orig.apply(this, arguments); try { selar(c || window.CARD); } catch (e) { console.log('ex-código: ' + e); } return r; };
+  });
+  if (window.CARD) { try { selar(window.CARD); } catch (e) {} }
+})();
+</script>
 </body>
 </html>

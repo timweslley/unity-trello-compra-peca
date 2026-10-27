@@ -243,7 +243,7 @@ function vd_lerOrcamento_(texto) {
 
   // valor líquido unitário da peça no orçamento (o que a seguradora paga) — 05/10/2026, Weslley: aparece ao lado da peça
   // na cotação/autorização e serve de base para a comparação com a cotação (economia < 20% vermelho, 20–30 amarelo, > 30 verde)
-  var add = function (lista, codigo, desc, qtd, tipo, valor) {
+  var add = function (lista, codigo, desc, qtd, tipo, valor, codigoAntigo) {
     codigo = String(codigo || '').replace(/\s+/g, ' ').trim();
     // OCR do Cilia às vezes gruda (ou põe antes) o código na descrição ("100260230EMBLEMA DA GRADE", "1632439 FAROL"):
     // se o código da coluna é interno (0000001) ou vazio, esse número é o código (RHV1E04, 05/10/2026) — antes da limpeza,
@@ -265,6 +265,9 @@ function vd_lerOrcamento_(texto) {
     item.dica = vd_tipoOrcamento_(tipo);
     item.descricaoOrc = desc;
     item.codigoOrc = codigo;
+    // 27/10/2026 (Weslley, KPJ9A04): orçamento Cilia com "CÓDIGO DIFERENTE" traz o código antigo riscado e o novo ao lado —
+    // o novo vale; o antigo vai junto para o card achar a peça que já tinha e registrar a troca
+    if (codigoAntigo && !pneu) { codigoAntigo = String(codigoAntigo).replace(/\s+/g, '').trim(); if (codigoAntigo && codigoAntigo !== codigo && !vd_codigoInterno_(codigoAntigo)) item.codigoAntigo = codigoAntigo; }
     if (valor != null && !isNaN(valor) && valor > 0) item.valorOrc = Math.round(valor * 100) / 100;
     lista.push(item);
   };
@@ -341,27 +344,28 @@ function vd_lerOrcamento_(texto) {
     // antigo sem preço. O tipo pode vir colado ("GENUINAFAROL", "PPOJOGO") — vd_limparDescricao_ tira.
     // 16/10/2026 (BDL9F71, UBR1C00): pintura "P -" (sem horas) também; código colado na descrição pode passar de 20 letras
     var PROX = '\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? \\d{1,3} [A-Z0-9]{4,30}\\b';
-    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:\\d{5,} )?(?:(GENUINA|ORIGINAL)|(PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
+    // 27/10/2026 (KPJ9A04): "1 52141759 52055306 GENUINAPARACHOQUE…" = código antigo riscado + código novo (CÓDIGO DIFERENTE) — o 2º é o que vale
+    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:(\\d{5,}) )?(?:(GENUINA|ORIGINAL)|(PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
       '|(OFICINA|SEGURADORA) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(-?\\d{1,3},\\d{2}) ?%| ?-(?= ?R\\$))?(?: ?R\\$ ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2}))?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
     // código com ponto no fim ("1312791700. BRAÇO OSCILANTE", 14/10/2026, JDC7H45): o item sumia e o preço OFICINA ficava sem dono
     var filaCi = [];
     while ((m = reCi.exec(U))) {
-      if (m[2]) { filaCi.push({ qtd: m[1], codigo: m[2], tipo: m[3] || m[4] || '', desc: m[5] }); continue; }
+      if (m[2]) { filaCi.push({ qtd: m[1], codigo: m[3] || m[2], codigoAntigo: m[3] ? m[2] : '', tipo: m[4] || m[5] || '', desc: m[6] }); continue; }
       var it = filaCi.shift();
       if (!it) continue;   // preço sem item antes (cabeçalho, serviços): ignora
       // Cilia: "OFICINA R$ unit [R$ total] [desc %]" — o valor unitário líquido; formato confirmado no 1º PDF real (05/10/2026)
       // 16/10/2026 (SJC0H98, AZV7F58, JDC7H45): o PREÇO LÍQUIDO impresso vale — preço negociado ("R$ 719,80 - R$ 500,00")
       // e desconto negativo ("R$ 73,37 -5,30% R$ 77,26") davam o bruto. O líquido é da linha: com quantidade > 1 divide,
       // salvo quando ele já bate com o unitário calculado.
-      var calcU = m[7] ? vd_liquidoOrc_(m[7], m[9]) : NaN, vOrc = calcU;
-      if (m[10]) {
-        var liqL = vd_numOrc_(m[10]), qn = Math.max(1, parseInt(it.qtd, 10) || 1);
+      var calcU = m[8] ? vd_liquidoOrc_(m[8], m[10]) : NaN, vOrc = calcU;
+      if (m[11]) {
+        var liqL = vd_numOrc_(m[11]), qn = Math.max(1, parseInt(it.qtd, 10) || 1);
         if (!isNaN(liqL)) vOrc = (qn > 1 && !isNaN(calcU) && Math.abs(liqL - calcU) < 0.05) ? liqL : liqL / qn;
       }
-      add(m[6] === 'SEGURADORA' ? r.fo : r.oficina, it.codigo, it.desc, it.qtd, it.tipo, vOrc);
+      add(m[7] === 'SEGURADORA' ? r.fo : r.oficina, it.codigo, it.desc, it.qtd, it.tipo, vOrc, it.codigoAntigo);
     }
     // item que ficou sem preço (fim do texto cortado): entra como da oficina, sem valor
-    filaCi.forEach(function (it) { add(r.oficina, it.codigo, it.desc, it.qtd, it.tipo, NaN); });
+    filaCi.forEach(function (it) { add(r.oficina, it.codigo, it.desc, it.qtd, it.tipo, NaN, it.codigoAntigo); });
     return r;
   }
   return r;

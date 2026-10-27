@@ -142,7 +142,7 @@ function cp_comparar_(card, orc, excluirAnexo) {
   // da oficina parecida é outra ("FAIXA SUP DA PORTA" × "FAIXA DA COLUNA DA PORTA"). Primeiro só com as peças da API; desde
   // 15/10/2026 à tarde (Weslley: "1 sim") vale também para o orçamento lido do PDF — FO cujo código o orçamento novo ainda traz
   // como FO fica no FORNECIMENTO (se o OCR não leu o código, segue a regra de antes).
-  var aindaFo = []; if (orc) (orc.fo || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4) aindaFo.push(k); });
+  var aindaFo = []; if (orc) (orc.fo || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4) aindaFo.push(k); var ka = cp_norm_(f.codigoAntigo || ''); if (ka.length >= 4) aindaFo.push(ka); });   // 27/10/2026: o código antigo (riscado) também segura o item no FO
   var marcaAtualizar = function (i, p, codigoNovo) {
     var c = pecasCard[i], u = { chave: vd_chavePeca_(c), codigoAntigo: c.codigo || '' };
     var vOrc = vd_valorOrcTxt_(p.valorOrc), vCard = vd_valorOrcTxt_(c.valorOrc);
@@ -164,6 +164,9 @@ function cp_comparar_(card, orc, excluirAnexo) {
       if (!ehFo && !p.pneu) {
         // mesma peça da oficina pelo código: já tem (valor do orçamento pode ter mudado)
         if (kc.length >= 4 && porCodigo[kc] !== undefined) { out.jaTinha++; marcaAtualizar(porCodigo[kc], p, ''); return; }
+        // 27/10/2026 (KPJ9A04): o orçamento trouxe o código antigo riscado ao lado do novo — acha a peça pelo antigo e troca o código
+        var kaO = cp_norm_(p.codigoAntigo || '');
+        if (kaO.length >= 4 && porCodigo[kaO] !== undefined && !usadas[porCodigo[kaO]]) { out.jaTinha++; marcaAtualizar(porCodigo[kaO], p, p.codigo || p.codigoOrc); return; }
         // código num checklist de COMPRA (PAGAS, PAGAS COMPLEMENTO, COMPLEMENTO antigo): a peça já foi comprada com esse código —
         // não casa pela descrição com outra peça do card (16/10/2026, NPG5429: "8148202130 GRADE ESQ DO PARACHOQUE DIANT",
         // comprada em setembro, casava com "5311202200 GRADE DO PARACHOQUE DIANT" e trocava o código dela)
@@ -183,6 +186,9 @@ function cp_comparar_(card, orc, excluirAnexo) {
         var itFo = cp_foParaOficina_(conh, p, aindaFo);
         if (itFo) { out.paraOficina.push({ item: itFo, peca: p }); destino.push(p); return; }
       }
+      // 27/10/2026 (KPJ9A04): FO cujo código antigo (riscado no orçamento) está no checklist — segue para o checklist, que troca o código e registra
+      var kaF = cp_norm_(p.codigoAntigo || '');
+      if (ehFo && kaF.length >= 4 && (conh.chaves[kaF] || conh.textos.some(function (t) { return t.indexOf(kaF) >= 0; })) && !(kc.length >= 4 && (conh.chaves[kc] || conh.textos.some(function (t) { return t.indexOf(kc) >= 0; })))) { destino.push(p); return; }
       if (cp_jaTem_(conh, p)) {
         // FO: já está no checklist pelo código. Com código diferente e descrição conhecida, segue para o checklist,
         // que atualiza o item existente (código/descrição) em vez de repetir — vdf_checklistFornecimento_
@@ -397,7 +403,12 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     // "5U7941006C FAROL DIREITO") não troca o código bom do item
     var itensFo = [];
     (card.checklists || []).forEach(function (k) { if (/FORNECIMENTO/i.test(k.name || '')) (k.checkItems || []).forEach(function (i) { itensFo.push(String(i.name || '')); }); });
-    foFalta = foFalta.filter(function (p) { var kcF = cp_norm_(p.codigo || p.codigoOrc); if (kcF.length >= 6 && cp_itemColado_(card, kcF)) return true; return !itensFo.some(function (n) { return cp_similar_(p.descricao || '', n.replace(/^\S*\d\S*\s+/, '').replace(/\s+-\s+[^-]+$/, '')) > 0; }); });
+    foFalta = foFalta.filter(function (p) {
+      var kcF = cp_norm_(p.codigo || p.codigoOrc); if (kcF.length >= 6 && cp_itemColado_(card, kcF)) return true;
+      // 27/10/2026 (KPJ9A04): o orçamento diz explicitamente qual era o código antigo (riscado) — item com esse código recebe o novo
+      var kaF = cp_norm_(p.codigoAntigo || ''); if (kaF.length >= 4 && itensFo.some(function (n) { return cp_norm_(n).indexOf(kaF) >= 0; })) return true;
+      return !itensFo.some(function (n) { return cp_similar_(p.descricao || '', n.replace(/^\S*\d\S*\s+/, '').replace(/\s+-\s+[^-]+$/, '')) > 0; });
+    });
     // ...e peça que ERA fornecida (está no checklist FORNECIMENTO) e o orçamento traz como da OFICINA (revertida pela
     // seguradora) entra, casando só pelo CÓDIGO (14/10/2026, JDC7H45: bandeja revertida para a oficina; o card encerrou)
     var revert = [], cmpOf = null;
@@ -559,6 +570,7 @@ function cp_aplicar_(card, cmp, o) {
   var nFoTotal = 0;
   if (cmp.fo.length) {
     vdf_checklistFornecimento_(card.id, cmp.fo, o.token, CP.FO);
+    try { vdf_registrarTrocasFo_(card, o.token, 'orçamento ' + (o.origem || '') + (o.anexo ? ' · ' + o.anexo : ''), o.quem || 'robô'); } catch (e) {}   // 27/10/2026: código trocado no FO fica registrado
     nFoTotal = cp_contarChecklist_(card.id, CP.FO, o.token);
   }
   var div = vd_dividir_(card.desc);

@@ -14,11 +14,11 @@ var RC = { LISTA_FIM: 'ENCERRADO COMPRAS/FORNEC.', LOCAIS_MAX: 60 };
  * paralama") — ~60 comentários em 5 dias que se perdiam. Agora o item do checklist carrega isso no fim do nome:
  *   "COD DESC - FORNECEDOR - R$ 100,00 · 📍 F1 · ✋ LEOMAR 10/10"   (· em vez de " - " para não mexer nas partes já lidas)
  * e "↩️ DEVOLVIDA dd/MM" quando a peça voltou ao fornecedor. rc_marcas_ lê, rc_comMarcas_ escreve. */
-var RC_RE_MARCA = /\s*·\s*(📍|✋|↩️?)\s*([^·]*?)\s*(?=\s*·\s*(?:📍|✋|↩️?)|$)/g;   // ↩ com ou sem o seletor FE0F
+var RC_RE_MARCA = /\s*·\s*(📍|✋|↩️?|🔁)\s*([^·]*?)\s*(?=\s*·\s*(?:📍|✋|↩️?|🔁)|$)/g;   // ↩ com ou sem o seletor FE0F; 🔁 ex CÓDIGO = código antigo (27/10/2026)
 function rc_marcas_(nome) {
-  var out = { base: String(nome || ''), local: '', retirada: '', devolvida: '' }, m;
+  var out = { base: String(nome || ''), local: '', retirada: '', devolvida: '', exCodigo: '' }, m;
   var re = new RegExp(RC_RE_MARCA.source, 'g');
-  while ((m = re.exec(out.base))) { if (m[1] === '📍') out.local = m[2]; else if (m[1] === '✋') out.retirada = m[2]; else out.devolvida = m[2]; }
+  while ((m = re.exec(out.base))) { if (m[1] === '📍') out.local = m[2]; else if (m[1] === '✋') out.retirada = m[2]; else if (m[1] === '🔁') out.exCodigo = String(m[2] || '').replace(/^ex\s+/i, '').trim(); else out.devolvida = m[2]; }
   out.base = out.base.replace(new RegExp(RC_RE_MARCA.source, 'g'), '').trim();
   return out;
 }
@@ -27,6 +27,7 @@ function rc_comMarcas_(base, mk) {
   if (mk.local) s += ' · 📍 ' + mk.local;
   if (mk.retirada) s += ' · ✋ ' + mk.retirada;
   if (mk.devolvida) s += ' · ↩️ ' + mk.devolvida;
+  if (mk.exCodigo) s += ' · 🔁 ex ' + mk.exCodigo;   // 27/10/2026 (Weslley, KPJ9A04): código antigo da peça fica no item
   return s;
 }
 /** Nome do item sem as marcas (para quem lê fornecedor/valor/previsão do nome). */
@@ -297,7 +298,7 @@ function vdf_itensRecebimento_(c) {
     if (!tipo) return;
     (k.checkItems || []).forEach(function (i) {
       var mk = rc_marcas_(i.name);
-      out.push({ id: i.id, nome: i.name, base: mk.base, local: mk.local, retirada: mk.retirada, devolvida: mk.devolvida, ok: i.state === 'complete', due: i.due || '', lista: tipo });
+      out.push({ id: i.id, nome: i.name, base: mk.base, local: mk.local, retirada: mk.retirada, devolvida: mk.devolvida, exCodigo: mk.exCodigo, ok: i.state === 'complete', due: i.due || '', lista: tipo });
     });
   });
   return out;

@@ -39,6 +39,13 @@ describe('orçamentos', () => {
     expect(l.oficina?.[0]).toMatchObject({ codigo: '100260230', descricao: 'EMBLEMA DA GRADE' });
   });
 
+  it('Cilia: "CÓDIGO DIFERENTE" — código antigo riscado + código novo na mesma linha (KPJ9A04, 27/10/2026)', () => {
+    const r = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T 8,00 P 8,00 1 52159768 GENUÍNA LATERAL EXTERNA DIR Seguradora R$ 6.962,24 0,29% R$ 6.942,24 T 1,00 P 4,00 1 52141759 52055306 GENUÍNAPARACHOQUE TRASEIRO\n(SEM SENSOR DE ESTACIONAMENTO )\nSeguradora R$ 1.481,76 38,00% R$ 918,69\nT 1,00 P 6,00 1 52176163 52147890 GENUÍNA PORTA DIANTEIRA DIR Seguradora R$ 3.591,94 38,00% R$ 2.227,00 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
+    expect(r.origem).toBe('CILIA');
+    expect(r.fo.map((p: any) => [p.codigo, p.codigoAntigo || ''])).toEqual([['52159768', ''], ['52055306', '52141759'], ['52147890', '52176163']]);
+    expect(r.fo[1].descricao).toMatch(/^PARACHOQUE TRASEIRO/);
+    expect(r.fo[1].valorOrc).toBe(918.69);
+  });
   it('Websoma/Soma: compra pela oficina × lista das fornecidas pela seguradora', () => {
     const t = `PEÇAS - TROCA (COMPRA PELA OFICINA) Código Descrição Tipo Qde Vlr Desc Vlr PINTURA
       5U0807221 PARACHOQUE DIANT GENUINO 1 1.000,00 10,00 900,00

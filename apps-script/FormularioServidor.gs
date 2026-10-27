@@ -864,7 +864,20 @@ function vdf_pastaTemp_() {
 /** nomeLista: 'FORNECIMENTO' (padrão) ou 'FORNECIMENTO COMPLEMENTO'. Não repete peça que já está em qualquer FORNECIMENTO:
  *  peça que já tem item (mesmo código) só tem a descrição/previsão atualizada no item que existe (05/10/2026, Weslley:
  *  "já tinha registro de fornecimento — atualizar apenas as descrições"). Devolve quantos itens NOVOS entraram. */
+/** 27/10/2026 (Weslley, KPJ9A04: "quero que o robô altere e registre a alteração"): trocas de código feitas pela última
+ *  vdf_checklistFornecimento_ — {antigo, novo, desc, item}. Quem chamou comenta/registra com vdf_registrarTrocasFo_. */
+var VDF_FO_TROCAS = [];
+function vdf_registrarTrocasFo_(card, token, origem, usuario) {
+  var trocas = VDF_FO_TROCAS; VDF_FO_TROCAS = [];
+  if (!trocas.length || !card) return '';
+  var txt = '🔁 **CÓDIGO ALTERADO NO FORNECIMENTO**' + (origem ? ' — ' + origem : '') + '\n' +
+    trocas.map(function (t) { return '- ' + t.desc + ': ' + t.antigo + ' → **' + t.novo + '** (o item do checklist já está com o código novo; o antigo fica anotado nele como "🔁 ex")'; }).join('\n');
+  try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token); } catch (e) { console.log('trocas FO/comentário: ' + e); }
+  try { ev_registrar_('CÓDIGO CORRIGIDO', card, usuario || 'robô', trocas.map(function (t) { return { peca: { codigo: t.novo, descricao: t.desc }, detalhe: 'código ' + t.antigo + ' → ' + t.novo + ' (fornecimento' + (origem ? ', ' + origem : '') + ')' }; })); } catch (e) {}
+  return txt;
+}
 function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
+  VDF_FO_TROCAS = [];
   if (!fo || !fo.length) return 0;
   nomeLista = nomeLista || 'FORNECIMENTO';
   var lists = vd_api_('/cards/' + cardId + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name,due,state' } }, token);
@@ -892,6 +905,9 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
     var nome = (cod ? cod + ' ' : '') + desc + (p.qtd && +p.qtd > 1 ? ' (x' + p.qtd + ')' : '') + (p.fornecedor ? ' - ' + String(p.fornecedor).toUpperCase() : '');
     var chave = vd_semAcento_(cod || desc);
     var candJa = existentes.filter(function (e, j) { return !usados[j] && (vd_casaItem_(e.norm, chave) || (cod && vdf_foColado_(e.norm, cod))); });
+    // 27/10/2026 (KPJ9A04): sem item com o código novo, o item com o código ANTIGO (riscado no orçamento) é a mesma peça
+    var codAnt = String(p.codigoAntigo || '').replace(/\s+/g, '');
+    if (!candJa.length && codAnt) candJa = existentes.filter(function (e, j) { return !usados[j] && (vd_casaItem_(e.norm, vd_semAcento_(codAnt)) || vdf_foColado_(e.norm, codAnt)); });
     // mesmo código em dois itens (sensor DIR/ESQ) com o código grudado: fica o de descrição mais parecida
     var ja = candJa.length > 1 && desc ? candJa.slice().sort(function (a, b) { return cp_similar_(desc, b.norm.slice(cod.length)) - cp_similar_(desc, a.norm.slice(cod.length)); })[0] : candJa[0];
     // sem código igual: mesma peça pela descrição (igual ou parecida) = o código mudou no orçamento novo -> atualiza o item,
@@ -911,6 +927,12 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
       // item já existe: só atualiza a descrição (e a previsão, se o item ainda não tem) — nunca duplica
       try {
         var mkJa = rc_marcas_(String(ja.item.name || '').trim()), atual = mkJa.base, novo = nome;   // marcas 📍/✋/↩️ ficam (10/10/2026)
+        // 27/10/2026 (KPJ9A04): casou pela descrição e o código é outro = o orçamento trocou o código → o antigo fica no item ("🔁 ex") e a troca é registrada
+        var codAntigo = (atual.match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s/i) || [])[1] || '';
+        if (cod && codAntigo && vd_semAcento_(codAntigo) !== vd_semAcento_(cod)) {
+          if (!mkJa.exCodigo) mkJa.exCodigo = codAntigo;
+          VDF_FO_TROCAS.push({ antigo: codAntigo, novo: cod, desc: desc || pv_curto_(atual), item: ja.item.id });
+        }
         // fornecedor que alguém já anotou no item ("... - AVENIDA") fica, se o orçamento não trouxe outro
         var sufixo = atual.match(/\s-\s[^-]+$/);
         if (!p.fornecedor && sufixo && !/\s-\s[^-]+$/.test(novo)) novo += sufixo[0];
@@ -2561,6 +2583,7 @@ function vdf_salvar(token, p) {
   if (compFo.length) {
     try {
       nFoComp = vdf_checklistFornecimento_(card.id, compFo, token, CP.FO);
+      try { vdf_registrarTrocasFo_(card, token, 'orçamento ' + (extra.origemOrc || ''), me.username); } catch (e) {}
       var totFoC = cp_contarChecklist_(card.id, CP.FO, token);
       extra.foLinhas = (extra.foLinhas || []).filter(function (l) { return !/^FORNECIMENTO COMPLEMENTO/i.test(vd_limpar_(l).trim()); });
       if (totFoC) extra.foLinhas.push(cp_linhaFo_(totFoC));
@@ -2660,6 +2683,7 @@ function vdf_salvar(token, p) {
 
   var nFo = 0;
   try { nFo = vdf_checklistFornecimento_(card.id, fo, token); } catch (e) {}
+  try { vdf_registrarTrocasFo_(card, token, 'orçamento ' + (extra.origemOrc || ''), me.username); } catch (e) {}   // 27/10/2026: código trocado no FO fica registrado
   var nPagas = 0;
   // compra só pela aba Compra (vdf_salvarCompra: permissão, etiqueta, autorização); o pedido não grava compra
   var compras = [];

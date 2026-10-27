@@ -710,3 +710,11 @@ seção 10) · `usuario` (username trello, nome, papéis, unidade).
   reavaliação de coluna, "só particular → COTAÇÃO FINALIZADA (consultor) / tem seguradora → PENDENTE AUTORIZAR (diretoria)"
   olha só as peças sem 🚫, sem autorização e fora do PAGAS (`vdf_pecasAguardandoDecisao_`); peça da seguradora já comprada
   não leva o card à diretoria por causa de uma particular nova.
+- **27/10/2026 — código da peça alterado (Weslley, KPJ9A04: "quero que o robô altere e registre a alteração").**
+  Leitor Cilia: linha com dois códigos ("1 52141759 52055306 GENUÍNA PARACHOQUE…", legenda CÓDIGO DIFERENTE) = antigo
+  riscado + novo; o novo vale (`codigo`) e o antigo vai em `codigoAntigo` (leitor v6 nos dois lados). Complementar e
+  checklist FORNECIMENTO casam a peça pelo código antigo (além da descrição) e trocam o código do item; o antigo fica no
+  item como marca `· 🔁 ex ANTIGO` (`rc_marcas_`/`exCodigo`), o card recebe o comentário "🔁 CÓDIGO ALTERADO NO FORNECIMENTO —
+  orçamento X: DESC: antigo → novo" e o evento CÓDIGO CORRIGIDO. Vale também para a troca vinda do Status do Pedido (marca
+  🔁 ex no item; o comentário 🚚 já dizia "código → novo"). Formulário (2.0): selo "🔁 código antes: X" nas abas Recebimento,
+  Retirada e Fornecimento. Reler um orçamento já processado também aplica a troca quando o antigo está no checklist.

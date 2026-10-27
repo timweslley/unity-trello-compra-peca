@@ -368,3 +368,7 @@ da outra, deixar um recado aqui e no commit.
   coluna passa a conferir a cobertura de cotação só nas peças pendentes (as compradas antes da autorização não têm linha).
 - 13h58 — FOB8723 → COTAÇÃO FINALIZADA pelo `vdf_reavaliarColuna` (precisou de 2 ajustes na regra: cobertura de cotação só
   das peças pendentes; autorização já comprada não conta como "aberta"). Kit no principal publicado (`d1ab820`).
+- 14h45 — Weslley: KPJ9A04 "o código foi alterado… documentar a mudança também nos formulários e adotar o código novo".
+  O orçamento Cilia 15613.3 traz 3 peças com o código antigo riscado + o novo (CÓDIGO DIFERENTE); o leitor pegava o
+  riscado e ignorava o novo ("nenhuma peça nova"). Leitor corrigido (v6), troca casada pelo código antigo, registrada em
+  comentário + evento, antigo guardado no item ("🔁 ex") e mostrado na tela. Aplicar no KPJ9A04 pelo "Importar de novo".

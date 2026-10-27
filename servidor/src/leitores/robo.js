@@ -155,13 +155,13 @@ function cp_similar_(descA, descB) {
   return n >= 0.5 ? n : 0;
 }
 
-// FormularioServidor.gs:940
+// FormularioServidor.gs:962
 function vd_dataCurta_(s) {
   var iso = vd_dataBR_(s);
   return iso ? Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM') : String(s || '');
 }
 
-// FormularioServidor.gs:946
+// FormularioServidor.gs:968
 function vd_dataBR_(s) {
   var iso = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3], 12, 0, 0).toISOString();
@@ -173,7 +173,7 @@ function vd_dataBR_(s) {
   return isNaN(d.getTime()) ? '' : d.toISOString();
 }
 
-// FormularioServidor.gs:958
+// FormularioServidor.gs:980
 function vd_valorNum_(s) {
   s = String(s == null ? '' : s).replace(/R\$/i, '').replace(/\s/g, '');
   if (!s) return NaN;
@@ -182,7 +182,7 @@ function vd_valorNum_(s) {
   return parseFloat(s);
 }
 
-// FormularioServidor.gs:967
+// FormularioServidor.gs:989
 function vd_valorBR_(v) {
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   if (isNaN(n)) return '';
@@ -414,7 +414,7 @@ function vd_lerOrcamento_(texto) {
 
   // valor líquido unitário da peça no orçamento (o que a seguradora paga) — 05/10/2026, Weslley: aparece ao lado da peça
   // na cotação/autorização e serve de base para a comparação com a cotação (economia < 20% vermelho, 20–30 amarelo, > 30 verde)
-  var add = function (lista, codigo, desc, qtd, tipo, valor) {
+  var add = function (lista, codigo, desc, qtd, tipo, valor, codigoAntigo) {
     codigo = String(codigo || '').replace(/\s+/g, ' ').trim();
     // OCR do Cilia às vezes gruda (ou põe antes) o código na descrição ("100260230EMBLEMA DA GRADE", "1632439 FAROL"):
     // se o código da coluna é interno (0000001) ou vazio, esse número é o código (RHV1E04, 05/10/2026) — antes da limpeza,
@@ -436,6 +436,9 @@ function vd_lerOrcamento_(texto) {
     item.dica = vd_tipoOrcamento_(tipo);
     item.descricaoOrc = desc;
     item.codigoOrc = codigo;
+    // 27/10/2026 (Weslley, KPJ9A04): orçamento Cilia com "CÓDIGO DIFERENTE" traz o código antigo riscado e o novo ao lado —
+    // o novo vale; o antigo vai junto para o card achar a peça que já tinha e registrar a troca
+    if (codigoAntigo && !pneu) { codigoAntigo = String(codigoAntigo).replace(/\s+/g, '').trim(); if (codigoAntigo && codigoAntigo !== codigo && !vd_codigoInterno_(codigoAntigo)) item.codigoAntigo = codigoAntigo; }
     if (valor != null && !isNaN(valor) && valor > 0) item.valorOrc = Math.round(valor * 100) / 100;
     lista.push(item);
   };
@@ -512,27 +515,28 @@ function vd_lerOrcamento_(texto) {
     // antigo sem preço. O tipo pode vir colado ("GENUINAFAROL", "PPOJOGO") — vd_limparDescricao_ tira.
     // 16/10/2026 (BDL9F71, UBR1C00): pintura "P -" (sem horas) também; código colado na descrição pode passar de 20 letras
     var PROX = '\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? \\d{1,3} [A-Z0-9]{4,30}\\b';
-    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:\\d{5,} )?(?:(GENUINA|ORIGINAL)|(PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
+    // 27/10/2026 (KPJ9A04): "1 52141759 52055306 GENUINAPARACHOQUE…" = código antigo riscado + código novo (CÓDIGO DIFERENTE) — o 2º é o que vale
+    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:(\\d{5,}) )?(?:(GENUINA|ORIGINAL)|(PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
       '|(OFICINA|SEGURADORA) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(-?\\d{1,3},\\d{2}) ?%| ?-(?= ?R\\$))?(?: ?R\\$ ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2}))?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
     // código com ponto no fim ("1312791700. BRAÇO OSCILANTE", 14/10/2026, JDC7H45): o item sumia e o preço OFICINA ficava sem dono
     var filaCi = [];
     while ((m = reCi.exec(U))) {
-      if (m[2]) { filaCi.push({ qtd: m[1], codigo: m[2], tipo: m[3] || m[4] || '', desc: m[5] }); continue; }
+      if (m[2]) { filaCi.push({ qtd: m[1], codigo: m[3] || m[2], codigoAntigo: m[3] ? m[2] : '', tipo: m[4] || m[5] || '', desc: m[6] }); continue; }
       var it = filaCi.shift();
       if (!it) continue;   // preço sem item antes (cabeçalho, serviços): ignora
       // Cilia: "OFICINA R$ unit [R$ total] [desc %]" — o valor unitário líquido; formato confirmado no 1º PDF real (05/10/2026)
       // 16/10/2026 (SJC0H98, AZV7F58, JDC7H45): o PREÇO LÍQUIDO impresso vale — preço negociado ("R$ 719,80 - R$ 500,00")
       // e desconto negativo ("R$ 73,37 -5,30% R$ 77,26") davam o bruto. O líquido é da linha: com quantidade > 1 divide,
       // salvo quando ele já bate com o unitário calculado.
-      var calcU = m[7] ? vd_liquidoOrc_(m[7], m[9]) : NaN, vOrc = calcU;
-      if (m[10]) {
-        var liqL = vd_numOrc_(m[10]), qn = Math.max(1, parseInt(it.qtd, 10) || 1);
+      var calcU = m[8] ? vd_liquidoOrc_(m[8], m[10]) : NaN, vOrc = calcU;
+      if (m[11]) {
+        var liqL = vd_numOrc_(m[11]), qn = Math.max(1, parseInt(it.qtd, 10) || 1);
         if (!isNaN(liqL)) vOrc = (qn > 1 && !isNaN(calcU) && Math.abs(liqL - calcU) < 0.05) ? liqL : liqL / qn;
       }
-      add(m[6] === 'SEGURADORA' ? r.fo : r.oficina, it.codigo, it.desc, it.qtd, it.tipo, vOrc);
+      add(m[7] === 'SEGURADORA' ? r.fo : r.oficina, it.codigo, it.desc, it.qtd, it.tipo, vOrc, it.codigoAntigo);
     }
     // item que ficou sem preço (fim do texto cortado): entra como da oficina, sem valor
-    filaCi.forEach(function (it) { add(r.oficina, it.codigo, it.desc, it.qtd, it.tipo, NaN); });
+    filaCi.forEach(function (it) { add(r.oficina, it.codigo, it.desc, it.qtd, it.tipo, NaN, it.codigoAntigo); });
     return r;
   }
   return r;
@@ -541,10 +545,10 @@ function vd_lerOrcamento_(texto) {
 // Previsao.gs:14
 function pv_mesmoDia_(a, b) { return !!a && !!b && vd_dataCurta_(a) === vd_dataCurta_(b) && new Date(a).getFullYear() === new Date(b).getFullYear(); }
 
-// Previsao.gs:311
+// Previsao.gs:313
 function pv_diaNum_(d) { try { return +Utilities.formatDate(new Date(d), 'America/Sao_Paulo', 'yyyyMMdd'); } catch (e) { return 0; } }
 
-// Previsao.gs:317
+// Previsao.gs:319
 function pv_datas_(t, semHora) {
   var out = [], m, re = /\b(\d{1,2})\/(\d{1,2})\/(\d{2,4})\b(\s*-?\s*\d{1,2}:\d{2})?/g;
   while ((m = re.exec(t))) {
@@ -556,7 +560,7 @@ function pv_datas_(t, semHora) {
   return out;
 }
 
-// Previsao.gs:329
+// Previsao.gs:331
 function pv_fornecedor_(janela, lista) {
   var U = vd_semAcento_(janela);
   var m = U.match(/FORNECEDOR\s*[:\-]?\s*([A-Z0-9][A-Z0-9 .&\/\-]{2,40}?)(?=\s{2,}|\s+\d{1,2}\/\d|\s+PREV|\s+DATA|\s+R\$|$)/);
@@ -579,7 +583,7 @@ function pv_fornecedor_(janela, lista) {
   return '';
 }
 
-// Previsao.gs:353
+// Previsao.gs:355
 function pv_fornecedorCurto_(txt, lista) {
   var t = vd_semAcento_(txt).replace(/\s+/g, ' ').trim();
   if (t.indexOf('/') >= 0) t = t.split('/').pop().trim();
@@ -592,7 +596,7 @@ function pv_fornecedorCurto_(txt, lista) {
   return r.nome;
 }
 
-// Previsao.gs:375
+// Previsao.gs:377
 function pv_lerStatusCilia_(texto, lista) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   // relatório de peças novo do Cilia ("piece_report", 20/10/2026, TAX1A70): leitor próprio
@@ -709,13 +713,13 @@ function pv_lerStatusCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:492
+// Previsao.gs:494
 function pv_ehRelatorioPecasCilia_(texto) {
   var U = vd_semAcento_(String(texto || ''));
   return /FORNECIMENTO\s*\([^)\n]*\d{14}\s*\)/.test(U) && /DATA\/HORA/.test(U) && /\bENTREGA\b/.test(U) && /\bATUALIZACAO\b/.test(U);
 }
 
-// Previsao.gs:506
+// Previsao.gs:508
 function pv_lerRelatorioPecasCilia_(texto, lista) {
   if (!pv_ehRelatorioPecasCilia_(texto)) return null;
   var linhas = vd_semAcento_(String(texto || '').replace(/\r/g, '')).split('\n').map(function (l) { return l.replace(/\s+/g, ' ').trim(); }).filter(String);
@@ -786,7 +790,7 @@ function pv_lerRelatorioPecasCilia_(texto, lista) {
   return out;
 }
 
-// Previsao.gs:589
+// Previsao.gs:591
 function pv_lerPareceresCilia_(texto) {
   var U = vd_semAcento_(String(texto || '').replace(/\r/g, ''));
   var reCab = /FLUXO:\s*\d+\s*\|.*?DATA DE CRIACAO:\s*(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/g;
@@ -842,7 +846,7 @@ function pv_lerPareceresCilia_(texto) {
   return out;
 }
 
-// Previsao.gs:645
+// Previsao.gs:647
 function pv_ultimaAtualizacaoCilia_(texto) {
   var m = vd_semAcento_(String(texto || '')).match(/ULTIMA ATUALIZACAO\s*\(?\s*(\d{1,2})\/(\d{1,2})\/(\d{2,4})(?:\s*-\s*(\d{1,2}):(\d{2}))?/);
   if (!m) return null;
@@ -851,7 +855,7 @@ function pv_ultimaAtualizacaoCilia_(texto) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-// Previsao.gs:657
+// Previsao.gs:659
 function pv_aplicarPareceres_(achados, texto, alvos) {
   var pareceres = pv_lerPareceresCilia_(texto);
   if (!pareceres.length) return 0;
@@ -894,7 +898,7 @@ function pv_aplicarPareceres_(achados, texto, alvos) {
   return n;
 }
 
-// Previsao.gs:711
+// Previsao.gs:713
 function pv_soFornecedor_(u, lista) {
   u = vd_semAcento_(String(u || '')).toUpperCase().replace(/\s+/g, ' ').trim();
   if (!u) return false;
@@ -905,7 +909,7 @@ function pv_soFornecedor_(u, lista) {
   return false;
 }
 
-// Previsao.gs:721
+// Previsao.gs:723
 function pv_lerHdiPecas_(texto, lista) {
   var U = vd_semAcento_(texto);
   if (!/PE[CG]AS DO (SINISTRO|LAUDO)/.test(U)) return null;   // OCR lê "Peças" como "Pegas"
@@ -1038,7 +1042,7 @@ function pv_lerHdiPecas_(texto, lista) {
   return pecas.length ? pecas : null;
 }
 
-// Previsao.gs:853
+// Previsao.gs:855
 function pv_lerFornecimento_(texto, alvos, lista) {
   var linhas = String(texto || '').replace(/\r/g, '').split('\n');
   var norm = linhas.map(cp_norm_);
@@ -1131,7 +1135,7 @@ function pv_lerFornecimento_(texto, alvos, lista) {
   return out;
 }
 
-// Previsao.gs:946
+// Previsao.gs:948
 function pv_enriquecerFo_(texto, fo) {
   if (!fo || !fo.length) return 0;
   var n = 0;
