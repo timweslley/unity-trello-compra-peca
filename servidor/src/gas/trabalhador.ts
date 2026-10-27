@@ -132,7 +132,7 @@ function prepararPedido(url: string, p: ParamsFetch = {}) {
         texto: Object.entries(pl as Record<string, unknown>).map(([k, v]) => encodeURIComponent(k) + '=' + encodeURIComponent(String(v))).join('&') };
     }
   }
-  return { url, metodo: String(p.method || 'get').toUpperCase(), cabecalhos: p.headers || {}, corpo, mudo: !!p.muteHttpExceptions };
+  return { url, metodo: String(p.method || 'get').toUpperCase(), cabecalhos: p.headers || {}, corpo, mudo: !!p.muteHttpExceptions, quem: '' };
 }
 function responder(r: { status: number; cab: Record<string, string>; corpo: Uint8Array }, mudo: boolean, url: string) {
   const resp = new HTTPResponse(r.status, r.cab, Buffer.from(r.corpo));
@@ -140,7 +140,12 @@ function responder(r: { status: number; cab: Record<string, string>; corpo: Uint
   return resp;
 }
 const UrlFetchApp = {
-  fetch(url: string, p?: ParamsFetch) { const ped = prepararPedido(url, p); return responder(sinc('fetch', ped), ped.mudo, url); },
+  fetch(url: string, p?: ParamsFetch) {
+    const ped = prepararPedido(url, p);
+    // 26/10/2026: quem pediu (funções do robô na pilha, sem vd_api_/fetch) — só para a trilha de chamadas do servidor
+    try { ped.quem = (new Error().stack || '').split('\n').slice(1, 8).map((l) => (l.match(/at (\S+)/) || [])[1] || '').filter((f) => f && !/^(Object\.)?(fetch|vd_api_|vd_api|qt_fetch|Proxy)/.test(f)).slice(0, 3).join('<'); } catch { /* */ }
+    return responder(sinc('fetch', ped), ped.mudo, url);
+  },
   fetchAll(reqs: Array<string | (ParamsFetch & { url: string })>) {
     const peds = reqs.map((r) => (typeof r === 'string' ? prepararPedido(r) : prepararPedido(r.url, r)));
     const rs = sinc<Array<{ status: number; cab: Record<string, string>; corpo: Uint8Array }>>('fetchAll', peds);

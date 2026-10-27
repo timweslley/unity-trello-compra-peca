@@ -104,7 +104,7 @@ export async function conferirEscrita(url: string, metodo: string, corpo: string
 }
 
 // ---------- pedidos do trabalhador ----------
-interface Pedido { url: string; metodo: string; cabecalhos: Record<string, string>; corpo:
+interface Pedido { url: string; metodo: string; cabecalhos: Record<string, string>; quem?: string; corpo:
   { tipo: 'nada' } | { tipo: 'texto'; texto: string; contentType: string } |
   { tipo: 'multipart'; partes: Array<{ nome: string; texto?: string; bytes?: Uint8Array; arquivo?: string; tipo?: string }> } }
 
@@ -548,7 +548,7 @@ function contar(atual: Execucao | null, m: { op: string; dados: unknown }, ms: n
   if (!atual) return;
   const o = (atual.ops[m.op] ||= { n: 0, ms: 0 }); o.n++; o.ms += ms;
   const pedidos = m.op === 'fetch' ? [m.dados] : m.op === 'fetchAll' ? (m.dados as unknown[]) : [];
-  for (const p of pedidos as Array<{ url?: string; metodo?: string }>) {
+  for (const p of pedidos as Array<{ url?: string; metodo?: string; quem?: string }>) {
     let k = '?', caminho = '?';
     try {
       const u = new URL(String(p.url)), seg = u.pathname.split('/').filter(Boolean).map((x) => /\d/.test(x) && x.length > 6 ? ':id' : x);
@@ -556,7 +556,7 @@ function contar(atual: Execucao | null, m: { op: string; dados: unknown }, ms: n
       caminho = (p.metodo || 'GET') + ' /' + seg.join('/') + (u.search ? '?' + [...u.searchParams.keys()].filter((q) => q !== 'key' && q !== 'token').join(',') : '');
     } catch { /* */ }
     const r = (atual.rede[k] ||= { n: 0, ms: 0 }); r.n++; r.ms += m.op === 'fetch' ? ms : 0;
-    if ((atual.trilha ||= []).length < 80) atual.trilha.push(caminho + ' ' + (m.op === 'fetch' ? ms : '∥') + 'ms');
+    if ((atual.trilha ||= []).length < 80) atual.trilha.push(caminho + ' ' + (m.op === 'fetch' ? ms : '∥') + 'ms' + (p.quem ? ' ← ' + p.quem : ''));
   }
 }
 

@@ -436,10 +436,16 @@ function vdf_ordemDoCard_(c) {
   } catch (e) { return ''; }
 }
 /** Grava o Nº da ordem no campo personalizado (vazio não apaga o que já está no card). */
-function vdf_gravarOrdem_(cardId, ordem) {
+function vdf_gravarOrdem_(cardId, ordem, card) {
   ordem = String(ordem || '').replace(/\D/g, '');
   if (!ordem) return false;
   var d = cf_defs_()[VDF_CAMPO_ORDEM]; if (!d) return false;
+  // 26/10/2026 (velocidade): card lido com customFieldItems — nº da ordem igual não grava de novo (nem dispara cf_sincronizar_)
+  try {
+    var itO = ((card && card.customFieldItems) || []).filter(function (i) { return i.idCustomField === d.id; })[0];
+    var atualO = itO && itO.value ? String(itO.value.number !== undefined ? itO.value.number : (itO.value.text || '')) : '';
+    if (atualO.replace(/\D/g, '') === ordem) return false;
+  } catch (e) {}
   var corpo = d.tipo === 'number' ? { value: { number: ordem } } : { value: { text: ordem } };
   vd_api_('/cards/' + cardId + '/customField/' + d.id + '/item', { method: 'put', payload: corpo });
   return true;
@@ -2331,7 +2337,7 @@ function vdf_salvar(token, p) {
   if (p.shortLink) {
     // 26/10/2026 (velocidade): o card vem UMA vez com checklists e anexos — as conferências abaixo (peça travada, FORNECIMENTO
     // no checklist, orçamento anexado, anexo repetido, link 💰) reaproveitam esta leitura em vez de pedir o card de novo
-    card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,fileName,bytes,date,isUpload,url' } });
+    card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,fileName,bytes,date,isUpload,url', customFieldItems: 'true' } });
     if (!extra.origemOrc) {
       try { var mOrc = vd_limpar_(card.desc || '').match(/OR[ÇC]AMENTO IMPORTADO \(([^)]*)\)/i); if (mOrc) extra.origemOrc = mOrc[1]; } catch (e) {}
     }
@@ -2550,7 +2556,7 @@ function vdf_salvar(token, p) {
     } catch (e) {}
   }
   // nº da ordem (Databox) e unidade: campo personalizado + etiqueta, no pedido novo e na edição
-  try { if (vdf_gravarOrdem_(card.id, p.dados.ordem)) cardCampos = true; } catch (e) { console.log('ordem: ' + e); }
+  try { if (vdf_gravarOrdem_(card.id, p.dados.ordem, card)) cardCampos = true; } catch (e) { console.log('ordem: ' + e); }
   try { if (vdf_gravarUnidade_(card, n.unidade)) cardCampos = true; } catch (e) { console.log('unidade: ' + e); }
   if (cardCampos) { try { cf_sincronizar_(card.id); } catch (e) {} }
   vdf_linkComprador_(card, ctx, token, card.attachments || (p.shortLink ? null : []));   // anexos da leitura inicial; card novo ainda não tem o link 💰
