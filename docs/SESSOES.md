@@ -309,3 +309,4 @@ da outra, deixar um recado aqui e no commit.
 - 26/10 11h40 — AYT6699: criado PARTICULAR pelo consultor (08/10); título trocado para ALLIANZ em 19/10 sem mudar o tipo do pedido; a edição de 22/10 voltou PARTICULAR. Weslley mudou para seguradora e o card ficou em COTAÇÃO FINALIZADA → regra FINALIZADA ↔ PENDENTE pelo quem paga. PYU9B65: diretoria converte card de seguradora sem peça da seguradora em particular.
 - 26/10 14h20 — BET7D44: "ver cotações" da peça já comprada (aba Cotação) não abria — a regra que esconde vencia a que mostra (CSS); corrigido. Nenhuma cotação perdida (26 no card).
 - 26/10 15h20 — Weslley: comentários do formulário com "@quem fez + o que fez" (prazo com "pelo motivo"); coluna Registro na EVENTOS.
+- 26/10 21h — Painel "Desempenho Compra de Peça" (artefato) com tempo por etapa e por pessoa; coletor em tools/desempenho/coletar-navegador.js (só leitura, roda no navegador) e tarefa agendada semanal (1º dia útil da semana) que atualiza o painel.
