@@ -64,3 +64,6 @@
 - 26/10/2026 22h50 — Passo 2: `vdf_salvar` com uma leitura só do card (checklists + anexos) reaproveitada nas conferências;
   `Execucao.trilha` (método + caminho com ids mascarados + ms, só em memória) em `/tarefas/execucoes`. Próximo: usar a trilha
   para fazer o mesmo em `vdf_salvarCotacao` (9 leituras de card por envio).
+- 26/10/2026 23h05 — Passos 1, 2 e 2b no ar (`71f1447`). Trilha com a função de origem (`quem`, pilha de 3 níveis no
+  trabalhador). Próxima rodada: vd_gravarDesc_/rc_reavaliarColuna_/vd_marcar_ releem o card depois da gravação (4 leituras);
+  `vdf_salvarCotacao` (9 leituras de card por envio) pela trilha.

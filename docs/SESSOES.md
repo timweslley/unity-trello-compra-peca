@@ -322,3 +322,8 @@ da outra, deixar um recado aqui e no commit.
   FORNECIMENTO no checklist, orçamento anexado, anexo repetido e link 💰 (eram até 5 leituras a mais, ~0,25 s cada); o
   servidor passa a guardar a trilha das chamadas de rede de cada execução (`trilha` em `/tarefas/execucoes`) para achar
   repetições. Conferir no TESTE (ZZT9C01) assim que publicar; o Weslley autorizou fazer direto no principal.
+- 23h05 — Publicado (`10fc6ad`, `71f1447`, Weslley: "pode publicar"; rebase sobre 11 commits da outra sessão de hoje). Passo 2b:
+  nº da ordem e unidade iguais não são regravados (eram 2 PUT + cf_sincronizar_ a cada edição). Trilha agora diz a função
+  do robô por trás de cada chamada. Enviar pedido no TESTE (ZZT9C01, sem alteração): 16 → 12 chamadas ao Trello, 3,75 → 3,2 s
+  (no principal o ganho é maior: lá saem ainda a licença e a planilha do Google de antes da resposta). O que resta
+  (vd_gravarDesc_, rc_reavaliarColuna_, vd_marcar_/cf_sincronizar_ relendo o card) fica para outra rodada.
