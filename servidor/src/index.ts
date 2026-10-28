@@ -12,7 +12,7 @@ import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
 import { classificar } from './leitores/leitura.js';
 import { retratar, retratarTodos } from './retrato.js';
-import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, ultimasExecucoesForm, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, refazerPlanilhaPendentes, erroPlanilhaPendente, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo, minutoRobo, testeDrive, compararRobo, tamanhoProps, pedirCicloRapido, estadoCicloRapido, batidaNoGoogle } from './gas/ponte.js';
+import { aquecerTrabalhadores, idDoQuadro, executarPost, executarLeituraPrincipal, executarGravacaoPrincipal, executarTesteRemoto, LEITURAS_PRINCIPAL, ultimasExecucoes, ultimasExecucoesForm, usosDaMemoria, esquecerMemoria, estadoPropsPrincipal, resumoPendentes, refazerPropsPendentes, refazerPlanilhaPendentes, erroPlanilhaPendente, drenarPendencias, ehCardTesteDoPrincipal, rodarRobo, observacoesRobo, minutoRobo, testeDrive, compararRobo, tamanhoProps, pedirCicloRapido, estadoCicloRapido, batidaNoGoogle } from './gas/ponte.js';
 import { atualizarCard, sincronizarQuadro, importarHistorico, lerMetaQuadro, mudaMetaQuadro, resumoEspelho } from './trello/espelho.js';
 
 /* 21/10/2026 — últimas 24 h de ações do quadro principal recebidas pelo webhook, só o que o monitoramento precisa e nada
@@ -430,6 +430,8 @@ async function principal() {
   const app = criarApp();
   // escuta primeiro: o Cloud Run só considera a revisão no ar quando a porta responde
   await app.listen({ port: CFG.porta, host: '0.0.0.0' });
+  // 27/10/2026: deploy/reinício — termina o que ficou para depois da resposta (licenças, propriedades, planilha) antes de sair
+  process.once('SIGTERM', () => { drenarPendencias(8_000).catch(() => undefined).finally(() => { app.close().catch(() => undefined).finally(() => process.exit(0)); }); });
   if (!CFG.bancoUrl) {
     app.log.warn('sem DATABASE_URL: no ar só com /saude');
     return;

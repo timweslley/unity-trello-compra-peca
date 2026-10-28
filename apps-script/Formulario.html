@@ -9678,21 +9678,24 @@ document.addEventListener('input', function (e) {
   function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }
   var st = document.createElement('style');
   st.textContent = [
-    '.selo.v2kt-selo{background:#f3f0ff;color:#352c63;border:1px solid #9f8fef;font-weight:600}',
-    '#v2ktBarra{margin:0 0 10px;padding:8px 10px;border:1px dashed #9f8fef;border-radius:var(--r-sm,6px);background:#faf8ff;color:#172b4d;font-size:13.5px}',
+    '.selo.v2kt-selo{background:#e9f2ff;color:#0c66e4;border:1px solid #85b8ff;font-weight:600}',   // 27/10 revisão: azul do projeto (roxo já é "complemento")
+    '#v2ktBarra{margin:0 0 10px;padding:8px 10px;border:1px solid #c1c7d0;border-radius:var(--r-sm,6px);background:#f7f8f9;color:#172b4d;font-size:13.5px}',
     '#v2ktBarra .v2kt-topo{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}',
     '#v2ktBarra .v2kt-topo .dica{margin:0}',
-    '.v2kt-btn{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;border:1px solid #6e5dc6;border-radius:var(--r-sm,6px);background:#fff;color:#352c63;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}',
-    '.v2kt-btn:hover{background:#f3f0ff}',
+    '.v2kt-btn{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;border:1px solid #0c66e4;border-radius:var(--r-sm,6px);background:#fff;color:#0c66e4;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer}',
+    '.v2kt-btn:hover{background:#e9f2ff}',
     'html.v2toque .v2kt-btn{min-height:44px;font-size:15px}',
-    '.v2kt-pend{margin-top:8px;padding:6px 8px;border-left:4px solid #6e5dc6;background:#fff;border-radius:var(--r-sm,6px)}',
+    '.v2kt-pend{margin-top:8px;padding:6px 8px;border-left:4px solid #0c66e4;background:#fff;border-radius:var(--r-sm,6px)}',
+    '.v2kt-pend > b{display:inline}',
+    '.v2kt-pend .v2kt-desf{float:right;margin:0 0 4px 8px}',
     '.v2kt-pend ul{margin:4px 0 0 18px;padding:0}',
     '.v2kt-pend button,.v2kt-aviso button{min-height:28px;padding:0 8px;border:1px solid #8590a2;border-radius:var(--r-sm,6px);background:#fff;color:#44546f;font:inherit;font-size:12.5px;cursor:pointer;margin-left:6px}',
     'html.v2toque .v2kt-pend button,html.v2toque .v2kt-aviso button{min-height:44px;font-size:14px}',
-    '.v2kt-aviso{margin:2px 0 8px;padding:6px 10px;border-left:4px solid #6e5dc6;background:#f3f0ff;color:#172b4d;font-size:13.5px;border-radius:var(--r-sm,6px)}',
+    '.v2kt-aviso{margin:2px 0 8px;padding:6px 10px;border-left:4px solid #0c66e4;background:#e9f2ff;color:#172b4d;font-size:13.5px;border-radius:var(--r-sm,6px)}',
     '#v2ktBal .v2kt-pecas{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px;max-height:200px;overflow:auto}',
     '#v2ktBal .v2kt-pecas label{display:flex;gap:8px;align-items:center;font-weight:400;min-height:32px}',
     'html.v2toque #v2ktBal .v2kt-pecas label{min-height:44px}',
+    'html.v2toque #v2ktBal .v2kt-pecas{max-height:none}',
     '#v2ktBal .v2kt-grade{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}',
     '#v2ktBal .v2kt-grade label{display:block;font-weight:600;margin:2px 0}',
     '#v2ktBal .v2kt-grade .inteiro{grid-column:1 / -1}',
@@ -9702,15 +9705,17 @@ document.addEventListener('input', function (e) {
     '#v2ktBal [aria-invalid=true]{border:2px solid #c9372c;background:#ffeceb}',
     '#v2ktErro{color:#ae2e24;font-size:13px;margin:4px 0}',
     '#v2ktPrev{font-size:13px;color:#44546f;margin:4px 0}',
-    '.v2kt-cen{margin:4px 0 12px;padding:10px 12px;border:1px solid #9f8fef;border-left:6px solid #6e5dc6;border-radius:var(--r-sm,6px);background:#faf8ff;color:#172b4d}',
+    '.v2kt-cen{margin:4px 0 12px;padding:10px 12px;border:1px solid #c1c7d0;border-left:6px solid #0c66e4;border-radius:var(--r-sm,6px);background:#f7f8f9;color:#172b4d}',
+    '.v2kt-cen fieldset[aria-invalid=true],#v2ktBal fieldset[aria-invalid=true]{outline:2px solid #c9372c;outline-offset:2px}',
+    '.v2-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}',
     '.v2kt-cen h3{margin:0 0 2px;font-size:15px}',
     '.v2kt-cen .v2kt-sub{font-size:13px;color:#44546f;margin-bottom:6px}',
     '.v2kt-op{display:block;padding:6px 8px;margin:4px 0;border:1px solid #c1c7d0;border-radius:var(--r-sm,6px);background:#fff;cursor:pointer}',
     '.v2kt-op.marcado{border:2px solid #0c66e4;background:#e9f2ff}',
-    '.v2kt-op.inc{cursor:not-allowed;color:#626f86;background:#f7f8f9}',
+    '.v2kt-op.inc{cursor:not-allowed;color:#44546f;background:#f7f8f9}',
     '.v2kt-op .v2kt-l1{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}',
     '.v2kt-op .v2kt-tot{font-weight:700;margin-left:auto}',
-    '.v2kt-op .v2kt-det{font-size:12.5px;color:#44546f;margin:2px 0 0 26px}',
+    '.v2kt-op .v2kt-det{display:block;font-size:12.5px;color:#44546f;margin:2px 0 0 26px}',
     '.v2kt-op .v2kt-bom{color:#216e4e;font-weight:600}',
     'html.v2toque .v2kt-op{min-height:44px}',
     '.v2kt-mist{margin-top:6px;padding:6px 8px;border-left:4px solid #e2b203;background:#fff7d6;font-size:13px}'
@@ -9757,7 +9762,7 @@ document.addEventListener('input', function (e) {
     KITS.forEach(function (k, i) {
       var ps = k.chaves.map(pecaDe), rt = rateio(num(k.valor), ps);
       h += '<div class="v2kt-pend" role="status"><b>🧩 Kit ' + e2(k.fornecedor) + ' · ' + e2([k.tipo, k.marca].filter(String).join(' ')) + ' · ' + e2(fmtValor(k.valor)) + (k.dias !== '' ? ' · ' + e2(k.dias) + (+k.dias === 1 ? ' dia útil' : ' dias úteis') : '') + '</b> — vai para o card quando você <b>salvar</b>.'
-        + '<button type="button" data-k="' + i + '" class="v2kt-desf">Desfazer</button>'
+        + '<button type="button" data-k="' + i + '" class="v2kt-desf" aria-label="Desfazer kit ' + e2(k.fornecedor) + ' ' + e2(fmtValor(k.valor)) + '">Desfazer</button>'
         + '<ul>' + ps.map(function (p, j) { return '<li>' + e2(nomeCurto(p)) + ' → <b>' + e2(fmtValor(rt.unit[j])) + '</b>' + (p.valorOrc ? ' <span class="dica">(orç. ' + e2(fmtValor(p.valorOrc)) + ')</span>' : '') + '</li>'; }).join('') + '</ul>'
         + '<div class="dica">Divisão ' + e2(rt.criterio) + '.' + (k.nota ? ' 📝 ' + e2(k.nota) : '') + '</div></div>';
     });
@@ -9794,7 +9799,7 @@ document.addEventListener('input', function (e) {
     var bal = V2_BALAO.abrir('v2ktBal', ancora, '<p class="v2-bt">🧩 Cotação de kit</p>'
       + '<div class="dica">Um preço só para várias peças (ex.: jogo de frisos). O valor do kit é dividido entre as peças, proporcional ao orçamento de cada uma.</div>'
       + '<fieldset style="border:0;padding:0;margin:6px 0 0"><legend style="font-weight:600">Peças que vêm no kit <span class="obr">*</span> (2 ou mais)</legend><div class="v2kt-pecas" id="v2ktPecas">'
-      + ps.map(function (p) { return '<label><input type="checkbox" value="' + e2(p.chave) + '"' + (jaNoKit[p.chave] ? ' disabled' : '') + '> <span>' + e2(nomeCurto(p)) + (p.valorOrc ? ' <span class="dica" style="white-space:nowrap">· orç. ' + e2(fmtValor(p.valorOrc)) + '</span>' : '') + (jaNoKit[p.chave] ? ' <span class="dica">(já em outro kit)</span>' : '') + '</span></label>'; }).join('')
+      + ps.map(function (p, ip) { return '<label><input type="checkbox" id="v2ktPeca' + ip + '" value="' + e2(p.chave) + '"' + (jaNoKit[p.chave] ? ' disabled' : '') + '> <span>' + e2(nomeCurto(p)) + (p.valorOrc ? ' <span class="dica" style="white-space:nowrap">· orç. ' + e2(fmtValor(p.valorOrc)) + '</span>' : '') + (jaNoKit[p.chave] ? ' <span class="dica">(já em outro kit)</span>' : '') + '</span></label>'; }).join('')
       + '</div></fieldset>'
       + '<div class="v2kt-grade">'
       + '<div class="inteiro"><label for="v2ktForn">Fornecedor <span class="obr">*</span></label><input type="text" id="v2ktForn" list="dlForn" autocomplete="off" class="maiusc" placeholder="Comece a digitar…"></div>'
@@ -9804,7 +9809,21 @@ document.addEventListener('input', function (e) {
       + '<div><label for="v2ktDias">Prazo (dias úteis)</label><input type="text" id="v2ktDias" inputmode="numeric" placeholder="Ex.: 1"></div>'
       + '<div class="inteiro"><label for="v2ktNota">Obs. do kit (opcional)</label><input type="text" id="v2ktNota" maxlength="200" placeholder="Ex.: jogo de friso dividido em dois"></div>'
       + '</div><div id="v2ktPrev" aria-live="polite"></div><div id="v2ktErro" role="alert"></div>'
-      + '<div class="bts"><button type="button" class="principal" id="v2ktSim">Usar este kit</button><button type="button" class="secundario" id="v2ktNao">Cancelar</button></div>', 'v2ktForn');
+      + '<div class="bts"><button type="button" class="principal" id="v2ktSim">Usar este kit</button><button type="button" class="secundario" id="v2ktNao">Cancelar</button></div>',
+      html.classList.contains('v2toque') ? ('v2ktPeca' + Math.max(0, ps.findIndex(function (p) { return !jaNoKit[p.chave]; }))) : 'v2ktForn');   // 27/10 revisão: no celular o 1º foco vai à lista de peças (o teclado não sobe e esconde a lista)
+    // 27/10 revisão (acessibilidade): no celular o balão não prende o Tab e fecha quando o foco sai — este é um formulário, não uma confirmação
+    if (bal && html.classList.contains('v2toque') && !bal.dataset.v2trap) {
+      bal.dataset.v2trap = '1'; bal.setAttribute('aria-modal', 'true');
+      bal.addEventListener('keydown', function (ev) {
+        if (ev.key !== 'Tab') return;
+        var fs = $$('button, input, select, textarea, [tabindex]:not([tabindex="-1"])', bal).filter(function (x) { return !x.disabled && x.offsetParent !== null; });
+        if (!fs.length) return;
+        var i = fs.indexOf(document.activeElement);
+        if (ev.shiftKey && (i <= 0)) { ev.preventDefault(); fs[fs.length - 1].focus(); }
+        else if (!ev.shiftKey && (i === fs.length - 1)) { ev.preventDefault(); fs[0].focus(); }
+      });
+    }
+    if (bal) bal.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && ev.target && ev.target.tagName === 'INPUT' && ev.target.type !== 'checkbox') { ev.preventDefault(); var b = g('v2ktSim'); if (b) b.click(); } });
     var g = function (id) { return document.getElementById(id); };
     var marcadas = function () { return $$('#v2ktPecas input:checked').map(function (x) { return x.value; }); };
     var prev = function () {
@@ -9814,13 +9833,13 @@ document.addEventListener('input', function (e) {
       g('v2ktPrev').innerHTML = 'Fica assim: ' + pp.map(function (p, j) { return e2(p._n ? 'peça ' + p._n : (p.descricao || '')) + ' <b>' + e2(fmtValor(rt.unit[j])) + '</b>'; }).join(' · ') + ' (' + e2(rt.criterio.replace(/ \(.*/, '')) + ')'
         + (so > 0 && pp.every(function (p) { return num(p.valorOrc) > 0; }) ? ' — orçamento somado ' + e2(fmtValor(so)) + seloEco(so, v) : '');
     };
-    $$('#v2ktBal input, #v2ktBal select').forEach(function (x) { x.addEventListener('input', function () { x.removeAttribute('aria-invalid'); g('v2ktErro').textContent = ''; prev(); }); x.addEventListener('change', prev); });
+    $$('#v2ktBal input, #v2ktBal select').forEach(function (x) { x.addEventListener('input', function () { x.removeAttribute('aria-invalid'); x.removeAttribute('aria-describedby'); var fs0 = g('v2ktPecas') && g('v2ktPecas').closest('fieldset'); if (fs0) { fs0.removeAttribute('aria-invalid'); fs0.removeAttribute('aria-describedby'); } g('v2ktErro').textContent = ''; prev(); }); x.addEventListener('change', prev); });
     g('v2ktForn').addEventListener('change', function () { if (typeof nomeForn === 'function') this.value = nomeForn(this.value); });
     g('v2ktNao').onclick = function () { V2_BALAO.fechar(bal, true); };
     g('v2ktSim').onclick = function () {
       var cs = marcadas(), f = g('v2ktForn').value.trim().toUpperCase(), v = g('v2ktValor').value.trim(), d = g('v2ktDias').value.trim();
-      var erro = function (t, el) { if (el) { el.setAttribute('aria-invalid', 'true'); el.focus(); } g('v2ktErro').textContent = t; };
-      if (cs.length < 2) return erro('Marque pelo menos 2 peças que vêm no kit.', g('v2ktPecas').querySelector('input:not(:disabled)'));
+      var erro = function (t, el) { if (el) { el.setAttribute('aria-invalid', 'true'); el.setAttribute('aria-describedby', 'v2ktErro'); el.focus(); } g('v2ktErro').textContent = t; };
+      if (cs.length < 2) { var fs = g('v2ktPecas').closest('fieldset'); if (fs) { fs.setAttribute('aria-invalid', 'true'); fs.setAttribute('aria-describedby', 'v2ktErro'); } return erro('Marque pelo menos 2 peças que vêm no kit.', g('v2ktPecas').querySelector('input:not(:disabled)')); }
       if (!f) return erro('Digite o fornecedor do kit.', g('v2ktForn'));
       if (!(num(v) > 0)) return erro('Digite o valor do kit, maior que zero (ex.: 85,00).', g('v2ktValor'));
       if (d && !/^\d+$/.test(d)) return erro('Prazo em dias úteis: só número (ex.: 1).', g('v2ktDias'));
@@ -9932,21 +9951,26 @@ document.addEventListener('input', function (e) {
     var ecoK = function (tot) { var e = c.orc ? ecoOrc(c.orc, tot) : null; if (!e) return ''; return ' <span class="selo-eco ' + e.nivel + '" title="Comparado com a soma do orçamento das peças">' + (e.pct >= 0 ? (e.nivel === 'ruim' ? 'só ' : '') + Math.abs(e.pct).toFixed(0) + '% abaixo do orç.' : Math.abs(e.pct).toFixed(0) + '% acima do orç.') + '</span>'; };
     var ecoA = ecoK(c.totA), ecoB = c.compB ? ecoK(c.totB) : '';
     var dif = c.compB ? Math.abs(c.totB - c.totA) : 0, difP = c.compB ? c.prB - c.prA : 0;
-    var op = function (v, cls, l1, det, dis) { return '<label class="v2kt-op ' + cls + (st0 === v ? ' marcado' : '') + '"><span class="v2kt-l1"><input type="radio" name="' + nm + '" value="' + v + '"' + (st0 === v ? ' checked' : '') + (dis ? ' disabled' : '') + '> ' + l1 + '</span>' + (det ? '<div class="v2kt-det">' + det + '</div>' : '') + '</label>'; };
+    var op = function (v, cls, l1, det, dis) { return '<label class="v2kt-op ' + cls + (st0 === v ? ' marcado' : '') + '"><span class="v2kt-l1"><input type="radio" name="' + nm + '" value="' + v + '"' + (st0 === v ? ' checked' : '') + (dis ? ' disabled' : '') + '> ' + l1 + '</span>' + (det ? '<span class="v2kt-det">' + det + '</span>' : '') + '</label>'; };
     var h = '<h3>🧩 Kit ou avulsas?</h3><div class="v2kt-sub">' + e2(nomes.join(' + ')) + (c.orc ? ' · orçamento somado ' + e2(fmtValor(c.orc)) : '') + ' — escolha um caminho para as ' + c.its.length + ' peças juntas.</div>';
     h += op('A', '', '<b>Kit ' + e2(c.k.fornecedor) + '</b> · ' + e2([c.k.tipo, c.k.marca].filter(String).join(' ') || '—') + ' · ' + e2(prazoTx(c.prA)) + '<span class="v2kt-tot">' + e2(fmtValor(c.totA)) + '</span>' + ecoA + (melhorA && c.compB ? ' <span class="v2kt-bom">mais barato</span>' : ''),
       c.its.map(function (it) { var q = cotsDe(it)[idxKit(it, id)]; return e2(nomeCurto(pecaDe(it.dataset.chave) || {})) + ' ' + e2(fmtValor(q.valor)); }).join(' · ') + (c.k.nota ? ' · 📝 ' + e2(c.k.nota) : ''));
     if (c.compB) h += op('B', '', '<b>Avulsas</b> (melhor cotação de cada peça) · ' + e2(prazoTx(c.prB)) + '<span class="v2kt-tot">' + e2(fmtValor(c.totB)) + '</span>' + ecoB + (!melhorA ? ' <span class="v2kt-bom">mais barato</span>' : ' <span class="dica">(+' + e2(fmtValor(dif)) + (difP > 0 ? ' · +' + difP + ' d.u.' : '') + ')</span>'),
       c.av.map(function (a) { return e2(nomeCurto(pecaDe(a.it.dataset.chave) || {})) + ': ' + e2(a.q.fornecedor) + ' ' + e2(a.q.tipo || '') + ' ' + e2(fmtValor(a.q.valor)) + ' · ' + e2(prazoTx(a.q.dias)); }).join('<br>'));
-    else h += op('B', 'inc', '<b>Avulsas</b> — incompleto', 'Falta cotação avulsa de: ' + e2(c.av.map(function (a, i) { return a ? '' : nomes[i]; }).filter(String).join(', ')) + '. Para comparar, o comprador precisa cotar essa(s) peça(s) separada(s).', true);
+    else h += op('B', 'inc', '<b>Avulsas</b> — não dá para comparar', 'Falta cotação avulsa de: ' + e2(c.av.map(function (a, i) { return a ? '' : nomes[i]; }).filter(String).join(', ')) + '. Sem ela não dá para comparar com o kit.', true);
     h += op('N', '', 'Não autorizar estas peças', '');
-    if (st0 === 'MIX') h += '<div class="v2kt-mist" role="alert">⚠️ Escolha misturada: o kit só vale com as ' + c.its.length + ' peças juntas. Escolha um dos caminhos acima (ou outra cotação avulsa em cada peça).</div>';
-    else if (st0 === 'B' && !c.its.every(function (it) { var r = it.querySelector('input[type=radio]:checked'); return r && +r.value === idxAvulsa(it); })) h += '<div class="dica" style="margin-top:4px">Avulsas escolhidas peça a peça abaixo.</div>';
+    if (st0 === 'MIX') h += '<div class="v2kt-mist" role="alert">⚠️ Escolha misturada: o kit só vale com as ' + c.its.length + ' peças juntas. Marque Kit ou Avulsas acima.</div>';
+    else if (st0 === 'B' && !c.its.every(function (it) { var r = it.querySelector('input[type=radio]:checked'); return r && +r.value === idxAvulsa(it); })) h += '<div class="dica" style="margin-top:4px">Cotações avulsas marcadas peça por peça, abaixo.</div>';
+    var tinhaFoco = d.contains(document.activeElement);
     d.innerHTML = h;
+    if (tinhaFoco) { var fx = d.querySelector('input[type=radio]:checked') || d.querySelector('input[type=radio]:not(:disabled)'); if (fx) fx.focus({ preventScroll: true }); }   // 27/10 revisão: re-render não pode derrubar o foco do teclado
+    var lv = document.getElementById(pid + '_lv');
+    if (!lv) { lv = document.createElement('div'); lv.id = pid + '_lv'; lv.className = 'v2-sr'; lv.setAttribute('aria-live', 'polite'); d.after(lv); }
     $$('input[type=radio]', d).forEach(function (r) {
       r.onchange = function () {
         SINC_A = true;
         try { c.its.forEach(function (it) { marcar(it, r.value === 'A' ? String(idxKit(it, id)) : r.value === 'B' ? String(idxAvulsa(it)) : ''); }); } finally { SINC_A = false; }
+        lv.textContent = r.value === 'A' ? 'Kit marcado nas ' + c.its.length + ' peças abaixo.' : r.value === 'B' ? 'Cotações avulsas marcadas nas ' + c.its.length + ' peças abaixo.' : 'Nenhuma das ' + c.its.length + ' peças autorizada.';
         painel(id); if (typeof totalAut === 'function') totalAut();
       };
     });
@@ -10001,7 +10025,7 @@ document.addEventListener('input', function (e) {
   if (!html.classList.contains('v2')) return;
   function e2(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   var st = document.createElement('style');
-  st.textContent = '.selo.v2ex{background:#fff7d6;color:#533f04;border:1px solid #e2b203;font-weight:600;margin-left:6px}';
+  st.textContent = '.selo.v2ex{background:#f1f2f4;color:#44546f;border:1px solid #dcdfe4;font-weight:600;margin-left:6px;white-space:normal}';   // 27/10 revisão: histórico, não alerta (amarelo = atenção)
   document.head.appendChild(st);
   function selar(c) {
     var ex = {};

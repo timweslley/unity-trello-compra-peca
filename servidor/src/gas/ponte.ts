@@ -665,7 +665,7 @@ class Contexto {
    *  (feita depois de responder; a próxima chamada espera por ela antes de ler a planilha, para não ler desatualizado). */
   pre = new Map<string, Promise<unknown[][]>>();
   abasLidas = new Set<string>();
-  private abasPendentes: Promise<void> = Promise.resolve();
+  abasPendentes: Promise<void> = Promise.resolve();
   constructor(readonly nome: 'teste' | 'principal' | 'retrato' | 'principalGrava' | 'testeRemoto' | 'robo', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false, readonly remoto = false, public observar = false) {}
 
   private fixas(): Record<string, string> {
@@ -1109,3 +1109,10 @@ export function executarGravacaoPrincipal(corpo: string): Promise<string> { retu
 export function executarTesteRemoto(corpo: string): Promise<string> { return TESTE_REMOTO.enviar({ tipo: 'post', corpo }) as Promise<string>; }
 /** Chama uma função do robô direto (gatilhos, diagnóstico) — quadro do servidor. */
 export function chamar(fn: string, args: unknown[]): Promise<unknown> { return TESTE.chamar(fn, args); }
+
+/** 27/10/2026 (revisão GPT/Gemini): ao receber SIGTERM (deploy), espera o trabalho que ficou para depois da resposta —
+ *  licenças das travas, propriedades e planilha — por até `ms`, para nada se perder no reinício. */
+export async function drenarPendencias(ms = 8_000): Promise<void> {
+  const tudo = Promise.allSettled([filaLicencas, filaDevolver, ...[PRINCIPAL_GRAVA, ROBO, TESTE_REMOTO].map((c) => c.abasPendentes)]);
+  await Promise.race([tudo, new Promise<void>((ok) => setTimeout(ok, ms))]);
+}
