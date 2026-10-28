@@ -400,3 +400,13 @@ da outra, deixar um recado aqui e no commit.
   e trabalho pós-resposta perdido em reinício (coberto desde 20/10 por SERVIDOR_INICIO_MS; agora também `drenarPendencias` no
   SIGTERM). Rateio do kit = gestão, nota fiscal = contabilidade (já é assim). Anotado p/ depois: alerta de movimento desfeito
   pelo robô < 5 min após gravação do formulário; relatório rateado × faturado dos kits.
+- **27/10/2026 (noite) — códigos por montadora (Weslley: "cada montadora tem um padrão e isso causa travas desnecessárias").**
+  Rota `/tarefas/padroes-codigo` (diretoria) varre os 93 orçamentos Cilia guardados: numéricos (GM 8, BYD/Toyota/Citroën 10,
+  Fiat/Jeep 7–10) × alfanuméricos (Ford 8–16, VW 9–13, Hyundai 10–13, Honda 11–13, Renault/Nissan 10, GWM 13, Mitsubishi 8).
+  Casos reais de dois códigos: GM 8→8, BYD 10→10, VW 13→12 e 12→13, e BCB8218 Hyundai 663111S000 → 1632439 — no PDF é a legenda
+  CÓDIGO DIFERENTE com tipo PPC (paralela), não "nº de catálogo" como a QA tinha suposto. Regra de "mesma família" derrubada:
+  `vd_segundoCodigoCilia_` (2º código vale se tem dígito, ≥ 5 caracteres, sem "/"); 2º código alfanumérico passa a ser lido
+  (antes só `\d{5,}` — o VW ia para a descrição). VD_LEITOR_V 8 / VERSAO_LEITOR 7 relêem os Cilia.
+  Varredura dos 700 cards abertos depois de publicar: BCB8218 corrigido (PARALAMA 663111S000 → 1632439); QHC9I02 (VW
+  5U5945095AB → AC), AUP2482, BBM4739 e PVA8857 apareceram — dois com o tipo colado no 2º código ("5U1941008DGENUINA"),
+  tratado em `vd_segundoCodigoCilia_` (tira GENUINA/ORIGINAL do fim e devolve o tipo). Commits b5b6d72 e c3a6f3f.
