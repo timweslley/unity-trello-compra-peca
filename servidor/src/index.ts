@@ -397,7 +397,8 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
   app.options('/tarefas/padroes-codigo', async (_req, resp) => resp.headers(cors).code(204).send());
   app.post('/tarefas/padroes-codigo', async (req, resp) => {
     resp.headers(cors);
-    const b = (req.body || {}) as Record<string, unknown>;
+    let b: Record<string, unknown> = {};
+    try { b = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : ((req.body as Record<string, unknown>) || {}); } catch { return resp.code(400).send({ ok: false, erro: 'corpo inválido' }); }
     if (!b.token || String(b.token).length < 20) return resp.code(403).send({ ok: false, erro: 'informe o token do Trello (diretoria)' });
     const DIRETORIA = (process.env.EXPORTAR_USUARIOS || 'timweslley,comercialunity,christianfarias23').toLowerCase().split(/[,;\s]+/).filter(Boolean);
     let usuario = '';
