@@ -69,3 +69,4 @@
   `vdf_salvarCotacao` (9 leituras de card por envio) pela trilha.
 - 28/10/2026: `rodarRobo` espera o formulário (`PRINCIPAL_GRAVA.ocupadas`) e a planilha pendente antes de rodar o ciclo — o
   anexo subido pelo formulário acordava o robô no meio da gravação (BEQ3B77).
+- 28/10/2026 (Weslley): ciclo rápido espaçado — 20 s de silêncio após a última ação do quadro e 30 s entre ciclos (era 4 s / 15 s).

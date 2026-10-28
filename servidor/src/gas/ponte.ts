@@ -962,7 +962,10 @@ async function alinharChaveGoogle(): Promise<string> {
  * robô ATIVO e a chave do Google confirmada no último minuto. O despertador de 1 min continua como rede de segurança.
  * As gravações do próprio robô também chegam pelo webhook: geram no máximo um ciclo a mais, que não acha nada a fazer.
  */
-const INTERVALO_RAPIDO_MS = 15_000, SILENCIO_MS = 4_000;
+// 28/10/2026 (Weslley, BEQ3B77: "não seria prudente espaçar essa passada do robô?"): 4 s de silêncio era menos que uma gravação
+// do formulário (6–13 s). Agora 20 s de silêncio depois da última ação e 30 s entre ciclos rápidos — o que o formulário faz na
+// hora continua na hora (vd_conferirCard_ roda dentro do próprio envio); o ciclo só trata o que foi feito fora dele.
+const INTERVALO_RAPIDO_MS = 30_000, SILENCIO_MS = 20_000;
 let chaveOkEm = 0, rapidoTimer: ReturnType<typeof setTimeout> | null = null;
 const estRapido = { pedidos: 0, ciclos: 0, ultimo: '', seguimentos: 0, varreduras: 0, pulados: 0 };
 /**

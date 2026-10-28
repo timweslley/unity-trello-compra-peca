@@ -426,3 +426,4 @@ da outra, deixar um recado aqui e no commit.
   (`Contexto.ocupadas`, máx. 15 s) e a planilha delas (`esperarFormulario`) antes do ciclo; `esperouFormMs` no registro.
   Card consertado pelo formulário (tipo marcado de novo). Fica anotado: `vd_completa_` ainda aceita a 1ª linha com texto
   quando o hash da vitrine não bate — defesa a mais a fazer.
+  Weslley: "não seria prudente espaçar essa passada do robô?" — ciclo rápido: silêncio 4 s → 20 s, intervalo 15 s → 30 s.
