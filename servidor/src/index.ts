@@ -408,10 +408,10 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
       `SELECT anexo_id, nome, texto FROM anexo_leitura WHERE texto IS NOT NULL AND texto ILIKE '%FORNECIMENTO%' AND (nome ILIKE '%cilia%' OR texto ILIKE '%cilia%')`);
     const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
     const classe = (c: string) => /^\d+$/.test(c) ? 'num' : /^[A-Z]+$/.test(c) ? 'letras' : 'alnum';
-    const reLinha = /\bT (?:-|\d+,\d{2})(?: P (?:-|\d+,\d{2}))? (\d{1,3}) ([A-Z0-9][A-Z0-9.\-\/]{3,29})\.? (?:([A-Z0-9][A-Z0-9.\-\/]{3,29}) )?(?=(?:GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|USADA|RECONDICIONADA|VERDE)\b|[A-Z]{3,})/g;
+    const reLinha = /\bT (?:-|\d+,\d{2})(?: P (?:-|\d+,\d{2}))? (\d{1,3}) ([A-Z0-9][A-Z0-9.\-\/]{3,29})\.? (?:(?!(?:GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|USADA|RECONDICIONADA|VERDE)\b)([A-Z0-9][A-Z0-9.\-\/]{3,29}) )?(?=(?:GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|USADA|RECONDICIONADA|VERDE)\b|[A-Z]{3,})/g;
     const porMarca: Record<string, { orcamentos: number; codigos: number; tamanhos: Record<string, number>; classes: Record<string, number>; exemplos: string[]; duplos: Array<{ a: string; b: string; ta: number; tb: number; ca: string; cb: string; desc: string }> }> = {};
     for (const r of rows) {
-      const U = semAcento(String(r.texto || ''));
+      const U = semAcento(String(r.texto || '')).replace(/\s+/g, ' ');   // o texto do PDF tem quebras de linha; o leitor do robô também achata
       const mMarca = U.match(/CASCO\s*-\s*([A-Z][A-Z .]{1,20}?)\s*-\s*/) || U.match(/\b(VOLKSWAGEN|VW|CHEVROLET|GM|FIAT|FORD|TOYOTA|HONDA|HYUNDAI|RENAULT|NISSAN|JEEP|PEUGEOT|CITROEN|MITSUBISHI|KIA|BMW|AUDI|MERCEDES|VOLVO|CHERY|CAOA|BYD|GWM|RAM|DODGE|SUZUKI|SUBARU|JAC|PORSCHE|MINI|IVECO|SCANIA)\b/);
       const marca = mMarca ? mMarca[1].trim().replace(/\s+/g, ' ') : '?';
       const g = (porMarca[marca] ||= { orcamentos: 0, codigos: 0, tamanhos: {}, classes: {}, exemplos: [], duplos: [] });
