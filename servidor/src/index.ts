@@ -391,6 +391,42 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
     setTimeout(() => setInterval(() => { minutoRobo().catch((e) => console.error('[robô] minuto:', (e as Error).message)); }, 60_000), 20_000);
   }
 
+  /** 27/10/2026 (Weslley: "cada montadora tem um padrão de código"): padrões de código de peça nos orçamentos Cilia já lidos —
+   *  por montadora, tamanhos/classes dos códigos e os casos de linha com DOIS códigos (antigo riscado + novo). Só códigos e marca,
+   *  nenhum dado de cliente. Diretoria (token do Trello). */
+  app.post('/tarefas/padroes-codigo', async (req, resp) => {
+    const b = (req.body || {}) as Record<string, unknown>;
+    if (!b.token || String(b.token).length < 20) return resp.code(403).send({ ok: false, erro: 'informe o token do Trello (diretoria)' });
+    const DIRETORIA = (process.env.EXPORTAR_USUARIOS || 'timweslley,comercialunity,christianfarias23').toLowerCase().split(/[,;\s]+/).filter(Boolean);
+    let usuario = '';
+    try { const me = await trello<{ username: string }>('/members/me', { token: String(b.token || ''), query: { fields: 'username' }, tentativas: 1 }); usuario = String(me.username || '').toLowerCase(); } catch { /* */ }
+    if (!usuario || !DIRETORIA.includes(usuario)) return resp.code(403).send({ ok: false, erro: 'só a diretoria' });
+    const rows = await consulta<{ anexo_id: string; nome: string; texto: string }>(
+      `SELECT anexo_id, nome, texto FROM anexo_leitura WHERE texto IS NOT NULL AND texto ILIKE '%FORNECIMENTO%' AND (nome ILIKE '%cilia%' OR texto ILIKE '%cilia%')`);
+    const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    const classe = (c: string) => /^\d+$/.test(c) ? 'num' : /^[A-Z]+$/.test(c) ? 'letras' : 'alnum';
+    const reLinha = /\bT (?:-|\d+,\d{2})(?: P (?:-|\d+,\d{2}))? (\d{1,3}) ([A-Z0-9][A-Z0-9.\-\/]{3,29})\.? (?:([A-Z0-9][A-Z0-9.\-\/]{3,29}) )?(?=(?:GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|USADA|RECONDICIONADA|VERDE)\b|[A-Z]{3,})/g;
+    const porMarca: Record<string, { orcamentos: number; codigos: number; tamanhos: Record<string, number>; classes: Record<string, number>; exemplos: string[]; duplos: Array<{ a: string; b: string; ta: number; tb: number; ca: string; cb: string; desc: string }> }> = {};
+    for (const r of rows) {
+      const U = semAcento(String(r.texto || ''));
+      const mMarca = U.match(/CASCO\s*-\s*([A-Z][A-Z .]{1,20}?)\s*-\s*/) || U.match(/\b(VOLKSWAGEN|VW|CHEVROLET|GM|FIAT|FORD|TOYOTA|HONDA|HYUNDAI|RENAULT|NISSAN|JEEP|PEUGEOT|CITROEN|MITSUBISHI|KIA|BMW|AUDI|MERCEDES|VOLVO|CHERY|CAOA|BYD|GWM|RAM|DODGE|SUZUKI|SUBARU|JAC|PORSCHE|MINI|IVECO|SCANIA)\b/);
+      const marca = mMarca ? mMarca[1].trim().replace(/\s+/g, ' ') : '?';
+      const g = (porMarca[marca] ||= { orcamentos: 0, codigos: 0, tamanhos: {}, classes: {}, exemplos: [], duplos: [] });
+      g.orcamentos++;
+      let m: RegExpExecArray | null; const vistos = new Set<string>();
+      while ((m = reLinha.exec(U))) {
+        const a = m[2].replace(/\.$/, ''), bb = m[3];
+        if (/^0+\d?$/.test(a) || /^(SOMA|CIL)/.test(a)) continue;   // código interno
+        if (!vistos.has(a)) { vistos.add(a); g.codigos++; g.tamanhos[String(a.length)] = (g.tamanhos[String(a.length)] || 0) + 1; g.classes[classe(a)] = (g.classes[classe(a)] || 0) + 1; if (g.exemplos.length < 6 && !g.exemplos.includes(a)) g.exemplos.push(a); }
+        if (bb && !/^\d{1,3}$/.test(bb)) {
+          const descM = U.slice(m.index + m[0].length).match(/^(?:GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|USADA|RECONDICIONADA|VERDE)?\s*([A-Z][A-Z ]{2,40})/);
+          if (g.duplos.length < 40) g.duplos.push({ a, b: bb, ta: a.length, tb: bb.length, ca: classe(a), cb: classe(bb), desc: (descM ? descM[1] : '').trim().slice(0, 30) });
+        }
+      }
+    }
+    return { ok: true, orcamentos: rows.length, porMarca };
+  });
+
   /** Gravações do principal que ficaram pendentes (sem conteúdo de card). POST refaz as de propriedades. */
   app.get('/tarefas/pendentes', async () => ({ ok: true, pendentes: await resumoPendentes() }));
   app.post('/tarefas/pendentes', async () => ({ ok: true, refeitas: await refazerPropsPendentes(), planilhaRefeitas: await refazerPlanilhaPendentes(), planilhaErro: erroPlanilhaPendente || null, pendentes: await resumoPendentes() }));
