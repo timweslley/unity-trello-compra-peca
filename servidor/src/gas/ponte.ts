@@ -674,6 +674,8 @@ class Contexto {
   pre = new Map<string, Promise<unknown[][]>>();
   abasLidas = new Set<string>();
   abasPendentes: Promise<void> = Promise.resolve();
+  /** 28/10/2026 (BEQ3B77): chamadas na fila ou em andamento — o robô espera o formulário terminar antes de ler o quadro */
+  ocupadas = 0;
   constructor(readonly nome: 'teste' | 'principal' | 'retrato' | 'principalGrava' | 'testeRemoto' | 'robo', readonly somenteLeitura: boolean, readonly quadro: string, readonly abasAoVivo = false, readonly remoto = false, public observar = false) {}
 
   private fixas(): Record<string, string> {
@@ -725,6 +727,7 @@ class Contexto {
     // uma execução por vez em cada quadro, como no Google para o mesmo usuário (e o trabalhador é síncrono)
     const chegou = Date.now();
     const ex: Execucao = { ...descrever(msg), quadro: this.nome, chegou: new Date(chegou).toISOString(), filaMs: 0, ops: {}, rede: {}, ...(opcoes.usarGuardado ? { usarGuardado: true } : {}) };
+    this.ocupadas++;
     const p = this.fila.then(async () => {
       ex.filaMs = Date.now() - chegou;
       execucoes.push(ex); if (execucoes.length > 60) execucoes.shift();
@@ -767,6 +770,7 @@ class Contexto {
         return r;
       } catch (e) { ex.ok = false; ex.erro = (e as Error).message.slice(0, 200); throw e; }
       finally {
+        this.ocupadas--;
         ex.ms = Date.now() - t0; this.atual = null; ex.memoGet = undefined;   // a memória de GET é só da chamada (não fica retida na lista de execuções)
         consulta(`INSERT INTO execucao (quadro, fn, ms, fila_ms, ok, erro, frio, rede) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
           [ex.quadro, ex.fn, ex.ms, ex.filaMs, ex.ok ?? null, ex.erro ?? null, !!ex.frio, JSON.stringify(ex.rede)]).catch(() => null);
@@ -912,6 +916,13 @@ async function trazerLicencasDoGoogle(): Promise<void> {
     cacheCompart.set(k, { v, ate: Math.max(par[1], atual?.ate || 0) });
   }
 }
+/** Espera as chamadas do formulário (principal) terminarem e a planilha delas ser gravada; devolve os ms esperados. */
+export async function esperarFormulario(maxMs: number): Promise<number> {
+  const t0 = Date.now();
+  while (PRINCIPAL_GRAVA.ocupadas > 0 && Date.now() - t0 < maxMs) await new Promise<void>((ok) => setTimeout(ok, 200));
+  await esperarPlanilha();
+  return Date.now() - t0;
+}
 export async function rodarRobo(fn: string, rapido = false): Promise<Record<string, unknown>> {
   if (!/^(validarDadosPedido|verificarAlteracoesDescricao|rotinaDiaria|relatorioDiario|sd_diario|es_sincronizar|axPadronizarQuadro)$/.test(fn)) return { ok: false, erro: 'função não permitida' };
   if (roboRodando) return { ok: false, erro: 'já rodando' };
@@ -919,11 +930,15 @@ export async function rodarRobo(fn: string, rapido = false): Promise<Record<stri
   roboRodando = true; if (fn === 'validarDadosPedido') roboUltimo = Date.now();
   const t0 = Date.now();
   let erro = '';
+  // 28/10/2026 (BEQ3B77): o anexo que o formulário sobe acorda o robô ANTES de o formulário terminar de gravar a descrição e a
+  // planilha — o ciclo lia a completa velha, mandava o card para FALTA CHEGAR e reimportava o orçamento sem o tipo. Agora o
+  // ciclo espera as chamadas do formulário em andamento (máx. 15 s) e a gravação da planilha delas.
+  const esperou = await esperarFormulario(15_000);
   try { await trazerLicencasDoGoogle(); } catch { /* sem cópia das propriedades: segue com o cache daqui */ }
   try { await ROBO.chamar(fn, []); } catch (e) { erro = (e as Error).message.slice(0, 300); }
   finally { roboRodando = false; }
   const ex = execucoes.filter((e) => e.quadro === 'robo').pop();
-  const reg = { em: new Date(t0).toISOString(), fn, ms: Date.now() - t0, modo: ROBO.observar ? 'OBSERVAR' : 'ATIVO', erro: erro || undefined, rapido: rapido || undefined,
+  const reg = { em: new Date(t0).toISOString(), fn, ms: Date.now() - t0, modo: ROBO.observar ? 'OBSERVAR' : 'ATIVO', erro: erro || undefined, rapido: rapido || undefined, esperouFormMs: esperou || undefined,
     escritas: ex?.escritas || [], props: ex?.propsObs,  abas: ex?.ops?.observar?.ms, rede: ex?.rede };
   obsRobo.push(reg); if (obsRobo.length > 120) obsRobo.shift();
   if ((reg.escritas as unknown[]).length) consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`,

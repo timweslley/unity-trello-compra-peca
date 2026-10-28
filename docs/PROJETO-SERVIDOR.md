@@ -67,3 +67,5 @@
 - 26/10/2026 23h05 — Passos 1, 2 e 2b no ar (`71f1447`). Trilha com a função de origem (`quem`, pilha de 3 níveis no
   trabalhador). Próxima rodada: vd_gravarDesc_/rc_reavaliarColuna_/vd_marcar_ releem o card depois da gravação (4 leituras);
   `vdf_salvarCotacao` (9 leituras de card por envio) pela trilha.
+- 28/10/2026: `rodarRobo` espera o formulário (`PRINCIPAL_GRAVA.ocupadas`) e a planilha pendente antes de rodar o ciclo — o
+  anexo subido pelo formulário acordava o robô no meio da gravação (BEQ3B77).

@@ -418,3 +418,11 @@ da outra, deixar um recado aqui e no commit.
   tipo de situação, abrir a pendência de devolução da oficina e pôr em FALTA CHEGAR". `cp_foNaOficina_`: item FO mais novo
   que a compra (id do Trello) + peça no PAGAS = conflito → `cp_foJaComprada_` (item FO fica, DEVOLUÇÕES, comentário ⚠️,
   evento DEVOLUÇÃO, coluna reavaliada). FO mais velha segue saindo (RHM1J09).
+- **28/10/2026 (tarde) — BEQ3B77: robô atropelou o formulário.** Edilson leu o orçamento Websoma pelo ✏️ (peça MOLDURA
+  5212602410 GENUÍNO/PARALELO → EM COTAÇÃO). O anexo 📄 ORÇ que o formulário sobe acordou o robô 4 s depois, antes de o
+  formulário terminar (descrição + TRAVA gravada depois da resposta, mudança de 26/10): o ciclo leu a completa velha (sem a
+  peça), mandou o card a FALTA CHEGAR, reimportou o orçamento como complemento sem o tipo e gravou a descrição por cima →
+  FALTA DADOS "falta o tipo". Correção no servidor: `rodarRobo` espera as chamadas do formulário em andamento
+  (`Contexto.ocupadas`, máx. 15 s) e a planilha delas (`esperarFormulario`) antes do ciclo; `esperouFormMs` no registro.
+  Card consertado pelo formulário (tipo marcado de novo). Fica anotado: `vd_completa_` ainda aceita a 1ª linha com texto
+  quando o hash da vitrine não bate — defesa a mais a fazer.
