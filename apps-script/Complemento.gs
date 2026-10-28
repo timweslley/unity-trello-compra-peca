@@ -656,7 +656,15 @@ function cp_foNaOficina_(card, token, quem) {
   var codigos = {}, complementos = [];
   (an.pecas || []).forEach(function (p) { var k = cp_norm_(p.codigo); if (k.length >= 4) codigos[k] = p; if (p.complemento && !p.naoComprar) complementos.push(p); });
   if (!Object.keys(codigos).length && !complementos.length) return [];
-  var removidos = [];
+  // 28/10/2026 (Weslley, RAM9I31): a peça da oficina JÁ COMPRADA (item no PAGAS) que a seguradora passou a fornecer num laudo novo
+  // NÃO tira o item FO — o conflito vira devolução da compra da oficina (checklist DEVOLUÇÕES) e o card volta a FALTA CHEGAR
+  var pagas = [];
+  (card.checklists || []).forEach(function (k) { if (/^PAGAS/i.test(String(k.name || '').trim())) (k.checkItems || []).forEach(function (i) { pagas.push(i); }); });
+  var pagoDe = function (p) {
+    var kp = cp_norm_(p && p.codigo); if (kp.length < 4) return null;
+    return pagas.filter(function (i) { return cp_norm_(rc_semMarcas_(i.name).split(/\s+-\s+/)[0]).indexOf(kp) >= 0; })[0] || null;
+  };
+  var removidos = [], conflitos = [];
   (card.checklists || []).forEach(function (k) {
     if (!/^FORNECIMENTO/i.test(String(k.name || '').trim())) return;
     (k.checkItems || []).forEach(function (i) {
@@ -666,22 +674,61 @@ function cp_foNaOficina_(card, token, quem) {
       var kc = m ? cp_norm_(m[1]) : '', descFo = m ? m[2] : base;
       // mesmo código na lista da oficina — ou, sem o código bater, peça ➕ complemento da oficina com a mesma descrição
       // (07/10/2026, QPG1B84: orçamento complementar trocou a CALOTA de FO para oficina com código novo)
-      var bate = !!(kc && codigos[kc]) || complementos.some(function (p) { return cp_similar_(p.descricao || '', descFo) > 0; });
-      if (!bate) return;
+      var pm = (kc && codigos[kc]) || complementos.filter(function (p) { return cp_similar_(p.descricao || '', descFo) > 0; })[0];
+      if (!pm) return;
+      // só é conflito quando o item FO nasceu DEPOIS da compra (laudo novo): item FO mais velho que a compra = a oficina venceu
+      // (RHM1J09, 07/10) e ele sai como antes. A idade vem do id do Trello (ObjectId: 1ºs 8 hex = época em segundos).
+      var pago = pagoDe(pm);
+      if (pago && cp_idEpoca_(i.id) > cp_idEpoca_(pago.id)) { conflitos.push({ item: i, peca: pm, pago: pago }); return; }
       try {
         vd_api_('/cards/' + card.id + '/checkItem/' + i.id, { method: 'delete' }, token);
         removidos.push(i.name);
       } catch (e) { console.log('FO na oficina: ' + e); }
     });
   });
-  if (!removidos.length) return [];
-  try {
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🔁 **Passou para a oficina** — ' + (quem || 'robô') + ': a peça está na lista da oficina (cotação/compra pela oficina), então saiu do checklist FORNECIMENTO: ' + removidos.map(function (n) { return n.split(/\s+[-—]\s+/)[0]; }).join('; ') } }, token);
-  } catch (e) {}
-  try { ev_registrar_('COMPLEMENTO', card, quem || 'robô', removidos.map(function (n) { return { peca: n.split(/\s+[-—]\s+/)[0], detalhe: 'FO → OFICINA (mesmo código ou mesma peça ➕ complemento na lista da oficina)' }; }), { detalhe: 'FO removida: ' + removidos.length }); } catch (e) {}
-  return removidos;
+  var novos = [];
+  if (conflitos.length) { try { novos = cp_foJaComprada_(card, conflitos, token, quem); } catch (e) { console.log('FO já comprada: ' + e); } }
+  if (removidos.length) {
+    try {
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🔁 **Passou para a oficina** — ' + (quem || 'robô') + ': a peça está na lista da oficina (cotação/compra pela oficina), então saiu do checklist FORNECIMENTO: ' + removidos.map(function (n) { return n.split(/\s+[-—]\s+/)[0]; }).join('; ') } }, token);
+    } catch (e) {}
+    try { ev_registrar_('COMPLEMENTO', card, quem || 'robô', removidos.map(function (n) { return { peca: n.split(/\s+[-—]\s+/)[0], detalhe: 'FO → OFICINA (mesmo código ou mesma peça ➕ complemento na lista da oficina)' }; }), { detalhe: 'FO removida: ' + removidos.length }); } catch (e) {}
+  }
+  return removidos.concat(novos);   // quem chama reavalia a coluna quando a lista não vem vazia
 }
 
+function cp_idEpoca_(id) { var n = parseInt(String(id || '').slice(0, 8), 16); return isNaN(n) ? 0 : n; }
+
+/** 28/10/2026 (Weslley, RAM9I31: "o robô precisa saber lidar com esse tipo de situação, abrir a pendência de devolução da oficina
+ *  e pôr em FALTA CHEGAR"). A oficina comprou a peça (PAGAS) e o laudo novo da seguradora passou a fornecê-la (item FO novo com
+ *  a mesma peça). Antes o robô apagava o item FO em silêncio e o card ficava encerrado com um 2º radiador a caminho.
+ *  Agora: o item FO fica; a compra da oficina entra no checklist DEVOLUÇÕES (aguardando NF); comentário de registro; evento
+ *  DEVOLUÇÃO; e a coluna é reavaliada por quem chamou (FO pendente -> FALTA CHEGAR). Uma vez por peça: com a devolução já
+ *  aberta nada se repete. Devolve os nomes dos itens FO dos conflitos novos. */
+function cp_foJaComprada_(card, conflitos, token, quem) {
+  var devs = rc_devolucoes_(card), linhas = [], evs = [], novos = [];
+  conflitos.forEach(function (c) {
+    var basePago = rc_semMarcas_(c.pago.name).split(/\s+-\s+/)[0].trim();
+    if (devs.some(function (d) { return d.peca === basePago; })) return;   // devolução já aberta: conflito conhecido
+    var recebida = c.pago.state === 'complete', novo = null;
+    try { novo = rc_registrarDevolucao_(card, { nome: c.pago.name }, 'seguradora passou a fornecer' + (recebida ? '' : ' · compra ainda não recebida'), false, token); } catch (e) { console.log('FO já comprada/devolução: ' + e); }
+    var fo = String(c.item.name).split(/\s+[-—]\s+/), partes = rc_semMarcas_(c.pago.name).split(/\s+-\s+/);
+    var forn = partes.length >= 2 ? partes[1] : '?';
+    linhas.push('- ' + fo[0] + ' (seguradora' + (fo[1] ? ' · ' + fo[1] : '') + ') × compra da oficina ' + rc_semMarcas_(c.pago.name) + (recebida ? ' · ✔ recebida' : ' · ainda não recebida') +
+      (novo ? '' : ' — ⚠️ não consegui abrir a devolução (controle desligado?)'));
+    linhas.push('  ↩️ verificar devolução do item ' + basePago + ' ao fornecedor ' + forn + (recebida ? '' : ' (ou cancelar o pedido)') + '.');
+    evs.push({ peca: basePago, fornecedor: forn, detalhe: 'seguradora passou a fornecer a peça (' + fo[0] + ') — devolução aberta' + (novo ? '' : ' (falhou)') });
+    novos.push(c.item.name);
+  });
+  if (!novos.length) return [];
+  var placa = ''; try { placa = vd_placaDoTexto_(card.name) || ''; } catch (e) {}
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '⚠️ **SEGURADORA PASSOU A FORNECER PEÇA JÁ COMPRADA PELA OFICINA** — ' + String(quem || 'robô').replace(/^@/, '') + (placa ? ' · ' + placa : '') + '\n' + linhas.join('\n') +
+      '\n_O item da seguradora segue no FORNECIMENTO (o card fica em FALTA CHEGAR até a peça chegar); a compra da oficina está no checklist DEVOLUÇÕES aguardando a NF de devolução (aba 📦 Recebimento)._' } }, token);
+  } catch (e) {}
+  try { ev_registrar_('DEVOLUÇÃO', card, String(quem || 'robô').replace(/^@/, ''), evs, { detalhe: 'seguradora passou a fornecer peça já comprada · ' + novos.length + ' peça(s)' }); } catch (e) {}
+  return novos;
+}
 
 /* ---------- FO revertida para a oficina (14/10/2026, JDC7H45) ----------
  * A peça sai do FORNECIMENTO, mas a seguradora pode entregá-la mesmo assim. Regra (Weslley): RECUSAR na entrega / devolver.

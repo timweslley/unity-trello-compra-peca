@@ -53,6 +53,7 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 | `📄 ORÇAMENTO COMPLEMENTAR (CILIA) — robô · N já estavam · ➕ Oficina: … · 🔄 Atualizada: …` | anexo de orçamento lido pelo robô | @criador se houver peça de oficina | **F**: sem @ quando só atualizou valores; @ só quando entrou peça nova que exige tipo |
 | `📄 «arquivo» é o laudo da HDI…` / `não reconheci um orçamento` / `é da placa X, não deste card` / `é o orçamento do Cilia; neste sinistro HDI…` / `Card de RETORNO: não importei` | anexo lido e não importado | não | **M** (1 vez por anexo) |
 | `🔁 Passou para a oficina — …saiu do checklist FORNECIMENTO` | peça FO virou peça da oficina | não | **M** |
+| `⚠️ SEGURADORA PASSOU A FORNECER PEÇA JÁ COMPRADA PELA OFICINA — robô · PLACA … ↩️ verificar devolução do item X ao fornecedor Y` | laudo novo trouxe como FO uma peça que a oficina já comprou (28/10); devolução aberta no DEVOLUÇÕES, card → FALTA CHEGAR | não | **M** |
 | `↩️ FO REVERTIDA …` | diretoria desfez conversão | não | **M** |
 | `📄 Texto antigo do card (guardado aqui…)` | 1ª organização da descrição de card antigo | não | **M** |
 

@@ -410,3 +410,11 @@ da outra, deixar um recado aqui e no commit.
   Varredura dos 700 cards abertos depois de publicar: BCB8218 corrigido (PARALAMA 663111S000 → 1632439); QHC9I02 (VW
   5U5945095AB → AC), AUP2482, BBM4739 e PVA8857 apareceram — dois com o tipo colado no 2º código ("5U1941008DGENUINA"),
   tratado em `vd_segundoCodigoCilia_` (tira GENUINA/ORIGINAL do fim e devolve o tipo). Commits b5b6d72 e c3a6f3f.
+- **28/10/2026 — AUP2482 e RAM9I31.** AUP2482: o farol do orçamento complementar (07/10) era a mesma peça já recebida no
+  FORNECIMENTO (o leitor antigo pegou o código riscado e criou o item de novo) — item removido com OK do Weslley, card →
+  ENCERRADO. RAM9I31 (HDI, Rondon): laudo 2.1 de 27/10 passou o RADIADOR para "fornecidas pela HDI" (302001238AA, pedido
+  real na Chery Ponta Grossa, prev. 12/11) sendo que a oficina já tinha comprado e recebido o 302000760AA (ML, R$ 696); o robô
+  criou o item FO e a regra "passou para a oficina" apagou-o no mesmo segundo. Weslley: "o robô precisa saber lidar com esse
+  tipo de situação, abrir a pendência de devolução da oficina e pôr em FALTA CHEGAR". `cp_foNaOficina_`: item FO mais novo
+  que a compra (id do Trello) + peça no PAGAS = conflito → `cp_foJaComprada_` (item FO fica, DEVOLUÇÕES, comentário ⚠️,
+  evento DEVOLUÇÃO, coluna reavaliada). FO mais velha segue saindo (RHM1J09).
