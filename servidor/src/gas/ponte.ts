@@ -277,7 +277,7 @@ async function buscar(p: Pedido, ctx: Contexto) {
   if (trelloApi && ctx.atual) {
     if (p.metodo !== 'GET') ctx.atual.memoGet = undefined;
     else {
-      const m = ctx.atual.memoGet?.get(p.url);
+      const m = ctx.atual.memoGet?.get(p.url + '|' + (p.cabecalhos.Authorization || p.cabecalhos.authorization || ''));
       if (m) { ctx.atual.ops['memo.get'] = { n: (ctx.atual.ops['memo.get']?.n || 0) + 1, ms: 0 }; return m; }
     }
   }
@@ -294,7 +294,7 @@ async function buscar(p: Pedido, ctx: Contexto) {
     if (memoria.size > 500) memoria.clear();
     memoria.set(chave, { ate: Date.now() + ttl, r });
   }
-  if (trelloApi && ctx.atual && p.metodo === 'GET' && r.status === 200) (ctx.atual.memoGet ||= new Map()).set(p.url, r);
+  if (trelloApi && ctx.atual && p.metodo === 'GET' && r.status === 200) (ctx.atual.memoGet ||= new Map()).set(p.url + '|' + (p.cabecalhos.Authorization || p.cabecalhos.authorization || ''), r);
   return r;
 }
 
@@ -358,6 +358,7 @@ async function atenderLeitura(op: string, d: any, ctx: Contexto): Promise<unknow
     case 'aba.lista': return ['backup', ...ABAS_AO_VIVO];
     case 'aba.ler': {
       if (!ABAS_AO_VIVO.includes(d) || !CFG.planilhaId) return [];
+      await esperarPlanilha();   // 27/10/2026: a gravação da chamada anterior (outro contexto) pode ainda estar no ar
       if (ctx.nome === 'principal' && ctx.atual?.usarGuardado) return abaDoPrincipal(d, ctx.atual);
       return (await lerAbaPlanilha(CFG.planilhaId, d)).map(reviverData(ABAS_COPIADAS[d] || []));
     }
@@ -427,7 +428,14 @@ async function abasReais(): Promise<string[]> {
   return abasReaisCache.v;
 }
 /** Uma aba inteira da planilha real (gravação remota); aba inexistente ou 'backup' = vazia. */
+/** 27/10/2026 (revisão QA): a planilha é gravada DEPOIS de responder; qualquer leitura de aba — em qualquer contexto (a tela
+ *  recarrega o card pelo contexto de leitura logo depois de salvar) — espera a última gravação pousar (no máximo 20 s). */
+let planilhaPendente: Promise<void> = Promise.resolve();
+async function esperarPlanilha(): Promise<void> {
+  await Promise.race([planilhaPendente, new Promise<void>((ok) => setTimeout(ok, 20_000))]);
+}
 async function lerAbaRemota(nome: string): Promise<unknown[][]> {
+  await esperarPlanilha();
   if (nome === 'backup' || !CFG.planilhaId || !(await abasReais()).includes(nome)) return [];
   return (await lerAbaPlanilha(CFG.planilhaId, nome)).map(reviverData(ABAS_COPIADAS[nome] || []));
 }
@@ -752,14 +760,14 @@ class Contexto {
             // envio. A próxima chamada espera a planilha (abasPendentes); o robô só julga movimentos com mais de 90 s.
             if (this.abasLidas.size) abasPorFuncao.set(ex.fn, new Set(this.abasLidas));
             const buf = this.bufAbas; this.bufAbas = {};
-            this.abasPendentes = this.gravarAbas(ex, buf).catch(() => undefined);
+            this.abasPendentes = planilhaPendente = this.gravarAbas(ex, buf).catch(() => undefined);
             this.enviarLicencas(ex); this.devolverProps(ex); if (this.quadro === QUADRO_PRINCIPAL_SL) marcarGravacaoPrincipal(); } }   // mesmo com erro no meio: o que já foi gravado no Trello fica assinado (em segundo plano)
         ex.ok = !(typeof r === 'string' && r.startsWith('{"ok":false'));
         if (!ex.ok) ex.erro = String(r).slice(0, 200);
         return r;
       } catch (e) { ex.ok = false; ex.erro = (e as Error).message.slice(0, 200); throw e; }
       finally {
-        ex.ms = Date.now() - t0; this.atual = null;
+        ex.ms = Date.now() - t0; this.atual = null; ex.memoGet = undefined;   // a memória de GET é só da chamada (não fica retida na lista de execuções)
         consulta(`INSERT INTO execucao (quadro, fn, ms, fila_ms, ok, erro, frio, rede) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
           [ex.quadro, ex.fn, ex.ms, ex.filaMs, ex.ok ?? null, ex.erro ?? null, !!ex.frio, JSON.stringify(ex.rede)]).catch(() => null);
       }

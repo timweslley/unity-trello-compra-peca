@@ -382,3 +382,21 @@ da outra, deixar um recado aqui e no commit.
   cotação 9,0 → 3,1 s; recebimento 11,1 → 6,6 s; compra 11,9 → 8,1 s; autorização 10,2 → 6,1 s); 0 erro de gravação em
   86 envios. Pendência: 1 gravação da aba EVENTOS falhou às 15h04 (4 linhas, KPJ9A04) — `POST /tarefas/pendentes` passa a
   refazer também as pendências da planilha (antes só propriedades).
+
+## 27/10/2026 (noite) — checada global (Weslley: "verifica se tem sugestões, coesão de design após alteração, e o check do GPT/Gemini")
+- 3 revisões independentes (design, acessibilidade, QA do código) + GPT e Gemini sobre as mudanças do dia.
+- Design: roxo tracejado do kit = mesma cor de "Complemento" → azul do projeto; selo "código antes" amarelo (= alerta) → cinza
+  neutro; foco inicial do balão do kit no celular vai à lista de peças; textos com "essa(s) peça(s)" simplificados; Desfazer alinhado.
+- Acessibilidade: quadro "Kit ou avulsas?" derrubava o foco a cada escolha (corrigido); Tab preso + aria-modal + Enter no balão
+  do kit no celular; live region para a sincronização das peças; aria-describedby/fieldset inválido; div→span no rótulo;
+  contrastes 4,8:1–13:1 ok.
+- QA (ALTA, regressão do passo 1): a aba TRAVA passou a ser gravada depois da resposta, mas a tela recarrega o card pelo
+  contexto de LEITURA logo em seguida e podia ler a descrição completa velha. Correção: `planilhaPendente` global — toda
+  leitura de aba, em qualquer contexto, espera a última gravação (máx. 20 s). Médios: `vd_mesmaFamiliaCodigo_` exige tamanho
+  igual (8 GM/Fiat + 7 do catálogo não é troca); memória de GET com o token na chave e zerada ao fim; marca "🔁 ex"/comentário
+  só quando o orçamento disse qual era o antigo (casamento por descrição parecida segue silencioso); kit recusa rateio com
+  linha R$ 0,00.
+- GPT/Gemini: alertaram para CPU desligada/múltiplas instâncias no Cloud Run (não é o caso: `--no-cpu-throttling`, 1 instância)
+  e trabalho pós-resposta perdido em reinício (coberto desde 20/10 por SERVIDOR_INICIO_MS; agora também `drenarPendencias` no
+  SIGTERM). Rateio do kit = gestão, nota fiscal = contabilidade (já é assim). Anotado p/ depois: alerta de movimento desfeito
+  pelo robô < 5 min após gravação do formulário; relatório rateado × faturado dos kits.

@@ -204,12 +204,12 @@ function vd_secao_(U, inicio, finais) {
 }
 
 /** 27/10/2026: dois códigos na mesma linha do Cilia — o 2º é troca de código só se parece com o 1º (ambos só dígitos ou ambos
- *  alfanuméricos, tamanhos iguais ou com 1 de diferença). Senão é o nº de catálogo do Cilia e o 1º continua valendo. */
+ *  alfanuméricos, mesmo tamanho). Senão é o nº de catálogo do Cilia e o 1º continua valendo. */
 function vd_mesmaFamiliaCodigo_(a, b) {
   a = String(a || '').toUpperCase(); b = String(b || '').toUpperCase();
   if (!a || !b || a === b) return false;
   var da = /^\d+$/.test(a), db = /^\d+$/.test(b);
-  return da === db && Math.abs(a.length - b.length) <= 1 && a.length >= 6 && b.length >= 6;
+  return da === db && a.length === b.length && a.length >= 6;   // revisão QA 27/10: tamanho IGUAL (8 dígitos GM/Fiat + 7 do catálogo do Cilia não é troca)
 }
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);

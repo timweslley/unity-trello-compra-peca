@@ -155,13 +155,13 @@ function cp_similar_(descA, descB) {
   return n >= 0.5 ? n : 0;
 }
 
-// FormularioServidor.gs:962
+// FormularioServidor.gs:963
 function vd_dataCurta_(s) {
   var iso = vd_dataBR_(s);
   return iso ? Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM') : String(s || '');
 }
 
-// FormularioServidor.gs:968
+// FormularioServidor.gs:969
 function vd_dataBR_(s) {
   var iso = String(s || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return new Date(+iso[1], +iso[2] - 1, +iso[3], 12, 0, 0).toISOString();
@@ -173,7 +173,7 @@ function vd_dataBR_(s) {
   return isNaN(d.getTime()) ? '' : d.toISOString();
 }
 
-// FormularioServidor.gs:980
+// FormularioServidor.gs:981
 function vd_valorNum_(s) {
   s = String(s == null ? '' : s).replace(/R\$/i, '').replace(/\s/g, '');
   if (!s) return NaN;
@@ -182,7 +182,7 @@ function vd_valorNum_(s) {
   return parseFloat(s);
 }
 
-// FormularioServidor.gs:989
+// FormularioServidor.gs:990
 function vd_valorBR_(v) {
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   if (isNaN(n)) return '';
@@ -378,7 +378,7 @@ function vd_mesmaFamiliaCodigo_(a, b) {
   a = String(a || '').toUpperCase(); b = String(b || '').toUpperCase();
   if (!a || !b || a === b) return false;
   var da = /^\d+$/.test(a), db = /^\d+$/.test(b);
-  return da === db && Math.abs(a.length - b.length) <= 1 && a.length >= 6 && b.length >= 6;
+  return da === db && a.length === b.length && a.length >= 6;   // revisão QA 27/10: tamanho IGUAL (8 dígitos GM/Fiat + 7 do catálogo do Cilia não é troca)
 }
 
 // Orcamento.gs:214

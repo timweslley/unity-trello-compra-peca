@@ -906,8 +906,8 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
     var chave = vd_semAcento_(cod || desc);
     var candJa = existentes.filter(function (e, j) { return !usados[j] && (vd_casaItem_(e.norm, chave) || (cod && vdf_foColado_(e.norm, cod))); });
     // 27/10/2026 (KPJ9A04): sem item com o código novo, o item com o código ANTIGO (riscado no orçamento) é a mesma peça
-    var codAnt = String(p.codigoAntigo || '').replace(/\s+/g, '');
-    if (!candJa.length && codAnt) candJa = existentes.filter(function (e, j) { return !usados[j] && (vd_casaItem_(e.norm, vd_semAcento_(codAnt)) || vdf_foColado_(e.norm, codAnt)); });
+    var codAnt = String(p.codigoAntigo || '').replace(/\s+/g, ''), viaAntigo = false;
+    if (!candJa.length && codAnt) { candJa = existentes.filter(function (e, j) { return !usados[j] && (vd_casaItem_(e.norm, vd_semAcento_(codAnt)) || vdf_foColado_(e.norm, codAnt)); }); viaAntigo = candJa.length > 0; }
     // mesmo código em dois itens (sensor DIR/ESQ) com o código grudado: fica o de descrição mais parecida
     var ja = candJa.length > 1 && desc ? candJa.slice().sort(function (a, b) { return cp_similar_(desc, b.norm.slice(cod.length)) - cp_similar_(desc, a.norm.slice(cod.length)); })[0] : candJa[0];
     // sem código igual: mesma peça pela descrição (igual ou parecida) = o código mudou no orçamento novo -> atualiza o item,
@@ -928,8 +928,9 @@ function vdf_checklistFornecimento_(cardId, fo, token, nomeLista) {
       try {
         var mkJa = rc_marcas_(String(ja.item.name || '').trim()), atual = mkJa.base, novo = nome;   // marcas 📍/✋/↩️ ficam (10/10/2026)
         // 27/10/2026 (KPJ9A04): casou pela descrição e o código é outro = o orçamento trocou o código → o antigo fica no item ("🔁 ex") e a troca é registrada
+        // (revisão QA 27/10: só quando o orçamento DISSE qual era o antigo — casamento por descrição parecida continua silencioso, como antes)
         var codAntigo = (atual.match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s/i) || [])[1] || '';
-        if (cod && codAntigo && vd_semAcento_(codAntigo) !== vd_semAcento_(cod)) {
+        if (viaAntigo && cod && codAntigo && vd_semAcento_(codAntigo) !== vd_semAcento_(cod)) {
           if (!mkJa.exCodigo) mkJa.exCodigo = codAntigo;
           VDF_FO_TROCAS.push({ antigo: codAntigo, novo: cod, desc: desc || pv_curto_(atual), item: ja.item.id });
         }
@@ -1434,6 +1435,7 @@ function vdf_kitExpandir_(k, porChave, foNome, auts, idsUsados, i) {
   var id; do { id = 'K' + Math.floor(Math.random() * 1679616).toString(36).toUpperCase(); } while (idsUsados[id]);
   idsUsados[id] = 1;
   var rt = vdf_kitRateio_(valor, pecas), tipo = vd_tipoNorm_(k.tipo || '') || '', marca = String(k.marca || '').trim().toUpperCase();
+  if (rt.unit.some(function (u) { return !(u > 0); })) return { faltas: [rot + ': valor do kit baixo demais para dividir entre as peças (alguma ficaria com R$ 0,00)'], cots: [] };   // revisão QA 27/10
   var kit = { id: id, total: Math.round(valor * 100) / 100, n: pecas.length };
   return { faltas: [], cots: pecas.map(function (x, j) {
     return { peca: x, fornecedor: forn, tipo: tipo, marca: marca, valor: rt.unit[j], dias: dias, link: vdf_linkCot_(k.link) || '', nota: vdf_notaCot_(k.nota), kit: kit };

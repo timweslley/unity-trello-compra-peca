@@ -48,6 +48,9 @@ describe('orçamentos', () => {
     // BCB8218: "663111S000 1632439" = código Hyundai + nº de catálogo do Cilia — não é troca, o 1º continua valendo
     const h = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T 1,00 P 2,00 1 663111S000 1632439 GENUÍNA PARALAMA DIANT ESQ Seguradora R$ 500,00 10,00% R$ 450,00 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
     expect(h.fo.map((p: any) => [p.codigo, p.codigoAntigo || ''])).toEqual([['663111S000', '']]);
+    // 8 dígitos (GM) + 7 dígitos (nº de catálogo do Cilia): também não é troca (revisão QA 27/10)
+    const g = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T 1,00 P 2,00 1 52141759 1632439 GENUÍNA PARACHOQUE TRASEIRO Seguradora R$ 500,00 10,00% R$ 450,00 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
+    expect(g.fo.map((p: any) => [p.codigo, p.codigoAntigo || ''])).toEqual([['52141759', '']]);
   });
   it('Websoma/Soma: compra pela oficina × lista das fornecidas pela seguradora', () => {
     const t = `PEÇAS - TROCA (COMPRA PELA OFICINA) Código Descrição Tipo Qde Vlr Desc Vlr PINTURA
