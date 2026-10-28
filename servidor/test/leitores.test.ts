@@ -52,6 +52,9 @@ describe('orçamentos', () => {
     // VW troca o sufixo (tamanho muda): 6EA8374785AP → 6EA837478A5AP; BYD 10 dígitos (JDC7H45) sem coluna TIPO
     const v = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T - 1 6EA8374785AP 6EA837478A5AP PPG PESTANA EXT DO VIDRO DA PORTA DIANT DIR Seguradora R$ 12,00 10,00% R$ 10,80 T 0,25 1 1345777100 1438703600 HASTE DA BARRA ESTABILIZADORA Seguradora R$ 567,85 10,00% R$ 511,07 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
     expect(v.fo.map((p: any) => [p.codigo, p.codigoAntigo || '', p.descricao])).toEqual([['6EA837478A5AP', '6EA8374785AP', 'PESTANA EXT DO VIDRO DA PORTA DIANT DIR'], ['1438703600', '1345777100', 'HASTE DA BARRA ESTABILIZADORA']]);
+    // tipo colado no 2º código (AUP2482, varredura 27/10): "5U1941006 5U1941008DGENUINA FAROL" → código 5U1941008D, tipo GENUINA
+    const col = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T 0,50 1 5U1941006 5U1941008DGENUINA FAROL DIREITO ARTEB, FOCO SIMPLES Seguradora R$ 900,00 10,00% R$ 810,00 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
+    expect(col.fo.map((p: any) => [p.codigo, p.codigoAntigo || '', p.descricao])).toEqual([['5U1941008D', '5U1941006', 'FAROL DIREITO ARTEB, FOCO SIMPLES']]);
     // palavra da descrição com dígito e barra (medida de pneu) não é código novo
     const pn = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T 1,00 1 00000010 205/55R16 PNEU DUNLOP Oficina R$ 500,00 - R$ 500,00 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
     expect(pn.oficina.map((p: any) => [p.pneu, p.medida, p.codigoAntigo || ''])).toEqual([[true, '205/55R16', '']]);

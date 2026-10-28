@@ -210,9 +210,10 @@ function vd_secao_(U, inicio, finais) {
  *  tipo/descrição (sem dígito, ou medida de pneu "205/55R16"). */
 function vd_segundoCodigoCilia_(a, b) {
   a = String(a || '').toUpperCase(); b = String(b || '').toUpperCase();
-  if (!a || !b || a === b || b.length < 5) return false;
-  if (!/\d/.test(b) || /^\d{1,3}$/.test(b) || b.indexOf('/') >= 0) return false;
-  return !/^(GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS|VERDE|USADA|RECONDICIONADA)$/.test(b);
+  b = b.replace(/(GENUINA|ORIGINAL)$/, '');   // tipo colado no 2º código ("5U1941008DGENUINA FAROL", AUP2482) — a varredura de 27/10 pegou
+  if (!a || !b || a === b || b.length < 5) return '';
+  if (!/\d/.test(b) || /^\d{1,3}$/.test(b) || b.indexOf('/') >= 0) return '';
+  return /^(GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS|VERDE|USADA|RECONDICIONADA)$/.test(b) ? '' : b;
 }
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
@@ -362,8 +363,8 @@ function vd_lerOrcamento_(texto) {
     var filaCi = [];
     while ((m = reCi.exec(U))) {
       // 27/10 (noite): o 2º código é o NOVO, de qualquer família (BCB8218: "663111S000 1632439" = Hyundai → paralela PPC; VW troca o sufixo)
-      var trocaCod = !!(m[3] && vd_segundoCodigoCilia_(m[2], m[3]));
-      if (m[2]) { filaCi.push({ qtd: m[1], codigo: trocaCod ? m[3] : m[2], codigoAntigo: trocaCod ? m[2] : '', tipo: m[4] || m[5] || '', desc: m[6] }); continue; }
+      var cod2 = m[3] ? vd_segundoCodigoCilia_(m[2], m[3]) : '', tipoCol = (cod2 && /(GENUINA|ORIGINAL)$/.test(m[3])) ? m[3].slice(cod2.length) : '';
+      if (m[2]) { filaCi.push({ qtd: m[1], codigo: cod2 || m[2], codigoAntigo: cod2 ? m[2] : '', tipo: m[4] || m[5] || tipoCol || '', desc: m[6] }); continue; }
       var it = filaCi.shift();
       if (!it) continue;   // preço sem item antes (cabeçalho, serviços): ignora
       // Cilia: "OFICINA R$ unit [R$ total] [desc %]" — o valor unitário líquido; formato confirmado no 1º PDF real (05/10/2026)
