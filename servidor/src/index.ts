@@ -394,7 +394,9 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
   /** 27/10/2026 (Weslley: "cada montadora tem um padrão de código"): padrões de código de peça nos orçamentos Cilia já lidos —
    *  por montadora, tamanhos/classes dos códigos e os casos de linha com DOIS códigos (antigo riscado + novo). Só códigos e marca,
    *  nenhum dado de cliente. Diretoria (token do Trello). */
+  app.options('/tarefas/padroes-codigo', async (_req, resp) => resp.headers(cors).code(204).send());
   app.post('/tarefas/padroes-codigo', async (req, resp) => {
+    resp.headers(cors);
     const b = (req.body || {}) as Record<string, unknown>;
     if (!b.token || String(b.token).length < 20) return resp.code(403).send({ ok: false, erro: 'informe o token do Trello (diretoria)' });
     const DIRETORIA = (process.env.EXPORTAR_USUARIOS || 'timweslley,comercialunity,christianfarias23').toLowerCase().split(/[,;\s]+/).filter(Boolean);
