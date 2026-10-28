@@ -555,7 +555,7 @@ var VD_SO_MO_LINHA = 'nenhuma peça pela oficina — orçamento só de mão de o
 var VD_ANXS = { ABA: 'ANEXOS', SH: null, ROW: null, MAX: 45000 };
 
 // Validacao.gs:886
-var VD_LEITOR_V = 7;
+var VD_LEITOR_V = 8;
 
 // Validacao.gs:887
 var VD_ANX_V = 3;
@@ -7290,15 +7290,15 @@ function vd_secao_(U, inicio, finais) {
   return resto.slice(0, fim);
 }
 
-// Orcamento.gs:208
-function vd_mesmaFamiliaCodigo_(a, b) {
+// Orcamento.gs:211
+function vd_segundoCodigoCilia_(a, b) {
   a = String(a || '').toUpperCase(); b = String(b || '').toUpperCase();
-  if (!a || !b || a === b) return false;
-  var da = /^\d+$/.test(a), db = /^\d+$/.test(b);
-  return da === db && a.length === b.length && a.length >= 6;   // revisão QA 27/10: tamanho IGUAL (8 dígitos GM/Fiat + 7 do catálogo do Cilia não é troca)
+  if (!a || !b || a === b || b.length < 5) return false;
+  if (!/\d/.test(b) || /^\d{1,3}$/.test(b) || b.indexOf('/') >= 0) return false;
+  return !/^(GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS|VERDE|USADA|RECONDICIONADA)$/.test(b);
 }
 
-// Orcamento.gs:214
+// Orcamento.gs:217
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
   // 17/10/2026 (Weslley: "sem cobertura não entra pra compra"): no Cilia, os itens do bloco "ITENS DO TIPO SEM COBERTURA" (até
@@ -7441,13 +7441,13 @@ function vd_lerOrcamento_(texto) {
     // 16/10/2026 (BDL9F71, UBR1C00): pintura "P -" (sem horas) também; código colado na descrição pode passar de 20 letras
     var PROX = '\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? \\d{1,3} [A-Z0-9]{4,30}\\b';
     // 27/10/2026 (KPJ9A04): "1 52141759 52055306 GENUINAPARACHOQUE…" = código antigo riscado + código novo (CÓDIGO DIFERENTE) — o 2º é o que vale
-    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:(\\d{5,}) )?(?:(GENUINA|ORIGINAL)|(PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
+    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:((?!(?:GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS|VERDE|USADA|RECONDICIONADA)\\b)[A-Z0-9]*\\d[A-Z0-9]*) )?(?:(GENUINA|ORIGINAL)|(PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
       '|(OFICINA|SEGURADORA) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(-?\\d{1,3},\\d{2}) ?%| ?-(?= ?R\\$))?(?: ?R\\$ ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2}))?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
     // código com ponto no fim ("1312791700. BRAÇO OSCILANTE", 14/10/2026, JDC7H45): o item sumia e o preço OFICINA ficava sem dono
     var filaCi = [];
     while ((m = reCi.exec(U))) {
-      // o 2º número só é código NOVO quando é da mesma família do 1º (BCB8218: "663111S000 1632439" = código Hyundai + nº do catálogo do Cilia, não troca)
-      var trocaCod = !!(m[3] && vd_mesmaFamiliaCodigo_(m[2], m[3]));
+      // 27/10 (noite): o 2º código é o NOVO, de qualquer família (BCB8218: "663111S000 1632439" = Hyundai → paralela PPC; VW troca o sufixo)
+      var trocaCod = !!(m[3] && vd_segundoCodigoCilia_(m[2], m[3]));
       if (m[2]) { filaCi.push({ qtd: m[1], codigo: trocaCod ? m[3] : m[2], codigoAntigo: trocaCod ? m[2] : '', tipo: m[4] || m[5] || '', desc: m[6] }); continue; }
       var it = filaCi.shift();
       if (!it) continue;   // preço sem item antes (cabeçalho, serviços): ignora

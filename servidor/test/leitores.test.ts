@@ -45,12 +45,16 @@ describe('orçamentos', () => {
     expect(r.fo.map((p: any) => [p.codigo, p.codigoAntigo || ''])).toEqual([['52159768', ''], ['52055306', '52141759'], ['52147890', '52176163']]);
     expect(r.fo[1].descricao).toMatch(/^PARACHOQUE TRASEIRO/);
     expect(r.fo[1].valorOrc).toBe(918.69);
-    // BCB8218: "663111S000 1632439" = código Hyundai + nº de catálogo do Cilia — não é troca, o 1º continua valendo
-    const h = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T 1,00 P 2,00 1 663111S000 1632439 GENUÍNA PARALAMA DIANT ESQ Seguradora R$ 500,00 10,00% R$ 450,00 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
-    expect(h.fo.map((p: any) => [p.codigo, p.codigoAntigo || ''])).toEqual([['663111S000', '']]);
-    // 8 dígitos (GM) + 7 dígitos (nº de catálogo do Cilia): também não é troca (revisão QA 27/10)
-    const g = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T 1,00 P 2,00 1 52141759 1632439 GENUÍNA PARACHOQUE TRASEIRO Seguradora R$ 500,00 10,00% R$ 450,00 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
-    expect(g.fo.map((p: any) => [p.codigo, p.codigoAntigo || ''])).toEqual([['52141759', '']]);
+    // BCB8218 (PDF conferido 27/10 à noite): "663111S000 riscado + 1632439", legenda CÓDIGO DIFERENTE, tipo PPC (paralela) — o novo
+    // vale mesmo sendo de outra família
+    const h = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T 2,00 P 4,00 1 663111S000 1632439 PPC PARALAMA DIANT ESQ Seguradora R$ 847,92 57,75% R$ 358,23 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
+    expect(h.fo.map((p: any) => [p.codigo, p.codigoAntigo || '', p.descricao])).toEqual([['1632439', '663111S000', 'PARALAMA DIANT ESQ']]);
+    // VW troca o sufixo (tamanho muda): 6EA8374785AP → 6EA837478A5AP; BYD 10 dígitos (JDC7H45) sem coluna TIPO
+    const v = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T - 1 6EA8374785AP 6EA837478A5AP PPG PESTANA EXT DO VIDRO DA PORTA DIANT DIR Seguradora R$ 12,00 10,00% R$ 10,80 T 0,25 1 1345777100 1438703600 HASTE DA BARRA ESTABILIZADORA Seguradora R$ 567,85 10,00% R$ 511,07 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
+    expect(v.fo.map((p: any) => [p.codigo, p.codigoAntigo || '', p.descricao])).toEqual([['6EA837478A5AP', '6EA8374785AP', 'PESTANA EXT DO VIDRO DA PORTA DIANT DIR'], ['1438703600', '1345777100', 'HASTE DA BARRA ESTABILIZADORA']]);
+    // palavra da descrição com dígito e barra (medida de pneu) não é código novo
+    const pn = R.vd_lerOrcamento_('OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T 1,00 1 00000010 205/55R16 PNEU DUNLOP Oficina R$ 500,00 - R$ 500,00 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -');
+    expect(pn.oficina.map((p: any) => [p.pneu, p.medida, p.codigoAntigo || ''])).toEqual([[true, '205/55R16', '']]);
   });
   it('Websoma/Soma: compra pela oficina × lista das fornecidas pela seguradora', () => {
     const t = `PEÇAS - TROCA (COMPRA PELA OFICINA) Código Descrição Tipo Qde Vlr Desc Vlr PINTURA

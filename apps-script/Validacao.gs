@@ -883,7 +883,7 @@ function vd_anxMigrar_() {
  */
 /* Versão do leitor de anexos: quando o leitor de orçamento muda (ex.: 05/10/2026, layout Soma), as leituras
  * guardadas com a versão antiga são lidas de novo — senão "ler de novo" e o robô do complemento devolvem a leitura velha. */
-var VD_LEITOR_V = 7;   // 27/10/2026: 2º código só da mesma família (BCB8723) — relê os Cilia (texto vem do cache do servidor)
+var VD_LEITOR_V = 8;   // 27/10/2026 (noite): 2º código do Cilia vale de qualquer família (BCB8218 paralela, VW sufixo) — relê os Cilia
 var VD_ANX_V = 3;   // 3 (06/10/2026): o cache do orçamento passou a guardar o valor líquido de cada peça
 function vd_lerAnexoTrello_(a, opt) {
   opt = opt || {};
