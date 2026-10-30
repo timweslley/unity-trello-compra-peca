@@ -6246,11 +6246,15 @@ function vdf_salvar(token, p) {
         return { ok: false, faltas: ['Só a diretoria muda o tipo do pedido (seguradora / particular / retorno).'] };
       var orPor = {};
       anOr.pecas.forEach(function (x) { orPor[vd_chavePeca_(x)] = x; });
+      // 30/10/2026 (UCN8F48, Jeziel): em pedido PARTICULAR toda peça é do cliente (vd_analisar_ marca todas particular) e o
+      // formulário manda particular=false — a trava acusava "só a diretoria passa a peça" em TODAS as peças e o consultor não
+      // conseguia editar. A troca por peça só vale em pedido de seguradora (mesma exceção do comentário QUEM PAGA MUDOU, 21/10).
+      var pedidoPart = tVelho === 'PARTICULAR' || tNovo === 'PARTICULAR' || eraPart;
       var trocou = [];
       pecas.forEach(function (x) {
         var o = orPor[vd_chavePeca_(x)];
         if (!o) return;
-        if (!!o.particular !== !!x.particular) trocou.push(vd_nomePeca_(x));
+        if (!pedidoPart && !!o.particular !== !!x.particular) trocou.push(vd_nomePeca_(x));
         if (o.partPor) x.partPor = o.partPor;
       });
       if (trocou.length) return { ok: false, faltas: trocou.map(function (t) { return t + ': só a diretoria passa a peça entre seguradora e particular.'; }) };
@@ -6633,14 +6637,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:2914
+// FormularioServidor.gs:2918
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:2926
+// FormularioServidor.gs:2930
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -6715,21 +6719,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:3003
+// FormularioServidor.gs:3007
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:3009
+// FormularioServidor.gs:3013
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:3015
+// FormularioServidor.gs:3019
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {

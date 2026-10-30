@@ -427,3 +427,6 @@ da outra, deixar um recado aqui e no commit.
   Card consertado pelo formulário (tipo marcado de novo). Fica anotado: `vd_completa_` ainda aceita a 1ª linha com texto
   quando o hash da vitrine não bate — defesa a mais a fazer.
   Weslley: "não seria prudente espaçar essa passada do robô?" — ciclo rápido: silêncio 4 s → 20 s, intervalo 15 s → 30 s.
+- **30/10/2026 — UCN8F48 (Jeziel não conseguia editar o pedido).** Pedido PARTICULAR: a trava de "quem paga" por peça (fora
+  da diretoria) acusava todas as peças, porque a análise marca todas como particular e o formulário manda particular=false.
+  Exceção para pedido PARTICULAR na trava (a do comentário já existia desde 21/10).

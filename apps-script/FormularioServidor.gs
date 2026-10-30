@@ -2523,11 +2523,15 @@ function vdf_salvar(token, p) {
         return { ok: false, faltas: ['Só a diretoria muda o tipo do pedido (seguradora / particular / retorno).'] };
       var orPor = {};
       anOr.pecas.forEach(function (x) { orPor[vd_chavePeca_(x)] = x; });
+      // 30/10/2026 (UCN8F48, Jeziel): em pedido PARTICULAR toda peça é do cliente (vd_analisar_ marca todas particular) e o
+      // formulário manda particular=false — a trava acusava "só a diretoria passa a peça" em TODAS as peças e o consultor não
+      // conseguia editar. A troca por peça só vale em pedido de seguradora (mesma exceção do comentário QUEM PAGA MUDOU, 21/10).
+      var pedidoPart = tVelho === 'PARTICULAR' || tNovo === 'PARTICULAR' || eraPart;
       var trocou = [];
       pecas.forEach(function (x) {
         var o = orPor[vd_chavePeca_(x)];
         if (!o) return;
-        if (!!o.particular !== !!x.particular) trocou.push(vd_nomePeca_(x));
+        if (!pedidoPart && !!o.particular !== !!x.particular) trocou.push(vd_nomePeca_(x));
         if (o.partPor) x.partPor = o.partPor;
       });
       if (trocou.length) return { ok: false, faltas: trocou.map(function (t) { return t + ': só a diretoria passa a peça entre seguradora e particular.'; }) };
