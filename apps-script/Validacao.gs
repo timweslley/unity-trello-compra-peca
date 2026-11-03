@@ -1718,7 +1718,8 @@ function vd_conferirCard_(card, ctx) {
   if (an.doOrcamento && !base && !vdf_partesTitulo_(nome, an.dados).carro) faltas.unshift('carro (nome do carro no título do card)');
   // 03/11/2026 (Weslley, UCL3A77: "a O.S. é um dado obrigatório, deveria segurar o card"): nº da ordem (Databox) vazio = falta de
   // dado — vale para card só-FO também (card aberto pela Rotina a partir do portal, antes de existir a O.S., ia a FALTA CHEGAR)
-  var fOrdem = vd_faltaOrdem_(card); if (fOrdem) faltas.push(fOrdem);
+  // pedido PARTICULAR fica de fora: no formulário o nº da ordem é opcional nele (Weslley, 13/10/2026) — mesma regra aqui
+  var fOrdem = an.dados.tipo === 'PARTICULAR' ? '' : vd_faltaOrdem_(card); if (fOrdem) faltas.push(fOrdem);
   if (avisoAnexo && faltas.some(function (f) { return /^chassi$/.test(f); })) faltas.push('obs.: ' + avisoAnexo);
   res.faltas = faltas;
   // tipo marcado x o que o orçamento autorizou (só avisa)
