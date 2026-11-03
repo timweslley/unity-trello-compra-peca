@@ -439,4 +439,7 @@ da outra, deixar um recado aqui e no commit.
   peça da oficina/🚫 que um orçamento ANTERIOR trazia como da oficina e o novo traz como FO vira item FO; não comprada sai da
   lista PEÇAS (`cp_removerDoBloco_`); comprada fica para a regra de 28/10 (devolução). `cp_foNaOficina_` não tira mais item
   FO que o orçamento mais novo do card traz como fornecido. Comentário "🔁 Passou para a seguradora … verificar prazo do
-  item". Limite anotado: pelo formulário o item FO entra, mas a peça fica na lista (o consultor tira).
+  item". Weslley ("dá pra mexer no js?" → "faça"): o formulário também cobre — `vdf_compararComplemento` devolve `paraFo`
+  e `importarComplemento` (JS clássico, exceção autorizada) tira da tela a peça não comprada/autorizada; comprada/autorizada
+  fica com aviso. Peça já autorizada pela diretoria fica na lista também no robô (a diretoria decide). Aplicado direto no
+  principal a pedido dele ("se algo sair fora do esperado te aviso").

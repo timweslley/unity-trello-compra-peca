@@ -2172,7 +2172,9 @@ function cp_comparar_(card, orc, excluirAnexo) {
           var pcX = pcOf || pcNao;
           if (pcX) {
             var kX = cp_norm_(pcX.codigo), comprada = kX.length >= 4 && (conh.textosCompra || []).some(function (t) { return t.indexOf(kX) >= 0; });
-            out.paraFo.push({ peca: pcX, chave: vd_chavePeca_(pcX), orc: p, comprada: comprada, naoComprar: !!pcNao });
+            // peça já AUTORIZADA pela diretoria (ainda não comprada) fica na lista — a autorização é decisão dela; o comentário avisa
+            var chX = vd_chavePeca_(pcX), autorizada = !comprada && cp_autorizadas_(card, conh).indexOf(chX) >= 0;
+            out.paraFo.push({ peca: pcX, chave: chX, orc: p, comprada: comprada, autorizada: autorizada, naoComprar: !!pcNao });
             destino.push(p); return;
           }
         }
@@ -2199,7 +2201,7 @@ function cp_comparar_(card, orc, excluirAnexo) {
   return out;
 }
 
-// Complemento.gs:238
+// Complemento.gs:240
 function cp_foParaOficina_(conh, p, aindaFo) {
   var kc = cp_norm_(p.codigo || p.codigoOrc), desc = p.descricao || p.descricaoOrc || '';
   var foItens = (conh.foItens || []).filter(function (i) { var n = cp_norm_(i.name); return !(aindaFo || []).some(function (k) { return n.indexOf(k) >= 0; }); });
@@ -2222,7 +2224,7 @@ function cp_foParaOficina_(conh, p, aindaFo) {
   return melhor;
 }
 
-// Complemento.gs:261
+// Complemento.gs:263
 function cp_trocarCodigos_(texto, atualizar) {
   var t = String(texto || '');
   (atualizar || []).forEach(function (u) {
@@ -2232,7 +2234,7 @@ function cp_trocarCodigos_(texto, atualizar) {
   return t;
 }
 
-// Complemento.gs:271
+// Complemento.gs:273
 function cp_atualizarNoBloco_(bloco, atualizar) {
   if (!atualizar || !atualizar.length) return bloco;
   var linhas = String(bloco || '').split('\n'), lp = vd_linhasPecas_(bloco);
@@ -2250,7 +2252,17 @@ function cp_atualizarNoBloco_(bloco, atualizar) {
   return linhas.join('\n');
 }
 
-// Complemento.gs:289
+// Complemento.gs:291
+function cp_autorizadas_(card, conh) {
+  if (!conh._auts) {
+    var l = [];
+    try { l = vd_autorizacoesDaDescricao_(card.desc || '', (conh.an && conh.an.pecas) || []).map(function (a) { return a.chave; }); } catch (e) {}
+    conh._auts = l;
+  }
+  return conh._auts;
+}
+
+// Complemento.gs:301
 function cp_removerDoBloco_(bloco, chaves) {
   if (!chaves || !chaves.length) return bloco;
   var linhas = String(bloco || '').split('\n'), lp = vd_linhasPecas_(bloco), tirar = {};
@@ -2266,13 +2278,13 @@ function cp_removerDoBloco_(bloco, chaves) {
   return out.join('\n');
 }
 
-// Complemento.gs:305
+// Complemento.gs:317
 function cp_hoje_() { return Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM'); }
 
-// Complemento.gs:308
+// Complemento.gs:320
 function cp_linhaFo_(n) { return '**' + CP.FO + ':** ' + n + ' peça(s) — ver checklist ' + CP.FO; }
 
-// Complemento.gs:311
+// Complemento.gs:323
 function cp_contarChecklist_(cardId, nome, token) {
   var ls = vd_api_('/cards/' + cardId + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name' } }, token);
   var n = 0;
@@ -2280,7 +2292,7 @@ function cp_contarChecklist_(cardId, nome, token) {
   return n;
 }
 
-// Complemento.gs:322
+// Complemento.gs:334
 function cp_inserirNoBloco_(bloco, novas, nFo) {
   var linhas = String(bloco || '').split('\n');
   var ini = -1;
@@ -2343,13 +2355,13 @@ function cp_inserirNoBloco_(bloco, novas, nFo) {
   return linhas.join('\n');
 }
 
-// Complemento.gs:385
+// Complemento.gs:397
 function cp_nome_(p) {
   return p.pneu ? 'PNEU ' + String(p.medida || '').replace(/\s+/g, '') + (p.marca ? ' ' + p.marca : '')
     : ((String(p.codigo || p.codigoOrc || '').replace(/\s+/g, '') + ' ').trim() + ' ' + String(p.descricao || p.descricaoOrc || '')).trim() + (p.qtd && +p.qtd > 1 ? ' (x' + p.qtd + ')' : '');
 }
 
-// Complemento.gs:391
+// Complemento.gs:403
 function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTipos, pareadas, atualizadas, paraOficina, paraFo) {
   var semTipo = novas.some(function (p) { return !(p.tipos || []).length; });
   var t = '📄 **ORÇAMENTO COMPLEMENTAR**' + (origem ? ' (' + origem + ')' : '') + (quem ? ' — ' + quem : ' — robô') + (jaTinha ? ' · ' + jaTinha + ' já estavam no card' : '');
@@ -2365,7 +2377,7 @@ function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTi
   if ((paraOficina || []).length) t += '\n⚠️ Se a seguradora entregar a peça revertida: **recusar na entrega** (ou devolver) e registrar na aba 📦 Recebimento.';
   (paraFo || []).forEach(function (x) {
     t += '\n🔁 **Passou para a seguradora:** ' + cp_nome_(x.peca) + ' — o orçamento novo traz como fornecida (item no FORNECIMENTO)' +
-      (x.comprada ? ' · ⚠️ já comprada pela oficina — devolução a abrir' : x.naoComprar ? ' · estava como 🚫 não comprar' : ' · saiu da lista da oficina') + ' · verificar prazo do item';
+      (x.comprada ? ' · ⚠️ já comprada pela oficina — devolução a abrir' : x.autorizada ? ' · ⚠️ já autorizada pela diretoria — fica na lista; diretoria decide se tira do pedido' : x.naoComprar ? ' · estava como 🚫 não comprar' : ' · saiu da lista da oficina') + ' · verificar prazo do item';
   });
   (atualizadas || []).forEach(function (u) {
     t += '\n🔄 **Atualizada:** ' + (u.codigoAntigo || u.chave) + (u.codigo ? ' → código ' + u.codigo : '') + (u.valorOrc ? ' · orç. ' + u.valorOrc : '');
@@ -2374,7 +2386,7 @@ function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTi
   return t;
 }
 
-// Complemento.gs:418
+// Complemento.gs:430
 function vdf_compararComplemento(token, shortLink, o, idAnexo) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'name,desc,idBoard', checklists: 'all', checkItem_fields: 'name', attachments: 'true', attachment_fields: 'name,date,mimeType' } });
@@ -2400,8 +2412,8 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
   if (idAnexo && !excluir) {   // orçamento já processado: nada da OFICINA entra de novo (o cache pode não guardar orçamento grande)
     // ...mas peça FORNECIDA pela seguradora que não está em nenhum checklist entra (não gera compra; 13/10/2026, UIC5G94:
     // VENTOINHA do laudo 2.1 ficou de fora do card e reler o laudo não a trazia)
-    var foFalta = [];
-    try { foFalta = cp_comparar_(card, { oficina: [], fo: (o && o.fo) || [] }, idAnexo).fo || []; } catch (e) {}
+    var foFalta = [], paraFoRe = [];
+    try { var cmpFo = cp_comparar_(card, { oficina: [], fo: (o && o.fo) || [] }, idAnexo); foFalta = cmpFo.fo || []; paraFoRe = cmpFo.paraFo || []; } catch (e) {}
     // aqui só entra peça que FALTA: código diferente de uma peça que já está no checklist (ex.: HDI "1988 FAROL DIREITO" x
     // "5U7941006C FAROL DIREITO") não troca o código bom do item
     var itensFo = [];
@@ -2427,13 +2439,20 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     // descrição) — nada da oficina entra de novo; a mudança só vale quando quem editou clicar em Enviar
     return { oficina: revert.map(function (x) { return x.peca; }), fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - revert.length, pareadas: [],
       atualizar: (cmpOf && cmpOf.atualizar) || [], casadas: (cmpOf && cmpOf.casadas) || [],
-      paraOficina: revert.map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }), jaProcessado: true };
+      paraOficina: revert.map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }),
+      paraFo: cp_paraFoSaida_(paraFoRe.filter(function (x) { return foFalta.indexOf(x.orc) >= 0; })), jaProcessado: true };
   }
   var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, excluir);
-  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], casadas: r.casadas || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };
+  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], casadas: r.casadas || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }),
+    paraFo: cp_paraFoSaida_(r.paraFo) };
 }
 
-// Complemento.gs:477
+// Complemento.gs:492
+function cp_paraFoSaida_(lista) {
+  return (lista || []).map(function (x) { return { chave: x.chave, codigo: String(x.peca.codigo || '').replace(/\s+/g, ''), peca: cp_nome_(x.peca), comprada: !!x.comprada, autorizada: !!x.autorizada, naoComprar: !!x.naoComprar }; });
+}
+
+// Complemento.gs:497
 function cp_itemColado_(card, kc) {
   return (card.checklists || []).some(function (k) {
     return /FORNECIMENTO/i.test(k.name || '') && (k.checkItems || []).some(function (i) {
@@ -2443,7 +2462,7 @@ function cp_itemColado_(card, kc) {
   });
 }
 
-// Complemento.gs:487
+// Complemento.gs:507
 function cp_marcarVistos_(ids) {
   if (!ids || !ids.length) return;
   sg_secao_('CP_VISTOS', function () {   // ler-modificar-gravar protegido (10/10/2026)
@@ -2454,13 +2473,13 @@ function cp_marcarVistos_(ids) {
   });
 }
 
-// Complemento.gs:499
+// Complemento.gs:519
 function cp_ligado_() { return vd_prop_('CP_LIGADO', 'SIM') !== 'NAO'; }
 
-// Complemento.gs:502
+// Complemento.gs:522
 function cp_criadoEm_(id) { return parseInt(String(id).slice(0, 8), 16) * 1000; }
 
-// Complemento.gs:504
+// Complemento.gs:524
 function cp_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || !cp_ligado_()) return 0;
   var props = PropertiesService.getScriptProperties();
@@ -2516,7 +2535,7 @@ function cp_executar_() {
   return n;
 }
 
-// Complemento.gs:561
+// Complemento.gs:581
 function cp_doAnexo_(c, a, ctx) {
   var r = vd_lerAnexoTrello_(a, { orcCompleto: true });
   if (!r || r.erro) return r && r.erro ? 'erro' : false;
@@ -2567,7 +2586,7 @@ function cp_doAnexo_(c, a, ctx) {
   return true;
 }
 
-// Complemento.gs:615
+// Complemento.gs:635
 function vdf_varrerTrocasCodigo(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
@@ -2611,7 +2630,7 @@ function vdf_varrerTrocasCodigo(token, p) {
   return { ok: true, trocas: trocas, anexo: a.name, aplicado: true };
 }
 
-// Complemento.gs:659
+// Complemento.gs:679
 function cp_aplicar_(card, cmp, o) {
   var nFoTotal = 0;
   if (cmp.fo.length) {
@@ -2626,7 +2645,7 @@ function cp_aplicar_(card, cmp, o) {
   if ((cmp.atualizar || []).some(function (u) { return u.codigo; })) { try { vd_pkSet_(card.id, vd_linhasConsultor_(blocoAtu).map(vd_sigItem_)); } catch (e) {} }
   // 03/11/2026 (SWQ0F73): peça da oficina (ou 🚫) que o orçamento novo traz como fornecida e ainda NÃO foi comprada sai da lista
   // (o item FO já entrou acima); comprada fica — a regra de 28/10 (cp_foJaComprada_) abre a devolução na reavaliação
-  var saemFo = (cmp.paraFo || []).filter(function (x) { return !x.comprada; });
+  var saemFo = (cmp.paraFo || []).filter(function (x) { return !x.comprada && !x.autorizada; });
   if (saemFo.length) { blocoAtu = cp_removerDoBloco_(blocoAtu, saemFo.map(function (x) { return x.chave; })); try { vd_pkSet_(card.id, vd_linhasConsultor_(blocoAtu).map(vd_sigItem_)); } catch (e) {} }
   var bloco = cp_inserirNoBloco_(blocoAtu, cmp.oficina, nFoTotal);
   vd_backup_(card, 'orçamento complementar (' + (o.origem || '') + ')');
@@ -2648,7 +2667,7 @@ function cp_aplicar_(card, cmp, o) {
   if ((cmp.fo.length && !cmp.oficina.length) || (cmp.paraFo || []).length) { try { rc_reavaliarColuna_(card.id, o.token, o.quem || 'robô'); } catch (e) { console.log('complemento/coluna: ' + e); } }
 }
 
-// Complemento.gs:701
+// Complemento.gs:721
 function cp_foNaOficina_(card, token, quem) {
   var an;
   try { an = vd_analisar_(card.desc || '', card.name || ''); } catch (e) { return []; }
@@ -2713,10 +2732,10 @@ function cp_foNaOficina_(card, token, quem) {
   return removidos.concat(novos);   // quem chama reavalia a coluna quando a lista não vem vazia
 }
 
-// Complemento.gs:765
+// Complemento.gs:785
 function cp_idEpoca_(id) { var n = parseInt(String(id || '').slice(0, 8), 16); return isNaN(n) ? 0 : n; }
 
-// Complemento.gs:773
+// Complemento.gs:793
 function cp_foJaComprada_(card, conflitos, token, quem) {
   var devs = rc_devolucoes_(card), linhas = [], evs = [], novos = [];
   conflitos.forEach(function (c) {
@@ -2742,12 +2761,12 @@ function cp_foJaComprada_(card, conflitos, token, quem) {
   return novos;
 }
 
-// Complemento.gs:801
+// Complemento.gs:821
 function cp_revLista_(cardId) {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('FO_REV_' + cardId) || '[]'); } catch (e) { return []; }
 }
 
-// Complemento.gs:804
+// Complemento.gs:824
 function cp_revGuardar_(cardId, nomes, por) {
   nomes = (nomes || []).filter(String);
   if (!nomes.length) return;
@@ -2761,7 +2780,7 @@ function cp_revGuardar_(cardId, nomes, por) {
   });
 }
 
-// Complemento.gs:818
+// Complemento.gs:838
 function vdf_foRevertidas(token, shortLink) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard' } });
@@ -2769,7 +2788,7 @@ function vdf_foRevertidas(token, shortLink) {
   return cp_revLista_(card.id).filter(function (x) { return !x.fim; });
 }
 
-// Complemento.gs:826
+// Complemento.gs:846
 function cp_revDosComentarios_(cardId) {
   var acts = vd_api_('/cards/' + cardId + '/actions', { cru: true, query: { filter: 'commentCard', limit: 300, fields: 'data,date' } }) || [];
   var l = [], fim = {};
@@ -2786,7 +2805,7 @@ function cp_revDosComentarios_(cardId) {
   PropertiesService.getScriptProperties().setProperty('FO_REV_' + cardId, JSON.stringify(l.slice(-20)));
 }
 
-// Complemento.gs:842
+// Complemento.gs:862
 function vdf_foRevertidaDevolvida(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -6567,9 +6586,12 @@ function vdf_salvar(token, p) {
     var paraOf = (comp.paraOficina || []).filter(function (x) { return x && x.itemId; });
     paraOf.forEach(function (x) { try { vd_api_('/cards/' + card.id + '/checkItem/' + x.itemId, { method: 'delete' }, token); } catch (e) { console.log('FO→oficina: ' + e); } });
     try { cp_revGuardar_(card.id, paraOf.map(function (x) { return x.nome; }), me.username); } catch (e) {}
-    if (compOf.length || nFoComp || (comp.pareadas || []).length || paraOf.length) {
+    // 03/11/2026 (SWQ0F73): peça da oficina que o orçamento novo passou para a seguradora — o formulário já tirou da tela a que
+    // não estava comprada/autorizada (a lista chegou sem ela); aqui só o registro no comentário, no mesmo formato do robô
+    var paraFoC = (comp.paraFo || []).filter(function (x) { return x && x.peca; }).map(function (x) { return { peca: { descricao: x.peca }, comprada: !!x.comprada, autorizada: !!x.autorizada, naoComprar: !!x.naoComprar }; });
+    if (compOf.length || nFoComp || (comp.pareadas || []).length || paraOf.length || paraFoC.length) {
       try {
-        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: cp_textoComentario_(me.fullName, comp.origem || '', '', compOf, compFo.slice(0, nFoComp ? compFo.length : 0), 0, '', comp.pareadas || [], [], paraOf.map(function (x) { return { item: { name: x.nome || '', lista: x.lista || '' }, peca: { descricao: x.peca || '' } }; })) } }, token);
+        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: cp_textoComentario_(me.fullName, comp.origem || '', '', compOf, compFo.slice(0, nFoComp ? compFo.length : 0), 0, '', comp.pareadas || [], [], paraOf.map(function (x) { return { item: { name: x.nome || '', lista: x.lista || '' }, peca: { descricao: x.peca || '' } }; }), paraFoC) } }, token);
       } catch (e) {}
       try { ev_registrar_('COMPLEMENTO', card, me.username, compOf.map(ev_peca_).concat(compFo.map(function (x) { var e = ev_peca_(x); e.fornecedor = 'SEGURADORA (FO)'; return e; })), { detalhe: compOf.length + ' oficina · ' + nFoComp + ' FO · ' + (comp.origem || '') }); } catch (e) {}
     }
@@ -6702,14 +6724,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:2918
+// FormularioServidor.gs:2921
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:2930
+// FormularioServidor.gs:2933
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -6784,21 +6806,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:3007
+// FormularioServidor.gs:3010
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:3013
+// FormularioServidor.gs:3016
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:3019
+// FormularioServidor.gs:3022
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {

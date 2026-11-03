@@ -2779,9 +2779,12 @@ function vdf_salvar(token, p) {
     var paraOf = (comp.paraOficina || []).filter(function (x) { return x && x.itemId; });
     paraOf.forEach(function (x) { try { vd_api_('/cards/' + card.id + '/checkItem/' + x.itemId, { method: 'delete' }, token); } catch (e) { console.log('FO→oficina: ' + e); } });
     try { cp_revGuardar_(card.id, paraOf.map(function (x) { return x.nome; }), me.username); } catch (e) {}
-    if (compOf.length || nFoComp || (comp.pareadas || []).length || paraOf.length) {
+    // 03/11/2026 (SWQ0F73): peça da oficina que o orçamento novo passou para a seguradora — o formulário já tirou da tela a que
+    // não estava comprada/autorizada (a lista chegou sem ela); aqui só o registro no comentário, no mesmo formato do robô
+    var paraFoC = (comp.paraFo || []).filter(function (x) { return x && x.peca; }).map(function (x) { return { peca: { descricao: x.peca }, comprada: !!x.comprada, autorizada: !!x.autorizada, naoComprar: !!x.naoComprar }; });
+    if (compOf.length || nFoComp || (comp.pareadas || []).length || paraOf.length || paraFoC.length) {
       try {
-        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: cp_textoComentario_(me.fullName, comp.origem || '', '', compOf, compFo.slice(0, nFoComp ? compFo.length : 0), 0, '', comp.pareadas || [], [], paraOf.map(function (x) { return { item: { name: x.nome || '', lista: x.lista || '' }, peca: { descricao: x.peca || '' } }; })) } }, token);
+        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: cp_textoComentario_(me.fullName, comp.origem || '', '', compOf, compFo.slice(0, nFoComp ? compFo.length : 0), 0, '', comp.pareadas || [], [], paraOf.map(function (x) { return { item: { name: x.nome || '', lista: x.lista || '' }, peca: { descricao: x.peca || '' } }; }), paraFoC) } }, token);
       } catch (e) {}
       try { ev_registrar_('COMPLEMENTO', card, me.username, compOf.map(ev_peca_).concat(compFo.map(function (x) { var e = ev_peca_(x); e.fornecedor = 'SEGURADORA (FO)'; return e; })), { detalhe: compOf.length + ' oficina · ' + nFoComp + ' FO · ' + (comp.origem || '') }); } catch (e) {}
     }

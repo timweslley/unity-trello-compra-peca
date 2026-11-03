@@ -2266,12 +2266,27 @@ function importarComplemento(o, anexoId) {
       if (u.valorOrc) { var vi = el.querySelector('.f-valor-orc'); if (vi) { vi.value = fmtValor(u.valorOrc) || u.valorOrc; muda.push('orç. ' + fmtValor(u.valorOrc)); } }
       if (muda.length) { el.style.boxShadow = '0 0 0 2px var(--amarelo)'; atualizadas.push((el.querySelector('.f-desc') || {}).value + ': ' + muda.join(', ')); }
     });
-    COMP = { origem: o.origem, fo: r.fo || [], pareadas: r.pareadas || [], atualizar: r.atualizar || [], paraOficina: r.paraOficina || [] };
+    COMP = { origem: o.origem, fo: r.fo || [], pareadas: r.pareadas || [], atualizar: r.atualizar || [], paraOficina: r.paraOficina || [], paraFo: r.paraFo || [] };
+    // 03/11/2026 (SWQ0F73, Weslley): peça da oficina (ou 🚫) que o orçamento novo passou para a SEGURADORA — vira item FO (já está
+    // em COMP.fo); a que não foi comprada nem autorizada sai da tela aqui (a lista vai sem ela no Enviar); comprada/autorizada fica
+    // e o aviso diz o que acontece. Única mudança de regra no JS clássico depois da camada 2.0 — exceção autorizada por ele.
+    var saiuFo = [], ficouFo = [];
+    (COMP.paraFo || []).forEach(function (x) {
+      if (x.comprada || x.autorizada) { ficouFo.push(esc(x.peca) + (x.comprada ? ' (já comprada — a devolução abre ao enviar)' : ' (já autorizada — a diretoria decide se tira do pedido)')); return; }
+      var el = Array.prototype.filter.call(document.querySelectorAll('#itens .item, #itensPart .item'), function (it) {
+        var cod = it.querySelector('.f-codigo'), ds = it.querySelector('.f-desc');
+        return (x.codigo && cod && normCod(cod.value) === normCod(x.codigo)) || (!x.codigo && ds && (ds.value || '').trim().toUpperCase() === String(x.peca || '').trim().toUpperCase());
+      })[0];
+      if (el) { el.remove(); saiuFo.push(esc(x.peca) + (x.naoComprar ? ' (estava como 🚫 não comprar)' : '')); }
+    });
+    if (saiuFo.length) numerar();
     var pare = (r.pareadas || []).length ? '<br>🔁 Já pedida antes (marcada ➕ Complemento) e confirmada neste orçamento — não repetida: ' + r.pareadas.map(function (x) { return '<b>' + esc(x.card) + '</b> = ' + esc(x.orc) + (x.fo ? ' <span class="ruim">⚠️ no PDF a seguradora FORNECE esta peça — conferir</span>' : ''); }).join('; ') : '';
     var atuTxt = atualizadas.length ? '<br>🔄 Atualizadas pelo orçamento novo: ' + atualizadas.map(esc).join('; ') : '';
     if (COMP.paraOficina.length) atuTxt += '<br>🔁 <b>Passou de fornecida para oficina</b> (entra como peça nova da oficina e sai do checklist FORNECIMENTO): ' + COMP.paraOficina.map(function (x) { return esc(x.peca); }).join('; ');
+    if (saiuFo.length) atuTxt += '<br>🔁 <b>Passou para a seguradora</b> (saiu da lista da oficina; entra no checklist FORNECIMENTO): ' + saiuFo.join('; ');
+    if (ficouFo.length) atuTxt += '<br>⚠️ <b>Passou para a seguradora, mas fica na lista</b>: ' + ficouFo.join('; ');
     if (!novas.length && !COMP.fo.length) {
-      if (!COMP.pareadas.length && !atualizadas.length) COMP = null;
+      if (!COMP.pareadas.length && !atualizadas.length && !COMP.paraFo.length) COMP = null;
       if (r.antigo) { aviso.innerHTML = '📄 Este orçamento ' + esc(o.origem) + ' é <b>antigo</b>: há outro orçamento anexado no card depois dele, que já vale. Nada foi incluído. Para um complementar, use o orçamento mais novo.'; COMP = null; return; }
       aviso.innerHTML = '📄 Orçamento ' + esc(o.origem) + ' lido: <b>nenhuma peça nova</b> — tudo o que está nele já está no card' + (r.jaTinha ? ' (' + r.jaTinha + ' peça(s))' : '') + '.' + pare + atuTxt + (COMP ? '<br>Clique em <b>Enviar</b> para registrar no card.' : '');
       return;

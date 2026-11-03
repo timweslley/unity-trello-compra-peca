@@ -204,7 +204,9 @@ function cp_comparar_(card, orc, excluirAnexo) {
           var pcX = pcOf || pcNao;
           if (pcX) {
             var kX = cp_norm_(pcX.codigo), comprada = kX.length >= 4 && (conh.textosCompra || []).some(function (t) { return t.indexOf(kX) >= 0; });
-            out.paraFo.push({ peca: pcX, chave: vd_chavePeca_(pcX), orc: p, comprada: comprada, naoComprar: !!pcNao });
+            // peça já AUTORIZADA pela diretoria (ainda não comprada) fica na lista — a autorização é decisão dela; o comentário avisa
+            var chX = vd_chavePeca_(pcX), autorizada = !comprada && cp_autorizadas_(card, conh).indexOf(chX) >= 0;
+            out.paraFo.push({ peca: pcX, chave: chX, orc: p, comprada: comprada, autorizada: autorizada, naoComprar: !!pcNao });
             destino.push(p); return;
           }
         }
@@ -283,6 +285,16 @@ function cp_atualizarNoBloco_(bloco, atualizar) {
     linhas[ix] = vd_linhaPeca_(p, num ? +num - 1 : k);
   });
   return linhas.join('\n');
+}
+
+/** Chaves das peças da oficina já autorizadas pela diretoria (lidas das autorizações abaixo do marcador); cache em conh. */
+function cp_autorizadas_(card, conh) {
+  if (!conh._auts) {
+    var l = [];
+    try { l = vd_autorizacoesDaDescricao_(card.desc || '', (conh.an && conh.an.pecas) || []).map(function (a) { return a.chave; }); } catch (e) {}
+    conh._auts = l;
+  }
+  return conh._auts;
 }
 
 /** 03/11/2026: tira do bloco PEÇAS as linhas das peças com as chaves dadas (peça que passou para a seguradora). */
@@ -403,7 +415,7 @@ function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTi
   if ((paraOficina || []).length) t += '\n⚠️ Se a seguradora entregar a peça revertida: **recusar na entrega** (ou devolver) e registrar na aba 📦 Recebimento.';
   (paraFo || []).forEach(function (x) {
     t += '\n🔁 **Passou para a seguradora:** ' + cp_nome_(x.peca) + ' — o orçamento novo traz como fornecida (item no FORNECIMENTO)' +
-      (x.comprada ? ' · ⚠️ já comprada pela oficina — devolução a abrir' : x.naoComprar ? ' · estava como 🚫 não comprar' : ' · saiu da lista da oficina') + ' · verificar prazo do item';
+      (x.comprada ? ' · ⚠️ já comprada pela oficina — devolução a abrir' : x.autorizada ? ' · ⚠️ já autorizada pela diretoria — fica na lista; diretoria decide se tira do pedido' : x.naoComprar ? ' · estava como 🚫 não comprar' : ' · saiu da lista da oficina') + ' · verificar prazo do item';
   });
   (atualizadas || []).forEach(function (u) {
     t += '\n🔄 **Atualizada:** ' + (u.codigoAntigo || u.chave) + (u.codigo ? ' → código ' + u.codigo : '') + (u.valorOrc ? ' · orç. ' + u.valorOrc : '');
@@ -440,8 +452,8 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
   if (idAnexo && !excluir) {   // orçamento já processado: nada da OFICINA entra de novo (o cache pode não guardar orçamento grande)
     // ...mas peça FORNECIDA pela seguradora que não está em nenhum checklist entra (não gera compra; 13/10/2026, UIC5G94:
     // VENTOINHA do laudo 2.1 ficou de fora do card e reler o laudo não a trazia)
-    var foFalta = [];
-    try { foFalta = cp_comparar_(card, { oficina: [], fo: (o && o.fo) || [] }, idAnexo).fo || []; } catch (e) {}
+    var foFalta = [], paraFoRe = [];
+    try { var cmpFo = cp_comparar_(card, { oficina: [], fo: (o && o.fo) || [] }, idAnexo); foFalta = cmpFo.fo || []; paraFoRe = cmpFo.paraFo || []; } catch (e) {}
     // aqui só entra peça que FALTA: código diferente de uma peça que já está no checklist (ex.: HDI "1988 FAROL DIREITO" x
     // "5U7941006C FAROL DIREITO") não troca o código bom do item
     var itensFo = [];
@@ -467,10 +479,18 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     // descrição) — nada da oficina entra de novo; a mudança só vale quando quem editou clicar em Enviar
     return { oficina: revert.map(function (x) { return x.peca; }), fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - revert.length, pareadas: [],
       atualizar: (cmpOf && cmpOf.atualizar) || [], casadas: (cmpOf && cmpOf.casadas) || [],
-      paraOficina: revert.map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }), jaProcessado: true };
+      paraOficina: revert.map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }),
+      paraFo: cp_paraFoSaida_(paraFoRe.filter(function (x) { return foFalta.indexOf(x.orc) >= 0; })), jaProcessado: true };
   }
   var r = cp_comparar_(card, { oficina: (o && o.oficina) || [], fo: (o && o.fo) || [] }, excluir);
-  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], casadas: r.casadas || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }) };
+  return { oficina: r.oficina, fo: r.fo, jaTinha: r.jaTinha, pareadas: r.pareadas, atualizar: r.atualizar || [], casadas: r.casadas || [], paraOficina: (r.paraOficina || []).map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }),
+    paraFo: cp_paraFoSaida_(r.paraFo) };
+}
+
+/** 03/11/2026 (SWQ0F73): `paraFo` de cp_comparar_ no formato que o formulário usa — {chave, codigo, peca, comprada, naoComprar}.
+ *  O formulário tira da tela a peça não comprada (ela virou item FO) e, no Enviar, manda de volta para o comentário. */
+function cp_paraFoSaida_(lista) {
+  return (lista || []).map(function (x) { return { chave: x.chave, codigo: String(x.peca.codigo || '').replace(/\s+/g, ''), peca: cp_nome_(x.peca), comprada: !!x.comprada, autorizada: !!x.autorizada, naoComprar: !!x.naoComprar }; });
 }
 
 /** Algum item de FORNECIMENTO do card tem esse código colado na descrição (código seguido direto de letra)? */
@@ -670,7 +690,7 @@ function cp_aplicar_(card, cmp, o) {
   if ((cmp.atualizar || []).some(function (u) { return u.codigo; })) { try { vd_pkSet_(card.id, vd_linhasConsultor_(blocoAtu).map(vd_sigItem_)); } catch (e) {} }
   // 03/11/2026 (SWQ0F73): peça da oficina (ou 🚫) que o orçamento novo traz como fornecida e ainda NÃO foi comprada sai da lista
   // (o item FO já entrou acima); comprada fica — a regra de 28/10 (cp_foJaComprada_) abre a devolução na reavaliação
-  var saemFo = (cmp.paraFo || []).filter(function (x) { return !x.comprada; });
+  var saemFo = (cmp.paraFo || []).filter(function (x) { return !x.comprada && !x.autorizada; });
   if (saemFo.length) { blocoAtu = cp_removerDoBloco_(blocoAtu, saemFo.map(function (x) { return x.chave; })); try { vd_pkSet_(card.id, vd_linhasConsultor_(blocoAtu).map(vd_sigItem_)); } catch (e) {} }
   var bloco = cp_inserirNoBloco_(blocoAtu, cmp.oficina, nFoTotal);
   vd_backup_(card, 'orçamento complementar (' + (o.origem || '') + ')');
