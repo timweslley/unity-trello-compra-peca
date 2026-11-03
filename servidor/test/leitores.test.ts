@@ -75,6 +75,15 @@ describe('orçamentos', () => {
     const l = lerTexto(`Fornecimento T - 2 0000002 PNEU LANVIGATOR 195/ 55 R15 OFICINA R$ 400,00`);
     expect(l.oficina?.[0]).toMatchObject({ pneu: true, medida: '195/55R15' });
   });
+  it('"Orçamento - N" (COD:) com pneu "175/65/R14" e código 1756514IMP = pneu importado (DPJ2D42, 03/11)', () => {
+    const t = 'Peças e Mão de Obra (9 itens) Operações Qtd Descrição/Código Fornecimento Preço Desconto Preço Líquido ' +
+      'T R&I 0,50 1.00 ARO DE RODA DE AÇO Cód: H3BC1015BA Oficina R$ 563,99 - R$ 563,99 ' +
+      'T R&I 0,50 1.00 FAROL DIREITO Cód: J7BZ13008S Cliente - - - ' +
+      'T R&I 0,00 2.00 PNEU 175/65/R14 Cód: 1756514IMP Oficina R$ 300,00 - R$ 600,00 ' +
+      'R&I 0,50 1.00 PARABARRO DIANT DIR Cód: E3B516114AB - - - - Total Peças: R$ 2.849,97';
+    const l = R.vd_lerOrcamento_(t);
+    expect(l.oficina.map((p: any) => (p.pneu ? ['PNEU', p.medida, p.categoria, p.qtd] : [p.codigo, p.descricao]))).toEqual([['H3BC1015BA', 'ARO DE RODA DE ACO'], ['PNEU', '175/65R14', 'IMPORTADO', '2']]);
+  });
 });
 
 describe('dados do veículo (trechos reais)', () => {

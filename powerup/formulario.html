@@ -679,7 +679,7 @@ function gravacaoServidorLigada() {
 function chamarServidorGravacao(fn, args) {
   var t0 = Date.now(), corpo = JSON.stringify({ fn: fn, args: args, rid: novoRid() });
   return fetch(PU_CFG.URL_SERVIDOR + '?quadro=principal&grava=1', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo })
-    .then(function (r) { if (r.status >= 500 && r.status !== 504) { var e = new Error('servidor: ' + r.status); e.nadaGravado = true; throw e; } return r.text(); })
+    .then(function (r) { if ((r.status >= 500 && r.status !== 504) || r.status === 413) { var e = new Error('servidor: ' + r.status); e.nadaGravado = true; throw e; } return r.text(); })   // 413 (arquivo grande demais para o servidor, 03/11/2026): nada gravado, vai ao Google
     .then(function (t) {
       var j; try { j = JSON.parse(t); } catch (e) { throw new Error('O servidor respondeu algo inválido. Confira o card antes de enviar de novo.'); }
       anotarTempo(fn, 'srv-grava', Date.now() - t0, !!j.ok);
@@ -10224,6 +10224,31 @@ document.addEventListener('input', function (e) {
     window[fn] = function (c) { var r = orig.apply(this, arguments); try { selar(c || window.CARD); } catch (e) { console.log('ex-código: ' + e); } return r; };
   });
   if (window.CARD) { try { selar(window.CARD); } catch (e) {} }
+})();
+</script>
+<script>
+/* 03/11/2026 (Weslley, DPJ2D42: "colei a foto e o robô não entendeu que era capa") — camada 2.0, computador e celular, pedido:
+ * foto colada (Ctrl+V) no pedido, sem capa escolhida ainda, vira a FOTO DE CAPA do card (antes ia para "documentos do pedido"
+ * e era lida como se fosse orçamento). Com capa já escolhida, ou PDF no colar, segue como antes. Só aponta o campo certo
+ * (ARQ_ALVO) antes do tratador de colar da tela clássica, como a aba Cotação já faz. Para ler uma foto de orçamento, o botão
+ * "Orçamento" continua valendo. */
+(function () {
+  if (/[?&]v2=0(&|$)/.test(location.search)) return;
+  document.addEventListener('paste', function (e) {
+    try {
+      var cd = e.clipboardData; if (!cd) return;
+      var files = Array.prototype.slice.call(cd.files || []);
+      if (!files.length) Array.prototype.forEach.call(cd.items || [], function (it) { if (it.kind === 'file') { var f = it.getAsFile(); if (f) files.push(f); } });
+      if (!files.length || !files.every(function (f) { return /^image\//.test(f.type); })) return;
+      var form = document.getElementById('form'), capa = document.getElementById('capa');
+      if (!form || !capa || form.classList.contains('oculto') || window.MODO_COMPRAS) return;
+      var foco = document.activeElement;
+      if (foco && foco.closest && foco.closest('#comprador, #itensPart .item, #itens .item')) return;   // dentro de uma peça: foto da peça (22/10) / compras: como antes
+      if (window.CAPA_ID || (capa.files && capa.files.length)) return;   // já tem capa: vai para os documentos, como antes
+      window.ARQ_ALVO = capa;
+      var d = document.getElementById('dicaCapa'); if (d) { d.textContent = '📋 Foto colada vira a capa do card. Para ler uma foto de orçamento, use o botão Orçamento.'; d.className = 'dica'; }
+    } catch (err) { console.log('colar capa: ' + err); }
+  }, true);
 })();
 </script>
 </body>

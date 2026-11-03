@@ -443,3 +443,9 @@ da outra, deixar um recado aqui e no commit.
   e `importarComplemento` (JS clássico, exceção autorizada) tira da tela a peça não comprada/autorizada; comprada/autorizada
   fica com aviso. Peça já autorizada pela diretoria fica na lista também no robô (a diretoria decide). Aplicado direto no
   principal a pedido dele ("se algo sair fora do esperado te aviso").
+- **03/11/2026 (tarde) — DPJ2D42 (particular): foto colada e pneu.** Weslley: "colei a foto e o robô não entendeu que era capa e nem
+  anexou" + "não reconheceu o pneu que veio do orçamento particular". (1) O servidor recusava corpo acima de 1 MB (413, padrão do
+  Fastify) — a foto colada caía em "documentos", ia para a leitura como orçamento e o POST grande morria; o formulário só mostrava
+  um erro discreto. Limite do servidor → 22 MB; 413 cai no Google; camada 2.0: foto colada sem capa vira capa. (2) Leitor: pneu
+  "175/65/R14" com código 1756514IMP virava peça "IMP PNEU" — medida com `/R` aceita, IMP = importado; leitores 8/10.
+  Obs. por peça: conferido na tela e no card (📝 nas peças 2, 3 e 6) — funciona; ele confirmou ("blza").

@@ -62,14 +62,17 @@ function vd_pneuDaDescricao_(desc) {
   var d = String(desc || '');
   if (!/\bPNEU/.test(d)) return null;
   // 08/10/2026 (treino): "VALVULA DE AR DO PNEU", "SENSOR DE PRESSAO DO PNEU" não são pneu — só quando começa com PNEU ou tem medida
-  if (!/^\s*(JOGO DE |KIT )?PNEUS?\b/.test(d) && !/\d{3}\s*[\/ ]\s*\d{2}\s*(?:Z?R|\/)\s*\d{2}/.test(d)) return null;
+  // 03/11/2026 (DPJ2D42, particular): "PNEU 175/65/R14" (barra E o R) — antes a medida não casava e virava peça "IMP PNEU"
+  var reMed = /(\d{3})\s*[\/ ]\s*(\d{2})\s*(?:Z?R|\/\s*Z?R?)\s*(\d{2})/;
+  if (!/^\s*(JOGO DE |KIT )?PNEUS?\b/.test(d) && !reMed.test(d)) return null;
   // "195/65R15", "195/ 55 R15" e também "185 70 R14" (Soma/Porto escreve sem a barra)
-  var m = d.match(/(\d{3})\s*[\/ ]\s*(\d{2})\s*(?:Z?R|\/)\s*(\d{2})/);   // 16/10/2026 (SDW8A49, HDI): também "205/70/15"
+  var m = d.match(reMed);   // 16/10/2026 (SDW8A49, HDI): também "205/70/15"
   var medida = m ? m[1] + '/' + m[2] + 'R' + m[3] : '';
-  var categoria = /IMPORTAD/.test(d) ? 'IMPORTADO' : (/1\s*[ªA]?\s*LINHA|PRIMEIRA LINHA/.test(d) ? '1ª LINHA' : '');
+  // "IMP" (código 1756514IMP que o orçamentista digita no Cilia) = importado (03/11/2026)
+  var categoria = /IMPORTAD|\bIMP\b/.test(d) ? 'IMPORTADO' : (/1\s*[ªA]?\s*LINHA|PRIMEIRA LINHA/.test(d) ? '1ª LINHA' : '');
   var marca = '';
   if (!categoria) {
-    var resto = d.replace(/\bPNEUS?\b/, '').replace(/\d{3}\s*[\/ ]\s*\d{2}\s*(?:Z?R|\/)\s*\d{2}.*/, '').replace(/[^A-Z0-9 ]/g, ' ').trim().split(/\s+/);
+    var resto = d.replace(/\bPNEUS?\b/, '').replace(new RegExp(reMed.source + '.*'), '').replace(/[^A-Z0-9 ]/g, ' ').trim().split(/\s+/);
     // pula siglas (D.D., DD, DT) e palavras genéricas: a marca é a 1ª palavra "de verdade"
     marca = resto.filter(function (w) { return w.length >= 3 && !/^(DD|DT|DE|DO|DA|NACIONAL|RADIAL|ARO|NOVO|NOVA|TROCA|JOGO|KIT)$/.test(w); })[0] || '';
   }

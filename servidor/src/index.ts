@@ -79,7 +79,10 @@ let bancoPronto!: () => void;
 const BANCO_PRONTO = new Promise<void>((ok) => { bancoPronto = ok; });
 
 export function criarApp() {
-  const app = Fastify({ logger: { level: process.env.LOG_NIVEL || 'info' } });
+  // 03/11/2026 (DPJ2D42, Weslley: "colei a foto e o robô nem anexou"): o limite padrão do Fastify é 1 MB — foto de celular
+  // colada no formulário (base64 de ~1,3× o arquivo) voltava 413 e o formulário seguia sem o anexo. O formulário aceita
+  // arquivos até 15 MB; em base64 + JSON dá ~21 MB.
+  const app = Fastify({ logger: { level: process.env.LOG_NIVEL || 'info' }, bodyLimit: 22 * 1024 * 1024 });
 
   // o webhook precisa do corpo cru (texto) para conferir a assinatura
   app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, corpo, done) => done(null, corpo));

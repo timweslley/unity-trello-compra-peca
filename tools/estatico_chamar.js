@@ -78,7 +78,7 @@ function gravacaoServidorLigada() {
 function chamarServidorGravacao(fn, args) {
   var t0 = Date.now(), corpo = JSON.stringify({ fn: fn, args: args, rid: novoRid() });
   return fetch(PU_CFG.URL_SERVIDOR + '?quadro=principal&grava=1', { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo })
-    .then(function (r) { if (r.status >= 500 && r.status !== 504) { var e = new Error('servidor: ' + r.status); e.nadaGravado = true; throw e; } return r.text(); })
+    .then(function (r) { if ((r.status >= 500 && r.status !== 504) || r.status === 413) { var e = new Error('servidor: ' + r.status); e.nadaGravado = true; throw e; } return r.text(); })   // 413 (arquivo grande demais para o servidor, 03/11/2026): nada gravado, vai ao Google
     .then(function (t) {
       var j; try { j = JSON.parse(t); } catch (e) { throw new Error('O servidor respondeu algo inválido. Confira o card antes de enviar de novo.'); }
       anotarTempo(fn, 'srv-grava', Date.now() - t0, !!j.ok);

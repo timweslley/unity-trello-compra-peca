@@ -555,7 +555,7 @@ var VD_SO_MO_LINHA = 'nenhuma peça pela oficina — orçamento só de mão de o
 var VD_ANXS = { ABA: 'ANEXOS', SH: null, ROW: null, MAX: 45000 };
 
 // Validacao.gs:886
-var VD_LEITOR_V = 9;
+var VD_LEITOR_V = 10;
 
 // Validacao.gs:887
 var VD_ANX_V = 3;
@@ -7287,21 +7287,24 @@ function vd_pneuDaDescricao_(desc) {
   var d = String(desc || '');
   if (!/\bPNEU/.test(d)) return null;
   // 08/10/2026 (treino): "VALVULA DE AR DO PNEU", "SENSOR DE PRESSAO DO PNEU" não são pneu — só quando começa com PNEU ou tem medida
-  if (!/^\s*(JOGO DE |KIT )?PNEUS?\b/.test(d) && !/\d{3}\s*[\/ ]\s*\d{2}\s*(?:Z?R|\/)\s*\d{2}/.test(d)) return null;
+  // 03/11/2026 (DPJ2D42, particular): "PNEU 175/65/R14" (barra E o R) — antes a medida não casava e virava peça "IMP PNEU"
+  var reMed = /(\d{3})\s*[\/ ]\s*(\d{2})\s*(?:Z?R|\/\s*Z?R?)\s*(\d{2})/;
+  if (!/^\s*(JOGO DE |KIT )?PNEUS?\b/.test(d) && !reMed.test(d)) return null;
   // "195/65R15", "195/ 55 R15" e também "185 70 R14" (Soma/Porto escreve sem a barra)
-  var m = d.match(/(\d{3})\s*[\/ ]\s*(\d{2})\s*(?:Z?R|\/)\s*(\d{2})/);   // 16/10/2026 (SDW8A49, HDI): também "205/70/15"
+  var m = d.match(reMed);   // 16/10/2026 (SDW8A49, HDI): também "205/70/15"
   var medida = m ? m[1] + '/' + m[2] + 'R' + m[3] : '';
-  var categoria = /IMPORTAD/.test(d) ? 'IMPORTADO' : (/1\s*[ªA]?\s*LINHA|PRIMEIRA LINHA/.test(d) ? '1ª LINHA' : '');
+  // "IMP" (código 1756514IMP que o orçamentista digita no Cilia) = importado (03/11/2026)
+  var categoria = /IMPORTAD|\bIMP\b/.test(d) ? 'IMPORTADO' : (/1\s*[ªA]?\s*LINHA|PRIMEIRA LINHA/.test(d) ? '1ª LINHA' : '');
   var marca = '';
   if (!categoria) {
-    var resto = d.replace(/\bPNEUS?\b/, '').replace(/\d{3}\s*[\/ ]\s*\d{2}\s*(?:Z?R|\/)\s*\d{2}.*/, '').replace(/[^A-Z0-9 ]/g, ' ').trim().split(/\s+/);
+    var resto = d.replace(/\bPNEUS?\b/, '').replace(new RegExp(reMed.source + '.*'), '').replace(/[^A-Z0-9 ]/g, ' ').trim().split(/\s+/);
     // pula siglas (D.D., DD, DT) e palavras genéricas: a marca é a 1ª palavra "de verdade"
     marca = resto.filter(function (w) { return w.length >= 3 && !/^(DD|DT|DE|DO|DA|NACIONAL|RADIAL|ARO|NOVO|NOVA|TROCA|JOGO|KIT)$/.test(w); })[0] || '';
   }
   return { pneu: true, medida: medida, marca: marca, categoria: categoria };
 }
 
-// Orcamento.gs:79
+// Orcamento.gs:82
 function vd_limparDescricao_(d) {
   return String(d || '')
     .replace(/^\(A\)\s*/, '')
@@ -7324,7 +7327,7 @@ function vd_limparDescricao_(d) {
     .slice(0, 70);
 }
 
-// Orcamento.gs:103
+// Orcamento.gs:106
 function vd_tirarRepeticao_(d) {
   var ws = String(d).split(' ');
   for (var i = Math.ceil(ws.length / 2); i < ws.length; i++) {
@@ -7334,17 +7337,17 @@ function vd_tirarRepeticao_(d) {
   return d;
 }
 
-// Orcamento.gs:113
+// Orcamento.gs:116
 function vd_numOrc_(s) { var n = parseFloat(String(s || '').replace(/\./g, '').replace(',', '.')); return isNaN(n) ? NaN : n; }
 
-// Orcamento.gs:115
+// Orcamento.gs:118
 function vd_liquidoOrc_(unit, descPct) {
   var u = vd_numOrc_(unit), d = vd_numOrc_(descPct);
   if (isNaN(u)) return NaN;
   return isNaN(d) || d === 0 || d >= 100 || d <= -100 ? u : u * (1 - d / 100);   // desconto negativo = acréscimo (16/10/2026, JDC7H45)
 }
 
-// Orcamento.gs:126
+// Orcamento.gs:129
 function vd_websomaDetalhado_(corpo, lista, add) {
   var txt = vd_compactarCodigos_(corpo, '\u0001');
   // 08/10/2026 (treino 2025, "Orcamento_Detalhado.pdf" da Porto): mesmo relatório impresso com número no formato inglês
@@ -7404,7 +7407,7 @@ function vd_websomaDetalhado_(corpo, lista, add) {
   }
 }
 
-// Orcamento.gs:186
+// Orcamento.gs:189
 function vd_compactarCodigos_(txt, marca) {
   return String(txt || '').replace(/\b([A-Z0-9]{2,4})\/ ?([A-Z0-9]{3,8})\/ ?([A-Z0-9]{0,3}) ?\/ ?([A-Z0-9]{0,4})(?=\s|$)/g, function (_, a, b, c, d) {
     var cod = [a, b, c, d].filter(String).join('/');
@@ -7412,7 +7415,7 @@ function vd_compactarCodigos_(txt, marca) {
   });
 }
 
-// Orcamento.gs:194
+// Orcamento.gs:197
 function vd_secao_(U, inicio, finais) {
   var i = U.search(inicio);
   if (i < 0) return '';
@@ -7425,7 +7428,7 @@ function vd_secao_(U, inicio, finais) {
   return resto.slice(0, fim);
 }
 
-// Orcamento.gs:211
+// Orcamento.gs:214
 function vd_segundoCodigoCilia_(a, b) {
   a = String(a || '').toUpperCase(); b = String(b || '').toUpperCase();
   b = b.replace(/(GENUINA|ORIGINAL)$/, '');   // tipo colado no 2º código ("5U1941008DGENUINA FAROL", AUP2482) — a varredura de 27/10 pegou
@@ -7434,7 +7437,7 @@ function vd_segundoCodigoCilia_(a, b) {
   return /^(GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS|VERDE|USADA|RECONDICIONADA)$/.test(b) ? '' : b;
 }
 
-// Orcamento.gs:218
+// Orcamento.gs:221
 function vd_lerOrcamento_(texto) {
   var U = vd_normTexto_(texto);
   // 17/10/2026 (Weslley: "sem cobertura não entra pra compra"): no Cilia, os itens do bloco "ITENS DO TIPO SEM COBERTURA" (até
