@@ -454,3 +454,8 @@ da outra, deixar um recado aqui e no commit.
   uma execução do acionador fica presa 32 min e morre com "server error" do Google, segurando a trava do script. Weslley:
   "fazer 1 e 2" → trava do acionador com validade de 5 min (`vd_travaAcionador_`) e, no formulário, fila do Google (429 /
   página de erro) = espera 15 s e repete uma vez, sem paralelo. Item 3 (tirar log de descrição e vigia do Apps Script) fica.
+- **03/11/2026 (noite) — propostas da rotina agendada: nº da ordem obrigatório.** A rotina (sessão agendada) anotou a decisão
+  "o card deve ser aberto em falta dados pela rotina" (UCL3A77, só FO, foi a FALTA CHEGAR). Analisado: o robô não cobrava o
+  "Nº Ordem" (só a tela do formulário). Weslley: "a O.S. é um dado obrigatório, deveria segurar o card" → `vd_faltaOrdem_`
+  em EM COTAÇÃO/FALTA DADOS; card da rotina sem nº nasce em FALTA DADOS; aviso sem @ (`VD_ROTINA_`). A 2ª proposta (soma-base.mjs
+  gravou UCL3A77 como Azul; é Porto — pista "ChatAzul" no texto) fica com a rotina.

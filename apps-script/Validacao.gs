@@ -1573,6 +1573,21 @@ function vd_avisoDuplicado_(card, ctx, props) {
 }
 
 /** Confere um card de EM COTAÇÃO / FALTA DADOS. ctx = {board, listas, modoAtivo, prazo, urlForm}. */
+/** 03/11/2026: texto da falta quando o campo "Nº Ordem" está vazio ('' se preenchido). Card criado há menos de 2 min fica de fora
+ *  (o formulário grava o nº logo depois de criar o card); card sem customFieldItems lido também fica de fora (não acusa no escuro). */
+function vd_faltaOrdem_(card) {
+  try {
+    if (!card || !card.customFieldItems) return '';
+    if (Date.now() - vd_criadoEmMs_(card.id) < 2 * 60000) return '';
+    var d = cf_defs_()[VDF_CAMPO_ORDEM]; if (!d) return '';
+    var it = card.customFieldItems.filter(function (i) { return i.idCustomField === d.id; })[0];
+    var v = it && it.value ? String(it.value.number !== undefined && it.value.number !== null ? it.value.number : (it.value.text || '')) : '';
+    if (v.replace(/\D/g, '')) return '';
+    return 'nº da ordem (Databox) — abra a O.S. no Databox e informe o nº pelo ✏️ EDITAR (campo "Nº da ordem")';
+  } catch (e) { console.log('nº ordem: ' + e); return ''; }
+}
+function vd_criadoEmMs_(id) { var n = parseInt(String(id || '').slice(0, 8), 16); return isNaN(n) ? 0 : n * 1000; }
+
 function vd_conferirCard_(card, ctx) {
   var props = PropertiesService.getScriptProperties();
   var nome = card.name || '';
@@ -1701,6 +1716,9 @@ function vd_conferirCard_(card, ctx) {
     faltas.unshift('orçamento autorizado da seguradora anexado no card (PDF do Cilia, HDI ou Websoma) — com ele o robô importa as peças sozinho; se for pedido de cliente particular, escreva PARTICULAR no título ou use o formulário');
   }
   if (an.doOrcamento && !base && !vdf_partesTitulo_(nome, an.dados).carro) faltas.unshift('carro (nome do carro no título do card)');
+  // 03/11/2026 (Weslley, UCL3A77: "a O.S. é um dado obrigatório, deveria segurar o card"): nº da ordem (Databox) vazio = falta de
+  // dado — vale para card só-FO também (card aberto pela Rotina a partir do portal, antes de existir a O.S., ia a FALTA CHEGAR)
+  var fOrdem = vd_faltaOrdem_(card); if (fOrdem) faltas.push(fOrdem);
   if (avisoAnexo && faltas.some(function (f) { return /^chassi$/.test(f); })) faltas.push('obs.: ' + avisoAnexo);
   res.faltas = faltas;
   // tipo marcado x o que o orçamento autorizou (só avisa)
@@ -1722,6 +1740,7 @@ function vd_conferirCard_(card, ctx) {
       if (card.idList !== idFalta) vd_mover_(card, idFalta, 'top');
       if (sigAtual !== sigAnterior) {
         var quem = vd_criador_(card.id);
+        try { if (props.getProperty('VD_ROTINA_' + card.id)) quem = ''; } catch (e) {}   // 03/11/2026: card aberto pela Rotina (criador = usuário do Weslley): sem @menção
         vd_comentar_(card, (quem ? '@' + quem + ' ' : '') + '⚠️ **FALTA DADOS' + (base ? ' (PEÇA NOVA)' : '') + '** — corrigir para seguir:\n' +
           faltas.map(function (f) { return '- ' + f; }).join('\n') +
           (res.importado ? '\n' + res.importado.texto : '') +
@@ -1927,7 +1946,7 @@ function vd_cardsDasListas_(ids, comAnexos) {
   var cards = [];
   ids.forEach(function (idL) {
     var q = { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels' };
-    if (comAnexos) { q.attachments = 'true'; q.attachment_fields = 'name,mimeType,isUpload,bytes,url,date'; }
+    if (comAnexos) { q.attachments = 'true'; q.attachment_fields = 'name,mimeType,isUpload,bytes,url,date'; q.customFieldItems = 'true'; }   // 03/11/2026: nº da ordem (vd_faltaOrdem_)
     cards = cards.concat(vd_api_('/lists/' + idL + '/cards', { query: q }));
   });
   return cards;
@@ -2115,7 +2134,7 @@ function vd_executarNucleo_() {
         var c;
         // SEM cru: a desc precisa ser a COMPLETA (a vitrine do Trello não tem o bloco PEÇAS). Com cru (02/10 a 05/10) o robô
         // comparava a vitrine com a base e acusava "PEÇA NOVA fora do padrão" em card que só ganhou cotação (RAM9I31, TST9Z99).
-        try { c = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels,closed', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date' } }); } catch (e) { return; }
+        try { c = vd_api_('/cards/' + id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels,closed', attachments: 'true', attachment_fields: 'name,mimeType,isUpload,bytes,url,date', customFieldItems: 'true' } }); } catch (e) { return; }
         if (!c || c.closed) return;
         if (posCot.indexOf(c.idList) >= 0) listaPos.push(c);
         else if (idCot.indexOf(c.idList) >= 0) listaCot.push(c);

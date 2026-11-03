@@ -2602,7 +2602,8 @@ function vdf_salvar(token, p) {
   var faltas = an.faltas.slice();
   if (!String(n.carro || '').trim()) faltas.unshift('carro (nome curto para o título)');
   // ROTINA (diretoria): card aberto a partir do Cilia/portal pela Rotina Unity. Peça sem tipo/código é aceita;
-  // com peça da oficina o card nasce em FALTA DADOS PARA COTAR para o consultor completar; só FO -> o robô leva a FALTA CHEGAR.
+  // com peça da oficina o card nasce em FALTA DADOS PARA COTAR para o consultor completar; só FO -> o robô leva a FALTA CHEGAR
+  // (desde 03/11/2026 só depois de o card ter o nº da ordem: vd_faltaOrdem_ segura em FALTA DADOS enquanto o campo está vazio).
   var rotina = !!p.rotina && vdf_ehAutorizador_(me) && !p.shortLink;
   var faltasRotina = [];
   // 19/10/2026: limpeza de card que a Rotina abriu (vdf_limparCardRotina) tolera o mesmo que a Rotina tolerou ao abrir
@@ -2658,7 +2659,8 @@ function vdf_salvar(token, p) {
     if (upd.name) card.name = upd.name;
   } else {
     // só mão de obra (23/10/2026): nasce em ENCERRADO — criar não é mover, a trava de colunas (st_executar_) não julga
-    var corpo = { idList: soMO ? ctx.listas[RC.LISTA_FIM] : (ctx.listas[rotina && pecas.length ? VD.LISTA_FALTA : VD.LISTA_COTACAO] || ctx.listas[VD.LISTA_COTACAO]), name: titulo, desc: bloco + '\n\n' + VD.MARCADOR, pos: 'top' };
+    var semOrdem = !String((p.dados || {}).ordem || '').replace(/\D/g, '');   // 03/11/2026: card da rotina sem nº da ordem nasce em FALTA DADOS (vd_faltaOrdem_ seguraria no ciclo seguinte)
+    var corpo = { idList: soMO ? ctx.listas[RC.LISTA_FIM] : (ctx.listas[rotina && (pecas.length || semOrdem) ? VD.LISTA_FALTA : VD.LISTA_COTACAO] || ctx.listas[VD.LISTA_COTACAO]), name: titulo, desc: bloco + '\n\n' + VD.MARCADOR, pos: 'top' };
     card = vd_api_('/cards', { method: 'post', payload: corpo }, token);
     try { PropertiesService.getScriptProperties().setProperty('VD_DUP_' + card.id, '1'); } catch (e) {}   // 23/10/2026: duplicidade já conferida pelo formulário (vd_avisoDuplicado_ não repete)
     vd_fixarTopo_(corpo.idList, token);   // card fixo "NOVO PEDIDO" continua em primeiro (07/10/2026)
@@ -2669,10 +2671,12 @@ function vdf_salvar(token, p) {
           (extra.origemOrc ? ', ' + extra.origemOrc : '') + ': vai direto para **' + RC.LISTA_FIM + '** para registro e faturamento.' + (avisoMO ? '\n' + avisoMO : '') } }, token);
       } catch (e) {}
     } else if (rotina) {
+      try { PropertiesService.getScriptProperties().setProperty('VD_ROTINA_' + card.id, '1'); } catch (e) {}   // 03/11/2026: o aviso ⚠️ FALTA DADOS deste card não menciona o criador (é o usuário da rotina)
       try {
         var avisoR = String(p.aviso || '').trim();
         vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🤖 **Card aberto pela Rotina Unity** a partir de ' + (extra.origemOrc || 'portal/Cilia') + ' — a equipe ainda não tinha feito o pedido.' +
           (pecas.length ? '\nPeças da oficina sem tipo/código: complete pelo ✏️ **EDITAR/INCLUIR PEÇA** — o card sai de FALTA DADOS sozinho.' : '\nSó fornecimento da seguradora: ver checklist FORNECIMENTO.') +
+          (semOrdem ? '\nSem nº da ordem (Databox): abra a O.S. e informe o nº pelo ✏️ **EDITAR** — o card fica em FALTA DADOS até isso.' : '') +
           (faltasRotina.length ? '\n' + faltasRotina.slice(0, 8).map(function (f) { return '- ' + f; }).join('\n') : '') + (avisoR ? '\n' + avisoR : '') } }, token);
       } catch (e) {}
     }
