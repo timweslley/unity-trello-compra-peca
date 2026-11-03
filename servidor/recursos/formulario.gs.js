@@ -77,37 +77,37 @@ var ATRASO_SEGUNDOS = 180;
 // Código.gs:61
 var LOG_ATE_MS = 0;
 
-// Código.gs:306
+// Código.gs:307
 var LISTAS_PARADO = ['PENDÊNCIA DE FATURAMENTO', 'PENDÊNCIA TRATADA - FATURAR'];
 
-// Código.gs:307
+// Código.gs:308
 var DIAS_PARADO = 7;
 
-// Código.gs:308
+// Código.gs:309
 var LISTA_ENTREGUES = 'ENTREGUES';
 
-// Código.gs:309
+// Código.gs:310
 var DIAS_ENTREGUES = 5;
 
-// Código.gs:310
+// Código.gs:311
 var LISTA_FALTA_CHEGAR = 'FALTA CHEGAR';
 
-// Código.gs:311
+// Código.gs:312
 var LISTA_ENCERRADO = 'ENCERRADO COMPRAS/FORNEC.';
 
-// Código.gs:312
+// Código.gs:313
 var DIAS_ENCERRADO = 15;
 
-// Código.gs:313
+// Código.gs:314
 var LBL_PARADO = 'PARADO';
 
-// Código.gs:314
+// Código.gs:315
 var LBL_CONFERIR = 'CONFERIR FATURAMENTO';
 
-// Código.gs:482
+// Código.gs:483
 var EMAIL_ALERTA = 'weslley.santos@unitycs.com.br';
 
-// Código.gs:483
+// Código.gs:484
 var LIMITE_FALHAS = 2;
 
 // Complemento.gs:16
@@ -594,7 +594,10 @@ var VD_LINK = {
   RX_COMPRA: /Cota[çc][ãa]o \/ Compra|COTA[ÇC][ÃA]O\/COMPRA/i
 };
 
-// Validacao.gs:2274
+// Validacao.gs:2164
+var VD_TRAVA_PRESA_MS = 5 * 60000, VD_TRAVA_K = 'vd_trava_acionador';
+
+// Validacao.gs:2297
 var PZ = {
   LISTAS_FORA: ['ESPERA/NÃO AUTORIZADO'],   // estacionamento: não ganha prazo
   /* 07/10/2026 (Weslley): card nessas colunas está concluído — o prazo fica marcado como concluído; se o card volta, desmarca */
@@ -606,7 +609,7 @@ var PZ = {
   LIMITE_MS: 40 * 1000
 };
 
-// Validacao.gs:2442
+// Validacao.gs:2465
 var REL = {
   EMAILS: 'weslley.santos@unitycs.com.br,christian.farias@unitycs.com.br',
   DIAS_FALTA_DADOS: 1,
@@ -618,7 +621,7 @@ var REL = {
   UNIDADES: [['TOLEDO', /\bTOL\b|TOLEDO/i], ['MARECHAL RONDON', /\bMCR\b|RONDON/i], ['CASCAVEL', /\bCVEL\b|CASCAVEL/i], ['CAMPO MOURÃO', /\bCMO?\b|MOUR/i]]
 };
 
-// Validacao.gs:2581
+// Validacao.gs:2604
 var VD_CMP_MEM = null;
 
 // Anexos.gs:18
@@ -1597,8 +1600,9 @@ function api_(caminho, params, metodo, payload) {
 
 // Código.gs:84
 function verificarAlteracoesDescricaoNucleo_() {
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(30000)) return;
+  // 03/11/2026: trava com validade (vd_travaAcionador_, Validacao.gs) — execução presa pelo Google não segura as seguintes
+  var soltar = vd_travaAcionador_(2000);
+  if (!soltar) return;
 
   try {
     var p = props_();
@@ -1689,22 +1693,22 @@ function verificarAlteracoesDescricaoNucleo_() {
     if (ignoradas) console.log('log: ' + ignoradas + ' gravação(ões) do formulário/robô ignorada(s)');
     p.setProperty('ULTIMA_VERIFICACAO', agora);
   } finally {
-    lock.releaseLock();
+    soltar();
   }
 }
 
-// Código.gs:182
+// Código.gs:183
 function ehGravacaoDoRobo_(cardId, desc) {
   if (typeof desc !== 'string') return false;
   try { return typeof tr_ehOficial_ === 'function' && tr_ehOficial_(cardId, desc); } catch (e) { return false; }
 }
 
-// Código.gs:187
+// Código.gs:188
 function normalizar_(s) {
   return (s || '').replace(/\r/g, '').replace(/[ \t]+$/gm, '').trim();
 }
 
-// Código.gs:193
+// Código.gs:194
 function sigLinha_(l) {
   l = (l || '').replace(/[\u200B-\u200D\uFEFF\u2060\u00A0]/g, ' ');
   if (/^[\s\-=_*~+.\u2013\u2014\u2022]*$/.test(l)) return '';
@@ -1716,13 +1720,13 @@ function sigLinha_(l) {
     .toLowerCase();
 }
 
-// Código.gs:204
+// Código.gs:205
 function sigTexto_(s) {
   return normalizar_(s).split('\n').map(sigLinha_)
     .filter(function (x) { return x; }).join('\n');
 }
 
-// Código.gs:209
+// Código.gs:210
 function montarComentario_(g) {
   var antigas = normalizar_(g.antigo).split('\n');
   var novas = normalizar_(g.novo).split('\n');
@@ -1766,14 +1770,14 @@ function montarComentario_(g) {
   return txt.slice(0, 4000);
 }
 
-// Código.gs:252
+// Código.gs:253
 function seguro_(l) {
   l = (l || '').replace(/[\u200B-\u200D\uFEFF\u2060]/g, '');
   if (/^\s*([-=_*~+.]\s*){3,}$/.test(l)) return '───';
   return l;
 }
 
-// Código.gs:258
+// Código.gs:259
 function bloco_(titulo, linhas) {
   var uteis = linhas.map(seguro_).filter(function (l) { return l.trim(); });
   if (!uteis.length) return '';
@@ -1787,7 +1791,7 @@ function bloco_(titulo, linhas) {
   return '\n**' + titulo + ':**\n' + mostradas.join('\n') + extra + '\n';
 }
 
-// Código.gs:274
+// Código.gs:275
 function instalarAcionador() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'verificarAlteracoesDescricao') {
@@ -1799,7 +1803,7 @@ function instalarAcionador() {
   console.log('Acionador criado: a cada 1 minuto.');
 }
 
-// Código.gs:318
+// Código.gs:319
 function rotinaDiariaNucleo_() {
   var listas = api_('/boards/' + BOARD_ID + '/lists', { fields: 'name' });
   var porNome = {}; listas.forEach(function (l) { porNome[l.name] = l.id; });
@@ -1856,7 +1860,7 @@ function rotinaDiariaNucleo_() {
   console.log('parado: ' + nParado + ' | conferir faturamento: ' + nConf + ' | etiquetas removidas: ' + nLimpa + ' | prazos definidos: ' + nPrazo + ' | movidos de encerrado: ' + nMov);
 }
 
-// Código.gs:377
+// Código.gs:378
 function atualizarPrazos_(idLista) {
   if (!idLista) return 0;
   var cards = api_('/lists/' + idLista + '/cards', { fields: 'name,desc,due', checklists: 'all', checkItem_fields: 'state,due' });
@@ -1905,7 +1909,7 @@ function atualizarPrazos_(idLista) {
   return n;
 }
 
-// Código.gs:437
+// Código.gs:438
 function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
   if (!idEnc || !idEntregues || !idFaltaChegar) return 0;
   var cards = api_('/lists/' + idEnc + '/cards', { fields: 'name', checklists: 'all', checkItem_fields: 'state' });
@@ -1949,7 +1953,7 @@ function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
   return n;
 }
 
-// Código.gs:485
+// Código.gs:486
 function comAlarme_(nome, fn) {
   var p = props_();
   var chave = 'FALHAS_' + nome;
@@ -1980,13 +1984,13 @@ function comAlarme_(nome, fn) {
   } finally { qt_parte_(''); try { qt_registrar_(nome); } catch (x) {} }
 }
 
-// Código.gs:515
+// Código.gs:516
 function verificarAlteracoesDescricao() {
   if (vd_roboNoServidor_()) return;
   comAlarme_('log de descrição', verificarAlteracoesDescricaoNucleo_);
 }
 
-// Código.gs:520
+// Código.gs:521
 function rotinaDiaria() {
   if (vd_roboNoServidor_()) return;
   comAlarme_('rotina diária', rotinaDiariaNucleo_);
@@ -12160,12 +12164,29 @@ function vd_roboNoServidor_() {
   try { return ScriptApp.getScriptId() !== 'servidor-compra-peca' && vd_prop_('VD_ROBO_SERVIDOR', 'NAO') === 'SIM'; } catch (e) { return false; }
 }
 
-// Validacao.gs:2158
+// Validacao.gs:2165
+function vd_travaAcionador_(esperaMs) {
+  var lock = LockService.getScriptLock(), cache = CacheService.getScriptCache(), ok = false, meu = Date.now() + ':' + Utilities.getUuid();
+  try { ok = lock.tryLock(esperaMs || 2000); } catch (e) {}
+  if (!ok) {
+    var v = ''; try { v = cache.get(VD_TRAVA_K) || ''; } catch (e) {}
+    var desde = parseInt(v, 10) || 0;
+    if (!desde || Date.now() - desde < VD_TRAVA_PRESA_MS) return null;   // alguém trabalhando (ou gravação curta do formulário): pula a vez
+    console.log('trava do acionador presa há ' + Math.round((Date.now() - desde) / 60000) + ' min: seguindo sem ela');
+  }
+  try { cache.put(VD_TRAVA_K, meu, 1800); } catch (e) {}
+  return function () {
+    try { if ((cache.get(VD_TRAVA_K) || '') === meu) cache.remove(VD_TRAVA_K); } catch (e) {}
+    if (ok) { try { lock.releaseLock(); } catch (e) {} }
+  };
+}
+
+// Validacao.gs:2181
 function validarDadosPedido() {
   if (vd_roboNoServidor_()) { try { sd_vigiaServidor_(); } catch (e) {} return; }   // Google de reserva: só vigia o servidor (Saude.gs)
   if (qt_pausada_()) { console.log('ciclo pulado: ' + qt_resumoPausa_()); return; }   // cota estourada: não gasta chamada nem tempo
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) return;
+  var soltar = vd_travaAcionador_(5000);
+  if (!soltar) return;
   try {
     try { qt_retomarSePreciso_(); } catch (e) {}   // voltou de uma pausa por cota: não desfaz o que a equipe fez à mão nesse período
     // migração única: acionadores de 1 em 1 minuto (log de descrição + validação)
@@ -12213,10 +12234,10 @@ function validarDadosPedido() {
     };
     if (typeof comAlarme_ === 'function') return comAlarme_('validarDadosPedido', rodar);
     return rodar();
-  } finally { lock.releaseLock(); try { qt_registrar_('ciclo'); } catch (e) {} }
+  } finally { soltar(); try { qt_registrar_('ciclo'); } catch (e) {} }
 }
 
-// Validacao.gs:2253
+// Validacao.gs:2276
 function vd_instalarAcionador() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'validarDadosPedido') ScriptApp.deleteTrigger(t);
@@ -12224,7 +12245,7 @@ function vd_instalarAcionador() {
   ScriptApp.newTrigger('validarDadosPedido').timeBased().everyMinutes(1).create();
 }
 
-// Validacao.gs:2286
+// Validacao.gs:2309
 function pz_entradaColuna_(c, props) {
   var k = 'PZ_COL_' + c.id, g = String(props.getProperty(k) || '').split('|');
   if (g[0] === c.idList && g[1]) return g[1];
@@ -12241,7 +12262,7 @@ function pz_entradaColuna_(c, props) {
   return quando;
 }
 
-// Validacao.gs:2302
+// Validacao.gs:2325
 function pz_labelId_(board, nome, cor) {
   var cache = CacheService.getScriptCache();
   var k = 'pz_lbl_' + board + '_' + nome;
@@ -12254,22 +12275,22 @@ function pz_labelId_(board, nome, cor) {
   return l.id;
 }
 
-// Validacao.gs:2314
+// Validacao.gs:2337
 function pz_hoje_() {
   var d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-// Validacao.gs:2318
+// Validacao.gs:2341
 function pz_diaLocal_(iso) {
   var d = new Date(iso);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-// Validacao.gs:2322
+// Validacao.gs:2345
 function pz_fmt_(iso) { return Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM'); }
 
-// Validacao.gs:2331
+// Validacao.gs:2354
 function pz_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
   var board = vd_board_();
@@ -12375,7 +12396,7 @@ function pz_executar_() {
   return n;
 }
 
-// Validacao.gs:2453
+// Validacao.gs:2476
 function rel_unidade_(card) {
   // 19/10/2026: card aberto pela Rotina tem o campo Unidade mas não a etiqueta — valia "SEM UNIDADE"
   try {
@@ -12388,16 +12409,16 @@ function rel_unidade_(card) {
   return 'SEM UNIDADE';
 }
 
-// Validacao.gs:2464
+// Validacao.gs:2487
 function rel_dias_(ms) { return Math.floor((Date.now() - ms) / 864e5); }
 
-// Validacao.gs:2465
+// Validacao.gs:2488
 function rel_criacaoId_(id) { return 1000 * parseInt(String(id).substring(0, 8), 16); }
 
-// Validacao.gs:2466
+// Validacao.gs:2489
 function rel_esc_(s) { return String(s || '').replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
 
-// Validacao.gs:2469
+// Validacao.gs:2492
 function rel_coletar_() {
   var board = vd_prop_('REL_BOARD', vd_board_());
   var listas = vd_listas_(board);
@@ -12437,7 +12458,7 @@ function rel_coletar_() {
   return por;
 }
 
-// Validacao.gs:2508
+// Validacao.gs:2531
 function rel_html_(por) {
   var secoes = [['foVencido', '⏰ Fornecimento vencido (seguradora) — verificar prazo'], ['pagas', '💳 PAGAS há mais de ' + REL.DIAS_PAGAS + ' dias sem chegar / sem nota'],
     ['faltaDados', '⚠️ FALTA DADOS PARA COTAR parado há ' + REL.DIAS_FALTA_DADOS + '+ dia(s)'], ['entregues', '🧾 ENTREGUES há mais de ' + REL.DIAS_ENTREGUES + ' dias sem faturar']];
@@ -12459,7 +12480,7 @@ function rel_html_(por) {
   return h || '<p>Nenhuma exceção hoje. 🎉</p>';
 }
 
-// Validacao.gs:2529
+// Validacao.gs:2552
 function rel_enviar_() {
   var por = rel_coletar_();
   var total = 0;
@@ -12478,20 +12499,20 @@ function rel_enviar_() {
   return total;
 }
 
-// Validacao.gs:2548
+// Validacao.gs:2571
 function relatorioDiario() {
   if (vd_roboNoServidor_()) return;
   if (typeof comAlarme_ === 'function') return comAlarme_('relatório diário', rel_enviar_);
   return rel_enviar_();
 }
 
-// Validacao.gs:2554
+// Validacao.gs:2577
 function rel_instalar() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'relatorioDiario') ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('relatorioDiario').timeBased().everyDays(1).atHour(7).nearMinute(15).create();
 }
 
-// Validacao.gs:2560
+// Validacao.gs:2583
 function rel_instalarSeFaltar_() {
   var pp = PropertiesService.getScriptProperties();
   if (pp.getProperty('REL_INSTALADO') === 'SIM') return;
@@ -12500,16 +12521,16 @@ function rel_instalarSeFaltar_() {
   rel_enviar_();
 }
 
-// Validacao.gs:2583
+// Validacao.gs:2606
 function vd_vitrineLigada_() { return vd_prop_('VD_VITRINE', 'SIM') !== 'NAO'; }
 
-// Validacao.gs:2587
+// Validacao.gs:2610
 function vd_ehVitrineSemCompleta_(desc) {
   var d = String(desc || '');
   return /(^|\n)\d+\.\s+\*\*[^*\n]+\*\*/.test(d) && !/(^|\n)\s*\**\s*PE[ÇC]AS\s*\**\s*:/i.test(d);
 }
 
-// Validacao.gs:2592
+// Validacao.gs:2615
 function vd_completa_(cardId, vitrine) {
   if (!cardId) return '';
   if (VD_CMP_MEM && Object.prototype.hasOwnProperty.call(VD_CMP_MEM, cardId)) return VD_CMP_MEM[cardId];
@@ -12539,7 +12560,7 @@ function vd_completa_(cardId, vitrine) {
   return txt;
 }
 
-// Validacao.gs:2622
+// Validacao.gs:2645
 function vd_completasTodas_() {
   if (VD_CMP_MEM) return VD_CMP_MEM;
   VD_CMP_MEM = {};
@@ -12553,7 +12574,7 @@ function vd_completasTodas_() {
   return VD_CMP_MEM;
 }
 
-// Validacao.gs:2636
+// Validacao.gs:2659
 function vd_trocarPelaCompleta_(r) {
   if (!r) return r;
   if (Array.isArray(r)) {
@@ -12566,13 +12587,13 @@ function vd_trocarPelaCompleta_(r) {
   return r;
 }
 
-// Validacao.gs:2648
+// Validacao.gs:2671
 function vd_tit_(s) { s = String(s || '').toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
 
-// Validacao.gs:2649
+// Validacao.gs:2672
 function vd_md_(s) { return String(s || '').replace(/([\\`*_\[\]#>|~])/g, '\\$1'); }
 
-// Validacao.gs:2655
+// Validacao.gs:2678
 function vd_vitrine_(desc, nome, pagas) {
   if (!vd_vitrineLigada_()) return null;
   if (/^\s*AVISO\b/i.test(nome || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '')) return null;
@@ -12708,7 +12729,7 @@ function vd_vitrine_(desc, nome, pagas) {
   return txt;
 }
 
-// Validacao.gs:2791
+// Validacao.gs:2814
 function vd_textoLegado_(desc) {
   var resto = vd_dividir_(desc).resto;
   if (!resto) return '';
@@ -12724,7 +12745,7 @@ function vd_textoLegado_(desc) {
   return out.join('\n').trim();
 }
 
-// Validacao.gs:2809
+// Validacao.gs:2832
 function vd_obsVitrine_() {
   var props = PropertiesService.getScriptProperties(), st = props.getProperty('VD_OBSVIT') || '2';
   if (st === 'FEITO' || !vd_ligado_() || vd_modo_() !== 'ATIVO' || !vd_vitrineLigada_()) return 0;

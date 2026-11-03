@@ -2155,11 +2155,34 @@ function vd_roboNoServidor_() {
   try { return ScriptApp.getScriptId() !== 'servidor-compra-peca' && vd_prop_('VD_ROBO_SERVIDOR', 'NAO') === 'SIM'; } catch (e) { return false; }
 }
 
+/* 03/11/2026 (Weslley, e-mail do Google de 28/10 "limite de execuções simultâneas"): quase todo dia uma execução do acionador
+ * fica presa 32 min e morre com "server error" do próprio Google; presa, ela segurava a trava do script e as execuções
+ * seguintes esperavam até 30 s cada e pulavam a vez — meia hora sem log de descrição e sem vigia, e a fila de simultâneas
+ * crescendo. Agora a trava tem validade: quem a toma anota a hora no cache; se a trava está ocupada há mais de
+ * VD_TRAVA_PRESA_MS, a execução presa é dada por abandonada e a nova segue (ela não faz mais nada mesmo). Espera curta (2 s).
+ * Devolve a função de soltar, ou null quando outra execução está trabalhando de verdade. */
+var VD_TRAVA_PRESA_MS = 5 * 60000, VD_TRAVA_K = 'vd_trava_acionador';
+function vd_travaAcionador_(esperaMs) {
+  var lock = LockService.getScriptLock(), cache = CacheService.getScriptCache(), ok = false, meu = Date.now() + ':' + Utilities.getUuid();
+  try { ok = lock.tryLock(esperaMs || 2000); } catch (e) {}
+  if (!ok) {
+    var v = ''; try { v = cache.get(VD_TRAVA_K) || ''; } catch (e) {}
+    var desde = parseInt(v, 10) || 0;
+    if (!desde || Date.now() - desde < VD_TRAVA_PRESA_MS) return null;   // alguém trabalhando (ou gravação curta do formulário): pula a vez
+    console.log('trava do acionador presa há ' + Math.round((Date.now() - desde) / 60000) + ' min: seguindo sem ela');
+  }
+  try { cache.put(VD_TRAVA_K, meu, 1800); } catch (e) {}
+  return function () {
+    try { if ((cache.get(VD_TRAVA_K) || '') === meu) cache.remove(VD_TRAVA_K); } catch (e) {}
+    if (ok) { try { lock.releaseLock(); } catch (e) {} }
+  };
+}
+
 function validarDadosPedido() {
   if (vd_roboNoServidor_()) { try { sd_vigiaServidor_(); } catch (e) {} return; }   // Google de reserva: só vigia o servidor (Saude.gs)
   if (qt_pausada_()) { console.log('ciclo pulado: ' + qt_resumoPausa_()); return; }   // cota estourada: não gasta chamada nem tempo
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(5000)) return;
+  var soltar = vd_travaAcionador_(5000);
+  if (!soltar) return;
   try {
     try { qt_retomarSePreciso_(); } catch (e) {}   // voltou de uma pausa por cota: não desfaz o que a equipe fez à mão nesse período
     // migração única: acionadores de 1 em 1 minuto (log de descrição + validação)
@@ -2207,7 +2230,7 @@ function validarDadosPedido() {
     };
     if (typeof comAlarme_ === 'function') return comAlarme_('validarDadosPedido', rodar);
     return rodar();
-  } finally { lock.releaseLock(); try { qt_registrar_('ciclo'); } catch (e) {} }
+  } finally { soltar(); try { qt_registrar_('ciclo'); } catch (e) {} }
 }
 
 /** Roda uma vez agora e mostra o resultado no registro (para testes). */

@@ -712,7 +712,7 @@ function chamarGoogle(fn, args) {
   corpo = JSON.stringify(corpo);
 
   return new Promise(function (resolver, rejeitar) {
-    var fim = false, disparadas = 0, falhas = 0, ctls = [], relogios = [], ultimoErro = null;
+    var fim = false, disparadas = 0, falhas = 0, ctls = [], relogios = [], ultimoErro = null, congest = false;
     function encerrar() {
       fim = true; avisoLento('');
       relogios.forEach(clearTimeout);
@@ -743,19 +743,34 @@ function chamarGoogle(fn, args) {
       fetch(URL_CHAMADA, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: corpo, signal: ctl ? ctl.signal : undefined })
         .then(function (r) {
           if (r.status >= 500) throw new Error('500');
+          if (r.status === 429) { var e429 = new Error('429'); e429.congestionado = true; throw e429; }
           return r.text();
         })
         .then(function (t) {
           if (fim) return;
-          var j; try { j = JSON.parse(t); } catch (e) { throw new Error('resposta inválida'); }
+          var j; try { j = JSON.parse(t); } catch (e) {
+            /* 03/11/2026: o Google recusou por excesso de execuções simultâneas (página de erro, não JSON): não disparar em
+             * paralelo — esperar 15 s e repetir uma vez só; mais chamadas só engrossam a fila (e-mail do Google de 28/10) */
+            if (/simult|too many|muitas (vezes|execu)|limite de execu|excedeu|exceeded/i.test(t)) { var ec = new Error('congestionado'); ec.congestionado = true; throw ec; }
+            throw new Error('resposta inválida');
+          }
           if (j.ok) { encerrar(); anotarTempo(fn, 'google', Date.now() - tIni, true); resolver(j.r); return; }
           anotarTempo(fn, 'google', Date.now() - tIni, false);
           erroFinal(j.erro || 'Erro no servidor');
         })
-        .catch(function (e) { if (!fim) falhaDeRede(e); });
-      /* sem resposta a tempo: paralelo dispara outra e deixa esta correr; sequencial aborta e repete */
+        .catch(function (e) {
+          if (fim) return;
+          if (e && e.congestionado) {
+            congest = true; ultimoErro = e;
+            if (disparadas < maxTent) { avisoLento('O servidor do Google está com fila agora. Esperando 15 s para tentar de novo…'); relogios.push(setTimeout(disparar, 15000)); return; }
+            erroFinal('O servidor do Google está com fila de execuções agora. Espere um minuto e tente de novo' + (leitura ? '.' : ' — confira o card antes: o pedido pode não ter sido gravado.'));
+            return;
+          }
+          falhaDeRede(e);
+        });
+      /* sem resposta a tempo: paralelo dispara outra e deixa esta correr; sequencial aborta e repete (com fila no Google, não) */
       relogios.push(setTimeout(function () {
-        if (fim) return;
+        if (fim || congest) return;
         if (paralelo) disparar();
         else { try { ctl && ctl.abort(); } catch (e) {} }
       }, espera));

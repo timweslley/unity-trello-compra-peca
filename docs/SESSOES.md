@@ -449,3 +449,8 @@ da outra, deixar um recado aqui e no commit.
   um erro discreto. Limite do servidor → 22 MB; 413 cai no Google; camada 2.0: foto colada sem capa vira capa. (2) Leitor: pneu
   "175/65/R14" com código 1756514IMP virava peça "IMP PNEU" — medida com `/R` aceita, IMP = importado; leitores 8/10.
   Obs. por peça: conferido na tela e no card (📝 nas peças 2, 3 e 6) — funciona; ele confirmou ("blza").
+- **03/11/2026 (noite) — e-mail do Google de 28/10 (limite de execuções simultâneas).** Painel de execuções: 28/10 12h13–16h35
+  dezenas de recusas em 0 s (acionador e doPost) na tarde do BEQ3B77; 29/10 seis isoladas; depois nenhuma. Mas quase todo dia
+  uma execução do acionador fica presa 32 min e morre com "server error" do Google, segurando a trava do script. Weslley:
+  "fazer 1 e 2" → trava do acionador com validade de 5 min (`vd_travaAcionador_`) e, no formulário, fila do Google (429 /
+  página de erro) = espera 15 s e repete uma vez, sem paralelo. Item 3 (tirar log de descrição e vigia do Apps Script) fica.

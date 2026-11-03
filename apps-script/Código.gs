@@ -82,8 +82,9 @@ function logDescRecuperar() {
 
 /** Função principal - é esta que o acionador chama. */
 function verificarAlteracoesDescricaoNucleo_() {
-  var lock = LockService.getScriptLock();
-  if (!lock.tryLock(30000)) return;
+  // 03/11/2026: trava com validade (vd_travaAcionador_, Validacao.gs) — execução presa pelo Google não segura as seguintes
+  var soltar = vd_travaAcionador_(2000);
+  if (!soltar) return;
 
   try {
     var p = props_();
@@ -174,7 +175,7 @@ function verificarAlteracoesDescricaoNucleo_() {
     if (ignoradas) console.log('log: ' + ignoradas + ' gravação(ões) do formulário/robô ignorada(s)');
     p.setProperty('ULTIMA_VERIFICACAO', agora);
   } finally {
-    lock.releaseLock();
+    soltar();
   }
 }
 
