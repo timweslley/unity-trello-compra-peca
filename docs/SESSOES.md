@@ -430,3 +430,13 @@ da outra, deixar um recado aqui e no commit.
 - **30/10/2026 — UCN8F48 (Jeziel não conseguia editar o pedido).** Pedido PARTICULAR: a trava de "quem paga" por peça (fora
   da diretoria) acusava todas as peças, porque a análise marca todas como particular e o formulário manda particular=false.
   Exceção para pedido PARTICULAR na trava (a do comentário já existia desde 21/10).
+- **03/11/2026 — ATP5105 e SWQ0F73 (ajustes à mão), regra "passou para a seguradora".** ATP5105: o PARABARRO DIANT ESQ
+  estava no card do sinistro errado — tirado de um card e lançado no outro pelo formulário (ações aparecem no usuário do
+  Weslley; Databox/Porto ficam para a equipe conferir). SWQ0F73 (SURA): o orçamento 279446 mudou de versão (279446.1) e três
+  peças da oficina passaram a fornecidas; o robô achava que "já tinha" (código na lista PEÇAS / 🚫) e a moldura da porta
+  ficou em cotação esperando autorização. Card arrumado à mão (checklist FORNECIMENTO com os 3 itens, comentário; Status do
+  Pedido fica para a equipe preencher os fornecedores). Weslley: "pode aplicar" → regra no robô (`cp_comparar_.paraFo`):
+  peça da oficina/🚫 que um orçamento ANTERIOR trazia como da oficina e o novo traz como FO vira item FO; não comprada sai da
+  lista PEÇAS (`cp_removerDoBloco_`); comprada fica para a regra de 28/10 (devolução). `cp_foNaOficina_` não tira mais item
+  FO que o orçamento mais novo do card traz como fornecido. Comentário "🔁 Passou para a seguradora … verificar prazo do
+  item". Limite anotado: pelo formulário o item FO entra, mas a peça fica na lista (o consultor tira).

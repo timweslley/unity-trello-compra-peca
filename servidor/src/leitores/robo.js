@@ -110,13 +110,13 @@ var FO_SEMENTE = [
   ["ZACARIAS TOLEDO", "ZACARIAS – TOLEDO", "38", "79.138.608/0008-03", "ZACARIAS VEICULOS"]
 ];
 
-// Complemento.gs:91
+// Complemento.gs:92
 var CP_PAL_FRACA = /^(DE|DO|DA|DOS|DAS|COM|SEM|PARA|MOTOR|MANUAL|AUTOMATICO|AUTOMATICA|COMPLETO|COMPLETA|KIT|JOGO|UNIDADE|PCS|PECA)$/;
 
-// Complemento.gs:93
+// Complemento.gs:94
 var CP_POSICAO = { DIR: 'D', DIREITO: 'D', DIREITA: 'D', LD: 'D', ESQ: 'E', ESQUERDO: 'E', ESQUERDA: 'E', LE: 'E', DIANT: 'F', DIANTEIRO: 'F', DIANTEIRA: 'F', FRENTE: 'F', TRAS: 'T', TRASEIRO: 'T', TRASEIRA: 'T', SUP: 'S', SUPERIOR: 'S', INF: 'I', INFERIOR: 'I' };
 
-// Complemento.gs:94
+// Complemento.gs:95
 var CP_EIXO = { D: 1, E: 1, F: 2, T: 2, S: 3, I: 3 };
 
 // Orcamento.gs:9
@@ -135,16 +135,16 @@ var VD_PALAVRAS_PECA = 'SENSOR|SILENCIOSO|PARACHOQUE|PARABARRO|PARALAMA|PARABRIS
 // Complemento.gs:23
 function cp_norm_(s) { return vd_semAcento_(s).replace(/[^A-Z0-9]/g, ''); }
 
-// Complemento.gs:95
+// Complemento.gs:96
 function cp_palavras_(s) { return vd_semAcento_(s).replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 2; }); }
 
-// Complemento.gs:96
+// Complemento.gs:97
 function cp_posicoes_(pal) { var o = {}; pal.forEach(function (w) { var c = CP_POSICAO[w]; if (c) o[CP_EIXO[c]] = c; }); return o; }
 
-// Complemento.gs:97
+// Complemento.gs:98
 function cp_fortes_(pal) { return pal.filter(function (w) { return w.length >= 3 && !CP_PAL_FRACA.test(w) && !CP_POSICAO[w]; }); }
 
-// Complemento.gs:100
+// Complemento.gs:101
 function cp_similar_(descA, descB) {
   var pa = cp_palavras_(descA), fa = cp_fortes_(pa), xa = cp_posicoes_(pa);
   var pb = cp_palavras_(descB), fb = cp_fortes_(pb), xb = cp_posicoes_(pb);

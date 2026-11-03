@@ -48,7 +48,7 @@ function cp_orcDoCache_(idAnexo) {
  * card precisa de desc (completa), checklists e attachments. excluirAnexo = id do anexo que está sendo comparado.
  */
 function cp_conhecidas_(card, excluirAnexo) {
-  var chaves = {}, textos = [], textosCompra = [];
+  var chaves = {}, textos = [], textosCompra = [], oficinaAntes = {};   // oficinaAntes (03/11): códigos que orçamentos anteriores traziam como da OFICINA
   var an = vd_analisar_(card.desc || '', card.name || '');
   an.pecas.forEach(function (p) { cp_chaves_(p).forEach(function (k) { chaves[k] = 1; }); });   // 🚫 não comprar: ver cp_comparar_
   var foItens = [];
@@ -71,8 +71,9 @@ function cp_conhecidas_(card, excluirAnexo) {
     var o = cp_orcDoCache_(a.id);
     if (!o) return;
     o.oficina.concat(o.fo).forEach(function (p) { cp_chaves_(p).forEach(function (k) { chaves[k] = 1; }); });
+    o.oficina.forEach(function (p) { var k = cp_norm_(p.codigo || p.codigoOrc); if (k.length >= 4) oficinaAntes[k] = 1; });
   });
-  return { chaves: chaves, textos: textos, textosCompra: textosCompra, an: an, foItens: foItens };
+  return { chaves: chaves, textos: textos, textosCompra: textosCompra, an: an, foItens: foItens, oficinaAntes: oficinaAntes };
 }
 
 function cp_jaTem_(conh, p) {
@@ -132,7 +133,10 @@ function cp_comparar_(card, orc, excluirAnexo) {
   // atualizar: peça que o card já tem e o orçamento novo traz diferente — código novo (Weslley, 05/10/2026: "pode haver
   // mudança de código da peça, atualizar também") e/ou valor líquido novo. {chave, codigo, valorOrc, descricao}
   // casadas (22/10/2026, AYT6699): chave de cada peça do card que o orçamento traz — o formulário marca "do orçamento" (verde)
-  var out = { oficina: [], fo: [], jaTinha: 0, pareadas: [], atualizar: [], paraOficina: [], casadas: [] }, vistos = {}, usadas = {};
+  // paraFo (03/11/2026, SWQ0F73): peça que o card tem como da OFICINA (ou 🚫 não comprar) e o orçamento novo traz como FORNECIDA
+  // pela seguradora — vira item FO; se ainda não foi comprada, sai da lista da oficina (cp_aplicar_); se já foi, fica para a
+  // regra de 28/10 (devolução). {peca, chave, orc, comprada, naoComprar}
+  var out = { oficina: [], fo: [], jaTinha: 0, pareadas: [], atualizar: [], paraOficina: [], casadas: [], paraFo: [] }, vistos = {}, usadas = {};
   var pecasCard = conh.an.pecas || [];
   var porCodigo = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.codigo); if (k.length >= 4) porCodigo[k] = i; });
   var porDesc = {}; pecasCard.forEach(function (c, i) { var k = cp_norm_(c.descricao); if (k.length >= 4 && !c.pneu) porDesc[k] = i; });
@@ -185,6 +189,25 @@ function cp_comparar_(card, orc, excluirAnexo) {
       if (!ehFo && !p.pneu) {
         var itFo = cp_foParaOficina_(conh, p, aindaFo);
         if (itFo) { out.paraOficina.push({ item: itFo, peca: p }); destino.push(p); return; }
+      }
+      // 03/11/2026 (Weslley, SWQ0F73: "puxou peças de fornecimento para compra"): o orçamento 279446.1 mudou de versão e três peças
+      // da oficina passaram a FORNECIDAS pela SURA; o robô achava que "já tinha" (código na lista da oficina / 🚫) e não mexia —
+      // a moldura da porta ficou em cotação esperando autorização. Agora: peça da oficina ou 🚫 que o orçamento traz como FO e
+      // que NÃO está no checklist FORNECIMENTO vira item FO (destino) e é anotada em paraFo.
+      // Só quando um orçamento ANTERIOR do card trazia a peça como da oficina (mudou de versão) — peça que a diretoria mandou a
+      // oficina comprar com o orçamento dizendo FO desde sempre (RHM1J09) não volta para o fornecimento por aqui.
+      if (ehFo && !p.pneu && kc.length >= 4 && (conh.oficinaAntes || {})[kc]) {
+        var noFo = (conh.foItens || []).some(function (i) { var n = cp_norm_(i.name); return (kc.length >= 4 && n.indexOf(kc) >= 0) || cp_similar_(p.descricao || p.descricaoOrc || '', String(i.name).replace(/^[A-Z0-9][A-Z0-9.\-\/]{3,}\s+/i, '').split(/\s+[-—]\s+/)[0]) > 0; });
+        if (!noFo) {
+          var achaEm = function (lista) { return (lista || []).filter(function (c) { return !c.pneu && ((kc.length >= 4 && cp_norm_(c.codigo) === kc) || cp_similar_(p.descricao || p.descricaoOrc || '', c.descricao || '') > 0); })[0] || null; };
+          var pcOf = achaEm(conh.an.pecas), pcNao = pcOf ? null : achaEm(conh.an.naoComprar);
+          var pcX = pcOf || pcNao;
+          if (pcX) {
+            var kX = cp_norm_(pcX.codigo), comprada = kX.length >= 4 && (conh.textosCompra || []).some(function (t) { return t.indexOf(kX) >= 0; });
+            out.paraFo.push({ peca: pcX, chave: vd_chavePeca_(pcX), orc: p, comprada: comprada, naoComprar: !!pcNao });
+            destino.push(p); return;
+          }
+        }
       }
       // 27/10/2026 (KPJ9A04): FO cujo código antigo (riscado no orçamento) está no checklist — segue para o checklist, que troca o código e registra
       var kaF = cp_norm_(p.codigoAntigo || '');
@@ -260,6 +283,22 @@ function cp_atualizarNoBloco_(bloco, atualizar) {
     linhas[ix] = vd_linhaPeca_(p, num ? +num - 1 : k);
   });
   return linhas.join('\n');
+}
+
+/** 03/11/2026: tira do bloco PEÇAS as linhas das peças com as chaves dadas (peça que passou para a seguradora). */
+function cp_removerDoBloco_(bloco, chaves) {
+  if (!chaves || !chaves.length) return bloco;
+  var linhas = String(bloco || '').split('\n'), lp = vd_linhasPecas_(bloco), tirar = {};
+  lp.linhas.forEach(function (l, k) {
+    var p = vd_analisarPeca_(l, k + 1, {});
+    if (chaves.indexOf(vd_chavePeca_(p)) >= 0 && lp.idx[k] !== undefined) tirar[lp.idx[k]] = 1;
+  });
+  if (!Object.keys(tirar).length) return bloco;
+  var out = linhas.filter(function (l, i) { return !tirar[i]; }), n = 0;
+  // renumera "1. …", "2. …" das linhas de peça que sobraram
+  var ini = -1; for (var i = 0; i < out.length; i++) if (/^\s*PE[ÇC]AS\s*:?\s*$/i.test(vd_limpar_(out[i]))) { ini = i + 1; break; }
+  if (ini >= 0) for (var j = ini; j < out.length; j++) { var m = out[j].match(/^(\s*)(\d+)(\s*[.)])(.*)$/); if (!m) { if (out[j].trim() === '') { if (n) break; continue; } continue; } n++; out[j] = m[1] + n + m[3] + m[4]; }
+  return out.join('\n');
 }
 
 /** Hoje "dd/MM". */
@@ -349,7 +388,7 @@ function cp_nome_(p) {
 }
 
 /** Texto do comentário do complemento. */
-function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTipos, pareadas, atualizadas, paraOficina) {
+function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTipos, pareadas, atualizadas, paraOficina, paraFo) {
   var semTipo = novas.some(function (p) { return !(p.tipos || []).length; });
   var t = '📄 **ORÇAMENTO COMPLEMENTAR**' + (origem ? ' (' + origem + ')' : '') + (quem ? ' — ' + quem : ' — robô') + (jaTinha ? ' · ' + jaTinha + ' já estavam no card' : '');
   if (novas.length) t += '\n➕ **Oficina:** ' + novas.map(cp_nome_).join('; ') + (semTipo ? ' — _marcar o tipo_' : '');
@@ -362,6 +401,10 @@ function cp_textoComentario_(quem, origem, anexo, novas, foNovas, jaTinha, urlTi
     t += '\n🔁 **Passou para a oficina:** ' + cp_nome_(x.peca) + ' — era fornecida pela seguradora (' + String(x.item.name).split(/\s+[-—]\s+/)[0] + '), saiu do checklist ' + (x.item.lista || 'FORNECIMENTO') + ' · verificar compra do item';
   });
   if ((paraOficina || []).length) t += '\n⚠️ Se a seguradora entregar a peça revertida: **recusar na entrega** (ou devolver) e registrar na aba 📦 Recebimento.';
+  (paraFo || []).forEach(function (x) {
+    t += '\n🔁 **Passou para a seguradora:** ' + cp_nome_(x.peca) + ' — o orçamento novo traz como fornecida (item no FORNECIMENTO)' +
+      (x.comprada ? ' · ⚠️ já comprada pela oficina — devolução a abrir' : x.naoComprar ? ' · estava como 🚫 não comprar' : ' · saiu da lista da oficina') + ' · verificar prazo do item';
+  });
   (atualizadas || []).forEach(function (u) {
     t += '\n🔄 **Atualizada:** ' + (u.codigoAntigo || u.chave) + (u.codigo ? ' → código ' + u.codigo : '') + (u.valorOrc ? ' · orç. ' + u.valorOrc : '');
   });
@@ -625,6 +668,10 @@ function cp_aplicar_(card, cmp, o) {
   var resto = cp_trocarCodigos_(div.resto, cmp.atualizar);   // cotações/autorizações/compras abaixo da linha seguem o código novo
   // código trocado não é peça nova: a base de assinaturas passa a ser a lista atualizada (as peças novas de verdade ficam fora dela)
   if ((cmp.atualizar || []).some(function (u) { return u.codigo; })) { try { vd_pkSet_(card.id, vd_linhasConsultor_(blocoAtu).map(vd_sigItem_)); } catch (e) {} }
+  // 03/11/2026 (SWQ0F73): peça da oficina (ou 🚫) que o orçamento novo traz como fornecida e ainda NÃO foi comprada sai da lista
+  // (o item FO já entrou acima); comprada fica — a regra de 28/10 (cp_foJaComprada_) abre a devolução na reavaliação
+  var saemFo = (cmp.paraFo || []).filter(function (x) { return !x.comprada; });
+  if (saemFo.length) { blocoAtu = cp_removerDoBloco_(blocoAtu, saemFo.map(function (x) { return x.chave; })); try { vd_pkSet_(card.id, vd_linhasConsultor_(blocoAtu).map(vd_sigItem_)); } catch (e) {} }
   var bloco = cp_inserirNoBloco_(blocoAtu, cmp.oficina, nFoTotal);
   vd_backup_(card, 'orçamento complementar (' + (o.origem || '') + ')');
   // peça que passou de FO para oficina: sai do checklist FORNECIMENTO (a linha da oficina já entrou acima)
@@ -635,13 +682,14 @@ function cp_aplicar_(card, cmp, o) {
   vd_gravarDesc_(card.id, bloco + (div.temMarcador ? '\n\n' + resto : '\n\n' + VD.MARCADOR), o.token);
   var quem = ''; try { quem = vd_criador_(card.id); } catch (e) {}
   var url = o.ctx && o.ctx.urlForm ? o.ctx.urlForm + '?card=' + card.shortLink + '&so=tipos' : '';
-  if (!o.semComentario) try { vd_comentar_(card, (quem && cmp.oficina.length ? '@' + quem + ' ' : '') + cp_textoComentario_('', o.origem, o.anexo, cmp.oficina, cmp.fo, cmp.jaTinha, url, cmp.pareadas, cmp.atualizar, cmp.paraOficina)); } catch (e) {}
+  if (!o.semComentario) try { vd_comentar_(card, (quem && cmp.oficina.length ? '@' + quem + ' ' : '') + cp_textoComentario_('', o.origem, o.anexo, cmp.oficina, cmp.fo, cmp.jaTinha, url, cmp.pareadas, cmp.atualizar, cmp.paraOficina, cmp.paraFo)); } catch (e) {}
   try {
     ev_registrar_('COMPLEMENTO', card, o.quem || 'robô', cmp.oficina.map(ev_peca_).concat(cmp.fo.map(function (p) { var e = ev_peca_(p); e.fornecedor = 'SEGURADORA (FO)'; return e; })),
       { detalhe: cmp.oficina.length + ' oficina · ' + cmp.fo.length + ' FO · ' + (o.origem || '') });
   } catch (e) {}
-  // só FO nova num card já encerrado: volta para FALTA CHEGAR (peça da oficina nova o robô devolve para cotação)
-  if (cmp.fo.length && !cmp.oficina.length) { try { rc_reavaliarColuna_(card.id, o.token, o.quem || 'robô'); } catch (e) { console.log('complemento/coluna: ' + e); } }
+  // só FO nova num card já encerrado: volta para FALTA CHEGAR (peça da oficina nova o robô devolve para cotação).
+  // Peça que passou para a seguradora também reavalia (a coluna muda; a comprada abre a devolução em cp_foNaOficina_)
+  if ((cmp.fo.length && !cmp.oficina.length) || (cmp.paraFo || []).length) { try { rc_reavaliarColuna_(card.id, o.token, o.quem || 'robô'); } catch (e) { console.log('complemento/coluna: ' + e); } }
 }
 
 /* ============================ FO QUE TAMBÉM ESTÁ NA OFICINA ============================
@@ -664,6 +712,16 @@ function cp_foNaOficina_(card, token, quem) {
     var kp = cp_norm_(p && p.codigo); if (kp.length < 4) return null;
     return pagas.filter(function (i) { return cp_norm_(rc_semMarcas_(i.name).split(/\s+-\s+/)[0]).indexOf(kp) >= 0; })[0] || null;
   };
+  // 03/11/2026 (SWQ0F73): item FO que o orçamento MAIS NOVO do card (cache de leitura) ainda traz como fornecido não sai — a
+  // seguradora é quem fornece, mesmo que a peça esteja na lista da oficina (foi para lá na versão anterior do orçamento)
+  var foOrc = [];
+  try {
+    var anx = (card.attachments || vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,date,mimeType' } }) || [])
+      .filter(function (a) { return /^📄 OR[ÇC]\+? · /.test(String(a.name || '')); })
+      .sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
+    var oU = anx.length ? cp_orcDoCache_(anx[0].id) : null;
+    if (oU) (oU.fo || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4) foOrc.push(k); });
+  } catch (e) { console.log('FO na oficina/orçamento: ' + e); }
   var removidos = [], conflitos = [];
   (card.checklists || []).forEach(function (k) {
     if (!/^FORNECIMENTO/i.test(String(k.name || '').trim())) return;
@@ -672,6 +730,13 @@ function cp_foNaOficina_(card, token, quem) {
       var base = String(i.name).split(/\s+[-—]\s+/)[0];
       var m = vd_semAcento_(base).match(/^([A-Z0-9][A-Z0-9.\-\/]{3,})\s+(.*)$/);
       var kc = m ? cp_norm_(m[1]) : '', descFo = m ? m[2] : base;
+      if (kc.length >= 4 && foOrc.indexOf(kc) >= 0) {
+        // o orçamento mais novo diz que a seguradora fornece: fica; se a oficina já comprou, é o conflito de 28/10
+        var pmFo = codigos[kc] || complementos.filter(function (p) { return cp_similar_(p.descricao || '', descFo) > 0; })[0];
+        var pagoFo = pmFo ? pagoDe(pmFo) : null;
+        if (pagoFo) conflitos.push({ item: i, peca: pmFo, pago: pagoFo });
+        return;
+      }
       // mesmo código na lista da oficina — ou, sem o código bater, peça ➕ complemento da oficina com a mesma descrição
       // (07/10/2026, QPG1B84: orçamento complementar trocou a CALOTA de FO para oficina com código novo)
       var pm = (kc && codigos[kc]) || complementos.filter(function (p) { return cp_similar_(p.descricao || '', descFo) > 0; })[0];
