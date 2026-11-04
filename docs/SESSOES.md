@@ -459,3 +459,6 @@ da outra, deixar um recado aqui e no commit.
   "Nº Ordem" (só a tela do formulário). Weslley: "a O.S. é um dado obrigatório, deveria segurar o card" → `vd_faltaOrdem_`
   em EM COTAÇÃO/FALTA DADOS; card da rotina sem nº nasce em FALTA DADOS; aviso sem @ (`VD_ROTINA_`). A 2ª proposta (soma-base.mjs
   gravou UCL3A77 como Azul; é Porto — pista "ChatAzul" no texto) fica com a rotina.
+- **04/11/2026 — Fusca 1980 (ICT9375, particular): chassi curto.** Sidi não conseguia salvar o pedido: o formulário e o robô exigiam
+  chassi de 17 ("chassi inválido"), e o zero à esquerda não passava (tem letra O). Regra nova: ano de fabricação até 1980 aceita o
+  chassi curto como está (robô/servidor e camada 2.0 do formulário); ano válido 1950+. O card fica para o Sidi gravar o chassi real.

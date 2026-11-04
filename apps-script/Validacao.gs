@@ -317,13 +317,18 @@ function vd_placaDoTexto_(s) {
 function vd_normChassi_(c) {
   return String(c || '').toUpperCase().replace(/[\s.\-]/g, '');
 }
-function vd_chassiValido_(c) {
+/** 04/11/2026 (Weslley; Fusca 1980 ICT9375, Sidi: "chassi do Fusca são 6 dígitos, no Trello tem que ser 17"): carro de até
+ *  1980 não tem chassi de 17 (o padrão VIN é de 1981) — aceita o chassi curto como está (5 a 17 letras/números, pode ter
+ *  I/O/Q), sem zeros à esquerda. Com `ano` em branco ou de 1981 em diante, vale a regra dos 17. */
+function vd_anoAntigo_(ano) { var m = String(ano || '').match(/\b(19[5-7]\d|1980)\b/); return !!m && !/\b(198[1-9]|199\d|20[0-4]\d)\b/.test(String(ano || '')); }
+function vd_chassiValido_(c, ano) {
   c = vd_normChassi_(c);
+  if (ano && vd_anoAntigo_(ano)) return /^[A-Z0-9]{5,17}$/.test(c) && /\d/.test(c);
   return /^[A-HJ-NPR-Z0-9]{17}$/.test(c) && /[A-Z]/.test(c) && /\d{4}$/.test(c);
 }
 
 function vd_anoValido_(a) {
-  var anos = String(a || '').match(/(19[89]\d|20[0-4]\d)/g);
+  var anos = String(a || '').match(/(19[5-9]\d|20[0-4]\d)/g);   // 04/11/2026: carro antigo (1950+) também é ano válido
   return !!anos;
 }
 
@@ -477,7 +482,7 @@ function vd_analisar_(desc, nomeCard, opts) {
       if (!d.chassi) faltas.push('chassi');
     }
     if (d.ano && !vd_anoValido_(d.ano)) faltas.push('ano inválido (' + d.ano + ')');
-    if (d.chassi && !vd_chassiValido_(d.chassi)) faltas.push('chassi inválido (' + d.chassi + ' — precisa ter 17 caracteres)');
+    if (d.chassi && !vd_chassiValido_(d.chassi, d.ano)) faltas.push('chassi inválido (' + d.chassi + ' — precisa ter 17 caracteres' + (vd_anoAntigo_(d.ano) ? '; carro de até 1980 pode ter o chassi curto, escrito como está, sem zeros à esquerda' : '; carro de até 1980: informe o ano e o chassi curto como está') + ')');
   }
 
   var lp = vd_linhasPecas_(bloco);

@@ -1193,20 +1193,24 @@ function vd_normChassi_(c) {
   return String(c || '').toUpperCase().replace(/[\s.\-]/g, '');
 }
 
-// Validacao.gs:320
-function vd_chassiValido_(c) {
+// Validacao.gs:323
+function vd_anoAntigo_(ano) { var m = String(ano || '').match(/\b(19[5-7]\d|1980)\b/); return !!m && !/\b(198[1-9]|199\d|20[0-4]\d)\b/.test(String(ano || '')); }
+
+// Validacao.gs:324
+function vd_chassiValido_(c, ano) {
   c = vd_normChassi_(c);
+  if (ano && vd_anoAntigo_(ano)) return /^[A-Z0-9]{5,17}$/.test(c) && /\d/.test(c);
   return /^[A-HJ-NPR-Z0-9]{17}$/.test(c) && /[A-Z]/.test(c) && /\d{4}$/.test(c);
 }
 
-// Validacao.gs:621
+// Validacao.gs:626
 function vd_valorOrcTxt_(v) {
   if (v == null || v === '') return '';
   var n = typeof v === 'number' ? v : vd_valorNum_(v);
   return isNaN(n) || n <= 0 ? '' : vd_valorBR_(n);
 }
 
-// Validacao.gs:731
+// Validacao.gs:736
 function vd_motorDoModelo_(m) {
   var s = String(m || '');
   var d = s.match(/\b\d\.\d\b/);
@@ -1216,7 +1220,7 @@ function vd_motorDoModelo_(m) {
   return [d[0]].concat(tk.filter(function (t, i) { return tk.indexOf(t) === i; })).join(' ');
 }
 
-// Validacao.gs:739
+// Validacao.gs:744
 function vd_extrair_(texto) {
   var T = String(texto || '').replace(/\r/g, '');
   var U = vd_semAcento_(T).replace(/[\s\u00a0]+/g, ' ');
@@ -1278,7 +1282,7 @@ function vd_extrair_(texto) {
   return r;
 }
 
-// Validacao.gs:1033
+// Validacao.gs:1038
 function vd_dicaNorm_(t) {
   var s = vd_semAcento_(t);
   if (/^GENU/.test(s)) return 'GENUÍNO';
@@ -1289,14 +1293,14 @@ function vd_dicaNorm_(t) {
   return '';
 }
 
-// Validacao.gs:1069
+// Validacao.gs:1074
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
     return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc), p.codigoAntigo || ''];   // [4] = valor líquido no orçamento (06/10/2026) · [5] = código antigo riscado (27/10/2026)
   });
 }
 
-// Validacao.gs:1091
+// Validacao.gs:1096
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4
@@ -1305,4 +1309,4 @@ function vd_orcExpandir_(lista) {
   });
 }
 
-export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_PALAVRAS_PECA, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_ehRelatorioPecasCilia_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerRelatorioPecasCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_soFornecedor_, pv_ultimaAtualizacaoCilia_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_segundoCodigoCilia_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };
+export { CP_EIXO, CP_PAL_FRACA, CP_POSICAO, VD_PALAVRAS_PECA, VD_SEGURADORAS, cp_fortes_, cp_norm_, cp_palavras_, cp_posicoes_, cp_similar_, fo_norm_, fo_resolver_, pv_aplicarPareceres_, pv_datas_, pv_diaNum_, pv_ehRelatorioPecasCilia_, pv_enriquecerFo_, pv_fornecedorCurto_, pv_fornecedor_, pv_lerFornecimento_, pv_lerHdiPecas_, pv_lerPareceresCilia_, pv_lerRelatorioPecasCilia_, pv_lerStatusCilia_, pv_mesmoDia_, pv_soFornecedor_, pv_ultimaAtualizacaoCilia_, vd_anoAntigo_, vd_chassiValido_, vd_codigoInterno_, vd_compactarCodigos_, vd_dataBR_, vd_dataCurta_, vd_dicaNorm_, vd_ehServico_, vd_extrair_, vd_lerOrcamento_, vd_limparDescricao_, vd_liquidoOrc_, vd_mesmaPlaca_, vd_motorDoModelo_, vd_normChassi_, vd_normPlaca_, vd_normTexto_, vd_numOrc_, vd_orcCompacto_, vd_orcExpandir_, vd_placaDoTexto_, vd_placaMercosul_, vd_pneuDaDescricao_, vd_secao_, vd_segundoCodigoCilia_, vd_semAcento_, vd_tipoOrcamento_, vd_tirarRepeticao_, vd_valorBR_, vd_valorNum_, vd_valorOrcTxt_, vd_websomaDetalhado_ };

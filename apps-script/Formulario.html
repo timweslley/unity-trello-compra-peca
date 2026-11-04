@@ -10089,5 +10089,49 @@ document.addEventListener('input', function (e) {
   }, true);
 })();
 </script>
+<script>
+/* 04/11/2026 (Weslley; Fusca 1980 ICT9375 — Sidi: "chassi do Fusca são 6 dígitos, no Trello tem que ser 17, já tentei adicionar
+ * 00000 mas ele não aceita") — camada 2.0, computador e celular, pedido: carro de ATÉ 1980 (ano de fabricação) não tem chassi de
+ * 17 (o padrão VIN é de 1981). Com o ano preenchido até 1980, o chassi curto (5 a 17 letras/números, como está no documento,
+ * sem zeros à esquerda) é aceito: a dica do campo diz isso e o "falta chassi (17 caracteres)" sai da lista de faltas. A regra do
+ * servidor/robô é a mesma (vd_chassiValido_ com o ano). Tela clássica (?v2=0) continua exigindo 17. */
+(function () {
+  if (/[?&]v2=0(&|$)/.test(location.search)) return;
+  var g = function (id) { return document.getElementById(id); };
+  function anoAntigo() {
+    var a = String((g('ano') || {}).value || '');
+    return /\b(19[5-7]\d|1980)\b/.test(a) && !/\b(198[1-9]|199\d|20[0-4]\d)\b/.test(a);
+  }
+  function chassiCurtoOk() {
+    var c = String((g('chassi') || {}).value || '').toUpperCase().replace(/[\s.\-]/g, '');
+    return anoAntigo() && /^[A-Z0-9]{5,17}$/.test(c) && /\d/.test(c);
+  }
+  var confOrig = window.conferirChassi;
+  if (typeof confOrig === 'function') window.conferirChassi = function () {
+    var r = confOrig.apply(this, arguments);
+    try {
+      var c = String(g('chassi').value || '').toUpperCase().replace(/[\s.\-]/g, ''), dica = g('dicaChassi');
+      if (dica && c && c.length !== 17 && chassiCurtoOk()) { dica.textContent = '✓ carro de até 1980: chassi curto aceito (escreva como está no documento, sem zeros à esquerda).'; dica.className = 'dica boa'; }
+      else if (dica && c && c.length !== 17 && /^[A-Z0-9]{5,16}$/.test(c) && !anoAntigo()) { dica.textContent = c.length + ' de 17 caracteres. Carro de até 1980? Preencha o ano de fabricação que o chassi curto é aceito.'; dica.className = 'dica ruim'; }
+    } catch (e) {}
+    return r;
+  };
+  var anoEl = g('ano'); if (anoEl) anoEl.addEventListener('input', function () { try { if (typeof window.conferirChassi === 'function') window.conferirChassi(); } catch (e) {} });
+  var coletarOrig2 = window.coletar;
+  if (typeof coletarOrig2 === 'function') window.coletar = function () {
+    var r = coletarOrig2.apply(this, arguments);
+    try {
+      if (r && r.faltas && chassiCurtoOk()) {
+        r.faltas = r.faltas.map(function (f) {
+          if (!/^Dados do carro: falta /.test(f)) return f;
+          var itens = f.replace(/^Dados do carro: falta /, '').split(', ').filter(function (x) { return !/^chassi \(17 caracteres\)/.test(x); });
+          return itens.length ? 'Dados do carro: falta ' + itens.join(', ') : '';
+        }).filter(String);
+      }
+    } catch (e) { console.log('chassi curto: ' + e); }
+    return r;
+  };
+})();
+</script>
 </body>
 </html>
