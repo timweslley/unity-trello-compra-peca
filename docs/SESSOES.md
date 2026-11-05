@@ -467,3 +467,7 @@ da outra, deixar um recado aqui e no commit.
   pré-marcado e o parcial gravava tudo marcado. Weslley: "pode fazer as mudanças" → camada 2.0: parcial só registra o que o
   comprador escolheu; balão de confirmação antes de gravar (parcial e Enviar). O card fica para o comprador desfazer pelo
   "Cancelar compra" (ou eu, se o Weslley pedir).
+- **05/11/2026 — DPJ2D42: parachoque não importado.** O orçamento Cilia 271 trazia PARACHOQUE DIANTEIRO e FAROL DIREITO com
+  fornecimento "Cliente" (sem preço) e o leitor pulava. Weslley: "importar sempre" → entram como 🚫 não comprar "cliente
+  fornece (orçamento)", nos dois layouts; leitores 9/11. O card (já em AUTORIZADO COMPRA) fica para a equipe incluir as duas
+  peças pelo ✏️ se precisar.

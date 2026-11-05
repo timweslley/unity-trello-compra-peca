@@ -82,7 +82,14 @@ describe('orçamentos', () => {
       'T R&I 0,00 2.00 PNEU 175/65/R14 Cód: 1756514IMP Oficina R$ 300,00 - R$ 600,00 ' +
       'R&I 0,50 1.00 PARABARRO DIANT DIR Cód: E3B516114AB - - - - Total Peças: R$ 2.849,97';
     const l = R.vd_lerOrcamento_(t);
-    expect(l.oficina.map((p: any) => (p.pneu ? ['PNEU', p.medida, p.categoria, p.qtd] : [p.codigo, p.descricao]))).toEqual([['H3BC1015BA', 'ARO DE RODA DE ACO'], ['PNEU', '175/65R14', 'IMPORTADO', '2']]);
+    // 05/11/2026 (Weslley: "importar sempre"): fornecimento CLIENTE entra como 🚫 não comprar "cliente fornece"
+    expect(l.oficina.map((p: any) => (p.pneu ? ['PNEU', p.medida, p.categoria, p.qtd] : [p.codigo, p.descricao, !!p.naoComprar]))).toEqual([['H3BC1015BA', 'ARO DE RODA DE ACO', false], ['J7BZ13008S', 'FAROL DIREITO', true], ['PNEU', '175/65R14', 'IMPORTADO', '2']]);
+    expect(l.oficina[1].naoMotivo).toBe('cliente fornece (orçamento)');
+  });
+  it('Cilia padrão: linha "CLIENTE - - -" entra como 🚫 cliente fornece e não desalinha os preços seguintes', () => {
+    const t = 'OPERAÇÕES QTD. CÓDIGO TIPO TÍTULO FORNECIMENTO PREÇO DESCONTO PREÇO LÍQUIDO T 0,50 1 BH9A17757FA PARACHOQUE DIANTEIRO CLIENTE - - - T 1,00 1 J7BZ16005D GENUINA PARALAMA DIANT DIR OFICINA R$ 927,90 - R$ 927,90 R I 0,50 1 BANCO DIANTEIRO DIR Oficina - - -';
+    const l = R.vd_lerOrcamento_(t);
+    expect(l.oficina.map((p: any) => [p.codigo, p.descricao, !!p.naoComprar, p.valorOrc ?? null])).toEqual([['BH9A17757FA', 'PARACHOQUE DIANTEIRO', true, null], ['J7BZ16005D', 'PARALAMA DIANT DIR', false, 927.9]]);
   });
 });
 

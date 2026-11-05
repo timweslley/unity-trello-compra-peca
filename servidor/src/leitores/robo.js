@@ -426,7 +426,7 @@ function vd_lerOrcamento_(texto) {
 
   // valor líquido unitário da peça no orçamento (o que a seguradora paga) — 05/10/2026, Weslley: aparece ao lado da peça
   // na cotação/autorização e serve de base para a comparação com a cotação (economia < 20% vermelho, 20–30 amarelo, > 30 verde)
-  var add = function (lista, codigo, desc, qtd, tipo, valor, codigoAntigo) {
+  var add = function (lista, codigo, desc, qtd, tipo, valor, codigoAntigo, extra) {
     codigo = String(codigo || '').replace(/\s+/g, ' ').trim();
     // OCR do Cilia às vezes gruda (ou põe antes) o código na descrição ("100260230EMBLEMA DA GRADE", "1632439 FAROL"):
     // se o código da coluna é interno (0000001) ou vazio, esse número é o código (RHV1E04, 05/10/2026) — antes da limpeza,
@@ -452,8 +452,12 @@ function vd_lerOrcamento_(texto) {
     // o novo vale; o antigo vai junto para o card achar a peça que já tinha e registrar a troca
     if (codigoAntigo && !pneu) { codigoAntigo = String(codigoAntigo).replace(/\s+/g, '').trim(); if (codigoAntigo && codigoAntigo !== codigo && !vd_codigoInterno_(codigoAntigo)) item.codigoAntigo = codigoAntigo; }
     if (valor != null && !isNaN(valor) && valor > 0) item.valorOrc = Math.round(valor * 100) / 100;
+    // 05/11/2026 (Weslley, DPJ2D42: "importar sempre"): peça com fornecimento CLIENTE no Cilia entra na lista da oficina marcada
+    // 🚫 não comprar "cliente fornece" — fica visível no card; o consultor tira o 🚫 pelo ✏️ se a oficina tiver de comprar
+    if (extra && extra.naoComprar) { item.naoComprar = true; item.naoMotivo = extra.naoMotivo || 'cliente fornece (orçamento)'; }
     lista.push(item);
   };
+  var CLIENTE = { naoComprar: true, naoMotivo: 'cliente fornece (orçamento)' };
 
   // ---------- HDI ----------
   // 08/10/2026 (treino, BDG4H83 Sprinter): PDF do Cilia também pode citar "PEÇAS FORNECIDAS PELA OFICINA" no resumo —
@@ -511,9 +515,9 @@ function vd_lerOrcamento_(texto) {
     r.origem = /TOKIO/.test(U) ? 'TOKIO' : (/CILIA/.test(U) ? 'CILIA' : 'ORCAMENTO');
     var reDc = /\bT (?:R&I \d+,\d{2} )?(?:R \d+,\d{2} )?(?:P \d+,\d{2} )?(\d+(?:[.,]\d+)?) (.+?) COD: ?([A-Z0-9][A-Z0-9\-.\/]*)? ?(OFICINA|CLIENTE|SEGURADORA) (?:R\$ ?(\d{1,3}(?:\.\d{3})*,\d{2}) (?:% (\d{1,3},\d{2})|-) R\$ ?(\d{1,3}(?:\.\d{3})*,\d{2})|- - -)/g;
     while ((m = reDc.exec(U))) {
-      if (m[4] === 'CLIENTE') continue;
       var qtdDc = String(m[1]).replace(/[.,]00$/, '');
-      add(m[4] === 'SEGURADORA' ? r.fo : r.oficina, m[3] || '', m[2], qtdDc, '', m[7] ? vd_numOrc_(m[7]) : (m[5] ? vd_numOrc_(m[5]) : NaN));   // preço líquido (último R$)
+      // CLIENTE (o cliente traz a peça): antes ficava de fora; desde 05/11/2026 entra como 🚫 não comprar "cliente fornece"
+      add(m[4] === 'SEGURADORA' ? r.fo : r.oficina, m[3] || '', m[2], qtdDc, '', m[7] ? vd_numOrc_(m[7]) : (m[5] ? vd_numOrc_(m[5]) : NaN), '', m[4] === 'CLIENTE' ? CLIENTE : null);   // preço líquido (último R$)
     }
     return r;
   }
@@ -528,8 +532,8 @@ function vd_lerOrcamento_(texto) {
     // 16/10/2026 (BDL9F71, UBR1C00): pintura "P -" (sem horas) também; código colado na descrição pode passar de 20 letras
     var PROX = '\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? \\d{1,3} [A-Z0-9]{4,30}\\b';
     // 27/10/2026 (KPJ9A04): "1 52141759 52055306 GENUINAPARACHOQUE…" = código antigo riscado + código novo (CÓDIGO DIFERENTE) — o 2º é o que vale
-    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:((?!(?:GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS|VERDE|USADA|RECONDICIONADA)\\b)[A-Z0-9]*\\d[A-Z0-9]*) )?(?:(GENUINA|ORIGINAL)|(PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA) (?:R\\$|-)|' + PROX + '|$)' +
-      '|(OFICINA|SEGURADORA) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(-?\\d{1,3},\\d{2}) ?%| ?-(?= ?R\\$))?(?: ?R\\$ ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2}))?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
+    var reCi = new RegExp('\\bT (?:-|\\d+,\\d{2})(?: P (?:-|\\d+,\\d{2}))? (\\d{1,3}) ([A-Z0-9]{4,30})\\.? (?:((?!(?:GENUINA|ORIGINAL|PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS|VERDE|USADA|RECONDICIONADA)\\b)[A-Z0-9]*\\d[A-Z0-9]*) )?(?:(GENUINA|ORIGINAL)|(PPOI|PRO|PPO|PPG|PPC|PAR|OR|GE|PG|PO|OUTRAS FONTES|VERDE|USADA|RECONDICIONADA) )?((?:(?!' + PROX + '| ?(?:OFICINA|SEGURADORA|CLIENTE) (?:R\\$|-)).)+?)(?= ?(?:OFICINA|SEGURADORA|CLIENTE) (?:R\\$|-)|' + PROX + '|$)' +
+      '|(OFICINA|SEGURADORA|CLIENTE) (?:R\\$(?: ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?: ?(?:R\\$ ?)?(\\d{1,3}(?:\\.\\d{3})*,\\d{2})(?! ?%))?(?: ?(-?\\d{1,3},\\d{2}) ?%| ?-(?= ?R\\$))?(?: ?R\\$ ?(\\d{1,3}(?:\\.\\d{3})*,\\d{2}))?)?|-)', 'g');   // número seguido de % é desconto, não total (07/10/2026)
     // código com ponto no fim ("1312791700. BRAÇO OSCILANTE", 14/10/2026, JDC7H45): o item sumia e o preço OFICINA ficava sem dono
     var filaCi = [];
     while ((m = reCi.exec(U))) {
@@ -547,7 +551,7 @@ function vd_lerOrcamento_(texto) {
         var liqL = vd_numOrc_(m[11]), qn = Math.max(1, parseInt(it.qtd, 10) || 1);
         if (!isNaN(liqL)) vOrc = (qn > 1 && !isNaN(calcU) && Math.abs(liqL - calcU) < 0.05) ? liqL : liqL / qn;
       }
-      add(m[7] === 'SEGURADORA' ? r.fo : r.oficina, it.codigo, it.desc, it.qtd, it.tipo, vOrc, it.codigoAntigo);
+      add(m[7] === 'SEGURADORA' ? r.fo : r.oficina, it.codigo, it.desc, it.qtd, it.tipo, vOrc, it.codigoAntigo, m[7] === 'CLIENTE' ? CLIENTE : null);   // 05/11/2026: CLIENTE entra marcado 🚫
     }
     // item que ficou sem preço (fim do texto cortado): entra como da oficina, sem valor
     filaCi.forEach(function (it) { add(r.oficina, it.codigo, it.desc, it.qtd, it.tipo, NaN, it.codigoAntigo); });
@@ -1296,7 +1300,7 @@ function vd_dicaNorm_(t) {
 // Validacao.gs:1074
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
-    return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc), p.codigoAntigo || ''];   // [4] = valor líquido no orçamento (06/10/2026) · [5] = código antigo riscado (27/10/2026)
+    return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc), p.codigoAntigo || '', p.naoComprar ? (p.naoMotivo || 'cliente fornece (orçamento)') : ''];   // [6] = 🚫 (05/11/2026)   // [4] = valor líquido no orçamento (06/10/2026) · [5] = código antigo riscado (27/10/2026)
   });
 }
 
@@ -1305,7 +1309,7 @@ function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4
       ? { pneu: true, medida: x[1], marca: x[2], categoria: '', qtd: x[3] }
-      : { pneu: false, codigo: x[0], descricao: vd_limparDescricao_(x[1]), tipos: [], qtd: x[2], dica: x[3] || '', valorOrc: x[4] || '', codigoAntigo: x[5] || '' };
+      : { pneu: false, codigo: x[0], descricao: vd_limparDescricao_(x[1]), tipos: [], qtd: x[2], dica: x[3] || '', valorOrc: x[4] || '', codigoAntigo: x[5] || '', naoComprar: !!x[6], naoMotivo: x[6] || '' };
   });
 }
 

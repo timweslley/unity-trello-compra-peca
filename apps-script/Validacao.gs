@@ -888,7 +888,7 @@ function vd_anxMigrar_() {
  */
 /* Versão do leitor de anexos: quando o leitor de orçamento muda (ex.: 05/10/2026, layout Soma), as leituras
  * guardadas com a versão antiga são lidas de novo — senão "ler de novo" e o robô do complemento devolvem a leitura velha. */
-var VD_LEITOR_V = 10;   // 03/11/2026: pneu "175/65/R14" e código 1756514IMP (DPJ2D42) · 9: 27/10/2026 (noite): 2º código do Cilia de qualquer família + tipo colado no 2º código (AUP2482) — relê os Cilia
+var VD_LEITOR_V = 11;   // 05/11/2026: CLIENTE entra como 🚫 cliente fornece (DPJ2D42) · 10: 03/11/2026: pneu "175/65/R14" e código 1756514IMP (DPJ2D42) · 9: 27/10/2026 (noite): 2º código do Cilia de qualquer família + tipo colado no 2º código (AUP2482) — relê os Cilia
 var VD_ANX_V = 3;   // 3 (06/10/2026): o cache do orçamento passou a guardar o valor líquido de cada peça
 function vd_lerAnexoTrello_(a, opt) {
   opt = opt || {};
@@ -1073,7 +1073,7 @@ function vd_avisosTipo_(pecas, orcamento) {
 /* ---- peças do orçamento em formato curto (cabe no cache de 9 KB) ---- */
 function vd_orcCompacto_(lista) {
   return (lista || []).map(function (p) {
-    return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc), p.codigoAntigo || ''];   // [4] = valor líquido no orçamento (06/10/2026) · [5] = código antigo riscado (27/10/2026)
+    return p.pneu ? ['P', p.medida || '', p.marca || '', p.qtd || '1'] : [p.codigo || '', String(p.descricao || '').slice(0, 60), p.qtd || '1', vd_dicaNorm_(p.dica), vd_valorOrcTxt_(p.valorOrc), p.codigoAntigo || '', p.naoComprar ? (p.naoMotivo || 'cliente fornece (orçamento)') : ''];   // [6] = 🚫 (05/11/2026)   // [4] = valor líquido no orçamento (06/10/2026) · [5] = código antigo riscado (27/10/2026)
   });
 }
 /* ============================ CSS (concessionária fornece tudo) ============================
@@ -1097,7 +1097,7 @@ function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4
       ? { pneu: true, medida: x[1], marca: x[2], categoria: '', qtd: x[3] }
-      : { pneu: false, codigo: x[0], descricao: vd_limparDescricao_(x[1]), tipos: [], qtd: x[2], dica: x[3] || '', valorOrc: x[4] || '', codigoAntigo: x[5] || '' };
+      : { pneu: false, codigo: x[0], descricao: vd_limparDescricao_(x[1]), tipos: [], qtd: x[2], dica: x[3] || '', valorOrc: x[4] || '', codigoAntigo: x[5] || '', naoComprar: !!x[6], naoMotivo: x[6] || '' };
   });
 }
 
