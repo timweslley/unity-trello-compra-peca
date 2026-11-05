@@ -471,3 +471,7 @@ da outra, deixar um recado aqui e no commit.
   fornecimento "Cliente" (sem preço) e o leitor pulava. Weslley: "importar sempre" → entram como 🚫 não comprar "cliente
   fornece (orçamento)", nos dois layouts; leitores 9/11. O card (já em AUTORIZADO COMPRA) fica para a equipe incluir as duas
   peças pelo ✏️ se precisar.
+- **05/11/2026 (noite) — BBQ3D35 Jeep (particular): preso em COTAÇÃO FINALIZADA.** Peças novas marcadas "não cotada: DEVOLUÇÃO",
+  devoluções registradas (2 itens aguardando NF), card RETORNO aberto para a recompra; a trava não deixava mover para FALTA CHEGAR
+  e o Weslley criou um item "devolução" no PAGAS à mão. Regra: devolução aberta = pendência de chegada (segura em FALTA CHEGAR);
+  trava de FALTA CHEGAR orienta a marcar 🚫 na aba Autorizar quando não há o que comprar.

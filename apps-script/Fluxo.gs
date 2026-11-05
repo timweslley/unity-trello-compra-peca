@@ -16,7 +16,7 @@ var ST = {
     'COTAÇÃO FINALIZADA': 'quando o comprador envia a cotação (anexo **💰 Cotação / Compra** → aba Cotação)',
     'PENDENTE AUTORIZAR': 'quando o comprador envia a cotação (anexo **💰 Cotação / Compra** → aba Cotação)',
     'AUTORIZADO COMPRA': 'quando a compra é autorizada (anexo **💰 Cotação / Compra** → aba ✅ Autorizar)',
-    'FALTA CHEGAR': 'quando todas as peças são compradas (anexo **💰 Cotação / Compra** → aba 🛒 Compra)',
+    'FALTA CHEGAR': 'quando todas as peças são compradas (anexo **💰 Cotação / Compra** → aba 🛒 Compra). Se não há o que comprar neste card, marque as peças como 🚫 não comprar na aba ✅ Autorizar — ele vai sozinho (05/11)',
     'ENCERRADO COMPRAS/FORNEC.': 'quando todas as peças são recebidas (anexo **💰 Cotação / Compra** → aba 📦 Recebimento)'
   },
   INICIO: ['EM COTAÇÃO', 'FALTA DADOS PARA COTAR'],

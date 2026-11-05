@@ -497,6 +497,11 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   if (semCompleta) console.log('coluna: ' + card.shortLink + ' sem descrição completa — só a regra dos checklists vale');
   var ctx = vd_contexto_(), lista = vdf_nomeLista_(ctx, card.idList);
   var itens = vdf_itensRecebimento_(card), pend = itens.filter(function (i) { return !i.ok; });
+  // 05/11/2026 (Weslley, BBQ3D35 Jeep: "não tem peças a autorizar e não consigo voltar para FALTA CHEGAR"; regra dele de 28/10,
+  // RAM9I31: "abrir a pendência de devolução e pôr em FALTA CHEGAR"): devolução aberta (item DEVOLUÇÕES aguardando NF) é
+  // pendência de chegada — segura o card em FALTA CHEGAR (não encerra) e, sem peça para comprar, leva para lá.
+  var devAbertas = []; try { devAbertas = rc_devolucoes_(card).filter(function (d) { return !d.ok; }); } catch (e) {}
+  var pendOuDev = pend.length + devAbertas.length, txtDev = devAbertas.length ? ' · ' + devAbertas.length + ' devolução(ões) aguardando NF' : '';
   var alvo = '', soFo = '';
   // compra cancelada / peça devolvida ao fornecedor (10/10/2026): peça autorizada sem item PAGAS -> volta para AUTORIZADO COMPRA
   // (só quando quem chamou acabou de cancelar/devolver — opt.semCompra — para não mexer em card antigo com PAGAS fora do padrão)
@@ -509,7 +514,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
     } catch (e) { console.log('coluna/sem compra: ' + e); }
   }
   if (semCompra) alvo = VDF_LISTA_AUTORIZADO;
-  else if ((lista === VDF_LISTA_CHEGAR || (lista === RC.LISTA_FIM && opt.reavaliar)) && itens.length && !pend.length) {
+  else if ((lista === VDF_LISTA_CHEGAR || (lista === RC.LISTA_FIM && opt.reavaliar)) && itens.length && !pend.length && !devAbertas.length) {
     if (lista === VDF_LISTA_CHEGAR) alvo = RC.LISTA_FIM;
     // 27/10/2026 (Weslley, ATP5105 — "encerrado mas não está completo, tem coisa sem autorizar"): peça da oficina cotada que
     // ninguém autorizou nem marcou 🚫 não comprar é "sem decisão" — tudo comprado chegou, mas o card NÃO encerra: volta para
@@ -539,15 +544,16 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
     if (autsA.length && autsA.every(function (a) { return pagas.some(function (n) { return vd_casaItem_(n, a.chave); }); })) alvo = VDF_LISTA_CHEGAR;
   }
   else if ((lista === RC.LISTA_FIM || lista === 'ENTREGUES') && pend.length) alvo = VDF_LISTA_CHEGAR;
+  else if (lista === RC.LISTA_FIM && devAbertas.length && !vd_legado_(card.id)) { alvo = VDF_LISTA_CHEGAR; soFo = devAbertas.length + ' devolução(ões) aguardando NF'; }
   // sem peça da oficina para comprar (só FO, ou tudo marcado 🚫 não comprar) em qualquer coluna antes da compra:
   // não tem o que cotar/autorizar -> FALTA CHEGAR (FO pendente) ou ENCERRADO (nada a receber). 05/10/2026 (QPG1B84)
   if (!alvo && !semCompleta && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
       itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista) || i.ok; }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido; PAGAS já recebido não impede (13/10/2026, BBG3844: tudo 🚫 e compras antigas ✔)
     var an = vd_analisar_(card.desc, card.name);
-    if (!an.pecas.length && (itens.length || (an.naoComprar || []).length)) {
-      alvo = pend.length ? VDF_LISTA_CHEGAR : RC.LISTA_FIM;
+    if (!an.pecas.length && (itens.length || (an.naoComprar || []).length || devAbertas.length)) {
+      alvo = pendOuDev ? VDF_LISTA_CHEGAR : RC.LISTA_FIM;
       soFo = 'sem peça para a oficina comprar' + ((an.naoComprar || []).length ? ' (' + an.naoComprar.length + ' marcada(s) 🚫 não comprar)' : '') +
-        (pend.length ? ' · ' + pend.length + ' peça(s) da seguradora para chegar' : (itens.length ? ' · fornecimento todo recebido' : ' · nada a receber'));
+        (pend.length ? ' · ' + pend.length + ' peça(s) da seguradora para chegar' : (itens.length ? ' · fornecimento todo recebido' : ' · nada a receber')) + txtDev;
     }
   }
   // toda peça da oficina JÁ COMPRADA (está no PAGAS) e o resto 🚫 não comprar, mas o card voltou para antes da compra
@@ -559,9 +565,9 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
       var anJ = vd_analisar_(card.desc, card.name), pagasJ = vdf_itensPagas_(card);
       if ((anJ.pecas || []).length && pagasJ.length && !(anJ.faltas || []).length &&
           anJ.pecas.every(function (p) { return pagasJ.some(function (n) { return vd_casaItem_(n, vd_chavePeca_(p)); }); })) {
-        alvo = pend.length ? VDF_LISTA_CHEGAR : RC.LISTA_FIM;
+        alvo = pendOuDev ? VDF_LISTA_CHEGAR : RC.LISTA_FIM;
         soFo = 'toda peça da oficina já comprada' + ((anJ.naoComprar || []).length ? ', ' + anJ.naoComprar.length + ' marcada(s) 🚫 não comprar' : '') +
-          (pend.length ? ' · ' + pend.length + ' peça(s) para chegar' : ' · tudo recebido');
+          (pend.length ? ' · ' + pend.length + ' peça(s) para chegar' : ' · tudo recebido') + txtDev;
       }
     } catch (e) { console.log('coluna/já comprado: ' + e); }
   }
