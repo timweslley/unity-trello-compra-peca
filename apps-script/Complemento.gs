@@ -477,7 +477,11 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     // 22/10/2026 (Weslley, AYT6699: "leio um orçamento que o orçamentista já tinha lançado manualmente e o sistema não atualiza o
     // código"): reler o orçamento já processado também atualiza código/valor da peça que o card já tem (casada pelo código ou pela
     // descrição) — nada da oficina entra de novo; a mudança só vale quando quem editou clicar em Enviar
-    return { oficina: revert.map(function (x) { return x.peca; }), fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - revert.length, pareadas: [],
+    // 05/11/2026 (Weslley, DPJ2D42: "importei de novo e não veio as peças que faltaram"): peça 🚫 "cliente fornece" que o leitor
+    // novo passou a trazer e que o card não tem entra mesmo em orçamento já processado — não gera cotação, só registro
+    var clienteNovas = ((cmpOf && cmpOf.oficina) || []).filter(function (p) { return p && p.naoComprar && !p.pneu; });
+    var ofSaida = revert.map(function (x) { return x.peca; }).concat(clienteNovas);
+    return { oficina: ofSaida, fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - ofSaida.length, pareadas: [],
       atualizar: (cmpOf && cmpOf.atualizar) || [], casadas: (cmpOf && cmpOf.casadas) || [],
       paraOficina: revert.map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }),
       paraFo: cp_paraFoSaida_(paraFoRe.filter(function (x) { return foFalta.indexOf(x.orc) >= 0; })), jaProcessado: true };

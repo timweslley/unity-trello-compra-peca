@@ -2441,7 +2441,11 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     // 22/10/2026 (Weslley, AYT6699: "leio um orçamento que o orçamentista já tinha lançado manualmente e o sistema não atualiza o
     // código"): reler o orçamento já processado também atualiza código/valor da peça que o card já tem (casada pelo código ou pela
     // descrição) — nada da oficina entra de novo; a mudança só vale quando quem editou clicar em Enviar
-    return { oficina: revert.map(function (x) { return x.peca; }), fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - revert.length, pareadas: [],
+    // 05/11/2026 (Weslley, DPJ2D42: "importei de novo e não veio as peças que faltaram"): peça 🚫 "cliente fornece" que o leitor
+    // novo passou a trazer e que o card não tem entra mesmo em orçamento já processado — não gera cotação, só registro
+    var clienteNovas = ((cmpOf && cmpOf.oficina) || []).filter(function (p) { return p && p.naoComprar && !p.pneu; });
+    var ofSaida = revert.map(function (x) { return x.peca; }).concat(clienteNovas);
+    return { oficina: ofSaida, fo: foFalta, jaTinha: ((o && o.oficina) || []).length + ((o && o.fo) || []).length - foFalta.length - ofSaida.length, pareadas: [],
       atualizar: (cmpOf && cmpOf.atualizar) || [], casadas: (cmpOf && cmpOf.casadas) || [],
       paraOficina: revert.map(function (x) { return { itemId: x.item.id, nome: x.item.name, lista: x.item.lista || '', peca: cp_nome_(x.peca) }; }),
       paraFo: cp_paraFoSaida_(paraFoRe.filter(function (x) { return foFalta.indexOf(x.orc) >= 0; })), jaProcessado: true };
@@ -2451,12 +2455,12 @@ function vdf_compararComplemento(token, shortLink, o, idAnexo) {
     paraFo: cp_paraFoSaida_(r.paraFo) };
 }
 
-// Complemento.gs:492
+// Complemento.gs:496
 function cp_paraFoSaida_(lista) {
   return (lista || []).map(function (x) { return { chave: x.chave, codigo: String(x.peca.codigo || '').replace(/\s+/g, ''), peca: cp_nome_(x.peca), comprada: !!x.comprada, autorizada: !!x.autorizada, naoComprar: !!x.naoComprar }; });
 }
 
-// Complemento.gs:497
+// Complemento.gs:501
 function cp_itemColado_(card, kc) {
   return (card.checklists || []).some(function (k) {
     return /FORNECIMENTO/i.test(k.name || '') && (k.checkItems || []).some(function (i) {
@@ -2466,7 +2470,7 @@ function cp_itemColado_(card, kc) {
   });
 }
 
-// Complemento.gs:507
+// Complemento.gs:511
 function cp_marcarVistos_(ids) {
   if (!ids || !ids.length) return;
   sg_secao_('CP_VISTOS', function () {   // ler-modificar-gravar protegido (10/10/2026)
@@ -2477,13 +2481,13 @@ function cp_marcarVistos_(ids) {
   });
 }
 
-// Complemento.gs:519
+// Complemento.gs:523
 function cp_ligado_() { return vd_prop_('CP_LIGADO', 'SIM') !== 'NAO'; }
 
-// Complemento.gs:522
+// Complemento.gs:526
 function cp_criadoEm_(id) { return parseInt(String(id).slice(0, 8), 16) * 1000; }
 
-// Complemento.gs:524
+// Complemento.gs:528
 function cp_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || !cp_ligado_()) return 0;
   var props = PropertiesService.getScriptProperties();
@@ -2539,7 +2543,7 @@ function cp_executar_() {
   return n;
 }
 
-// Complemento.gs:581
+// Complemento.gs:585
 function cp_doAnexo_(c, a, ctx) {
   var r = vd_lerAnexoTrello_(a, { orcCompleto: true });
   if (!r || r.erro) return r && r.erro ? 'erro' : false;
@@ -2590,7 +2594,7 @@ function cp_doAnexo_(c, a, ctx) {
   return true;
 }
 
-// Complemento.gs:635
+// Complemento.gs:639
 function vdf_varrerTrocasCodigo(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
@@ -2634,7 +2638,7 @@ function vdf_varrerTrocasCodigo(token, p) {
   return { ok: true, trocas: trocas, anexo: a.name, aplicado: true };
 }
 
-// Complemento.gs:679
+// Complemento.gs:683
 function cp_aplicar_(card, cmp, o) {
   var nFoTotal = 0;
   if (cmp.fo.length) {
@@ -2671,7 +2675,7 @@ function cp_aplicar_(card, cmp, o) {
   if ((cmp.fo.length && !cmp.oficina.length) || (cmp.paraFo || []).length) { try { rc_reavaliarColuna_(card.id, o.token, o.quem || 'robô'); } catch (e) { console.log('complemento/coluna: ' + e); } }
 }
 
-// Complemento.gs:721
+// Complemento.gs:725
 function cp_foNaOficina_(card, token, quem) {
   var an;
   try { an = vd_analisar_(card.desc || '', card.name || ''); } catch (e) { return []; }
@@ -2736,10 +2740,10 @@ function cp_foNaOficina_(card, token, quem) {
   return removidos.concat(novos);   // quem chama reavalia a coluna quando a lista não vem vazia
 }
 
-// Complemento.gs:785
+// Complemento.gs:789
 function cp_idEpoca_(id) { var n = parseInt(String(id || '').slice(0, 8), 16); return isNaN(n) ? 0 : n; }
 
-// Complemento.gs:793
+// Complemento.gs:797
 function cp_foJaComprada_(card, conflitos, token, quem) {
   var devs = rc_devolucoes_(card), linhas = [], evs = [], novos = [];
   conflitos.forEach(function (c) {
@@ -2765,12 +2769,12 @@ function cp_foJaComprada_(card, conflitos, token, quem) {
   return novos;
 }
 
-// Complemento.gs:821
+// Complemento.gs:825
 function cp_revLista_(cardId) {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('FO_REV_' + cardId) || '[]'); } catch (e) { return []; }
 }
 
-// Complemento.gs:824
+// Complemento.gs:828
 function cp_revGuardar_(cardId, nomes, por) {
   nomes = (nomes || []).filter(String);
   if (!nomes.length) return;
@@ -2784,7 +2788,7 @@ function cp_revGuardar_(cardId, nomes, por) {
   });
 }
 
-// Complemento.gs:838
+// Complemento.gs:842
 function vdf_foRevertidas(token, shortLink) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard' } });
@@ -2792,7 +2796,7 @@ function vdf_foRevertidas(token, shortLink) {
   return cp_revLista_(card.id).filter(function (x) { return !x.fim; });
 }
 
-// Complemento.gs:846
+// Complemento.gs:850
 function cp_revDosComentarios_(cardId) {
   var acts = vd_api_('/cards/' + cardId + '/actions', { cru: true, query: { filter: 'commentCard', limit: 300, fields: 'data,date' } }) || [];
   var l = [], fim = {};
@@ -2809,7 +2813,7 @@ function cp_revDosComentarios_(cardId) {
   PropertiesService.getScriptProperties().setProperty('FO_REV_' + cardId, JSON.stringify(l.slice(-20)));
 }
 
-// Complemento.gs:862
+// Complemento.gs:866
 function vdf_foRevertidaDevolvida(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
