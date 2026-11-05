@@ -10336,7 +10336,7 @@ document.addEventListener('input', function (e) {
       return { it: it, sel: sl, q: q, tocado: sl.dataset.v2tocado === '1' };
     }).filter(Boolean);
   }
-  function fmtR(v) { var n = parseFloat(String(v == null ? '' : v).replace(/\./g, '').replace(',', '.')); return isNaN(n) ? String(v || '') : 'R$ ' + n.toFixed(2).replace('.', ','); }
+  function fmtR(v) { var n; if (typeof v === 'number') n = v; else { var t = String(v == null ? '' : v).trim(); n = parseFloat(/,\d{1,2}$/.test(t) ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '')); } return isNaN(n) ? String(v || '') : 'R$ ' + n.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
   function linha(x) { var q = x.q || {}; return e2(nomeIt(x.it)) + (q.fornecedor ? ' — ' + e2(q.fornecedor) : '') + (q.valor != null && q.valor !== '' ? ' · ' + e2(fmtR(q.valor)) : ''); }
   var LIMPOS = [];   // selects do pré-marcado zerados durante um Salvar parcial: voltam ao fim (ou se a pessoa cancelar)
   function restaurar() { LIMPOS.forEach(function (r) { try { r[0].value = r[1]; } catch (x) {} }); LIMPOS = []; }
