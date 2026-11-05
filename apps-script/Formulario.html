@@ -10133,5 +10133,69 @@ document.addEventListener('input', function (e) {
   };
 })();
 </script>
+<script>
+/* 05/11/2026 (Weslley, ARX9B84 Ford Cargo — comprador: "a compra foi registrada sem eu registrar") — camada 2.0, computador e
+ * celular, aba Compra: o fornecedor AUTORIZADO já vem pré-marcado em cada peça, e qualquer "Salvar parcial" gravava como
+ * comprado tudo o que estava marcado (o comprador abriu a aba para marcar a situação do complementar e salvou). Agora:
+ *  1) "Salvar parcial" só registra compra da peça em que o comprador ESCOLHEU (ou confirmou) o fornecedor — o pré-marcado
+ *     pela autorização fica como sugestão e é avisado no balão; o resto do parcial (situação do complementar, prints) segue.
+ *  2) Antes de gravar (parcial ou Enviar compra), um balão lista o que vai ser registrado como COMPRA e pede confirmação.
+ * Só a tela muda: o envio ao servidor (vdf_salvarCompra) é o mesmo. Tela clássica (?v2=0) segue como antes. */
+(function () {
+  if (/[?&]v2=0(&|$)/.test(location.search)) return;
+  var g = function (id) { return document.getElementById(id); };
+  var qa = function (s, el) { return Array.prototype.slice.call((el || document).querySelectorAll(s)); };
+  var e2 = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  // fornecedor escolhido pela pessoa (change de verdade) — a pré-marcação da autorização não conta
+  document.addEventListener('change', function (e) {
+    var sl = e.target && e.target.closest && e.target.closest('#compraItens .k-sel'); if (!sl || !e.isTrusted) return;
+    if (sl.value) sl.dataset.v2tocado = '1'; else delete sl.dataset.v2tocado;
+  }, true);
+  function nomeIt(it) { return ((it.querySelector('.item-topo strong') || {}).textContent || '').replace(/\s+/g, ' ').trim(); }
+  function escolhidas() {
+    return qa('#compraItens > .item').map(function (it) {
+      var sl = it.querySelector('.k-sel'); if (!sl || !sl.value || it.querySelector('.indisp:not(.oculto)')) return null;
+      var q = null; try { q = JSON.parse(it.dataset.cots || '[]')[+sl.value] || null; } catch (x) {}
+      return { it: it, sel: sl, q: q, tocado: sl.dataset.v2tocado === '1' };
+    }).filter(Boolean);
+  }
+  function fmtR(v) { var n = parseFloat(String(v == null ? '' : v).replace(/\./g, '').replace(',', '.')); return isNaN(n) ? String(v || '') : 'R$ ' + n.toFixed(2).replace('.', ','); }
+  function linha(x) { var q = x.q || {}; return e2(nomeIt(x.it)) + (q.fornecedor ? ' — ' + e2(q.fornecedor) : '') + (q.valor != null && q.valor !== '' ? ' · ' + e2(fmtR(q.valor)) : ''); }
+  var LIMPOS = [];   // selects do pré-marcado zerados durante um Salvar parcial: voltam ao fim (ou se a pessoa cancelar)
+  function restaurar() { LIMPOS.forEach(function (r) { try { r[0].value = r[1]; } catch (x) {} }); LIMPOS = []; }
+  // (1) Salvar parcial: o pré-marcado que a pessoa não escolheu sai antes de a tela clássica montar o envio — roda em
+  //     window (antes dos tratadores em document, inclusive o que exige prazo nas peças marcadas)
+  window.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#btnCompraParcial'); if (!b || b.dataset.v2limpo || b.dataset.v2conf) return;
+    var ficam = escolhidas().filter(function (x) { return !x.tocado; }); if (!ficam.length) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    restaurar(); ficam.forEach(function (x) { LIMPOS.push([x.sel, x.sel.value]); x.sel.value = ''; });
+    b.dataset.v2limpo = '1'; b.dataset.v2ficam = JSON.stringify(ficam.map(function (x) { return linha(x); }));
+    try { b.click(); } finally { delete b.dataset.v2limpo; }
+    // sem balão aberto (nada escolhido pela pessoa: o parcial salvou só o resto, ou mostrou erro), devolve a pré-marcação à tela
+    setTimeout(function () { var bal = g('v2cpConf'); if (!bal || bal.style.display === 'none' || !document.body.contains(bal)) { restaurar(); delete b.dataset.v2ficam; } }, 300);
+  }, true);
+  // (2) confirmação do que vai ser registrado como compra (parcial ou Enviar) — depois das validações da camada 2.0
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#btnCompra, #btnCompraParcial'); if (!b || b.dataset.v2conf || b.disabled) return;
+    if (!window.V2_BALAO) return;
+    var parcial = b.id === 'btnCompraParcial', vao = escolhidas(); if (!vao.length) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    var ficam = []; try { ficam = JSON.parse(b.dataset.v2ficam || '[]'); } catch (x) {}
+    var html = '<p class="v2-bt">' + (parcial ? 'Salvar parcial: registrar a compra de ' : 'Registrar a compra de ') + (vao.length === 1 ? '1 peça' : vao.length + ' peças') + '?</p>'
+      + '<ul style="margin:4px 0 6px 18px;padding:0">' + vao.map(function (x) { return '<li>' + linha(x) + '</li>'; }).join('') + '</ul>'
+      + (ficam.length ? '<div class="dica">Fornecedor pré-marcado pela autorização, sem você escolher — <b>não</b> vai ser registrado agora: ' + ficam.join('; ') + '. Para comprar, escolha o fornecedor na peça.</div>' : '')
+      + '<div class="dica">A peça registrada entra no checklist PAGAS como comprada' + (parcial ? ' (o card não muda de coluna no parcial)' : '') + '.</div>'
+      + '<div class="bts"><button type="button" class="principal" id="v2cpSim">' + (parcial ? 'Registrar e salvar' : 'Registrar compra') + '</button><button type="button" class="secundario" id="v2cpNao">Cancelar</button></div>';
+    var bal = V2_BALAO.abrir('v2cpConf', b, html, 'v2cpNao');
+    var fechar = function (dev) { try { V2_BALAO.fechar(bal, dev); } catch (x) {} if (bal) bal.style.display = 'none'; };
+    g('v2cpNao').onclick = function () { fechar(true); restaurar(); delete b.dataset.v2ficam; };
+    g('v2cpSim').onclick = function () {
+      fechar(false); b.dataset.v2conf = '1';
+      try { b.click(); } finally { delete b.dataset.v2conf; delete b.dataset.v2ficam; setTimeout(restaurar, 0); }
+    };
+  }, true);
+})();
+</script>
 </body>
 </html>

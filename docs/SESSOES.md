@@ -462,3 +462,8 @@ da outra, deixar um recado aqui e no commit.
 - **04/11/2026 — Fusca 1980 (ICT9375, particular): chassi curto.** Sidi não conseguia salvar o pedido: o formulário e o robô exigiam
   chassi de 17 ("chassi inválido"), e o zero à esquerda não passava (tem letra O). Regra nova: ano de fabricação até 1980 aceita o
   chassi curto como está (robô/servidor e camada 2.0 do formulário); ano válido 1950+. O card fica para o Sidi gravar o chassi real.
+- **05/11/2026 — ARX9B84 (Ford Cargo): compra registrada sem o comprador registrar.** Às 08:11 a conta Compras Unity gravou a compra
+  dos 2 adesivos via "Salvar parcial" (checklist PAGAS COMPLEMENTO + 🛒, sem comentário/mover): o fornecedor autorizado vinha
+  pré-marcado e o parcial gravava tudo marcado. Weslley: "pode fazer as mudanças" → camada 2.0: parcial só registra o que o
+  comprador escolheu; balão de confirmação antes de gravar (parcial e Enviar). O card fica para o comprador desfazer pelo
+  "Cancelar compra" (ou eu, se o Weslley pedir).
