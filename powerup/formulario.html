@@ -499,7 +499,7 @@
     <div id="painelRet" class="oculto">
       <section>
         <h2>Retirada — quem levou a peça</h2>
-        <div class="dica" style="margin-bottom:10px">Peças que já chegaram e ainda estão no estoque, com o local (📍). Marque as que foram retiradas, diga <b>quem retirou</b> (funileiro, outra unidade, montagem…) e a data. Quando todas as peças do card forem retiradas, o card vai sozinho para <b>ENTREGUES</b>.</div>
+        <div class="dica" style="margin-bottom:10px">Peças que já chegaram e ainda estão no estoque, com o local (📍). Marque as que foram retiradas, diga <b>quem retirou</b> (funileiro, outra unidade, montagem…) e a data. O card vai sozinho para <b>ENTREGUES</b> quando tudo foi recebido e toda compra da oficina tem a <b>nota fiscal</b> no card (aba Recebimento → Nota fiscal); a retirada é só registro.</div>
         <div id="retItens"></div>
         <div class="grade" style="margin-top:10px"><div><label>Quem retirou <span class="obr">*</span></label><input type="text" id="retQuem" class="maiusc" list="dlQuem" maxlength="24" placeholder="Ex.: LEOMAR; CASCAVEL; MONTAGEM"><datalist id="dlQuem"></datalist></div>
           <div><label>Data da retirada</label><input type="date" id="retData"></div></div>
@@ -6432,8 +6432,8 @@ iniciar();
     cot: 'Lance as cotações de cada peça: fornecedor, tipo, valor e prazo em dias úteis.\nPeça sem cotação precisa do motivo de não cotar.\nSalvar parcial guarda o que já tem; Enviar cotação leva o card para a autorização.',
     aut: 'Escolha uma cotação por peça (já vem marcada a de menor preço) ou "não autorizar".\nEnviar autorização leva o card para a compra e avisa o comprador.\nDevolver volta o card para EM COTAÇÃO com as suas observações.',
     compra: 'Registre de quem comprou cada peça: vira um item do checklist PAGAS, com a previsão.\nPode comprar uma parte agora e o resto depois (Salvar parcial).\nEnviar compra só quando toda peça autorizada estiver comprada: o card segue para FALTA CHEGAR.',
-    rec: 'Marque cada peça que chegou, a data e onde guardou (prateleira).\nA chegada é comparada com a previsão e fica registrada no card. Quando tudo chegar, o card segue sozinho.',
-    ret: 'Marque as peças que saíram do estoque e diga quem levou e quando.\nQuando todas as peças do card forem retiradas, o card vai sozinho para ENTREGUES.',
+    rec: 'Marque cada peça que chegou, a data e onde guardou (prateleira).\nA chegada é comparada com a previsão e fica registrada no card. Quando tudo chegar, o card segue sozinho.\nAnexe a nota fiscal de cada compra da oficina: com todas as notas no card, ele vai para ENTREGUES (nota de peça da seguradora não é exigida).',
+    ret: 'Marque as peças que saíram do estoque e diga quem levou e quando.\nA retirada é registro: o card vai para ENTREGUES quando tudo foi recebido e toda compra da oficina tem a nota fiscal no card.',
     forn: 'Fornecedor e previsão de cada peça que a seguradora fornece (FO).\nLeia o Status do Pedido do Cilia, as peças do sinistro da HDI ou um print do portal: o sistema preenche; confira e salve.\nPrevisão que fica para depois pede o motivo.'
   };
   var TITULO_SEC = {

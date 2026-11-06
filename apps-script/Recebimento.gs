@@ -201,14 +201,16 @@ function vdf_salvarRetirada(token, p) {
     evsD.push({ peca: pt[0], detalhe: 'RETIRADA DESFEITA (era ' + era + '): ' + motivo + ' · ' + it.lista });
   });
   rc_guardarQuem_(quem);
-  // tudo recebido e tudo retirado: ENCERRADO -> ENTREGUES
+  // ENCERRADO -> ENTREGUES: até 05/11 exigia todas as peças retiradas; desde 06/11/2026 (Weslley) o que libera é a nota da compra
+  // da oficina no card (rc_liberarEncerrado_) — a retirada é registro, não segura mais
   var movido = '', lista = vdf_nomeLista_(ctx, card.idList);
   var noEstoque = todos.filter(function (i) { return i.ok && !i.retirada; }), pendRec = todos.filter(function (i) { return !i.ok; });
-  var devPend = []; try { devPend = rc_devolucoesPendentes_(card); } catch (e) {}
-  if (lista === RC.LISTA_FIM && todos.length && !pendRec.length && !noEstoque.length && ctx.listas['ENTREGUES']) {
-    // 21/10/2026 (Weslley): devolução sem NF segura o card em ENCERRADO até o comprador informar a NF (aba Recebimento → Devoluções)
-    if (devPend.length) linhas.push('⏳ O card fica em **' + RC.LISTA_FIM + '**: NF de devolução pendente — ' + devPend.map(function (d) { return d.peca; }).join('; '));
-    else { try { movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, me.username); } catch (e) { console.log('retirada/coluna: ' + e); } }
+  if (lista === RC.LISTA_FIM && todos.length) {
+    try {
+      var lib = rc_liberarEncerrado_(card, ctx, token, me.username);
+      if (lib.movido) movido = lib.movido;
+      else if (!noEstoque.length && rc_textoSegura_(lib)) linhas.push('⏳ O card fica em **' + RC.LISTA_FIM + '**: ' + rc_textoSegura_(lib));
+    } catch (e) { console.log('retirada/coluna: ' + e); }
   }
   try {
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✋ **RETIRADA** — ' + me.fullName + (ids.length ? ' · por **' + quem + '** em ' + dd : '') + (movido ? ' → **' + movido + '**' : '') + '\n' + linhas.join('\n') +
@@ -454,6 +456,11 @@ function vdf_salvarRecebimento(token, p) {
   var movido = '';
   // só fecha o card se ele estiver em FALTA CHEGAR (peça da oficina ainda em cotação/compra não fica para trás)
   try { movido = rc_reavaliarColuna_(card.id, token, me.username, { semCompra: devolucoes.length > 0 }); } catch (e) { console.log('recebimento/coluna: ' + e); }
+  // 06/11/2026: ficou em ENCERRADO (ou chegou lá) sem ir para ENTREGUES — diz o que falta (nota da compra da oficina)
+  var seguraRec = '';
+  if (!pend.length && (movido === RC.LISTA_FIM || (!movido && vdf_nomeLista_(ctx, card.idList) === RC.LISTA_FIM))) {
+    try { var libR = rc_liberarEncerrado_({ id: card.id, name: card.name, idList: ctx.listas[RC.LISTA_FIM] }, ctx, token, me.username, { comentar: true }); if (libR.movido) movido = libR.movido; else seguraRec = rc_textoSegura_(libR); } catch (e) {}
+  }
   try {
     var geral = String(p.geral || '').trim();
     var soMarcas = !itens.length && !anexos.length;   // só local/retirada/devolução: título diferente
@@ -462,7 +469,8 @@ function vdf_salvarRecebimento(token, p) {
       (geral ? '\n📝 ' + geral : '') +
       (pend.length ? '\n⏳ Falta chegar: ' + pend.map(function (i) { return i.base.split(/\s+-\s+/)[0]; }).join(', ') :
         // 19/10/2026 (revisão): compra devolvida saiu do checklist — "tudo recebido" enganava; a peça precisa de compra nova
-        (vd_ajustes1910_() && devPagas ? '\n🔁 Falta comprar de novo a peça devolvida.' : (todos.length ? '\n✅ Tudo recebido.' : '')));
+        (vd_ajustes1910_() && devPagas ? '\n🔁 Falta comprar de novo a peça devolvida.' : (todos.length ? '\n✅ Tudo recebido.' : ''))) +
+      (seguraRec ? '\n⏳ O card fica em **' + RC.LISTA_FIM + '**: ' + seguraRec : '');
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: txt } }, token);
   } catch (e) {}
   try { if (evs.length || nAnexos || itens.length) ev_registrar_('RECEBIMENTO', card, me.username, evs.length ? evs : null, { detalhe: nAnexos ? nAnexos + ' anexo(s)' : '' }); } catch (e) {}
@@ -590,6 +598,10 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
       }
     } catch (e) { console.log('coluna/quem paga: ' + e); }
   }
+  // 06/11/2026: card já em ENCERRADO sem outro destino — a nota da compra da oficina libera para ENTREGUES (rc_liberarEncerrado_)
+  if (!alvo && lista === RC.LISTA_FIM && !opt.semLiberar) {
+    try { return rc_liberarEncerrado_(card, ctx, token, usuario, { comentar: true }).movido; } catch (e) { console.log('coluna/liberar: ' + e); return ''; }
+  }
   if (!alvo || !ctx.listas[alvo]) return '';
   var movido = vdf_moverPara_(card, ctx, alvo, token, usuario || 'robô');
   if (movido && (lista !== VDF_LISTA_CHEGAR || alvo !== RC.LISTA_FIM)) {   // FALTA CHEGAR → ENCERRADO já tem o "✅ Tudo recebido" do recebimento
@@ -597,7 +609,123 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
       vd_comentar_(card, '↪️ Card → **' + movido + '** (' + (semCompra ? 'peça autorizada sem compra — verificar compra do item' : soFo || (alvo === VDF_LISTA_CHEGAR ? pend.length + ' peça(s) para chegar' : 'tudo recebido')) + ').');
     } catch (e) {}
   }
+  // 06/11/2026: chegou em ENCERRADO com a nota da compra já no card (anexada no mesmo recebimento) → segue para ENTREGUES
+  if (movido === RC.LISTA_FIM && !opt.semLiberar) {
+    try { card.idList = ctx.listas[RC.LISTA_FIM]; var lib = rc_liberarEncerrado_(card, ctx, token, usuario, { comentar: true }); if (lib.movido) movido = lib.movido; } catch (e) { console.log('coluna/liberar: ' + e); }
+  }
   return movido;
+}
+
+/* ===================== ENCERRADO → ENTREGUES: a nota da compra da oficina libera (06/11/2026, Weslley) =====================
+ * "Nos cards de compra encerrada apenas as notas de compra de oficina são obrigatórias para seguir para ENTREGUES; notas de
+ * fornecimento não — ajuste a regra para os cards não ficarem represados ali."
+ * Antes o card só saía de ENCERRADO quando TODAS as peças (inclusive as da seguradora) eram marcadas ✋ retiradas, ou por
+ * tempo (15 dias, moverEncerrados_). Agora: tudo recebido · sem devolução aguardando NF · toda compra da oficina (checklist
+ * PAGAS*) com nota fiscal anexada no card → ENTREGUES. Vale na hora (recebimento, retirada, NF de devolução) e numa varredura
+ * da coluna a cada 10 min (nota anexada pela rotina de NF ou à mão no card). A retirada deixa de segurar o card. Nota de
+ * fornecimento (NF FORNECIMENTO) não é exigida nem conta. A regra dos 15 dias continua como rede de segurança.
+ * Nota ↔ compra: pelo nome do anexo (padrão das rotinas — "NF <EMITENTE> - nº - dd-mm", "📦 NF nº · PLACA · FORN · dd/MM",
+ * "NF ML - vendedor - produto - dd-mm", "NFS-e nº - …"): uma palavra do emitente/fornecedor (3+ letras, fora das genéricas)
+ * igual a uma palavra do fornecedor do item PAGAS ("CÓDIGO DESC - FORNECEDOR - R$ …") ou o código da peça no nome da nota;
+ * "NF ML" cobre MERCADO LIVRE. Sem palavra em comum a nota não cobre a peça e o card espera (e a varredura tenta de novo). */
+var RC_NF = {
+  CADA_MIN: 10,
+  GENERICAS: /^(NF|NFE|NFSE|DANFE|NOTA|FISCAL|LTDA|EPP|EIRELI|MEI|COMERCIO|COMERCIAL|INDUSTRIA|INDUSTRIAL|DISTRIBUIDORA|DISTRIBUICAO|AUTO|AUTOMOTIVA|AUTOMOTIVO|AUTOMOTIVOS|AUTOPECAS|AUTOPECA|PECAS|PECA|ACESSORIOS|ACESSORIO|IMPORTADORA|IMPORTACAO|IMPORT|VEICULOS|VEICULO|SERVICOS|SERVICO|CENTER|CENTRO|BRASIL|DOS|DAS|COM|PARA|RESUMO|PDF|XML|FORNECIMENTO|DEVOLUCAO|FILIAL|MATRIZ|GRUPO|CIA|THE|AND|NOVA|NOVO|SUL|NORTE|SAO|SANTA|SANTO)$/
+};
+/** Palavras úteis de um texto (sem acento, maiúsculas, 3+ letras, sem placa, número, data e palavras genéricas). */
+function rc_nfPalavras_(s) {
+  var t = vd_semAcento_(String(s || '')).toUpperCase().replace(/\.(PDF|XML|JPE?G|PNG)$/i, '');
+  var out = [];
+  if (/\bML\b/.test(t)) out.push('MERCADO', 'LIVRE');   // "NF ML - …" e fornecedor "ML" (card antigo) = MERCADO LIVRE
+  t.replace(/\b[A-Z]{3}\d[A-Z0-9]\d{2}\b/g, ' ').split(/[^A-Z0-9]+/).forEach(function (w) {
+    if (w.length < 3 || /^\d+$/.test(w) || RC_NF.GENERICAS.test(w) || out.indexOf(w) >= 0) return;
+    out.push(w);
+  });
+  return out;
+}
+/** Anexo que é nota fiscal de compra da oficina (não de fornecimento nem de devolução). */
+function rc_nfDeCompra_(a) {
+  var n = String((a && a.name) || '');
+  return !!(a && a.isUpload !== false) && ax_ehNota_(n) && !/FORNECIMENTO|DEVOLU/i.test(n);
+}
+/** Compras da oficina (PAGAS*) × notas no card, por FORNECEDOR: {pagas, fornecedores, cobertos:[forn], faltam:[forn], notas}
+ *  1º pela palavra em comum (nome da nota × fornecedor do item / código da peça); 2º por contagem: o apelido do checklist
+ *  muitas vezes não é a razão social da nota (HYUNDAI CASCAVEL × VETOR AUTOMOVEIS; FIAT JEEP CASCAVEL × FIPAL), então
+ *  fornecedor sem palavra em comum fica coberto se sobrar nota não usada por outro fornecedor (uma nota por fornecedor). */
+function rc_notasOficina_(card) {
+  var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
+  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false }; });
+  var forns = [], porForn = {};
+  // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
+  // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
+  var cad = {}; try { fo_lista_().forEach(function (f) { cad[fo_norm_(f.nome)] = 1; (f.apelidos || []).forEach(function (a) { cad[fo_norm_(a)] = 1; }); }); } catch (e) {}
+  pagas.forEach(function (i) {
+    var pt = i.base.split(/\s+-\s+/), codigo = vd_semAcento_(String(pt[0] || '')).toUpperCase().split(/\s+/)[0];
+    var iForn = pt.length >= 2 ? (cad[fo_norm_(pt[1])] ? 1 : (cad[fo_norm_(pt[0])] ? 0 : 1)) : -1;
+    var forn = iForn >= 0 ? vd_semAcento_(pt[iForn]).toUpperCase().replace(/\s+/g, ' ').trim() : '(sem fornecedor)';
+    if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]) : [] }; forns.push(forn); }
+    if (iForn < 0) rc_nfPalavras_(i.base).forEach(function (w) { if (porForn[forn].chaves.indexOf(w) < 0) porForn[forn].chaves.push(w); });
+    if (iForn !== 0 && codigo && codigo.length >= 4 && /\d/.test(codigo) && porForn[forn].chaves.indexOf(codigo) < 0) porForn[forn].chaves.push(codigo);
+  });
+  var cobertos = [], faltam = [];
+  forns.forEach(function (f) {
+    var ch = porForn[f].chaves, n = null;
+    for (var k = 0; k < notas.length && !n; k++) if (notas[k].pal.some(function (w) { return ch.indexOf(w) >= 0; })) n = notas[k];
+    if (n) { n.usada = true; cobertos.push(f); } else faltam.push(f);
+  });
+  var livres = notas.filter(function (n) { return !n.usada; }).length, faltamN = Math.max(0, faltam.length - livres);
+  if (faltam.length && !faltamN) { cobertos = cobertos.concat(faltam); faltam = []; }
+  // faltamN = quantas compras ainda estão sem nota; faltam = fornecedores sem nota identificada pelo nome (lista inteira quando sobra alguma)
+  return { pagas: pagas.length, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };
+}
+/**
+ * Card em ENCERRADO: libera para ENTREGUES quando tudo foi recebido, não há devolução aguardando NF e toda compra da oficina
+ * tem nota no card. Devolve {movido, pendRec, devAbertas, faltamNf, notas}. opt.comentar: deixa o "↪️ Card → ENTREGUES" no card.
+ * O card precisa vir com checklists (e anexos — se não vier, busca).
+ */
+function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
+  opt = opt || {};
+  var r = { movido: '', pendRec: [], devAbertas: [], faltamNf: [], faltamN: 0, notas: 0 };
+  if (!card || vdf_cardProtegido_(card.name || '') || !ctx.listas['ENTREGUES']) return r;
+  if (vdf_nomeLista_(ctx, card.idList) !== RC.LISTA_FIM) return r;
+  if (!card.attachments || !card.checklists) {
+    card = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' } }, token);
+  }
+  var todos = vdf_itensRecebimento_(card);
+  if (!todos.length) return r;   // sem item de checklist: não é card de peças (só mão de obra etc.) — fica para a regra dos 15 dias
+  r.pendRec = todos.filter(function (i) { return !i.ok; });
+  try { r.devAbertas = rc_devolucoes_(card).filter(function (d) { return !d.ok; }); } catch (e) {}
+  var nf = rc_notasOficina_(card);
+  r.faltamNf = nf.faltam; r.faltamN = nf.faltamN; r.notas = nf.notas;
+  if (r.pendRec.length || r.devAbertas.length || r.faltamNf.length) return r;
+  r.movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, usuario || 'robô');
+  if (r.movido && opt.comentar) {
+    try { vd_comentar_(card, '↪️ Card → **' + r.movido + '** (tudo recebido' + (nf.pagas ? ' · ' + nf.pagas + ' compra(s) da oficina com nota no card' : ' · só fornecimento da seguradora, sem compra da oficina') + ').'); } catch (e) {}
+  }
+  return r;
+}
+/** Texto curto do que ainda segura o card em ENCERRADO (para o comentário da retirada/devolução). */
+function rc_textoSegura_(r) {
+  if (!r) return '';
+  if (r.pendRec.length) return r.pendRec.length + ' peça(s) ainda não recebida(s)';
+  if (r.devAbertas.length) return 'NF de devolução pendente — ' + r.devAbertas.map(function (d) { return d.peca; }).join('; ');
+  if (r.faltamNf.length) return 'falta anexar a nota fiscal de ' + r.faltamN + ' compra(s) da oficina (fornecedor sem nota identificada: ' + r.faltamNf.join('; ') + ') — aba 📦 Recebimento → Nota fiscal';
+  return '';
+}
+/** Varredura da coluna ENCERRADO a cada RC_NF.CADA_MIN minutos (dentro do ciclo de 1 min): nota anexada pela rotina de NF ou à mão. */
+function rc_varrerEncerrado_() {
+  if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
+  if (new Date().getMinutes() % RC_NF.CADA_MIN !== 0) return;
+  var ctx = vd_contexto_(), idEnc = ctx.listas[RC.LISTA_FIM];
+  if (!idEnc || !ctx.listas['ENTREGUES']) return;
+  var cards = vd_api_('/lists/' + idEnc + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' } }) || [];
+  var fim = vd_prazo_(40 * 1000), n = 0;
+  cards.forEach(function (c) {
+    if (Date.now() > fim) return;
+    try { if (rc_liberarEncerrado_(c, ctx, null, 'robô', { comentar: true }).movido) n++; } catch (e) { console.log('varredura ENCERRADO ' + c.shortLink + ': ' + e); }
+  });
+  if (n) console.log('ENCERRADO → ENTREGUES pela nota: ' + n + ' card(s)');
+  return n;
 }
 
 /* ===================== Devoluções ao fornecedor — checklist DEVOLUÇÕES (21/10/2026, Weslley) =====================
@@ -683,17 +811,15 @@ function vdf_salvarDevolucao(token, p) {
     evs.push({ peca: d.peca, fornecedor: forn, detalhe: 'NF DEVOLUÇÃO ' + nf + ' · devolvida ' + ddmm });
   });
   try { ev_registrar_('DEVOLUÇÃO', card, me.username, evs, { detalhe: 'NF de devolução · ' + itens.length + ' peça(s)' }); } catch (e) {}
-  // liberou? tudo recebido e retirado e sem devolução pendente -> ENTREGUES (o que a retirada teria feito)
-  var movido = '';
+  // liberou? tudo recebido, sem devolução pendente e nota da compra da oficina no card -> ENTREGUES (06/11/2026: retirada não segura mais)
+  var movido = '', segura = '';
   try {
-    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList', checklists: 'all', checkItem_fields: 'name,state,due' } });
-    var lista = vdf_nomeLista_(ctx, c2.idList), todos = vdf_itensRecebimento_(c2);
-    if (lista === RC.LISTA_FIM && todos.length && todos.every(function (i) { return i.ok && i.retirada; }) && !rc_devolucoesPendentes_(c2).length && ctx.listas['ENTREGUES']) {
-      movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, me.username);
-    }
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' } });
+    var lib = rc_liberarEncerrado_(c2, ctx, token, me.username);
+    movido = lib.movido; if (!movido && vdf_nomeLista_(ctx, c2.idList) === RC.LISTA_FIM) segura = rc_textoSegura_(lib);
   } catch (e) { console.log('devolução/coluna: ' + e); }
   try {
-    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '↩️ **NF DE DEVOLUÇÃO** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' + linhas.join('\n') + (nAnexos ? '\n📎 ' + nAnexos + ' anexo(s)' : '') } }, token);
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '↩️ **NF DE DEVOLUÇÃO** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') + '\n' + linhas.join('\n') + (nAnexos ? '\n📎 ' + nAnexos + ' anexo(s)' : '') + (segura ? '\n⏳ O card fica em **' + RC.LISTA_FIM + '**: ' + segura : '') } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };

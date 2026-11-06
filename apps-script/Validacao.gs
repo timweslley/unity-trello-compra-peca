@@ -2238,6 +2238,7 @@ function validarDadosPedido() {
       if (typeof mg_corrigirBDK2J49_ === 'function') sd_parte_('correção BDK2J49', mg_corrigirBDK2J49_);   // uma vez só (Migracao.gs)   // card antigo que volta para cotação vira fluxo novo (12/10/2026)
       if (new Date().getMinutes() % 5 === 0) cabe('prazos', pz_executar_);   // baixa todos os checklists: a cada 5 min basta
       cabe('prazos por etapa', sla_executar_);
+      cabe('nota libera ENCERRADO', rc_varrerEncerrado_);   // a cada 10 min: compra da oficina com nota no card → ENTREGUES (06/11/2026)
       cabe('anexos antigos (madrugada)', ax_madrugada_);   // 3h–5h59: lê e batiza anexo antigo nunca lido (13/10/2026)
       if (typeof cl_agendarTeste_ === 'function') sd_parte_('cilia (teste no TESTE)', cl_agendarTeste_);   // uma vez por versão do teste
       sd_parte_('relatório', rel_instalarSeFaltar_);

@@ -107,7 +107,9 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 | `📦 RECEBIMENTO — Nome → ENCERRADO` + itens / 📎 / ⏳ falta chegar / ✅ tudo recebido | aba Recebimento | não | **M** |
 | `📦 PEÇAS — local / devolução — Nome` | só local/retirada/devolução | não | **M** |
 | `📦 RECEBIMENTO — Nome (✔ marcado no Trello)` | ✔ direto no checklist (fora do formulário) | não | **M** |
-| `✋ RETIRADA — Nome · por X em dd/mm → ENTREGUES` | aba Retirada | não | **M** |
+| `✋ RETIRADA — Nome · por X em dd/mm → ENTREGUES` | aba Retirada (desde 06/11 o `→ ENTREGUES` vem da nota da compra, não da retirada) | não | **M** |
+| `↪️ Card → ENTREGUES (tudo recebido · N compra(s) da oficina com nota no card)` | nota da compra da oficina liberou o card de ENCERRADO (06/11/2026): varredura a cada 10 min ou reavaliação do robô | não | **M** (novo) |
+| `⏳ O card fica em ENCERRADO: falta anexar a nota fiscal de N compra(s) da oficina (fornecedor sem nota identificada: …) — aba 📦 Recebimento → Nota fiscal` (linha dentro do comentário do recebimento / retirada / NF de devolução) | ação pelo formulário com o card em ENCERRADO e compra sem nota (06/11/2026) | não | **M** (novo) |
 | `↪️ Card → COLUNA (motivo)` | robô reavaliou a coluna (tudo comprado / só FO / sem compra) | não | **F**: só quando NÃO veio de uma ação pelo formulário (o comentário da ação já traz `→ COLUNA`) |
 | `↩️ NF DE DEVOLUÇÃO — Nome` + linhas por peça (NF nº, anexo) | comprador informou a NF de devolução (21/10) | não | **M** (novo) |
 | `⏰ NF de devolução pendente há mais de N d.u. — …` | SLA, 3 d.u. após a devolução, 1 vez por item | @compras | **M** (novo) |

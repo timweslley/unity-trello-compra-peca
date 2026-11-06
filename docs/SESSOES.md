@@ -480,3 +480,13 @@ da outra, deixar um recado aqui e no commit.
   à mão no quadro (OF4ZhPDI), o robô avisou "PLACA JÁ TEM CARD ABERTO" com o link e ele seguiu no novo (que ficou completo:
   tipos, 🚫, cotações, nº ordem 2602). Ajuste: card aberto pela rotina menciona a equipe da unidade (Rondon/Cascavel) no
   comentário 🤖 e no ⚠️ FALTA DADOS. O card da rotina fica para arquivar (Weslley decide).
+- **06/11/2026 — ENCERRADO → ENTREGUES pela nota da compra da oficina.** Weslley: "nos cards de compra encerrada apenas as notas
+  de compra de oficina são obrigatórias para seguir para ENTREGUES, notas de fornecimento não — os cards não podem ficar
+  represados ali". Conferido: nenhuma regra (robô, formulário, 9 regras do Butler) exigia nota; o que segurava era "todas as
+  peças retiradas (inclusive FO)" ou 15 dias; 72 cards em ENCERRADO. Regra nova (`rc_liberarEncerrado_`, Recebimento.gs):
+  tudo recebido · sem devolução aguardando NF · toda compra da oficina com nota no card (por fornecedor: palavra em comum
+  nome da nota × fornecedor do item, ou por contagem quando o apelido não bate com a razão social) → ENTREGUES, na hora e numa
+  varredura a cada 10 min (`rc_varrerEncerrado_`). Retirada deixa de segurar; 15 dias continua. Simulação na coluna: 35 de 62
+  cards com itens liberariam na hora. Conferência no TESTE (card 🧪) logo após publicar. Também: BDD4D27 duplicado resolvido (fornecedor
+  GLOBO RENAULT PR copiado para o P7FXn1hN, qFcGK2GP arquivado); RED2H92: J3BDOT7e excluído (mesmo sinistro); TDG0A13 são
+  dois serviços (HDI + parabrisa particular) — legítimo.
