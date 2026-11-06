@@ -513,3 +513,6 @@ da outra, deixar um recado aqui e no commit.
 - **06/11/2026 17h35 — AAZ0E84 Cherokee particular em ENCERRADO com check em aberto.** É a devolução ao ML de 13/10 aguardando NF
   (checklist DEVOLUÇÕES); a compra nova chegou 22/10 e o ✔ direto no Trello levou o card a ENCERRADO antes da regra de 05/11. A
   varredura de 10 min agora reavalia card de ENCERRADO com devolução aberta ou item pendente → FALTA CHEGAR.
+- **06/11/2026 17h36 — "sem peça a comprar nem a fornecer vai direto para ENTREGUES".** Card sem item de checklist e sem peça por comprar
+  (tudo 🚫, só mão de obra, encerrado sem peças) não fica em ENCERRADO esperando 15 dias: vai para ENTREGUES na reavaliação e na
+  varredura (9 cards hoje: BAW0F20, AZQ7D86, SMC5F18, BCV0H02, QCU5097…; o Chevette de 2024 é legado e fica).

@@ -559,9 +559,11 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
       itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista) || i.ok; }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido; PAGAS já recebido não impede (13/10/2026, BBG3844: tudo 🚫 e compras antigas ✔)
     var an = vd_analisar_(card.desc, card.name);
     if (!an.pecas.length && (itens.length || (an.naoComprar || []).length || devAbertas.length)) {
-      alvo = pendOuDev ? VDF_LISTA_CHEGAR : RC.LISTA_FIM;
+      // 06/11/2026 (Weslley): "se não tiver peça a comprar nem a fornecer pode ir direto para ENTREGUES" — sem item nenhum de
+      // checklist (nada comprado, nada da seguradora) e sem devolução, não passa por ENCERRADO
+      alvo = pendOuDev ? VDF_LISTA_CHEGAR : (itens.length ? RC.LISTA_FIM : 'ENTREGUES');
       soFo = 'sem peça para a oficina comprar' + ((an.naoComprar || []).length ? ' (' + an.naoComprar.length + ' marcada(s) 🚫 não comprar)' : '') +
-        (pend.length ? ' · ' + pend.length + ' peça(s) da seguradora para chegar' : (itens.length ? ' · fornecimento todo recebido' : ' · nada a receber')) + txtDev;
+        (pend.length ? ' · ' + pend.length + ' peça(s) da seguradora para chegar' : (itens.length ? ' · fornecimento todo recebido' : ' · nada a fornecer nem a receber')) + txtDev;
     }
   }
   // toda peça da oficina JÁ COMPRADA (está no PAGAS) e o resto 🚫 não comprar, mas o card voltou para antes da compra
@@ -710,7 +712,23 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
     card = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' } }, token);
   }
   var todos = vdf_itensRecebimento_(card);
-  if (!todos.length) return r;   // sem item de checklist: não é card de peças (só mão de obra etc.) — fica para a regra dos 15 dias
+  if (!todos.length) {
+    // 06/11/2026 (Weslley): "se não tiver peça a comprar nem a fornecer pode ir direto para ENTREGUES" — só mão de obra, tudo 🚫,
+    // encerrado sem peças: sem item de checklist, sem peça por comprar no pedido e sem devolução → ENTREGUES. Card antigo (sem
+    // descrição oficial) e pedido com peça ainda por comprar ficam (regra dos 15 dias).
+    try {
+      if (vd_legado_(card.id)) return r;
+      var cD = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc' } }, token);
+      if (vd_ehVitrineSemCompleta_(cD.desc)) return r;
+      var anD = vd_analisar_(cD.desc, cD.name);
+      if ((anD.pecas || []).some(function (p) { return !p.naoComprar; }) || (anD.faltas || []).length) return r;
+      try { r.devAbertas = rc_devolucoes_(card).filter(function (d) { return !d.ok; }); } catch (e) {}
+      if (r.devAbertas.length) return r;
+      r.movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, usuario || 'robô');
+      if (r.movido && opt.comentar) { try { vd_comentar_(card, '↪️ Card → **' + r.movido + '** (sem peça a comprar nem a fornecer' + ((anD.naoComprar || []).length ? ' · ' + anD.naoComprar.length + ' marcada(s) 🚫 não comprar' : '') + ').'); } catch (e) {} }
+    } catch (e) { console.log('liberar sem itens ' + card.shortLink + ': ' + e); }
+    return r;
+  }
   r.pendRec = todos.filter(function (i) { return !i.ok; });
   try { r.devAbertas = rc_devolucoes_(card).filter(function (d) { return !d.ok; }); } catch (e) {}
   var nf = rc_notasOficina_(card);
