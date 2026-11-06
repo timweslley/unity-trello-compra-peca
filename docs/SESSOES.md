@@ -490,3 +490,7 @@ da outra, deixar um recado aqui e no commit.
   cards com itens liberariam na hora. Conferência no TESTE (card 🧪) logo após publicar. Também: BDD4D27 duplicado resolvido (fornecedor
   GLOBO RENAULT PR copiado para o P7FXn1hN, qFcGK2GP arquivado); RED2H92: J3BDOT7e excluído (mesmo sinistro); TDG0A13 são
   dois serviços (HDI + parabrisa particular) — legítimo.
+- **06/11/2026 — ATZ2D85 Fit (Yelum) parado em FALTA CHEGAR com tudo ✔.** O item FO 74218 GRADE DO PAINEL DO LIMPADOR (TAKAI, atrasado
+  desde 22/10) sumiu do checklist (apagado à mão, sem registro na API; a descrição ainda diz 4 FO) e o Butler só dispara no ✔;
+  a retirada de 30/10 não reavalia FALTA CHEGAR. A varredura de 10 min passa a olhar FALTA CHEGAR com tudo ✔ → ENCERRADO (→ ENTREGUES
+  se tiver nota). Falta saber se a GRADE chegou (não está no card).

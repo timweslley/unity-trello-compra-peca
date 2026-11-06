@@ -604,7 +604,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   }
   if (!alvo || !ctx.listas[alvo]) return '';
   var movido = vdf_moverPara_(card, ctx, alvo, token, usuario || 'robô');
-  if (movido && (lista !== VDF_LISTA_CHEGAR || alvo !== RC.LISTA_FIM)) {   // FALTA CHEGAR → ENCERRADO já tem o "✅ Tudo recebido" do recebimento
+  if (movido && (lista !== VDF_LISTA_CHEGAR || alvo !== RC.LISTA_FIM || opt.varredura)) {   // FALTA CHEGAR → ENCERRADO já tem o "✅ Tudo recebido" do recebimento (na varredura não há: comenta)
     try {
       vd_comentar_(card, '↪️ Card → **' + movido + '** (' + (semCompra ? 'peça autorizada sem compra — verificar compra do item' : soFo || (alvo === VDF_LISTA_CHEGAR ? pend.length + ' peça(s) para chegar' : 'tudo recebido')) + ').');
     } catch (e) {}
@@ -724,8 +724,21 @@ function rc_varrerEncerrado_() {
     if (Date.now() > fim) return;
     try { if (rc_liberarEncerrado_(c, ctx, null, 'robô', { comentar: true }).movido) n++; } catch (e) { console.log('varredura ENCERRADO ' + c.shortLink + ': ' + e); }
   });
-  if (n) console.log('ENCERRADO → ENTREGUES pela nota: ' + n + ' card(s)');
-  return n;
+  // 06/11/2026 (ATZ2D85 Fit): item FO apagado do checklist à mão depois de tudo recebido — o Butler ("todos os checklists
+  // completos em FALTA CHEGAR → ENCERRADO") só dispara no ✔, e o robô só reavaliava a coluna numa ação do formulário; o card
+  // ficou em FALTA CHEGAR com tudo ✔ desde 30/10. Agora a varredura também olha FALTA CHEGAR: tudo ✔ → reavalia (→ ENCERRADO → ENTREGUES).
+  var idChegar = ctx.listas[VDF_LISTA_CHEGAR], m = 0;
+  if (idChegar && Date.now() < fim) {
+    var pendentes = vd_api_('/lists/' + idChegar + '/cards', { query: { fields: 'name,idList,shortLink', checklists: 'all', checkItem_fields: 'name,state' } }) || [];
+    pendentes.forEach(function (c) {
+      if (Date.now() > fim || vdf_cardProtegido_(c.name || '')) return;
+      var its = vdf_itensRecebimento_(c);
+      if (!its.length || its.some(function (i) { return !i.ok; })) return;
+      try { if (rc_reavaliarColuna_(c.id, null, 'robô', { reavaliar: true, varredura: true })) m++; } catch (e) { console.log('varredura FALTA CHEGAR ' + c.shortLink + ': ' + e); }
+    });
+  }
+  if (n || m) console.log('varredura: ENCERRADO → ENTREGUES pela nota ' + n + ' · FALTA CHEGAR com tudo ✔ reavaliado ' + m);
+  return n + m;
 }
 
 /* ===================== Devoluções ao fornecedor — checklist DEVOLUÇÕES (21/10/2026, Weslley) =====================

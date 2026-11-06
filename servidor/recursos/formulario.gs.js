@@ -452,7 +452,7 @@ var RC_NF = {
   GENERICAS: /^(NF|NFE|NFSE|DANFE|NOTA|FISCAL|LTDA|EPP|EIRELI|MEI|COMERCIO|COMERCIAL|INDUSTRIA|INDUSTRIAL|DISTRIBUIDORA|DISTRIBUICAO|AUTO|AUTOMOTIVA|AUTOMOTIVO|AUTOMOTIVOS|AUTOPECAS|AUTOPECA|PECAS|PECA|ACESSORIOS|ACESSORIO|IMPORTADORA|IMPORTACAO|IMPORT|VEICULOS|VEICULO|SERVICOS|SERVICO|CENTER|CENTRO|BRASIL|DOS|DAS|COM|PARA|RESUMO|PDF|XML|FORNECIMENTO|DEVOLUCAO|FILIAL|MATRIZ|GRUPO|CIA|THE|AND|NOVA|NOVO|SUL|NORTE|SAO|SANTA|SANTO)$/
 };
 
-// Recebimento.gs:736
+// Recebimento.gs:750
 var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF' };
 
 // Saude.gs:12
@@ -9341,7 +9341,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   }
   if (!alvo || !ctx.listas[alvo]) return '';
   var movido = vdf_moverPara_(card, ctx, alvo, token, usuario || 'robô');
-  if (movido && (lista !== VDF_LISTA_CHEGAR || alvo !== RC.LISTA_FIM)) {   // FALTA CHEGAR → ENCERRADO já tem o "✅ Tudo recebido" do recebimento
+  if (movido && (lista !== VDF_LISTA_CHEGAR || alvo !== RC.LISTA_FIM || opt.varredura)) {   // FALTA CHEGAR → ENCERRADO já tem o "✅ Tudo recebido" do recebimento (na varredura não há: comenta)
     try {
       vd_comentar_(card, '↪️ Card → **' + movido + '** (' + (semCompra ? 'peça autorizada sem compra — verificar compra do item' : soFo || (alvo === VDF_LISTA_CHEGAR ? pend.length + ' peça(s) para chegar' : 'tudo recebido')) + ').');
     } catch (e) {}
@@ -9393,15 +9393,16 @@ function rc_notasOficina_(card) {
     for (var k = 0; k < notas.length && !n; k++) if (notas[k].pal.some(function (w) { return ch.indexOf(w) >= 0; })) n = notas[k];
     if (n) { n.usada = true; cobertos.push(f); } else faltam.push(f);
   });
-  var livres = notas.filter(function (n) { return !n.usada; }).length;
-  if (faltam.length && livres >= faltam.length) { cobertos = cobertos.concat(faltam); faltam = []; }
-  return { pagas: pagas.length, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, notas: notas.length };
+  var livres = notas.filter(function (n) { return !n.usada; }).length, faltamN = Math.max(0, faltam.length - livres);
+  if (faltam.length && !faltamN) { cobertos = cobertos.concat(faltam); faltam = []; }
+  // faltamN = quantas compras ainda estão sem nota; faltam = fornecedores sem nota identificada pelo nome (lista inteira quando sobra alguma)
+  return { pagas: pagas.length, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };
 }
 
-// Recebimento.gs:685
+// Recebimento.gs:686
 function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   opt = opt || {};
-  var r = { movido: '', pendRec: [], devAbertas: [], faltamNf: [], notas: 0 };
+  var r = { movido: '', pendRec: [], devAbertas: [], faltamNf: [], faltamN: 0, notas: 0 };
   if (!card || vdf_cardProtegido_(card.name || '') || !ctx.listas['ENTREGUES']) return r;
   if (vdf_nomeLista_(ctx, card.idList) !== RC.LISTA_FIM) return r;
   if (!card.attachments || !card.checklists) {
@@ -9412,7 +9413,7 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   r.pendRec = todos.filter(function (i) { return !i.ok; });
   try { r.devAbertas = rc_devolucoes_(card).filter(function (d) { return !d.ok; }); } catch (e) {}
   var nf = rc_notasOficina_(card);
-  r.faltamNf = nf.faltam; r.notas = nf.notas;
+  r.faltamNf = nf.faltam; r.faltamN = nf.faltamN; r.notas = nf.notas;
   if (r.pendRec.length || r.devAbertas.length || r.faltamNf.length) return r;
   r.movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, usuario || 'robô');
   if (r.movido && opt.comentar) {
@@ -9421,16 +9422,16 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   return r;
 }
 
-// Recebimento.gs:707
+// Recebimento.gs:708
 function rc_textoSegura_(r) {
   if (!r) return '';
   if (r.pendRec.length) return r.pendRec.length + ' peça(s) ainda não recebida(s)';
   if (r.devAbertas.length) return 'NF de devolução pendente — ' + r.devAbertas.map(function (d) { return d.peca; }).join('; ');
-  if (r.faltamNf.length) return 'falta anexar a nota fiscal da compra — ' + r.faltamNf.join('; ') + ' (aba 📦 Recebimento → Nota fiscal)';
+  if (r.faltamNf.length) return 'falta anexar a nota fiscal de ' + r.faltamN + ' compra(s) da oficina (fornecedor sem nota identificada: ' + r.faltamNf.join('; ') + ') — aba 📦 Recebimento → Nota fiscal';
   return '';
 }
 
-// Recebimento.gs:715
+// Recebimento.gs:716
 function rc_varrerEncerrado_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
   if (new Date().getMinutes() % RC_NF.CADA_MIN !== 0) return;
@@ -9442,11 +9443,24 @@ function rc_varrerEncerrado_() {
     if (Date.now() > fim) return;
     try { if (rc_liberarEncerrado_(c, ctx, null, 'robô', { comentar: true }).movido) n++; } catch (e) { console.log('varredura ENCERRADO ' + c.shortLink + ': ' + e); }
   });
-  if (n) console.log('ENCERRADO → ENTREGUES pela nota: ' + n + ' card(s)');
-  return n;
+  // 06/11/2026 (ATZ2D85 Fit): item FO apagado do checklist à mão depois de tudo recebido — o Butler ("todos os checklists
+  // completos em FALTA CHEGAR → ENCERRADO") só dispara no ✔, e o robô só reavaliava a coluna numa ação do formulário; o card
+  // ficou em FALTA CHEGAR com tudo ✔ desde 30/10. Agora a varredura também olha FALTA CHEGAR: tudo ✔ → reavalia (→ ENCERRADO → ENTREGUES).
+  var idChegar = ctx.listas[VDF_LISTA_CHEGAR], m = 0;
+  if (idChegar && Date.now() < fim) {
+    var pendentes = vd_api_('/lists/' + idChegar + '/cards', { query: { fields: 'name,idList,shortLink', checklists: 'all', checkItem_fields: 'name,state' } }) || [];
+    pendentes.forEach(function (c) {
+      if (Date.now() > fim || vdf_cardProtegido_(c.name || '')) return;
+      var its = vdf_itensRecebimento_(c);
+      if (!its.length || its.some(function (i) { return !i.ok; })) return;
+      try { if (rc_reavaliarColuna_(c.id, null, 'robô', { reavaliar: true, varredura: true })) m++; } catch (e) { console.log('varredura FALTA CHEGAR ' + c.shortLink + ': ' + e); }
+    });
+  }
+  if (n || m) console.log('varredura: ENCERRADO → ENTREGUES pela nota ' + n + ' · FALTA CHEGAR com tudo ✔ reavaliado ' + m);
+  return n + m;
 }
 
-// Recebimento.gs:738
+// Recebimento.gs:752
 function rc_checklistDev_(card, token) {
   var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
   if (k) return k;
@@ -9455,10 +9469,10 @@ function rc_checklistDev_(card, token) {
   return k;
 }
 
-// Recebimento.gs:746
+// Recebimento.gs:760
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// Recebimento.gs:747
+// Recebimento.gs:761
 function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
@@ -9471,7 +9485,7 @@ function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   return novo;
 }
 
-// Recebimento.gs:759
+// Recebimento.gs:773
 function rc_devolucoes_(card) {
   var out = [];
   (card.checklists || []).forEach(function (k) {
@@ -9485,10 +9499,10 @@ function rc_devolucoes_(card) {
   return out;
 }
 
-// Recebimento.gs:771
+// Recebimento.gs:785
 function rc_devolucoesPendentes_(card) { return rc_devolucoes_(card).filter(function (d) { return !d.ok; }); }
 
-// Recebimento.gs:774
+// Recebimento.gs:788
 function vdf_salvarDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -9542,7 +9556,7 @@ function vdf_salvarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:831
+// Recebimento.gs:845
 function vdf_reavaliarColuna(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
@@ -9555,7 +9569,7 @@ function vdf_reavaliarColuna(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:842
+// Recebimento.gs:856
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
