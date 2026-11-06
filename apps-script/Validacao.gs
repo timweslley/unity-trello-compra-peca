@@ -1746,7 +1746,9 @@ function vd_conferirCard_(card, ctx) {
       if (card.idList !== idFalta) vd_mover_(card, idFalta, 'top');
       if (sigAtual !== sigAnterior) {
         var quem = vd_criador_(card.id);
-        try { if (props.getProperty('VD_ROTINA_' + card.id)) quem = ''; } catch (e) {}   // 03/11/2026: card aberto pela Rotina (criador = usuário do Weslley): sem @menção
+        // 03/11/2026: card aberto pela Rotina (criador = usuário do Weslley): menciona a equipe da unidade (Rondon/Cascavel), senão ninguém
+        // (06/11/2026, RED2H92: Cascavel não viu o card da rotina e abriu outro à mão)
+        try { if (props.getProperty('VD_ROTINA_' + card.id)) quem = vdf_equipeDoCard_(card).join(' @'); } catch (e) {}
         vd_comentar_(card, (quem ? '@' + quem + ' ' : '') + '⚠️ **FALTA DADOS' + (base ? ' (PEÇA NOVA)' : '') + '** — corrigir para seguir:\n' +
           faltas.map(function (f) { return '- ' + f; }).join('\n') +
           (res.importado ? '\n' + res.importado.texto : '') +

@@ -2674,7 +2674,10 @@ function vdf_salvar(token, p) {
       try { PropertiesService.getScriptProperties().setProperty('VD_ROTINA_' + card.id, '1'); } catch (e) {}   // 03/11/2026: o aviso ⚠️ FALTA DADOS deste card não menciona o criador (é o usuário da rotina)
       try {
         var avisoR = String(p.aviso || '').trim();
-        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🤖 **Card aberto pela Rotina Unity** a partir de ' + (extra.origemOrc || 'portal/Cilia') + ' — a equipe ainda não tinha feito o pedido.' +
+        // 06/11/2026 (RED2H92: Cascavel não viu o card da rotina e abriu outro à mão): menciona a equipe da unidade, se houver
+        var eqR = []; try { eqR = vdf_equipeDoCard_({ id: card.id }); } catch (e) {}
+        var mencR = eqR.length ? eqR.map(function (u) { return '@' + u; }).join(' ') + ' ' : '';
+        vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: mencR + '🤖 **Card aberto pela Rotina Unity** a partir de ' + (extra.origemOrc || 'portal/Cilia') + ' — a equipe ainda não tinha feito o pedido.' +
           (pecas.length ? '\nPeças da oficina sem tipo/código: complete pelo ✏️ **EDITAR/INCLUIR PEÇA** — o card sai de FALTA DADOS sozinho.' : '\nSó fornecimento da seguradora: ver checklist FORNECIMENTO.') +
           (semOrdem ? '\nSem nº da ordem (Databox): abra a O.S. e informe o nº pelo ✏️ **EDITAR** — o card fica em FALTA DADOS até isso.' : '') +
           (faltasRotina.length ? '\n' + faltasRotina.slice(0, 8).map(function (f) { return '- ' + f; }).join('\n') : '') + (avisoR ? '\n' + avisoR : '') } }, token);

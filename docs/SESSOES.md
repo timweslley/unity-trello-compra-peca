@@ -475,3 +475,8 @@ da outra, deixar um recado aqui e no commit.
   devoluções registradas (2 itens aguardando NF), card RETORNO aberto para a recompra; a trava não deixava mover para FALTA CHEGAR
   e o Weslley criou um item "devolução" no PAGAS à mão. Regra: devolução aberta = pendência de chegada (segura em FALTA CHEGAR);
   trava de FALTA CHEGAR orienta a marcar 🚫 na aba Autorizar quando não há o que comprar.
+- **06/11/2026 — RED2H92 Tiguan (Suíça, Cascavel): card duplicado.** A rotina abriu o card J3BDOT7e em 04/11 02:04 (Cilia 8384.1
+  autorizado) sem @menção (regra de 03/11 tirou a menção do criador) e Cascavel não viu; em 05/11 10:07 o Lucas criou outro card
+  à mão no quadro (OF4ZhPDI), o robô avisou "PLACA JÁ TEM CARD ABERTO" com o link e ele seguiu no novo (que ficou completo:
+  tipos, 🚫, cotações, nº ordem 2602). Ajuste: card aberto pela rotina menciona a equipe da unidade (Rondon/Cascavel) no
+  comentário 🤖 e no ⚠️ FALTA DADOS. O card da rotina fica para arquivar (Weslley decide).
