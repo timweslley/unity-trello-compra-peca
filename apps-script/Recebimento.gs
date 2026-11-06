@@ -740,7 +740,13 @@ function rc_varrerEncerrado_() {
   var fim = vd_prazo_(40 * 1000), n = 0;
   cards.forEach(function (c) {
     if (Date.now() > fim) return;
-    try { if (rc_liberarEncerrado_(c, ctx, null, 'robô', { comentar: true }).movido) n++; } catch (e) { console.log('varredura ENCERRADO ' + c.shortLink + ': ' + e); }
+    try {
+      var lib = rc_liberarEncerrado_(c, ctx, null, 'robô', { comentar: true });
+      if (lib.movido) { n++; return; }
+      // 06/11/2026 (AAZ0E84 Cherokee: em ENCERRADO desde 22/10 com devolução aguardando NF — a regra de 05/11 leva para FALTA
+      // CHEGAR, mas só rodava numa ação do formulário): devolução aberta ou item pendente → reavalia (→ FALTA CHEGAR)
+      if ((lib.devAbertas.length || lib.pendRec.length) && !vd_legado_(c.id)) { if (rc_reavaliarColuna_(c.id, null, 'robô', { semLiberar: true })) n++; }
+    } catch (e) { console.log('varredura ENCERRADO ' + c.shortLink + ': ' + e); }
   });
   // 06/11/2026 (ATZ2D85 Fit): item FO apagado do checklist à mão depois de tudo recebido — o Butler ("todos os checklists
   // completos em FALTA CHEGAR → ENCERRADO") só dispara no ✔, e o robô só reavaliava a coluna numa ação do formulário; o card

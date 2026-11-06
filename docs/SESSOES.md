@@ -510,3 +510,6 @@ da outra, deixar um recado aqui e no commit.
   AYG5I02, BAT9F19) e 117 antigos (mar–set). Weslley: só os do fluxo novo voltam; os antigos ficam na fila do faturamento. Regra
   nova `rc_devolverEntregues_` na varredura; NFS-e sai da contagem (NRQ8F23 tinha saído com a NFS-e da AUTOX cobrindo a DIPAUTO);
   madrugada passa a ler anexos de ENCERRADO (scan de nota vira "NF …" e libera o card).
+- **06/11/2026 17h35 — AAZ0E84 Cherokee particular em ENCERRADO com check em aberto.** É a devolução ao ML de 13/10 aguardando NF
+  (checklist DEVOLUÇÕES); a compra nova chegou 22/10 e o ✔ direto no Trello levou o card a ENCERRADO antes da regra de 05/11. A
+  varredura de 10 min agora reavalia card de ENCERRADO com devolução aberta ou item pendente → FALTA CHEGAR.

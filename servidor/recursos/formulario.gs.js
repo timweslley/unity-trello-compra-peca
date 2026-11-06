@@ -452,7 +452,7 @@ var RC_NF = {
   GENERICAS: /^(NF|NFE|NFSE|DANFE|NOTA|FISCAL|LTDA|EPP|EIRELI|MEI|COMERCIO|COMERCIAL|INDUSTRIA|INDUSTRIAL|DISTRIBUIDORA|DISTRIBUICAO|AUTO|AUTOMOTIVA|AUTOMOTIVO|AUTOMOTIVOS|AUTOPECAS|AUTOPECA|PECAS|PECA|ACESSORIOS|ACESSORIO|IMPORTADORA|IMPORTACAO|IMPORT|VEICULOS|VEICULO|SERVICOS|SERVICO|CENTER|CENTRO|BRASIL|DOS|DAS|COM|PARA|RESUMO|PDF|XML|FORNECIMENTO|DEVOLUCAO|FILIAL|MATRIZ|GRUPO|CIA|THE|AND|NOVA|NOVO|SUL|NORTE|SAO|SANTA|SANTO)$/
 };
 
-// Recebimento.gs:793
+// Recebimento.gs:799
 var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF' };
 
 // Saude.gs:12
@@ -9461,7 +9461,13 @@ function rc_varrerEncerrado_() {
   var fim = vd_prazo_(40 * 1000), n = 0;
   cards.forEach(function (c) {
     if (Date.now() > fim) return;
-    try { if (rc_liberarEncerrado_(c, ctx, null, 'robô', { comentar: true }).movido) n++; } catch (e) { console.log('varredura ENCERRADO ' + c.shortLink + ': ' + e); }
+    try {
+      var lib = rc_liberarEncerrado_(c, ctx, null, 'robô', { comentar: true });
+      if (lib.movido) { n++; return; }
+      // 06/11/2026 (AAZ0E84 Cherokee: em ENCERRADO desde 22/10 com devolução aguardando NF — a regra de 05/11 leva para FALTA
+      // CHEGAR, mas só rodava numa ação do formulário): devolução aberta ou item pendente → reavalia (→ FALTA CHEGAR)
+      if ((lib.devAbertas.length || lib.pendRec.length) && !vd_legado_(c.id)) { if (rc_reavaliarColuna_(c.id, null, 'robô', { semLiberar: true })) n++; }
+    } catch (e) { console.log('varredura ENCERRADO ' + c.shortLink + ': ' + e); }
   });
   // 06/11/2026 (ATZ2D85 Fit): item FO apagado do checklist à mão depois de tudo recebido — o Butler ("todos os checklists
   // completos em FALTA CHEGAR → ENCERRADO") só dispara no ✔, e o robô só reavaliava a coluna numa ação do formulário; o card
@@ -9484,7 +9490,7 @@ function rc_varrerEncerrado_() {
   return n + m + v;
 }
 
-// Recebimento.gs:766
+// Recebimento.gs:772
 function rc_devolverEntregues_(ctx, fim) {
   var idEnt = ctx.listas['ENTREGUES'], idEnc = ctx.listas[RC.LISTA_FIM];
   if (!idEnt || !idEnc) return 0;
@@ -9506,7 +9512,7 @@ function rc_devolverEntregues_(ctx, fim) {
   return v;
 }
 
-// Recebimento.gs:795
+// Recebimento.gs:801
 function rc_checklistDev_(card, token) {
   var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
   if (k) return k;
@@ -9515,10 +9521,10 @@ function rc_checklistDev_(card, token) {
   return k;
 }
 
-// Recebimento.gs:803
+// Recebimento.gs:809
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// Recebimento.gs:804
+// Recebimento.gs:810
 function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
@@ -9531,7 +9537,7 @@ function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   return novo;
 }
 
-// Recebimento.gs:816
+// Recebimento.gs:822
 function rc_devolucoes_(card) {
   var out = [];
   (card.checklists || []).forEach(function (k) {
@@ -9545,10 +9551,10 @@ function rc_devolucoes_(card) {
   return out;
 }
 
-// Recebimento.gs:828
+// Recebimento.gs:834
 function rc_devolucoesPendentes_(card) { return rc_devolucoes_(card).filter(function (d) { return !d.ok; }); }
 
-// Recebimento.gs:831
+// Recebimento.gs:837
 function vdf_salvarDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -9602,7 +9608,7 @@ function vdf_salvarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:888
+// Recebimento.gs:894
 function vdf_reavaliarColuna(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
@@ -9615,7 +9621,7 @@ function vdf_reavaliarColuna(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:899
+// Recebimento.gs:905
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
