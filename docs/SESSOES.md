@@ -505,3 +505,8 @@ da outra, deixar um recado aqui e no commit.
   10 sem item de checklist — regra dos 15 dias —, 1 devolução aberta); nenhum segurado indevidamente. Dois casos de benefício da
   dúvida (AZP3324 ok: FIAT FIPAL TOLEDO e FIPAL TOLEDO são a mesma nota; NPG5429: IMPERIAL coberta por nota sem emitente no nome).
   Refinado: palavras do cadastro de fornecedores (razão social) entram no casamento e notas sobrando contam por emitente.
+- **06/11/2026 17h25 — "card entregue faltando nota de compra da oficina volta para ENCERRADO".** Em ENTREGUES: 479 cards, 204 sem
+  compra da oficina, 152 com nota, 123 sem nota pelo nome do anexo — 6 do fluxo novo (NRQ8F23, FMR7E11, AZV7F58, BBI3942 wAx4fFXb,
+  AYG5I02, BAT9F19) e 117 antigos (mar–set). Weslley: só os do fluxo novo voltam; os antigos ficam na fila do faturamento. Regra
+  nova `rc_devolverEntregues_` na varredura; NFS-e sai da contagem (NRQ8F23 tinha saído com a NFS-e da AUTOX cobrindo a DIPAUTO);
+  madrugada passa a ler anexos de ENCERRADO (scan de nota vira "NF …" e libera o card).

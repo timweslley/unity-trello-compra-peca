@@ -346,7 +346,9 @@ function ax_madrugada_(teste) {
   if (teste) st = { dia: 'teste', fila: [teste], pos: 0, lidos: 0, renomeados: 0, antigos: 0 };
   else if (st.dia !== dia) {
     var listas = vd_api_('/boards/' + vd_board_() + '/lists', { query: { fields: 'name', filter: 'open' } }) || [];
-    var pular = {}; listas.forEach(function (l) { if (/ENCERRAD|ENTREGUE/i.test(l.name || '')) pular[l.id] = 1; });
+    // 06/11/2026: ENCERRADO entra na leitura — o card agora espera lá pela nota da compra, e nota anexada como "scan_….pdf" só
+    // conta para a regra depois de batizada ("NF <EMITENTE> - nº - dd-mm")
+    var pular = {}; listas.forEach(function (l) { if (/ENTREGUE/i.test(l.name || '')) pular[l.id] = 1; });
     var cards = vd_api_('/boards/' + vd_board_() + '/cards', { query: { fields: 'shortLink,idList,name', filter: 'open' } }) || [];
     st = { dia: dia, fila: cards.filter(function (c) { return !pular[c.idList] && !vdf_cardProtegido_(c.name || '') && ax_placa_(c); }).map(function (c) { return c.shortLink; }), pos: 0, lidos: 0, renomeados: 0, antigos: 0 };
   }

@@ -654,7 +654,9 @@ function rc_nfDeCompra_(a) {
  *  fornecedor sem palavra em comum fica coberto se sobrar nota não usada por outro fornecedor (uma nota por fornecedor). */
 function rc_notasOficina_(card) {
   var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
-  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false }; });
+  // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
+  // AUTOX cobrindo a compra da DIPAUTO)
+  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
   var forns = [], porForn = {};
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
@@ -688,7 +690,7 @@ function rc_notasOficina_(card) {
   });
   // nota sobrando: duas notas do mesmo emitente (SGA 100175 e SGA 101802) contam uma só — não cobrem dois fornecedores diferentes
   var emitentes = {};
-  notas.filter(function (n) { return !n.usada; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
+  notas.filter(function (n) { return !n.usada && !n.servico; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
   var livres = Object.keys(emitentes).length, faltamN = Math.max(0, faltam.length - livres);
   if (faltam.length && !faltamN) { cobertos = cobertos.concat(faltam); faltam = []; }
   // faltamN = quantas compras ainda estão sem nota; faltam = fornecedores sem nota identificada pelo nome (lista inteira quando sobra alguma)
@@ -753,8 +755,33 @@ function rc_varrerEncerrado_() {
       try { if (rc_reavaliarColuna_(c.id, null, 'robô', { reavaliar: true, varredura: true })) m++; } catch (e) { console.log('varredura FALTA CHEGAR ' + c.shortLink + ': ' + e); }
     });
   }
-  if (n || m) console.log('varredura: ENCERRADO → ENTREGUES pela nota ' + n + ' · FALTA CHEGAR com tudo ✔ reavaliado ' + m);
-  return n + m;
+  // 06/11/2026 (Weslley, 17h25: "card entregue faltando nota de compra de peça da oficina precisa voltar para ENCERRADO"): só
+  // card do fluxo novo (não legado) e fora da etiqueta SEM COBRANÇA FATURAMENTO; os antigos ficam na fila do faturamento.
+  var v = 0;
+  try { v = rc_devolverEntregues_(ctx, fim); } catch (e) { console.log('varredura ENTREGUES: ' + e); }
+  if (n || m || v) console.log('varredura: ENCERRADO → ENTREGUES pela nota ' + n + ' · FALTA CHEGAR com tudo ✔ reavaliado ' + m + ' · ENTREGUES sem nota → ENCERRADO ' + v);
+  return n + m + v;
+}
+/** ENTREGUES → ENCERRADO: compra da oficina sem nota no card (fluxo novo). Devolve quantos voltaram. */
+function rc_devolverEntregues_(ctx, fim) {
+  var idEnt = ctx.listas['ENTREGUES'], idEnc = ctx.listas[RC.LISTA_FIM];
+  if (!idEnt || !idEnc) return 0;
+  var cards = vd_api_('/lists/' + idEnt + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' } }) || [];
+  var v = 0;
+  cards.forEach(function (c) {
+    if (Date.now() > fim || vdf_cardProtegido_(c.name || '')) return;
+    if (typeof fat_semCobranca_ === 'function' && fat_semCobranca_(c.labels)) return;   // card só para guardar nota (insumo/estoque)
+    var itens = vdf_itensRecebimento_(c);
+    if (!itens.some(function (i) { return /^PAGAS/.test(i.lista); })) return;   // sem compra da oficina: nada a cobrar
+    var nf = rc_notasOficina_(c);
+    if (!nf.faltamN) return;
+    if (vd_legado_(c.id)) return;   // card antigo: fica na fila do faturamento (decisão 06/11)
+    var movido = vdf_moverPara_(c, ctx, RC.LISTA_FIM, null, 'robô');
+    if (!movido) return;
+    v++;
+    try { vd_comentar_(c, '↪️ Card → **' + movido + '** (entregue sem a nota fiscal de ' + nf.faltamN + ' compra(s) da oficina — fornecedor sem nota identificada: ' + nf.faltam.join('; ') + '. Anexe a nota pela aba 📦 Recebimento → Nota fiscal; com ela o card volta sozinho para ENTREGUES).'); } catch (e) {}
+  });
+  return v;
 }
 
 /* ===================== Devoluções ao fornecedor — checklist DEVOLUÇÕES (21/10/2026, Weslley) =====================

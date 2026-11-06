@@ -452,7 +452,7 @@ var RC_NF = {
   GENERICAS: /^(NF|NFE|NFSE|DANFE|NOTA|FISCAL|LTDA|EPP|EIRELI|MEI|COMERCIO|COMERCIAL|INDUSTRIA|INDUSTRIAL|DISTRIBUIDORA|DISTRIBUICAO|AUTO|AUTOMOTIVA|AUTOMOTIVO|AUTOMOTIVOS|AUTOPECAS|AUTOPECA|PECAS|PECA|ACESSORIOS|ACESSORIO|IMPORTADORA|IMPORTACAO|IMPORT|VEICULOS|VEICULO|SERVICOS|SERVICO|CENTER|CENTRO|BRASIL|DOS|DAS|COM|PARA|RESUMO|PDF|XML|FORNECIMENTO|DEVOLUCAO|FILIAL|MATRIZ|GRUPO|CIA|THE|AND|NOVA|NOVO|SUL|NORTE|SAO|SANTA|SANTO)$/
 };
 
-// Recebimento.gs:766
+// Recebimento.gs:793
 var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF' };
 
 // Saude.gs:12
@@ -920,7 +920,9 @@ function ax_madrugada_(teste) {
   if (teste) st = { dia: 'teste', fila: [teste], pos: 0, lidos: 0, renomeados: 0, antigos: 0 };
   else if (st.dia !== dia) {
     var listas = vd_api_('/boards/' + vd_board_() + '/lists', { query: { fields: 'name', filter: 'open' } }) || [];
-    var pular = {}; listas.forEach(function (l) { if (/ENCERRAD|ENTREGUE/i.test(l.name || '')) pular[l.id] = 1; });
+    // 06/11/2026: ENCERRADO entra na leitura — o card agora espera lá pela nota da compra, e nota anexada como "scan_….pdf" só
+    // conta para a regra depois de batizada ("NF <EMITENTE> - nº - dd-mm")
+    var pular = {}; listas.forEach(function (l) { if (/ENTREGUE/i.test(l.name || '')) pular[l.id] = 1; });
     var cards = vd_api_('/boards/' + vd_board_() + '/cards', { query: { fields: 'shortLink,idList,name', filter: 'open' } }) || [];
     st = { dia: dia, fila: cards.filter(function (c) { return !pular[c.idList] && !vdf_cardProtegido_(c.name || '') && ax_placa_(c); }).map(function (c) { return c.shortLink; }), pos: 0, lidos: 0, renomeados: 0, antigos: 0 };
   }
@@ -973,7 +975,7 @@ function ax_madrugada_(teste) {
   return st.pos + '/' + st.fila.length + ' cards · ' + st.lidos + ' lidos · ' + st.renomeados + ' renomeados';
 }
 
-// Anexos.gs:403
+// Anexos.gs:405
 function vdf_anexosAntigosCard(token, shortLink) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) throw new Error('Só a diretoria.');
@@ -9374,7 +9376,9 @@ function rc_nfDeCompra_(a) {
 // Recebimento.gs:655
 function rc_notasOficina_(card) {
   var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
-  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false }; });
+  // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
+  // AUTOX cobrindo a compra da DIPAUTO)
+  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
   var forns = [], porForn = {};
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
@@ -9408,14 +9412,14 @@ function rc_notasOficina_(card) {
   });
   // nota sobrando: duas notas do mesmo emitente (SGA 100175 e SGA 101802) contam uma só — não cobrem dois fornecedores diferentes
   var emitentes = {};
-  notas.filter(function (n) { return !n.usada; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
+  notas.filter(function (n) { return !n.usada && !n.servico; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
   var livres = Object.keys(emitentes).length, faltamN = Math.max(0, faltam.length - livres);
   if (faltam.length && !faltamN) { cobertos = cobertos.concat(faltam); faltam = []; }
   // faltamN = quantas compras ainda estão sem nota; faltam = fornecedores sem nota identificada pelo nome (lista inteira quando sobra alguma)
   return { pagas: pagas.length, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };
 }
 
-// Recebimento.gs:702
+// Recebimento.gs:704
 function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   opt = opt || {};
   var r = { movido: '', pendRec: [], devAbertas: [], faltamNf: [], faltamN: 0, notas: 0 };
@@ -9438,7 +9442,7 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   return r;
 }
 
-// Recebimento.gs:724
+// Recebimento.gs:726
 function rc_textoSegura_(r) {
   if (!r) return '';
   if (r.pendRec.length) return r.pendRec.length + ' peça(s) ainda não recebida(s)';
@@ -9447,7 +9451,7 @@ function rc_textoSegura_(r) {
   return '';
 }
 
-// Recebimento.gs:732
+// Recebimento.gs:734
 function rc_varrerEncerrado_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
   if (new Date().getMinutes() % RC_NF.CADA_MIN !== 0) return;
@@ -9472,11 +9476,37 @@ function rc_varrerEncerrado_() {
       try { if (rc_reavaliarColuna_(c.id, null, 'robô', { reavaliar: true, varredura: true })) m++; } catch (e) { console.log('varredura FALTA CHEGAR ' + c.shortLink + ': ' + e); }
     });
   }
-  if (n || m) console.log('varredura: ENCERRADO → ENTREGUES pela nota ' + n + ' · FALTA CHEGAR com tudo ✔ reavaliado ' + m);
-  return n + m;
+  // 06/11/2026 (Weslley, 17h25: "card entregue faltando nota de compra de peça da oficina precisa voltar para ENCERRADO"): só
+  // card do fluxo novo (não legado) e fora da etiqueta SEM COBRANÇA FATURAMENTO; os antigos ficam na fila do faturamento.
+  var v = 0;
+  try { v = rc_devolverEntregues_(ctx, fim); } catch (e) { console.log('varredura ENTREGUES: ' + e); }
+  if (n || m || v) console.log('varredura: ENCERRADO → ENTREGUES pela nota ' + n + ' · FALTA CHEGAR com tudo ✔ reavaliado ' + m + ' · ENTREGUES sem nota → ENCERRADO ' + v);
+  return n + m + v;
 }
 
-// Recebimento.gs:768
+// Recebimento.gs:766
+function rc_devolverEntregues_(ctx, fim) {
+  var idEnt = ctx.listas['ENTREGUES'], idEnc = ctx.listas[RC.LISTA_FIM];
+  if (!idEnt || !idEnc) return 0;
+  var cards = vd_api_('/lists/' + idEnt + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' } }) || [];
+  var v = 0;
+  cards.forEach(function (c) {
+    if (Date.now() > fim || vdf_cardProtegido_(c.name || '')) return;
+    if (typeof fat_semCobranca_ === 'function' && fat_semCobranca_(c.labels)) return;   // card só para guardar nota (insumo/estoque)
+    var itens = vdf_itensRecebimento_(c);
+    if (!itens.some(function (i) { return /^PAGAS/.test(i.lista); })) return;   // sem compra da oficina: nada a cobrar
+    var nf = rc_notasOficina_(c);
+    if (!nf.faltamN) return;
+    if (vd_legado_(c.id)) return;   // card antigo: fica na fila do faturamento (decisão 06/11)
+    var movido = vdf_moverPara_(c, ctx, RC.LISTA_FIM, null, 'robô');
+    if (!movido) return;
+    v++;
+    try { vd_comentar_(c, '↪️ Card → **' + movido + '** (entregue sem a nota fiscal de ' + nf.faltamN + ' compra(s) da oficina — fornecedor sem nota identificada: ' + nf.faltam.join('; ') + '. Anexe a nota pela aba 📦 Recebimento → Nota fiscal; com ela o card volta sozinho para ENTREGUES).'); } catch (e) {}
+  });
+  return v;
+}
+
+// Recebimento.gs:795
 function rc_checklistDev_(card, token) {
   var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
   if (k) return k;
@@ -9485,10 +9515,10 @@ function rc_checklistDev_(card, token) {
   return k;
 }
 
-// Recebimento.gs:776
+// Recebimento.gs:803
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// Recebimento.gs:777
+// Recebimento.gs:804
 function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
@@ -9501,7 +9531,7 @@ function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   return novo;
 }
 
-// Recebimento.gs:789
+// Recebimento.gs:816
 function rc_devolucoes_(card) {
   var out = [];
   (card.checklists || []).forEach(function (k) {
@@ -9515,10 +9545,10 @@ function rc_devolucoes_(card) {
   return out;
 }
 
-// Recebimento.gs:801
+// Recebimento.gs:828
 function rc_devolucoesPendentes_(card) { return rc_devolucoes_(card).filter(function (d) { return !d.ok; }); }
 
-// Recebimento.gs:804
+// Recebimento.gs:831
 function vdf_salvarDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -9572,7 +9602,7 @@ function vdf_salvarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:861
+// Recebimento.gs:888
 function vdf_reavaliarColuna(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
@@ -9585,7 +9615,7 @@ function vdf_reavaliarColuna(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:872
+// Recebimento.gs:899
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
