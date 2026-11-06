@@ -501,3 +501,7 @@ da outra, deixar um recado aqui e no commit.
   webhook (principal e TESTE) em memória e as mescla na resposta de `/boards/{id}/actions` para o robô; `since` por id delas vira
   data (+1 ms). Item apagado volta com a previsão do retrato. O item 74218 GRADE DO PAINEL DO LIMPADOR foi devolvido ao checklist
   FORNECIMENTO do ATZ2D85 à mão (pendente, sem previsão) — equipe confirma se chegou.
+- **06/11/2026 — conferência da regra da nota (17h).** 38 cards foram de ENCERRADO para ENTREGUES; 39 ficaram (28 sem nota,
+  10 sem item de checklist — regra dos 15 dias —, 1 devolução aberta); nenhum segurado indevidamente. Dois casos de benefício da
+  dúvida (AZP3324 ok: FIAT FIPAL TOLEDO e FIPAL TOLEDO são a mesma nota; NPG5429: IMPERIAL coberta por nota sem emitente no nome).
+  Refinado: palavras do cadastro de fornecedores (razão social) entram no casamento e notas sobrando contam por emitente.

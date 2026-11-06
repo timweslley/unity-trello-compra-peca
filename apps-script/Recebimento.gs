@@ -658,12 +658,25 @@ function rc_notasOficina_(card) {
   var forns = [], porForn = {};
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
-  var cad = {}; try { fo_lista_().forEach(function (f) { cad[fo_norm_(f.nome)] = 1; (f.apelidos || []).forEach(function (a) { cad[fo_norm_(a)] = 1; }); }); } catch (e) {}
+  var cad = {}, lista = []; try { lista = fo_lista_(); lista.forEach(function (f) { cad[fo_norm_(f.nome)] = 1; (f.apelidos || []).forEach(function (a) { cad[fo_norm_(a)] = 1; }); }); } catch (e) {}
+  // palavras da razão social do cadastro (coluna Cadastro): "SULPAR" ↔ "SGA VEICULOS E PECAS", "VETOR AUTOMOVEIS = HYUNDAI CASCAVEL" —
+  // entra como chave do fornecedor o cadastro cujo nome/apelido é o fornecedor do item, ou cujo texto contém todas as palavras dele
+  var palavrasCadastro = function (forn) {
+    var nf = fo_norm_(forn), pal = rc_nfPalavras_(forn), out = [];
+    if (!nf) return out;
+    lista.forEach(function (f) {
+      var txt = fo_norm_(f.nome) + ' | ' + (f.apelidos || []).map(fo_norm_).join(' | ') + ' | ' + fo_norm_(f.cadastro || '');
+      var bate = fo_norm_(f.nome) === nf || (f.apelidos || []).some(function (a) { return fo_norm_(a) === nf; }) ||
+        (pal.length && pal.every(function (w) { return (' ' + txt + ' ').indexOf(' ' + w + ' ') >= 0; }));
+      if (bate) rc_nfPalavras_(f.nome + ' ' + (f.apelidos || []).join(' ') + ' ' + (f.cadastro || '')).forEach(function (w) { if (out.indexOf(w) < 0) out.push(w); });
+    });
+    return out;
+  };
   pagas.forEach(function (i) {
     var pt = i.base.split(/\s+-\s+/), codigo = vd_semAcento_(String(pt[0] || '')).toUpperCase().split(/\s+/)[0];
     var iForn = pt.length >= 2 ? (cad[fo_norm_(pt[1])] ? 1 : (cad[fo_norm_(pt[0])] ? 0 : 1)) : -1;
     var forn = iForn >= 0 ? vd_semAcento_(pt[iForn]).toUpperCase().replace(/\s+/g, ' ').trim() : '(sem fornecedor)';
-    if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]) : [] }; forns.push(forn); }
+    if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]).concat(palavrasCadastro(pt[iForn])) : [] }; forns.push(forn); }
     if (iForn < 0) rc_nfPalavras_(i.base).forEach(function (w) { if (porForn[forn].chaves.indexOf(w) < 0) porForn[forn].chaves.push(w); });
     if (iForn !== 0 && codigo && codigo.length >= 4 && /\d/.test(codigo) && porForn[forn].chaves.indexOf(codigo) < 0) porForn[forn].chaves.push(codigo);
   });
@@ -673,7 +686,10 @@ function rc_notasOficina_(card) {
     for (var k = 0; k < notas.length && !n; k++) if (notas[k].pal.some(function (w) { return ch.indexOf(w) >= 0; })) n = notas[k];
     if (n) { n.usada = true; cobertos.push(f); } else faltam.push(f);
   });
-  var livres = notas.filter(function (n) { return !n.usada; }).length, faltamN = Math.max(0, faltam.length - livres);
+  // nota sobrando: duas notas do mesmo emitente (SGA 100175 e SGA 101802) contam uma só — não cobrem dois fornecedores diferentes
+  var emitentes = {};
+  notas.filter(function (n) { return !n.usada; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
+  var livres = Object.keys(emitentes).length, faltamN = Math.max(0, faltam.length - livres);
   if (faltam.length && !faltamN) { cobertos = cobertos.concat(faltam); faltam = []; }
   // faltamN = quantas compras ainda estão sem nota; faltam = fornecedores sem nota identificada pelo nome (lista inteira quando sobra alguma)
   return { pagas: pagas.length, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };

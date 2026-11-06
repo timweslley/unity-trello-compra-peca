@@ -7,7 +7,7 @@
  * - Para unificar dois nomes: apague a linha repetida e ponha o nome dela em Apelidos da outra.
  * Semente: tabela-mestre de fornecedores do Databox (skill unity-fornecedores-databox, 30/09/2026).
  */
-var FO = { ABA: 'FORNECEDORES', CAB: ['Nome', 'Apelidos', 'Código Databox', 'CNPJ', 'Cadastro', 'Usos', 'Último uso', 'Origem'], CACHE: 'fo_lista_v1' };
+var FO = { ABA: 'FORNECEDORES', CAB: ['Nome', 'Apelidos', 'Código Databox', 'CNPJ', 'Cadastro', 'Usos', 'Último uso', 'Origem'], CACHE: 'fo_lista_v2' };
 
 var FO_SEMENTE = [
   ["ACCIOLY", "ACCIOLY GM PARANÁ", "5917", "60.892.858/0003-00", "ACCIOLY GM LONDRINA"],
@@ -112,7 +112,7 @@ function fo_aba_() {
   return sh;
 }
 
-/** [{nome, apelidos[], cod, usos, linha}] — cache de 10 min. */
+/** [{nome, apelidos[], cod, cadastro, usos, linha}] — cache de 10 min. */
 function fo_lista_(semCache) {
   var cache = CacheService.getScriptCache();
   if (!semCache) { try { var c = cache.get(FO.CACHE); if (c) return JSON.parse(c); } catch (e) {} }
@@ -122,7 +122,7 @@ function fo_lista_(semCache) {
   v.forEach(function (r, i) {
     var nome = String(r[0] || '').trim().toUpperCase();
     if (!nome) return;
-    out.push({ nome: nome, apelidos: String(r[1] || '').split('|').map(function (s) { return s.trim().toUpperCase(); }).filter(String), cod: String(r[2] || ''), usos: +r[5] || 0, linha: i + 2 });
+    out.push({ nome: nome, apelidos: String(r[1] || '').split('|').map(function (s) { return s.trim().toUpperCase(); }).filter(String), cod: String(r[2] || ''), cadastro: String(r[4] || '').trim().toUpperCase(), usos: +r[5] || 0, linha: i + 2 });   // cadastro = razão social (06/11/2026: casa a nota com o apelido do checklist)
   });
   try { cache.put(FO.CACHE, JSON.stringify(out), 600); } catch (e) {}
   return out;

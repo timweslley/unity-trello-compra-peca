@@ -312,7 +312,7 @@ var VDF_ETIQUETA_PARCIAL = 'COTAÇÃO PARCIAL';
 var VDF_LISTA_AUTORIZADO = 'AUTORIZADO COMPRA';
 
 // Fornecedores.gs:10
-var FO = { ABA: 'FORNECEDORES', CAB: ['Nome', 'Apelidos', 'Código Databox', 'CNPJ', 'Cadastro', 'Usos', 'Último uso', 'Origem'], CACHE: 'fo_lista_v1' };
+var FO = { ABA: 'FORNECEDORES', CAB: ['Nome', 'Apelidos', 'Código Databox', 'CNPJ', 'Cadastro', 'Usos', 'Último uso', 'Origem'], CACHE: 'fo_lista_v2' };
 
 // Fornecedores.gs:12
 var FO_SEMENTE = [
@@ -452,7 +452,7 @@ var RC_NF = {
   GENERICAS: /^(NF|NFE|NFSE|DANFE|NOTA|FISCAL|LTDA|EPP|EIRELI|MEI|COMERCIO|COMERCIAL|INDUSTRIA|INDUSTRIAL|DISTRIBUIDORA|DISTRIBUICAO|AUTO|AUTOMOTIVA|AUTOMOTIVO|AUTOMOTIVOS|AUTOPECAS|AUTOPECA|PECAS|PECA|ACESSORIOS|ACESSORIO|IMPORTADORA|IMPORTACAO|IMPORT|VEICULOS|VEICULO|SERVICOS|SERVICO|CENTER|CENTRO|BRASIL|DOS|DAS|COM|PARA|RESUMO|PDF|XML|FORNECIMENTO|DEVOLUCAO|FILIAL|MATRIZ|GRUPO|CIA|THE|AND|NOVA|NOVO|SUL|NORTE|SAO|SANTA|SANTO)$/
 };
 
-// Recebimento.gs:750
+// Recebimento.gs:766
 var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF' };
 
 // Saude.gs:12
@@ -6889,7 +6889,7 @@ function fo_lista_(semCache) {
   v.forEach(function (r, i) {
     var nome = String(r[0] || '').trim().toUpperCase();
     if (!nome) return;
-    out.push({ nome: nome, apelidos: String(r[1] || '').split('|').map(function (s) { return s.trim().toUpperCase(); }).filter(String), cod: String(r[2] || ''), usos: +r[5] || 0, linha: i + 2 });
+    out.push({ nome: nome, apelidos: String(r[1] || '').split('|').map(function (s) { return s.trim().toUpperCase(); }).filter(String), cod: String(r[2] || ''), cadastro: String(r[4] || '').trim().toUpperCase(), usos: +r[5] || 0, linha: i + 2 });   // cadastro = razão social (06/11/2026: casa a nota com o apelido do checklist)
   });
   try { cache.put(FO.CACHE, JSON.stringify(out), 600); } catch (e) {}
   return out;
@@ -9378,12 +9378,25 @@ function rc_notasOficina_(card) {
   var forns = [], porForn = {};
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
-  var cad = {}; try { fo_lista_().forEach(function (f) { cad[fo_norm_(f.nome)] = 1; (f.apelidos || []).forEach(function (a) { cad[fo_norm_(a)] = 1; }); }); } catch (e) {}
+  var cad = {}, lista = []; try { lista = fo_lista_(); lista.forEach(function (f) { cad[fo_norm_(f.nome)] = 1; (f.apelidos || []).forEach(function (a) { cad[fo_norm_(a)] = 1; }); }); } catch (e) {}
+  // palavras da razão social do cadastro (coluna Cadastro): "SULPAR" ↔ "SGA VEICULOS E PECAS", "VETOR AUTOMOVEIS = HYUNDAI CASCAVEL" —
+  // entra como chave do fornecedor o cadastro cujo nome/apelido é o fornecedor do item, ou cujo texto contém todas as palavras dele
+  var palavrasCadastro = function (forn) {
+    var nf = fo_norm_(forn), pal = rc_nfPalavras_(forn), out = [];
+    if (!nf) return out;
+    lista.forEach(function (f) {
+      var txt = fo_norm_(f.nome) + ' | ' + (f.apelidos || []).map(fo_norm_).join(' | ') + ' | ' + fo_norm_(f.cadastro || '');
+      var bate = fo_norm_(f.nome) === nf || (f.apelidos || []).some(function (a) { return fo_norm_(a) === nf; }) ||
+        (pal.length && pal.every(function (w) { return (' ' + txt + ' ').indexOf(' ' + w + ' ') >= 0; }));
+      if (bate) rc_nfPalavras_(f.nome + ' ' + (f.apelidos || []).join(' ') + ' ' + (f.cadastro || '')).forEach(function (w) { if (out.indexOf(w) < 0) out.push(w); });
+    });
+    return out;
+  };
   pagas.forEach(function (i) {
     var pt = i.base.split(/\s+-\s+/), codigo = vd_semAcento_(String(pt[0] || '')).toUpperCase().split(/\s+/)[0];
     var iForn = pt.length >= 2 ? (cad[fo_norm_(pt[1])] ? 1 : (cad[fo_norm_(pt[0])] ? 0 : 1)) : -1;
     var forn = iForn >= 0 ? vd_semAcento_(pt[iForn]).toUpperCase().replace(/\s+/g, ' ').trim() : '(sem fornecedor)';
-    if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]) : [] }; forns.push(forn); }
+    if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]).concat(palavrasCadastro(pt[iForn])) : [] }; forns.push(forn); }
     if (iForn < 0) rc_nfPalavras_(i.base).forEach(function (w) { if (porForn[forn].chaves.indexOf(w) < 0) porForn[forn].chaves.push(w); });
     if (iForn !== 0 && codigo && codigo.length >= 4 && /\d/.test(codigo) && porForn[forn].chaves.indexOf(codigo) < 0) porForn[forn].chaves.push(codigo);
   });
@@ -9393,13 +9406,16 @@ function rc_notasOficina_(card) {
     for (var k = 0; k < notas.length && !n; k++) if (notas[k].pal.some(function (w) { return ch.indexOf(w) >= 0; })) n = notas[k];
     if (n) { n.usada = true; cobertos.push(f); } else faltam.push(f);
   });
-  var livres = notas.filter(function (n) { return !n.usada; }).length, faltamN = Math.max(0, faltam.length - livres);
+  // nota sobrando: duas notas do mesmo emitente (SGA 100175 e SGA 101802) contam uma só — não cobrem dois fornecedores diferentes
+  var emitentes = {};
+  notas.filter(function (n) { return !n.usada; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
+  var livres = Object.keys(emitentes).length, faltamN = Math.max(0, faltam.length - livres);
   if (faltam.length && !faltamN) { cobertos = cobertos.concat(faltam); faltam = []; }
   // faltamN = quantas compras ainda estão sem nota; faltam = fornecedores sem nota identificada pelo nome (lista inteira quando sobra alguma)
   return { pagas: pagas.length, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };
 }
 
-// Recebimento.gs:686
+// Recebimento.gs:702
 function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   opt = opt || {};
   var r = { movido: '', pendRec: [], devAbertas: [], faltamNf: [], faltamN: 0, notas: 0 };
@@ -9422,7 +9438,7 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   return r;
 }
 
-// Recebimento.gs:708
+// Recebimento.gs:724
 function rc_textoSegura_(r) {
   if (!r) return '';
   if (r.pendRec.length) return r.pendRec.length + ' peça(s) ainda não recebida(s)';
@@ -9431,7 +9447,7 @@ function rc_textoSegura_(r) {
   return '';
 }
 
-// Recebimento.gs:716
+// Recebimento.gs:732
 function rc_varrerEncerrado_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
   if (new Date().getMinutes() % RC_NF.CADA_MIN !== 0) return;
@@ -9460,7 +9476,7 @@ function rc_varrerEncerrado_() {
   return n + m;
 }
 
-// Recebimento.gs:752
+// Recebimento.gs:768
 function rc_checklistDev_(card, token) {
   var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
   if (k) return k;
@@ -9469,10 +9485,10 @@ function rc_checklistDev_(card, token) {
   return k;
 }
 
-// Recebimento.gs:760
+// Recebimento.gs:776
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// Recebimento.gs:761
+// Recebimento.gs:777
 function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
@@ -9485,7 +9501,7 @@ function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
   return novo;
 }
 
-// Recebimento.gs:773
+// Recebimento.gs:789
 function rc_devolucoes_(card) {
   var out = [];
   (card.checklists || []).forEach(function (k) {
@@ -9499,10 +9515,10 @@ function rc_devolucoes_(card) {
   return out;
 }
 
-// Recebimento.gs:785
+// Recebimento.gs:801
 function rc_devolucoesPendentes_(card) { return rc_devolucoes_(card).filter(function (d) { return !d.ok; }); }
 
-// Recebimento.gs:788
+// Recebimento.gs:804
 function vdf_salvarDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -9556,7 +9572,7 @@ function vdf_salvarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:845
+// Recebimento.gs:861
 function vdf_reavaliarColuna(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
@@ -9569,7 +9585,7 @@ function vdf_reavaliarColuna(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:856
+// Recebimento.gs:872
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
@@ -9992,8 +10008,14 @@ function ck_desfazer_(a) {
       vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'delete' });
       return 'apagado item incluído à mão: ' + pv_curto_(it.name);
     case 'deleteCheckItem':
+      // 06/11/2026 (ATZ2D85): esta ação só chega pelo webhook — o servidor junta-a ao histórico (trello/acoesChecklist.ts);
+      // a previsão (due) não vem na ação: volta do retrato da aba CHECKLISTS quando houver
       var corpo = { name: it.name, pos: 'bottom' };
       if (it.state === 'complete') corpo.checked = 'true';
+      try {
+        var rt = ck_retrato_(card.id, cl.id), itRt = rt && (rt.itens || []).filter(function (i) { return i.n === it.name; })[0];
+        if (itRt && itRt.d) corpo.due = itRt.d;
+      } catch (e) {}
       vd_api_('/checklists/' + cl.id + '/checkItems', { method: 'post', payload: corpo });
       return 'item apagado voltou: ' + pv_curto_(it.name);
     case 'addChecklistToCard':
@@ -10018,7 +10040,7 @@ function ck_desfazer_(a) {
   return '';
 }
 
-// TravaChecklist.gs:118
+// TravaChecklist.gs:124
 function ck_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO' || !ck_ligado_()) return 0;
   var props = PropertiesService.getScriptProperties(), board = vd_board_();
@@ -10096,7 +10118,7 @@ function ck_executar_() {
   return n;
 }
 
-// TravaChecklist.gs:198
+// TravaChecklist.gs:204
 function lic_espelhar_(par, seg) {
   try {
     if (!vd_roboNoServidor_()) return;
