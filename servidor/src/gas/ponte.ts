@@ -11,6 +11,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { CFG } from '../config.js';
 import { consulta } from '../db.js';
+import { corrigirSincePorId, mesclarAcoesChecklist } from '../trello/acoesChecklist.js';
 import { textoDoArquivo, URL_APP } from '../leitores/ocr.js';
 import { tokenGoogle, lerAbaPlanilha, listarAbasPlanilha, gravarLinhasPlanilha, anexarLinhasPlanilha } from '../google/planilha.js';
 import { trello } from '../trello/api.js';
@@ -260,7 +261,25 @@ async function driveLer(op: string, d: any): Promise<unknown> {   // eslint-disa
   return Promise.all(((r?.files || []) as Array<Parameters<typeof infoDrive>[0]>).map(infoDrive));
 }
 
+/** 06/11/2026 (ATZ2D85): histórico do quadro com as ações de checklist que só chegam pelo webhook (item apagado/renomeado) —
+ *  ver trello/acoesChecklist.ts. O `since` por id dessas ações vira data (o Trello não as conhece). */
 async function buscar(p: Pedido, ctx: Contexto) {
+  const historico = p.metodo === 'GET' && /^https:\/\/api\.trello\.com\/1\/boards\/[A-Za-z0-9]+\/actions(\?|$)/.test(p.url);
+  if (historico) p = { ...p, url: corrigirSincePorId(p.url) };
+  const r = await buscarBase(p, ctx);
+  if (historico && r.status === 200) {
+    try {
+      const mesclado = mesclarAcoesChecklist(p.url, new TextDecoder().decode(r.corpo));
+      if (mesclado !== null) {
+        const cab = { ...r.cab }; delete cab['content-length']; delete cab['content-encoding'];
+        return { status: r.status, cab, corpo: new TextEncoder().encode(mesclado) };
+      }
+    } catch (e) { console.warn('[histórico] mesclar ações de checklist:', e); }
+  }
+  return r;
+}
+
+async function buscarBase(p: Pedido, ctx: Contexto) {
   // 17/10/2026 — robô no servidor em OBSERVAR: nenhuma gravação sai; cada uma fica anotada (o que ele faria) e volta uma resposta falsa
   if (ctx.observar && p.metodo !== 'GET' && /api\.trello\.com/.test(p.url)) return anotarEscrita(p, ctx);
   if (ctx.somenteLeitura && p.metodo !== 'GET') {

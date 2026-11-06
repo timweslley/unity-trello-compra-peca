@@ -152,7 +152,7 @@ sinistro e importa as peças do orçamento (seção 6).
   entra na ESPERA vindo de coluna livre (10/10/2026 — antes ficava para sempre e devolvia o card indevidamente numa
   passagem seguinte).
 - **Descrição** (`tr_executar_`): edição manual é restaurada da cópia oficial; aviso no máximo 1×/h por card.
-- **Checklist** (`ck_executar_`): nome, data, item ou checklist alterado à mão é desfeito. **✔ marcado à mão** num item
+- **Checklist** (`ck_executar_`): nome, data, item ou checklist alterado à mão é desfeito. **Até 06/11/2026 só via ✔ e checklist criado/apagado**: o Trello não guarda no histórico (`/boards/{id}/actions`) item incluído, apagado ou renomeado (`createCheckItem`/`deleteCheckItem`/`updateCheckItem` só chegam pelo webhook) — no ATZ2D85 um item FO apagado à mão ficou sem ser refeito. Agora o servidor guarda essas ações do webhook em memória (`servidor/src/trello/acoesChecklist.ts`, 3 h) e as junta à resposta do histórico que o robô lê (`since` por id dessas ações vira data); o item apagado volta com a previsão do retrato (aba CHECKLISTS). Vale do deploy em diante (memória). **✔ marcado à mão** num item
   PAGAS*/FORNECIMENTO* por quem pode receber naquele card vale como **recebimento de hoje** (10/10/2026, 36 ✔ desfeitos em
   5 dias): comentário "📦 RECEBIMENTO — Fulano (✔ marcado no Trello)" com atraso x previsão e a dica da aba, evento
   RECEBIMENTO, coluna reavaliada (`ck_aceitarManual_`; `CK_ACEITA_OK = NAO` volta a desfazer). Quem não pode receber (ex.:

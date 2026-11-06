@@ -494,3 +494,10 @@ da outra, deixar um recado aqui e no commit.
   desde 22/10) sumiu do checklist (apagado à mão, sem registro na API; a descrição ainda diz 4 FO) e o Butler só dispara no ✔;
   a retirada de 30/10 não reavalia FALTA CHEGAR. A varredura de 10 min passa a olhar FALTA CHEGAR com tudo ✔ → ENCERRADO (→ ENTREGUES
   se tiver nota). Falta saber se a GRADE chegou (não está no card).
+- **06/11/2026 — "tínhamos um sistema de proteção para essas exclusões" (ATZ2D85).** A trava de checklist existe e sabe desfazer
+  exclusão, mas lê o histórico do quadro pela API — e o Trello não guarda lá `createCheckItem`, `deleteCheckItem` nem
+  `updateCheckItem` (confirmado: 12 createCheckItem no webhook hoje, zero no histórico desde 03/11; um item incluído por MCP às
+  15:05 também não foi desfeito). Só ✔ e checklist criado/apagado chegavam à trava. Correção: o servidor guarda essas ações do
+  webhook (principal e TESTE) em memória e as mescla na resposta de `/boards/{id}/actions` para o robô; `since` por id delas vira
+  data (+1 ms). Item apagado volta com a previsão do retrato. O item 74218 GRADE DO PAINEL DO LIMPADOR foi devolvido ao checklist
+  FORNECIMENTO do ATZ2D85 à mão (pendente, sem previsão) — equipe confirma se chegou.

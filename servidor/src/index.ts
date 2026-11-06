@@ -7,6 +7,7 @@ import Fastify from 'fastify';
 import { CFG } from './config.js';
 import { migrar, consulta } from './db.js';
 import { assinaturaValida, guardarAcao, type AcaoTrello } from './trello/webhook.js';
+import { guardarAcaoChecklist, estadoAcoesChecklist } from './trello/acoesChecklist.js';
 import { garantirWebhook, chamadasTrello, trello } from './trello/api.js';
 import { importarPlanilha } from './google/planilha.js';
 import { conferirLeitores, lerAnexo, anexoLegivel, VERSAO_LEITOR, type AnexoCard } from './leitores/anexos.js';
@@ -133,6 +134,7 @@ export function criarApp() {
     try { dados = JSON.parse(corpo); } catch { return resp.code(400).send({ ok: false }); }
     const a = dados.action;
     if (a?.id) {
+      guardarAcaoChecklist(a);   // item apagado/renomeado: só o webhook conta (06/11/2026)
       try {
         const nova = await guardarAcao(a, 'webhook', CFG.trello.quadro);
         req.log.info({ acao: a.type, card: a.data?.card?.id, nova }, 'ação do Trello');
@@ -164,10 +166,10 @@ export function criarApp() {
     const corpo = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {});
     const url = CFG.urlPublica.replace(/\/$/, '') + '/trello/robo';
     if (!assinaturaValida(corpo, url, req.headers['x-trello-webhook'] as string | undefined, CFG.trello.segredo)) return resp.code(401).send({ ok: false });
-    try { const a = (JSON.parse(corpo) as { action?: AcaoTrello }).action; if (a?.data?.card?.id) { pedirCicloRapido(); anotarAtividade(a); } } catch { /* corpo inválido: ignora */ }
+    try { const a = (JSON.parse(corpo) as { action?: AcaoTrello }).action; if (a?.data?.card?.id) { pedirCicloRapido(); anotarAtividade(a); guardarAcaoChecklist(a); } } catch { /* corpo inválido: ignora */ }
     return { ok: true };
   });
-  app.get('/tarefas/robo/rapido', async () => ({ ok: true, webhook: ESTADO.webhookRobo, ...estadoCicloRapido() }));
+  app.get('/tarefas/robo/rapido', async () => ({ ok: true, webhook: ESTADO.webhookRobo, ...estadoCicloRapido(), acoesChecklist: estadoAcoesChecklist() }));
   /** 21/10/2026 — atividade recente do quadro principal SEM dados de cliente (para o monitoramento quando o conector do
    *  Trello falha): tipo, quem, card (shortLink), coluna de/para, marcador do comentário do robô. ?horas=1 (máx. 24). */
   app.get('/tarefas/robo/atividade', async (req) => {

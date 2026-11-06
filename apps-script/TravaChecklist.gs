@@ -88,8 +88,14 @@ function ck_desfazer_(a) {
       vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'delete' });
       return 'apagado item incluído à mão: ' + pv_curto_(it.name);
     case 'deleteCheckItem':
+      // 06/11/2026 (ATZ2D85): esta ação só chega pelo webhook — o servidor junta-a ao histórico (trello/acoesChecklist.ts);
+      // a previsão (due) não vem na ação: volta do retrato da aba CHECKLISTS quando houver
       var corpo = { name: it.name, pos: 'bottom' };
       if (it.state === 'complete') corpo.checked = 'true';
+      try {
+        var rt = ck_retrato_(card.id, cl.id), itRt = rt && (rt.itens || []).filter(function (i) { return i.n === it.name; })[0];
+        if (itRt && itRt.d) corpo.due = itRt.d;
+      } catch (e) {}
       vd_api_('/checklists/' + cl.id + '/checkItems', { method: 'post', payload: corpo });
       return 'item apagado voltou: ' + pv_curto_(it.name);
     case 'addChecklistToCard':
