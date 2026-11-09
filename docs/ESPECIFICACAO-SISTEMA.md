@@ -741,3 +741,5 @@ seção 10) · `usuario` (username trello, nome, papéis, unidade).
   orçamento X: DESC: antigo → novo" e o evento CÓDIGO CORRIGIDO. Vale também para a troca vinda do Status do Pedido (marca
   🔁 ex no item; o comentário 🚚 já dizia "código → novo"). Formulário (2.0): selo "🔁 código antes: X" nas abas Recebimento,
   Retirada e Fornecimento. Reler um orçamento já processado também aplica a troca quando o antigo está no checklist.
+
+- **Código de enchimento** (09/11/2026, ICT9375 Fusca): "0000", "000", "XXXX", "----", "N/A" não identificam a peça — valem como *sem código* (`vd_codigoVazio_`/`vd_codigoDeEnchimento_`): a chave da peça passa a ser a descrição, o item de checklist nasce sem o 0000 e o FALTA DADOS diz "código \"0000\" não identifica a peça — buscar no Cilia ou escrever ACESSORIO". Antes, três peças com 0000 viravam uma chave só e a cotação do farol caía no paralama e na moldura.

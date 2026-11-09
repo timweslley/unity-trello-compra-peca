@@ -1003,8 +1003,13 @@ function vd_dataMaisDias_(dias) {
 /** Chave para casar peça do pedido x cotação x item de checklist. */
 function vd_chavePeca_(p) {
   if (p.pneu) return vd_semAcento_('PNEU ' + String(p.medida || '').replace(/\s+/g, ''));
-  var cod = String(p.codigo || '').replace(/\s+/g, '');
+  var cod = vd_codigoUtil_(p.codigo);
   return vd_semAcento_(cod || p.descricao || '').replace(/\s+/g, ' ').trim();
+}
+/** Código sem espaços, ou '' quando é enchimento ("0000") — chave e casamento passam a usar a descrição (09/11/2026, ICT9375). */
+function vd_codigoUtil_(codigo) {
+  var cod = String(codigo || '').replace(/\s+/g, '');
+  return vd_codigoDeEnchimento_(cod) ? '' : cod;
 }
 
 /** O item de checklist ("CÓD DESC - FORN - R$" ou "DESC - FORN") é desta peça? Comparação exata, não por pedaço:
@@ -1022,7 +1027,7 @@ function vd_casaItem_(nomeItem, k) {
 /** Nome "CÓDIGO DESCRIÇÃO" de uma peça do pedido (como vai para os checklists). */
 function vd_nomePeca_(p) {
   if (p.pneu) return ('PNEU ' + String(p.medida || '').replace(/\s+/g, '') + ' ' + (p.marca || p.categoria || '')).trim();
-  var cod = String(p.codigo || '').replace(/\s+/g, '');
+  var cod = vd_codigoUtil_(p.codigo);
   return ((cod ? cod + ' ' : '') + String(p.descricao || '').trim()).toUpperCase();
 }
 
@@ -1053,7 +1058,7 @@ function vd_checklistPagas_(cardId, compras, token) {
     var cl = lista(!!c.particular, !!c.complemento);
     // 17/10/2026: itens vão em paralelo (vd_apiLote_) — a posição explícita mantém a ordem das peças
     if (posMax[cl.id] === undefined) posMax[cl.id] = (cl.checkItems || []).reduce(function (m, i) { return Math.max(m, +i.pos || 0); }, 0);
-    var cod = String(c.codigo || '').replace(/\s+/g, '').toUpperCase();
+    var cod = vd_codigoUtil_(c.codigo).toUpperCase();   // "0000" não entra no item nem na chave (09/11/2026, ICT9375)
     var desc = String(c.descricao || '').trim().toUpperCase();
     var forn = String(c.fornecedor || '').trim().toUpperCase();
     var valor = vd_valorBR_(c.valor);
@@ -1104,7 +1109,7 @@ function vdf_pecaDoTexto_(texto, chaves) {
   return melhor ? melhor.k : null;
 }
 function vdf_chavesPecas_(pecas) {
-  return (pecas || []).map(function (p) { return { chave: vd_chavePeca_(p), desc: vd_semAcento_(p.pneu ? 'PNEU ' + p.medida : p.descricao).replace(/\s+/g, ' ').trim(), cod: vd_semAcento_(String(p.codigo || '').replace(/\s+/g, '')) }; });
+  return (pecas || []).map(function (p) { return { chave: vd_chavePeca_(p), desc: vd_semAcento_(p.pneu ? 'PNEU ' + p.medida : p.descricao).replace(/\s+/g, ' ').trim(), cod: vd_semAcento_(vd_codigoUtil_(p.codigo)) }; });
 }
 /** Linha "REMOVIDA: FORN - PEÇA - R$ 140,00" / "INDISPONÍVEL: FORN - PEÇA - R$ 140,00 - motivo" -> {tipo, forn, chave, valor, motivo} */
 var VDF_RX_REMOVE = /^(REMOVIDA|INDISPON[IÍ]VEL)\s*:\s*(.+?)\s+-\s+(.+)\s+-\s+R?\$?\s*([\d.]+(?:,\d{1,2})?)(?:\s+-\s+(.*))?\s*$/i;

@@ -516,3 +516,8 @@ da outra, deixar um recado aqui e no commit.
 - **06/11/2026 17h36 — "sem peça a comprar nem a fornecer vai direto para ENTREGUES".** Card sem item de checklist e sem peça por comprar
   (tudo 🚫, só mão de obra, encerrado sem peças) não fica em ENCERRADO esperando 15 dias: vai para ENTREGUES na reavaliação e na
   varredura (9 cards hoje: BAW0F20, AZQ7D86, SMC5F18, BCV0H02, QCU5097…; o Chevette de 2024 é legado e fica).
+- **09/11/2026 — ICT9375 Fusca: três peças com código 0000 viraram uma só na cotação.** A chave da peça é o código quando existe;
+  "0000" passou pela regra de código fraco (tem dígito e 4 caracteres) e FAROL, PARALAMA e MOLDURA ficaram com a mesma chave — a
+  tela de cotação mostrou "0000 FAROL DIREITO" três vezes e a cotação do farol (ML AUTOLUMENS R$ 144) foi para as três. Agora
+  código de enchimento = sem código (chave pela descrição, item sem o 0000, FALTA DADOS pede código real ou ACESSORIO). No card, o
+  comprador refaz a cotação do farol depois de publicar (as linhas antigas apontam para a chave 0000 e caem).

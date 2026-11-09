@@ -577,8 +577,8 @@ function vd_analisarPeca_(linha, n, opts) {
   // 13/10/2026 (Weslley): "ACESSORIO" no lugar do código = peça que nem o Cilia tem código — vale, não cobra; a peça fica
   // identificada pela descrição (vários acessórios no mesmo pedido não se confundem) e a linha continua "ACESSORIO | …"
   var acessorio = vd_ehAcessorio_(codigo);
-  var semCodigo = !codigo || !/\d/.test(codigo) || codigo.replace(/[^A-Z0-9]/gi, '').length < 4 || /^S\s*\/?\s*C$/i.test(codigo);
-  if (semCodigo && !opts.codigoOpcional && !acessorio) faltas.push(rot + ': falta o código da peça (buscar no Cilia)');
+  var semCodigo = vd_codigoVazio_(codigo);
+  if (semCodigo && !opts.codigoOpcional && !acessorio) faltas.push(rot + (vd_codigoDeEnchimento_(codigo) ? ': código "' + codigo + '" não identifica a peça — buscar no Cilia ou escrever ACESSORIO' : ': falta o código da peça (buscar no Cilia)'));
   if (semCodigo) codigo = '';
   if (!descr) faltas.push(rot + ': falta a descrição');
   var tipos = tiposTxt.split(/[\/,;+]|\bE\b|\bOU\b/i).map(vd_tipoNorm_).filter(String);
@@ -620,6 +620,17 @@ function vd_linhaPeca_(p, i) {
 }
 
 /** "ACESSORIO" / "ACESSÓRIO(S)" escrito no lugar do código da peça (13/10/2026). */
+/** Código que não identifica nada: só zeros/traços/x ("0000", "000", "XXXX", "----"). 09/11/2026 (ICT9375 Fusca): a equipe
+ *  escreveu 0000 em três peças e as três viraram UMA chave — a cotação do farol caiu no paralama e na moldura. */
+function vd_codigoDeEnchimento_(cod) {
+  var c = String(cod || '').replace(/[\s.]/g, '');
+  return !!c && /^(0+|x+|\?+|-+|n\/?a|nt)$/i.test(c);
+}
+/** Código ausente ou inútil (sem dígito, menos de 4 caracteres, S/C, enchimento) — a peça fica identificada pela descrição. */
+function vd_codigoVazio_(codigo) {
+  var c = String(codigo || '').trim();
+  return !c || !/\d/.test(c) || c.replace(/[^A-Z0-9]/gi, '').length < 4 || /^S\s*\/?\s*C$/i.test(c) || vd_codigoDeEnchimento_(c);
+}
 function vd_ehAcessorio_(c) { return /^ACESSORIOS?$/.test(vd_semAcento_(String(c || '')).toUpperCase().replace(/[^A-Z]/g, '')); }
 
 /** Valor da peça no orçamento -> "R$ 1.234,56" ('' se vazio/inválido). Aceita número ou texto BR. */
