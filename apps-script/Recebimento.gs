@@ -783,8 +783,30 @@ function rc_varrerEncerrado_() {
   // card do fluxo novo (não legado) e fora da etiqueta SEM COBRANÇA FATURAMENTO; os antigos ficam na fila do faturamento.
   var v = 0;
   try { v = rc_devolverEntregues_(ctx, fim); } catch (e) { console.log('varredura ENTREGUES: ' + e); }
+  // 10/11/2026 (Weslley, TBX4I16 Pilkington): pedido particular parado em PENDENTE AUTORIZAR (seguradora) vai para COTAÇÃO
+  // FINALIZADA, "como os outros particulares, com autorização pelo atendente" — pega os que entraram antes da regra das vidraçarias
+  var pf = 0;
+  try { pf = rc_particularParaFinalizada_(ctx, fim); } catch (e) { console.log('varredura PENDENTE AUTORIZAR: ' + e); }
+  v += pf;
   if (n || m || v) console.log('varredura: ENCERRADO → ENTREGUES pela nota ' + n + ' · FALTA CHEGAR com tudo ✔ reavaliado ' + m + ' · ENTREGUES sem nota → ENCERRADO ' + v);
   return n + m + v;
+}
+/** PENDENTE AUTORIZAR → COTAÇÃO FINALIZADA: pedido PARTICULAR (inclusive PILKINGTON/CARGLASS/AUTOGLASS/MAXPAR) no caminho da seguradora. */
+function rc_particularParaFinalizada_(ctx, fim) {
+  var idPend = ctx.listas[VDF_LISTA_PENDENTE], idFin = ctx.listas[VDF_LISTA_FINALIZADA];
+  if (!idPend || !idFin) return 0;
+  var cards = vd_api_('/lists/' + idPend + '/cards', { query: { fields: 'name,desc,idList,shortLink,shortUrl,labels' } }) || [];
+  var n = 0;
+  cards.forEach(function (c) {
+    if (Date.now() > fim || vdf_cardProtegido_(c.name || '') || vd_legado_(c.id)) return;
+    var an = vd_analisar_(c.desc || '', c.name || '');
+    if (an.dados.tipo !== 'PARTICULAR') return;   // misto/seguradora fica: a diretoria decide
+    var movido = vdf_moverPara_(c, ctx, VDF_LISTA_FINALIZADA, null, 'robô');
+    if (!movido) return;
+    n++;
+    try { vd_comentar_(c, '↪️ Card → **' + movido + '** (pedido particular' + (an.dados.pagador ? ' — ' + an.dados.pagador : '') + ': autorização pelo atendente, como os demais particulares).'); } catch (e) {}
+  });
+  return n;
 }
 /** ENTREGUES → ENCERRADO: compra da oficina sem nota no card (fluxo novo). Devolve quantos voltaram. */
 function rc_devolverEntregues_(ctx, fim) {

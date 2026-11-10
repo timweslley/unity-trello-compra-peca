@@ -523,5 +523,5 @@ da outra, deixar um recado aqui e no commit.
   comprador refaz a cotação do farol depois de publicar (as linhas antigas apontam para a chave 0000 e caem).
 - **10/11/2026 — TBX4I16 T-Cross Pilkington.** Weslley: PILKINGTON, CARGLASS, AUTOGLASS e MAXPAR são particulares. O robô tinha
   cobrado orçamento da seguradora e nº da ordem e a cotação foi para PENDENTE AUTORIZAR. Agora esses nomes no lugar da seguradora
-  = tipo PARTICULAR (robô e formulário), mantendo o nome no cabeçalho. O card atual continua em PENDENTE AUTORIZAR (o consultor
-  autoriza pela aba ✅ Autorizar igual); os próximos vão para COTAÇÃO FINALIZADA.
+  = tipo PARTICULAR (robô e formulário), mantendo o nome no cabeçalho. Weslley (00h57): mover para COTAÇÃO FINALIZADA como os outros particulares, com
+  autorização pelo atendente — a varredura passa a levar pedido PARTICULAR parado em PENDENTE AUTORIZAR para COTAÇÃO FINALIZADA.
