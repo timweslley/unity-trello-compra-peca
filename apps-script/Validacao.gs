@@ -351,7 +351,13 @@ function vd_tipoNormPedido_(t) {
 }
 /** PARTICULAR e RETORNO não têm seguradora: sem orçamento obrigatório, código opcional; o lugar da seguradora no título/descrição leva o tipo. */
 function vd_semSeguradora_(t) { return t === 'PARTICULAR' || t === 'RETORNO'; }
-function vd_rotuloSeguradora_(tipo, seg) { return tipo === 'PARTICULAR' ? 'PARTICULAR' : tipo === 'RETORNO' ? 'RETORNO' : seg; }
+/** Rótulo que vai no cabeçalho: PARTICULAR/RETORNO, ou o nome da seguradora; vidraçaria/rede particular mantém o nome (PILKINGTON). */
+function vd_rotuloSeguradora_(tipo, seg) { return tipo === 'PARTICULAR' ? (vd_pagadorParticular_(seg) || 'PARTICULAR') : tipo === 'RETORNO' ? 'RETORNO' : seg; }
+/** 10/11/2026 (Weslley, TBX4I16 T-Cross): PILKINGTON, CARGLASS, AUTOGLASS e MAXPAR mandam serviço mas não são seguradora —
+ *  o pedido é PARTICULAR (sem orçamento Cilia/HDI/Websoma obrigatório, nº da ordem opcional, cotação vai para COTAÇÃO FINALIZADA
+ *  e o consultor autoriza), e o nome da empresa fica no lugar da seguradora no título e no cabeçalho. Devolve o nome ou ''. */
+var VD_PAGADOR_PARTICULAR = /\b(PILKINGTON|CARGLASS|AUTOGLASS|MAXPAR)\b/;
+function vd_pagadorParticular_(t) { var m = vd_semAcento_(String(t || '')).toUpperCase().match(VD_PAGADOR_PARTICULAR); return m ? m[1] : ''; }
 
 function vd_categPneu_(t) {
   var s = vd_semAcento_(t).replace(/\s+/g, ' ').trim();
@@ -466,6 +472,9 @@ function vd_analisar_(desc, nomeCard, opts) {
   var modoNova = !!opts.base;
   // tipo do pedido: linha TIPO, título ou etiqueta (PARTICULAR) — padrão SEGURADORA
   if (!d.tipo) d.tipo = vd_tipoNormPedido_(opts.tipo || (/\bPARTICULAR\b/i.test(nomeCard || '') ? 'PARTICULAR' : /\bRETORNO\b/i.test(nomeCard || '') ? 'RETORNO' : ''));
+  // vidraçaria/rede (PILKINGTON, CARGLASS, AUTOGLASS, MAXPAR) no lugar da seguradora = PARTICULAR, mesmo que o pedido diga SEGURADORA (10/11/2026)
+  var pagPart = vd_pagadorParticular_(d.seguradora) || vd_pagadorParticular_(nomeCard);
+  if (pagPart && d.tipo !== 'RETORNO') { d.tipo = 'PARTICULAR'; d.pagador = pagPart; if (!d.seguradora) d.seguradora = pagPart; }
   var particular = d.tipo === 'PARTICULAR', semSeg = vd_semSeguradora_(d.tipo);
 
   var faltas = [];

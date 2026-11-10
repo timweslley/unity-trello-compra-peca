@@ -521,3 +521,7 @@ da outra, deixar um recado aqui e no commit.
   tela de cotação mostrou "0000 FAROL DIREITO" três vezes e a cotação do farol (ML AUTOLUMENS R$ 144) foi para as três. Agora
   código de enchimento = sem código (chave pela descrição, item sem o 0000, FALTA DADOS pede código real ou ACESSORIO). No card, o
   comprador refaz a cotação do farol depois de publicar (as linhas antigas apontam para a chave 0000 e caem).
+- **10/11/2026 — TBX4I16 T-Cross Pilkington.** Weslley: PILKINGTON, CARGLASS, AUTOGLASS e MAXPAR são particulares. O robô tinha
+  cobrado orçamento da seguradora e nº da ordem e a cotação foi para PENDENTE AUTORIZAR. Agora esses nomes no lugar da seguradora
+  = tipo PARTICULAR (robô e formulário), mantendo o nome no cabeçalho. O card atual continua em PENDENTE AUTORIZAR (o consultor
+  autoriza pela aba ✅ Autorizar igual); os próximos vão para COTAÇÃO FINALIZADA.

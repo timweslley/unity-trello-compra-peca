@@ -2444,6 +2444,7 @@ function vdf_salvar(token, p) {
     if (p.complemento && (p.complemento.oficina || []).length) { var cc = vd_orcCss_(p.complemento, 'ZACARIAS'); p.complemento = { origem: p.complemento.origem, oficina: [], fo: cc.fo }; }
   }
   var tipo = vd_tipoNormPedido_(n.tipo) || 'SEGURADORA';
+  if (tipo === 'SEGURADORA' && vd_pagadorParticular_(n.seguradora)) tipo = 'PARTICULAR';   // PILKINGTON/CARGLASS/AUTOGLASS/MAXPAR = particular (10/11/2026)
   var particular = tipo === 'PARTICULAR', semSeguradora = vd_semSeguradora_(tipo);   // RETORNO também dispensa orçamento (09/10/2026)
   var extra = {
     tipo: tipo,
