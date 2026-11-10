@@ -102,3 +102,8 @@ Em aberto:
 3. Planilha (FORNECEDORES/TRAVA/EVENTOS) copiada uma vez; depois diverge do principal (aceitável no laboratório).
 4. Rascunho do celular não guarda "não comprar"/motivo, complemento e valor do orçamento.
 5. Dicas menores escondidas no 2.0 (erro de envio da capa, nomes dos arquivos enviados, explicação Salvar parcial/Enviar/Devolver).
+
+- **10/11/2026 — Autorizar: peça não cotada ganha 🚫 Não comprar.** BBQ3D35 Retorno ficou preso em PENDENTE AUTORIZAR: o robô pedia
+  "autorizar ou marcar 🚫 pela aba Autorizar", mas a camada 2.0 escondia o chip nas peças não cotadas (avaliação 19/10) e o chip só
+  existia para a diretoria. Agora toda peça não cotada mostra "🚫 Não comprar · não cotada: <motivo do comprador>" com o motivo já
+  preenchido; quem decide (consultor ou diretoria) confirma e envia — o servidor já aceitava a marca de qualquer um.

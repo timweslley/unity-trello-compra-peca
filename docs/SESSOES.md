@@ -525,3 +525,6 @@ da outra, deixar um recado aqui e no commit.
   cobrado orçamento da seguradora e nº da ordem e a cotação foi para PENDENTE AUTORIZAR. Agora esses nomes no lugar da seguradora
   = tipo PARTICULAR (robô e formulário), mantendo o nome no cabeçalho. Weslley (00h57): mover para COTAÇÃO FINALIZADA como os outros particulares, com
   autorização pelo atendente — a varredura passa a levar pedido PARTICULAR parado em PENDENTE AUTORIZAR para COTAÇÃO FINALIZADA.
+- **10/11/2026 12h40 — BBQ3D35 Retorno preso em PENDENTE AUTORIZAR.** Duas peças "não cotadas" (cliente vai trazer / não precisa)
+  sem saída na aba Autorizar (chip 🚫 escondido pela 2.0 e só da diretoria); Weslley tentou mover à mão e a trava devolveu. Camada
+  2.0: peça não cotada ganha o chip 🚫 com o motivo preenchido. Regra de negócio não muda (quem decide continua decidindo).

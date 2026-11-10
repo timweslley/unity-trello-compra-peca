@@ -8808,7 +8808,21 @@ document.addEventListener('input', function (e) {
             d.textContent = 'Não cotada: ' + s1.texto + ' — ' + cfg[1] + '.';
             if (!it.dataset.v2rNc) { it.dataset.v2rNc = '1'; it.classList.remove('v2c-falta', 'v2-pend'); }
           });
-          if (it.dataset.v2rNc && cfg[0] === '#autItens') $$('button, label.chip', it).forEach(function (b) { if (/Complemento|Não comprar/i.test(b.textContent) && !b.hidden) { b.hidden = true; b.style.display = 'none'; } });
+          if (it.dataset.v2rNc && cfg[0] === '#autItens') $$('button, label.chip', it).forEach(function (b) { if (/Complemento/i.test(b.textContent) && !b.hidden) { b.hidden = true; b.style.display = 'none'; } });
+          // 10/11/2026 (Weslley, BBQ3D35 Retorno): peça não cotada ("cliente vai trazer", "não precisa") precisa ter saída aqui —
+          // o card fica em PENDENTE AUTORIZAR pedindo "autorizar ou marcar 🚫", e a aba escondia o 🚫 (e só a diretoria o tinha).
+          // Agora toda peça não cotada ganha o chip 🚫 Não comprar com o motivo do comprador já preenchido; quem decide confirma.
+          if (it.dataset.v2rNc && cfg[0] === '#autItens' && !it.dataset.fora && !it.querySelector('.a-nao') && !it.querySelector('.comprado')) {
+            var chips = document.createElement('div'); chips.className = 'chips v2-nc-chips'; chips.style.margin = '4px 0 6px';
+            chips.innerHTML = '<label class="chip chip-nao" title="Confirma que a oficina não vai comprar esta peça: sai da autorização, da compra e dos totais"><input type="checkbox" class="a-nao" onchange="autMarca(this)"> 🚫 Não comprar</label>'
+              + '<span class="dica" style="margin-left:8px">não cotada: ' + esc(s1.texto) + '</span>';
+            var mot = document.createElement('div'); mot.className = 'nao-motivo oculto';
+            mot.innerHTML = '<input type="text" class="a-nao-motivo maiusc" placeholder="Motivo de não comprar (vai para o card)">';
+            it.appendChild(chips); it.appendChild(mot);
+            mot.querySelector('input').value = ('NÃO COTADA: ' + s1.texto).toUpperCase().slice(0, 80);
+          } else if (it.dataset.v2rNc && cfg[0] === '#autItens') {
+            var mAnt = it.querySelector('.a-nao-motivo'); if (mAnt && !mAnt.value) mAnt.value = ('NÃO COTADA: ' + s1.texto).toUpperCase().slice(0, 80);   // diretoria já tinha o chip
+          }
         });
       });
     }
