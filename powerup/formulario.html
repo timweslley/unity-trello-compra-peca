@@ -6941,7 +6941,8 @@ iniciar();
   /* "✔ seguradora autorizou…" num botão que já tem a caixinha: tira o ✔ do texto (eram dois "certo" juntos) */
   function tirarVisto(lab) { Array.prototype.forEach.call(lab.childNodes, function (n) { if (n.nodeType === 3 && /^\s*✔/.test(n.nodeValue)) n.nodeValue = ' ' + n.nodeValue.replace(/^\s*✔️?\s*/, ''); }); $$('.v2i-check', lab).forEach(function (x) { x.remove(); }); }
   function analisarAut() {
-    var its = $$('#autItens > .item').filter(function (it) { return !it.dataset.fora && !it.dataset.v2rNc; }), pend = [], esc = 0, nao = 0, cartao = [];   // v2rNc: "não vou cotar" (TELAS_FINAIS) fica fora da conta
+    // v2rNc: "não vou cotar" (TELAS_FINAIS) fica fora da conta — salvo quando quem decide marcou 🚫 nela (10/11/2026, BBQ3D35): aí conta e libera o envio
+    var its = $$('#autItens > .item').filter(function (it) { var cn = it.querySelector('.a-nao'); return !it.dataset.fora && (!it.dataset.v2rNc || (cn && cn.checked)); }), pend = [], esc = 0, nao = 0, cartao = [];
     its.forEach(function (it) {
       var fs = [], cn = it.querySelector('.a-nao'), mt = it.querySelector('.a-nao-motivo');
       if (cn && cn.checked) { nao++; pintarCampo(mt, !vl(mt), vl(mt)); if (!vl(mt)) fs.push({ t: 'o motivo de não comprar', c: 'motivo de não comprar', el: mt }); }
