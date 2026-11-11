@@ -548,3 +548,12 @@ da outra, deixar um recado aqui e no commit.
   pulava a linha `OBS GERAL`. Agora o servidor devolve `obsAutorizacao` e a 2.0 mostra em destaque no topo das abas do comprador e
   no balão "Registrar a compra". Direto no principal (Weslley: "é grave, preciso ajustar"). 10h57: vale também para a observação
   geral do pedido (consultor/atendente) — mesma faixa, rotulada por origem; a da devolução já tinha aviso próprio.
+- **11/11/2026 12h40 — ATV4G70: robô desfez compra do formulário e apagou o PAGAS (monitor das 11:57).** Linha do tempo: 10:57:07
+  o Compras registrou a compra (PAGAS criado, card → FALTA CHEGAR); 11:00:12 a trava devolveu para AUTORIZADO COMPRA e apagou o
+  PAGAS "criado à mão"; 11:03 outra passagem desfez esse movimento ("sem retrato para refazer"). Causa: deploy do servidor
+  (781f12b) às 10:57 — duas instâncias do Cloud Run rodando o ciclo de 1 min, licenças das travas só na memória de cada uma;
+  a instância que julgou não era a que tinha a licença (mesmo padrão de BBQ3D35 10/11 e SEB0J49 09:00, sempre na hora de um
+  deploy). Correções: (1) licenças (`st_ok_`/`ck_`/`tr_rec_`) na tabela `licenca` do banco, compartilhadas; (2) só a
+  instância líder (`robo_lider` em `guardado`, validade 100 s, renovada a cada minuto) roda o robô — ciclo de 1 min e
+  ciclo rápido; (3) rede de segurança nas duas travas: comentário do formulário no card até 3 min da ação = ação do
+  formulário (`lic_formularioAgiu_`). Weslley refez a compra pelo formulário às 12:38 (PAGAS de volta, 5 itens).

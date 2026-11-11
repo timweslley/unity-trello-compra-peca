@@ -68,6 +68,7 @@ function st_executar_() {
   var inicio = ST.INICIO.map(function (n) { return ls[n]; }).filter(String);
   var fim = vd_prazo_(ST.LIMITE_MS), desfeitos = 0, vistos = {};
   var parou = false;
+  try { LIC_FORM_CACHE = {}; } catch (e) {}
   acoes.reverse().forEach(function (a) {
     if (parou || Date.now() > fim) { parou = true; return; }
     if (a.date) ultimaFeita = new Date(new Date(a.date).getTime() + 1).toISOString();   // +1 ms: não reprocessa a mesma ação
@@ -88,6 +89,8 @@ function st_executar_() {
     // anterior à subida do processo não é julgado.
     if (typeof SERVIDOR_INICIO_MS === 'number' && SERVIDOR_INICIO_MS > 0 && a.date && new Date(a.date).getTime() < SERVIDOR_INICIO_MS) return;
     if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
+    // 11/11/2026 (ATV4G70): sem licença em cache, mas o formulário comentou no card perto da hora do movimento → é dele
+    if (ST.TRAVADAS[nPara] && a.date && typeof lic_formularioAgiu_ === 'function' && lic_formularioAgiu_(cardId, new Date(a.date).getTime())) { if (nDe === ESP) tiraMarca(); return; }
     // card estacionado em ESPERA: guarda de onde veio; pode voltar só para lá
     if (nPara === ESP) { if (ST.TRAVADAS[nDe]) props.setProperty(kEsp, nDe); else tiraMarca(); return; }
     // Butler "todos os checklists completos em FALTA CHEGAR -> ENCERRADO": é a mesma regra do sistema, aceita

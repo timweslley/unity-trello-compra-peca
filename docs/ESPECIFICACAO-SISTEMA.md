@@ -149,7 +149,12 @@ sinistro e importa as peças do orçamento (seção 6).
 
 - **Colunas** (`st_executar_`): movimento manual para coluna travada, ou de travada para EM COTAÇÃO/FALTA DADOS,
   é desfeito (card volta ao topo da origem) com "@quem 🔒 … O card voltou para X". Exceções aceitas: licença dada
-  pelo formulário/robô (240 s, consumida no 1º uso); ida para ESPERA e volta para a mesma coluna; FALTA CHEGAR →
+  pelo formulário/robô (240 s, consumida no 1º uso; **desde 11/11/2026 a licença vive no banco do servidor — tabela
+  `licenca` — compartilhada entre as instâncias, e só a instância líder roda o robô**: no deploy do ATV4G70 duas
+  instâncias rodaram juntas e a da licença não era a que julgou — compra do formulário desfeita e PAGAS apagado);
+  **comentário do próprio formulário no card até 3 min antes/depois da ação** ("@fulano registrou compra — 🛒 **COMPRA**",
+  "lançou a cotação", "autorizou", "editou o pedido", "marcou…" — `lic_formularioAgiu_`, vale também para a trava de
+  checklist); ida para ESPERA e volta para a mesma coluna; FALTA CHEGAR →
   ENCERRADO à mão quando tudo tem ✔; volta à mão para EM COTAÇÃO/FALTA DADOS quando há peça sem cotação
   (robô confirma com "✔ Card em X (movido por @u) — peça(s) aguardando cotação"). A marca "veio de X para a ESPERA"
   (`ST_ESP_`) é apagada sempre que o card sai da ESPERA por caminho aceito (volta para X, licença, coluna livre) e quando

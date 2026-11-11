@@ -139,6 +139,7 @@ function ck_executar_() {
   acts = acts.filter(function (a) { return new Date(a.date).getTime() <= limCk; });
   if (!acts.length) return 0;
   var cache = {};
+  LIC_FORM_CACHE = {};
   try {
     var ids = [];
     acts.forEach(function (a) { var d = a.data || {}; [d.card && d.card.id, d.card && d.card.shortLink, d.checklist && d.checklist.id].forEach(function (i) { if (i && ids.indexOf('ck_' + i) < 0) ids.push('ck_' + i); }); });
@@ -153,6 +154,8 @@ function ck_executar_() {
     if (ck_licenciada_(a, cache)) return;
     // 20/10/2026: licença feita antes do deploy do servidor se perde com a memória — ação anterior à subida não é julgada
     if (typeof SERVIDOR_INICIO_MS === 'number' && SERVIDOR_INICIO_MS > 0 && new Date(a.date).getTime() < SERVIDOR_INICIO_MS) return;
+    // 11/11/2026 (ATV4G70): o formulário comentou no card perto da hora → a ação é dele, mesmo sem licença em cache
+    if (lic_formularioAgiu_(cardId, new Date(a.date).getTime())) return;
     // 10/10/2026 (revisão, 36 ✔ desfeitos em 5 dias): ✔ marcado direto no Trello num item PAGAS*/FORNECIMENTO* por quem pode
     // receber vale como recebimento de hoje (comentário, evento, coluna) em vez de ser desfeito — ck_aceitarManual_
     if (a.type === 'updateCheckItemStateOnCard' && a.data.checkItem && a.data.checkItem.state === 'complete' && /^(PAGAS|FORNECIMENTO)/i.test(String((a.data.checklist || {}).name || '').trim()) && vd_prop_('CK_ACEITA_OK', 'SIM') !== 'NAO') {
@@ -196,6 +199,26 @@ function ck_executar_() {
   ck_retratar_(tocados.slice(0, 30));
   if (n) console.log('trava de checklist: ' + n + ' alteração(ões) desfeita(s)');
   return n;
+}
+
+/* 11/11/2026 (ATV4G70 F350 Tokio): rede de segurança além da licença em cache. Num deploy do servidor duas instâncias rodaram
+ * juntas: a compra registrada pelo formulário numa (licença só na memória dela) foi julgada "à mão" pela outra — movimento
+ * desfeito e checklist PAGAS APAGADO (sem retrato para refazer). Agora, antes de desfazer, as travas conferem se o próprio
+ * formulário comentou no card perto da hora da ação ("@fulano registrou compra — 🛒 **COMPRA** …", "lançou a cotação",
+ * "autorizou", "registrou recebimento/retirada/devolução", "editou o pedido", "marcou …"): esse comentário só o formulário
+ * escreve, logo a ação veio dele. Janela: 3 min antes/depois. Uma chamada por card por ciclo, só no caminho raro (sem licença). */
+var LIC_FORM_RE = /^@\S+ (registrou|lançou|autorizou|editou|marcou|devolveu|incluiu|alterou)\b[^\n]*— [^\n]*\*\*/;
+var LIC_FORM_CACHE = {};
+function lic_formularioAgiu_(cardId, tMs) {
+  if (!cardId || !tMs) return false;
+  try {
+    var com = LIC_FORM_CACHE[cardId];
+    if (!com) com = LIC_FORM_CACHE[cardId] = vd_api_('/cards/' + cardId + '/actions', { cru: true, query: { filter: 'commentCard', limit: 10, fields: 'date,data' } }) || [];
+    return com.some(function (a) {
+      var txt = String((a.data || {}).text || ''), t = new Date(a.date).getTime();
+      return LIC_FORM_RE.test(txt) && Math.abs(t - tMs) <= 3 * 60 * 1000;
+    });
+  } catch (e) { console.log('licença pelo comentário ' + cardId + ': ' + e); return false; }
 }
 
 /* 19/10/2026 — robô no servidor: licença gravada AQUI (formulário caiu no Google porque o servidor falhou) também tem de valer

@@ -233,6 +233,32 @@ const cacheCompart = new Map<string, { v: string; ate: number }>();
  *  O robô recebe a hora em que este processo subiu e não julga movimento de coluna anterior a ela (SERVIDOR_INICIO_MS). */
 const PROCESSO_INICIO = Date.now();
 const cacheObs = new Map<string, { v: string; ate: number }>();
+/** 11/11/2026 — licenças das travas (coluna st_ok_, checklist ck_, recebimento tr_rec_) no banco, compartilhadas entre as
+ *  instâncias; a memória (cacheCompart) é só um atalho e espelho de segurança se o banco falhar. */
+const LICENCA_RE = /^(ck_|st_ok_|tr_rec_)/;
+let licencaLimpezaEm = 0;
+async function licencaLer(k: string): Promise<string | null> {
+  try {
+    const [r] = await consulta<{ valor: string; ate: string }>(`SELECT valor, ate FROM licenca WHERE chave = $1 AND ate > now()`, [k]);
+    if (r) { cacheCompart.set(k, { v: r.valor, ate: new Date(r.ate).getTime() }); return r.valor; }
+    const m = cacheCompart.get(k);
+    return (m && m.ate > Date.now()) ? m.v : null;   // não está no banco: só vale se a memória tiver (banco acabou de falhar)
+  } catch (e) {
+    console.error('[licença] ler', k, (e as Error).message);
+    const m = cacheCompart.get(k); return (m && m.ate > Date.now()) ? m.v : null;
+  }
+}
+async function licencaGravar(k: string, v: string, ate: number): Promise<void> {
+  cacheCompart.set(k, { v, ate });
+  try {
+    await consulta(`INSERT INTO licenca (chave, valor, ate) VALUES ($1, $2, to_timestamp($3 / 1000.0)) ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor, ate = EXCLUDED.ate`, [k, v, ate]);
+    if (Date.now() - licencaLimpezaEm > 10 * 60_000) { licencaLimpezaEm = Date.now(); consulta(`DELETE FROM licenca WHERE ate < now() - interval '1 hour'`).catch(() => null); }
+  } catch (e) { console.error('[licença] gravar', k, (e as Error).message); }
+}
+async function licencaApagar(k: string): Promise<void> {
+  cacheCompart.delete(k);
+  try { await consulta(`DELETE FROM licenca WHERE chave = $1`, [k]); } catch (e) { console.error('[licença] apagar', k, (e as Error).message); }
+}
 const ESCOPO_DRIVE = 'https://www.googleapis.com/auth/drive.readonly';
 const CAMPOS_DRIVE = 'id,name,mimeType,modifiedTime,trashed,parents';
 async function driveApi(caminho: string, q: Record<string, string> = {}, bin = false): Promise<any> {   // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -535,7 +561,15 @@ async function atender(op: string, d: any, ctx: Contexto): Promise<unknown> {   
     case 'drive.buscar': case 'drive.info': case 'drive.filhos': case 'drive.ler': return driveLer(op, d);
     case 'cache.comp': {
       const cacheComp = ctx.observar ? cacheObs : cacheCompart;   // robô em OBSERVAR não trava o formulário
+      // 11/11/2026 (ATV4G70): licença das travas é compartilhada entre as instâncias pelo banco (tabela licenca) — num deploy
+      // duas instâncias rodam juntas e a licença só na memória de uma fazia o robô da outra desfazer compra do formulário
+      if (LICENCA_RE.test(d.k) && !ctx.observar) {
+        if (d.op === 'get') return licencaLer(d.k);
+        if (d.op === 'put') await licencaGravar(d.k, d.v, Date.now() + Math.min(+d.seg || 600, 21600) * 1000); else await licencaApagar(d.k);
+        return null;
+      }
       // 19/10/2026: em OBSERVAR o robô também LÊ o que é real (licenças e travas gravadas pelo formulário), só não escreve lá
+      if (LICENCA_RE.test(d.k) && ctx.observar && d.op === 'get') { const m = cacheObs.get(d.k); return (m && m.ate > Date.now()) ? m.v : licencaLer(d.k); }
       const x = cacheComp.get(d.k) || (ctx.observar && d.op === 'get' ? cacheCompart.get(d.k) : undefined);
       if (d.op === 'get') return x && x.ate > Date.now() ? x.v : null;
       if (d.op === 'put') cacheComp.set(d.k, { v: d.v, ate: Date.now() + Math.min(+d.seg || 600, 21600) * 1000 }); else cacheComp.delete(d.k);
@@ -932,7 +966,7 @@ async function trazerLicencasDoGoogle(): Promise<void> {
     else if (atual && atual.ate > agora && /^(ck_|tr_rec_)/.test(k)) {
       try { const a = JSON.parse(atual.v) as unknown[], b = JSON.parse(v) as unknown[]; v = JSON.stringify([...new Set([...a, ...b])].slice(-40)); } catch { /* fica o do Google */ }
     }
-    cacheCompart.set(k, { v, ate: Math.max(par[1], atual?.ate || 0) });
+    await licencaGravar(k, v, Math.max(par[1], atual?.ate || 0));
   }
 }
 /** Espera as chamadas do formulário (principal) terminarem e a planilha delas ser gravada; devolve os ms esperados. */
@@ -945,6 +979,7 @@ export async function esperarFormulario(maxMs: number): Promise<number> {
 export async function rodarRobo(fn: string, rapido = false): Promise<Record<string, unknown>> {
   if (!/^(validarDadosPedido|verificarAlteracoesDescricao|rotinaDiaria|relatorioDiario|sd_diario|es_sincronizar|axPadronizarQuadro)$/.test(fn)) return { ok: false, erro: 'função não permitida' };
   if (roboRodando) return { ok: false, erro: 'já rodando' };
+  if (rapido && !(await souLiderDoRobo())) return { ok: false, erro: 'outra instância é a líder do robô' };   // 11/11/2026: ciclo rápido (webhook) só na líder
   if (fn === 'validarDadosPedido' && Date.now() - roboUltimo < (rapido ? INTERVALO_RAPIDO_MS : 40_000)) return { ok: false, erro: 'rodou há pouco' };
   roboRodando = true; if (fn === 'validarDadosPedido') roboUltimo = Date.now();
   const t0 = Date.now();
@@ -1011,7 +1046,7 @@ function agendarSeguimento(): void {
     rodar(0).catch((e) => console.error('[robô] seguimento:', (e as Error).message)).finally(() => { if (ultimoAviso > desde) agendarSeguimento(); });
   }, SEGUIMENTO_MS);
 }
-export function estadoCicloRapido(): Record<string, unknown> { return { ...estRapido, agendado: !!rapidoTimer, seguimentoAgendado: !!seguimentoTimer, varreduraMin: ROBO_VARREDURA_MIN }; }
+export function estadoCicloRapido(): Record<string, unknown> { return { ...estRapido, agendado: !!rapidoTimer, seguimentoAgendado: !!seguimentoTimer, varreduraMin: ROBO_VARREDURA_MIN, instancia: INSTANCIA, liderUltimo: liderUltimo }; }
 export function pedirCicloRapido(): void {
   if (process.env.ROBO_SERVIDOR !== 'ATIVO') return;
   estRapido.pedidos++;
@@ -1034,9 +1069,28 @@ export async function batidaNoGoogle(): Promise<unknown> {
 }
 const diarias: Array<{ fn: string; hhmm: string }> = [{ fn: 'rotinaDiaria', hhmm: '07:00' }, { fn: 'relatorioDiario', hhmm: '07:15' }];
 /** Agendador (Cloud Scheduler, a cada minuto): ciclo do robô, log de descrição e as rotinas diárias na hora. */
+/** 11/11/2026 (ATV4G70): só UMA instância roda o robô por vez. Num deploy o Cloud Run mantém a instância antiga viva por alguns
+ *  minutos enquanto a nova já atende — as duas rodavam o ciclo de 1 min e julgavam o movimento uma da outra (vai-e-volta, e o
+ *  checklist PAGAS apagado). Liderança = linha 'robo_lider' em guardado, com validade de 150 s, renovada a cada minuto por quem
+ *  a tem; a outra instância só assume quando a validade vence (instância antiga parou). */
+const INSTANCIA = randomUUID().slice(0, 8);
+let liderUltimo = '';
+export async function souLiderDoRobo(): Promise<boolean> {
+  try {
+    const r = await consulta<{ nome: string }>(
+      `INSERT INTO guardado (nome, valor, em) VALUES ('robo_lider', $1::jsonb, now())
+       ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()
+       WHERE guardado.valor->>'inst' = $2 OR (guardado.valor->>'ate')::timestamptz < now()
+       RETURNING nome`,
+      [JSON.stringify({ inst: INSTANCIA, ate: new Date(Date.now() + 100_000).toISOString() }), INSTANCIA]);
+    liderUltimo = (r.length ? 'sou líder ' : 'outra instância ') + new Date().toISOString();
+    return r.length > 0;
+  } catch (e) { console.error('[robô] liderança:', (e as Error).message); return true; }   // sem banco: roda como antes
+}
 export async function minutoRobo(): Promise<Record<string, unknown>> {
+  if (!(await souLiderDoRobo())) return { ok: true, pulado: 'outra instância é a líder do robô', instancia: INSTANCIA };   // renova a liderança mesmo com ciclo em andamento
   if (roboRodando) return { ok: true, pulado: 'robô ainda rodando' };
-  const out: Record<string, unknown> = { modo: process.env.ROBO_SERVIDOR === 'ATIVO' ? 'ATIVO' : 'OBSERVAR' };
+  const out: Record<string, unknown> = { modo: process.env.ROBO_SERVIDOR === 'ATIVO' ? 'ATIVO' : 'OBSERVAR', instancia: INSTANCIA };
   try { out.chaveGoogle = await alinharChaveGoogle(); chaveOkEm = Date.now(); } catch (e) { out.chaveGoogle = 'erro: ' + (e as Error).message.slice(0, 120); if (out.modo === 'ATIVO') return { ok: false, ...out, erro: 'não consegui parar o robô do Google — nada rodado' }; }
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(new Date()).map((x) => [x.type, x.value]));
   // varredura: minuto múltiplo de ROBO_VARREDURA_MIN, madrugada (anexos antigos) ou sem ciclo há mais que o intervalo

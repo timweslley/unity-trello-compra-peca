@@ -230,7 +230,7 @@ var ST = {
   LIMITE_MS: 30 * 1000
 };
 
-// Fluxo.gs:151
+// Fluxo.gs:154
 var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, REPETIR_FATURAR_DU: 5, LIMITE_MS: 40 * 1000, RESUMO_MAX: 120 };
 
 // FormularioServidor.gs:26
@@ -490,6 +490,12 @@ var CK = {
   ABA: 'CHECKLISTS',
   ESPERA_MS: 90 * 1000     // 17/10/2026: ação mais nova que isso espera o próximo ciclo (licença do servidor a caminho)
 };
+
+// TravaChecklist.gs:210
+var LIC_FORM_RE = /^@\S+ (registrou|lançou|autorizou|editou|marcou|devolveu|incluiu|alterou)\b[^\n]*— [^\n]*\*\*/;
+
+// TravaChecklist.gs:211
+var LIC_FORM_CACHE = {};
 
 // Treino.gs:10
 var TRN = {
@@ -3645,6 +3651,7 @@ function st_executar_() {
   var inicio = ST.INICIO.map(function (n) { return ls[n]; }).filter(String);
   var fim = vd_prazo_(ST.LIMITE_MS), desfeitos = 0, vistos = {};
   var parou = false;
+  try { LIC_FORM_CACHE = {}; } catch (e) {}
   acoes.reverse().forEach(function (a) {
     if (parou || Date.now() > fim) { parou = true; return; }
     if (a.date) ultimaFeita = new Date(new Date(a.date).getTime() + 1).toISOString();   // +1 ms: não reprocessa a mesma ação
@@ -3665,6 +3672,8 @@ function st_executar_() {
     // anterior à subida do processo não é julgado.
     if (typeof SERVIDOR_INICIO_MS === 'number' && SERVIDOR_INICIO_MS > 0 && a.date && new Date(a.date).getTime() < SERVIDOR_INICIO_MS) return;
     if (vdf_cardProtegido_(a.data.card.name || '') || /^\s*AVISO\b/i.test(a.data.card.name || '')) return;
+    // 11/11/2026 (ATV4G70): sem licença em cache, mas o formulário comentou no card perto da hora do movimento → é dele
+    if (ST.TRAVADAS[nPara] && a.date && typeof lic_formularioAgiu_ === 'function' && lic_formularioAgiu_(cardId, new Date(a.date).getTime())) { if (nDe === ESP) tiraMarca(); return; }
     // card estacionado em ESPERA: guarda de onde veio; pode voltar só para lá
     if (nPara === ESP) { if (ST.TRAVADAS[nDe]) props.setProperty(kEsp, nDe); else tiraMarca(); return; }
     // Butler "todos os checklists completos em FALTA CHEGAR -> ENCERRADO": é a mesma regra do sistema, aceita
@@ -3716,16 +3725,16 @@ function st_executar_() {
   return desfeitos;
 }
 
-// Fluxo.gs:158
+// Fluxo.gs:161
 function sla_dia_(d) { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); }
 
-// Fluxo.gs:159
+// Fluxo.gs:162
 function sla_mais_(d, n) { d = sla_dia_(d); var g = 0; while (n > 0 && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) n--; } return d; }
 
-// Fluxo.gs:161
+// Fluxo.gs:164
 function sla_users_(prop, padrao) { if (vd_board_() === VD.BOARD_PADRAO) padrao = 'timweslley'; return String(vd_prop_(prop, padrao)).split(/[,;\s]+/).filter(String); }
 
-// Fluxo.gs:163
+// Fluxo.gs:166
 function pz_jaAvisouHoje_(cardId) {
   try {
     var props = PropertiesService.getScriptProperties(), k = 'PZ_DIA_' + cardId, hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
@@ -3734,10 +3743,10 @@ function pz_jaAvisouHoje_(cardId) {
   } catch (e) { return false; }
 }
 
-// Fluxo.gs:170
+// Fluxo.gs:173
 function sla_mencao_(us) { return us.filter(function (u, i) { return u && us.indexOf(u) === i; }).map(function (u) { return '@' + u; }).join(' '); }
 
-// Fluxo.gs:176
+// Fluxo.gs:179
 function sla_podeAvisar_(props, chave, hoje) {
   var ult = props.getProperty(chave);
   if (!ult) return true;
@@ -3745,7 +3754,7 @@ function sla_podeAvisar_(props, chave, hoje) {
   return rep > 0 && sla_mais_(new Date(ult), rep) <= hoje;
 }
 
-// Fluxo.gs:184
+// Fluxo.gs:187
 function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
   if (vd_prop_('FAT_RESUMO', 'SIM') === 'NAO' || !itens.length) return false;
   var kDia = 'FAT_RESUMO_DIA', dia = Utilities.formatDate(hoje, 'America/Sao_Paulo', 'yyyy-MM-dd');
@@ -3772,7 +3781,7 @@ function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
   } catch (e) { console.log('resumo de faturamento: ' + e); return false; }
 }
 
-// Fluxo.gs:210
+// Fluxo.gs:213
 function sla_executar_(forcar) {
   if (vd_prop_('SLA_LIGADO', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -3922,7 +3931,7 @@ function sla_executar_(forcar) {
   return n;
 }
 
-// Fluxo.gs:370
+// Fluxo.gs:373
 function exc_executar_() {
   if (vd_prop_('EXC_PROTEGER', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -3968,7 +3977,7 @@ function exc_executar_() {
   return n;
 }
 
-// Fluxo.gs:416
+// Fluxo.gs:419
 function exc_comprasDoCard_(shortLink) {
   if (!shortLink) return [];
   try {
@@ -10176,6 +10185,7 @@ function ck_executar_() {
   acts = acts.filter(function (a) { return new Date(a.date).getTime() <= limCk; });
   if (!acts.length) return 0;
   var cache = {};
+  LIC_FORM_CACHE = {};
   try {
     var ids = [];
     acts.forEach(function (a) { var d = a.data || {}; [d.card && d.card.id, d.card && d.card.shortLink, d.checklist && d.checklist.id].forEach(function (i) { if (i && ids.indexOf('ck_' + i) < 0) ids.push('ck_' + i); }); });
@@ -10190,6 +10200,8 @@ function ck_executar_() {
     if (ck_licenciada_(a, cache)) return;
     // 20/10/2026: licença feita antes do deploy do servidor se perde com a memória — ação anterior à subida não é julgada
     if (typeof SERVIDOR_INICIO_MS === 'number' && SERVIDOR_INICIO_MS > 0 && new Date(a.date).getTime() < SERVIDOR_INICIO_MS) return;
+    // 11/11/2026 (ATV4G70): o formulário comentou no card perto da hora → a ação é dele, mesmo sem licença em cache
+    if (lic_formularioAgiu_(cardId, new Date(a.date).getTime())) return;
     // 10/10/2026 (revisão, 36 ✔ desfeitos em 5 dias): ✔ marcado direto no Trello num item PAGAS*/FORNECIMENTO* por quem pode
     // receber vale como recebimento de hoje (comentário, evento, coluna) em vez de ser desfeito — ck_aceitarManual_
     if (a.type === 'updateCheckItemStateOnCard' && a.data.checkItem && a.data.checkItem.state === 'complete' && /^(PAGAS|FORNECIMENTO)/i.test(String((a.data.checklist || {}).name || '').trim()) && vd_prop_('CK_ACEITA_OK', 'SIM') !== 'NAO') {
@@ -10235,7 +10247,20 @@ function ck_executar_() {
   return n;
 }
 
-// TravaChecklist.gs:204
+// TravaChecklist.gs:212
+function lic_formularioAgiu_(cardId, tMs) {
+  if (!cardId || !tMs) return false;
+  try {
+    var com = LIC_FORM_CACHE[cardId];
+    if (!com) com = LIC_FORM_CACHE[cardId] = vd_api_('/cards/' + cardId + '/actions', { cru: true, query: { filter: 'commentCard', limit: 10, fields: 'date,data' } }) || [];
+    return com.some(function (a) {
+      var txt = String((a.data || {}).text || ''), t = new Date(a.date).getTime();
+      return LIC_FORM_RE.test(txt) && Math.abs(t - tMs) <= 3 * 60 * 1000;
+    });
+  } catch (e) { console.log('licença pelo comentário ' + cardId + ': ' + e); return false; }
+}
+
+// TravaChecklist.gs:227
 function lic_espelhar_(par, seg) {
   try {
     if (!vd_roboNoServidor_()) return;
