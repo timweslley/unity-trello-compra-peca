@@ -401,8 +401,10 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
     return resp.send(linhas.map((l) => JSON.stringify(l)).join('\n') + '\n');
   });
   // 17/10/2026: despertador próprio (CPU sempre ligada no Cloud Run, sem Cloud Scheduler) — a cada minuto
+  // 11/11/2026 (ATV4G70): o 1º tique só 150 s depois de subir — tempo de o Cloud Run encerrar a instância antiga, que ainda
+  // está rodando o robô (duas instâncias julgando o mesmo quadro desfizeram compra do formulário)
   if (process.env.ROBO_TICK === 'SIM') {
-    setTimeout(() => setInterval(() => { minutoRobo().catch((e) => console.error('[robô] minuto:', (e as Error).message)); }, 60_000), 20_000);
+    setTimeout(() => setInterval(() => { minutoRobo().catch((e) => console.error('[robô] minuto:', (e as Error).message)); }, 60_000), 150_000);
   }
 
   /** 27/10/2026 (Weslley: "cada montadora tem um padrão de código"): padrões de código de peça nos orçamentos Cilia já lidos —

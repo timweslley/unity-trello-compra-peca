@@ -979,6 +979,7 @@ export async function esperarFormulario(maxMs: number): Promise<number> {
 export async function rodarRobo(fn: string, rapido = false): Promise<Record<string, unknown>> {
   if (!/^(validarDadosPedido|verificarAlteracoesDescricao|rotinaDiaria|relatorioDiario|sd_diario|es_sincronizar|axPadronizarQuadro)$/.test(fn)) return { ok: false, erro: 'função não permitida' };
   if (roboRodando) return { ok: false, erro: 'já rodando' };
+  if (rapido && Date.now() - PROCESSO_INICIO_MS < 150_000) return { ok: false, erro: 'processo acabou de subir (instância antiga ainda pode estar rodando o robô)' };   // 11/11/2026
   if (rapido && !(await souLiderDoRobo())) return { ok: false, erro: 'outra instância é a líder do robô' };   // 11/11/2026: ciclo rápido (webhook) só na líder
   if (fn === 'validarDadosPedido' && Date.now() - roboUltimo < (rapido ? INTERVALO_RAPIDO_MS : 40_000)) return { ok: false, erro: 'rodou há pouco' };
   roboRodando = true; if (fn === 'validarDadosPedido') roboUltimo = Date.now();
@@ -1073,7 +1074,7 @@ const diarias: Array<{ fn: string; hhmm: string }> = [{ fn: 'rotinaDiaria', hhmm
  *  minutos enquanto a nova já atende — as duas rodavam o ciclo de 1 min e julgavam o movimento uma da outra (vai-e-volta, e o
  *  checklist PAGAS apagado). Liderança = linha 'robo_lider' em guardado, com validade de 150 s, renovada a cada minuto por quem
  *  a tem; a outra instância só assume quando a validade vence (instância antiga parou). */
-const INSTANCIA = randomUUID().slice(0, 8);
+const INSTANCIA = randomUUID().slice(0, 8), PROCESSO_INICIO_MS = Date.now();
 let liderUltimo = '';
 export async function souLiderDoRobo(): Promise<boolean> {
   try {
