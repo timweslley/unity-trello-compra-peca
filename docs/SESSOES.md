@@ -546,4 +546,5 @@ da outra, deixar um recado aqui e no commit.
 - **11/11/2026 10h45 — ATV4G70 F350 Tokio: aviso de quem autorizou não chegava ao comprador.** Weslley escreveu na observação geral da
   autorização "peças devem ser compradas pelo CNPJ da WEV para refaturamento…"; ia só para o comentário do card — a aba Compra
   pulava a linha `OBS GERAL`. Agora o servidor devolve `obsAutorizacao` e a 2.0 mostra em destaque no topo das abas do comprador e
-  no balão "Registrar a compra". Direto no principal (Weslley: "é grave, preciso ajustar").
+  no balão "Registrar a compra". Direto no principal (Weslley: "é grave, preciso ajustar"). 10h57: vale também para a observação
+  geral do pedido (consultor/atendente) — mesma faixa, rotulada por origem; a da devolução já tinha aviso próprio.

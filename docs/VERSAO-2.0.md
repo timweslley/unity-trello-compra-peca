@@ -111,4 +111,7 @@ Em aberto:
   da WEV para refaturamento…") só ia para o comentário do card. Agora aparece em destaque — faixa amarela com barra vermelha,
   "⚠️ Aviso de quem autorizou — leia antes de comprar" — no topo das abas do comprador (computador e celular) e repetida dentro do
   balão "Registrar a compra de N peças?". Dado novo do servidor: `CARD.obsAutorizacao` (todas as autorizações valendo; devolução
-  para cotação apaga). Só exibição; envios iguais. Direto no principal com OK do Weslley.
+  para cotação apaga). Só exibição; envios iguais. Direto no principal com OK do Weslley. 10h57 (Weslley: "vale também para outras
+  obs gerais, do atendente ou autorização"): a observação geral do **pedido** (campo "Observações" do consultor, `CARD.obs` — o
+  comprador também não via, só o 📝 na descrição) entra na mesma faixa, rotulada "Observação do pedido · quem pediu"; a de quem
+  autorizou vem rotulada "Quem autorizou · nome · data". A da devolução segue no aviso próprio "↩️ Cotação devolvida".

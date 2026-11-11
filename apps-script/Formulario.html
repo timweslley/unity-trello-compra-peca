@@ -10218,6 +10218,7 @@ document.addEventListener('input', function (e) {
 .v2-autobs .t { display:block; font-weight:700; font-size:13px; letter-spacing:.3px; text-transform:uppercase; color:#7f1d1d; margin-bottom:4px; }
 .v2-autobs .o { display:block; font-weight:700; }
 .v2-autobs .o + .o { margin-top:6px; }
+.v2-autobs .de { font-weight:600; color:#7f1d1d; }
 .v2-autobs .q { display:block; font-size:12px; color:#44546f; margin-top:4px; font-weight:400; }
 .aviso.v2-autobs.no-balao { margin:0 0 10px !important; font-size:14px !important; line-height:20px !important; padding:10px 12px 10px 14px !important; }
 #infoComprador > .aviso.v2-autobs { margin-top:8px !important; }
@@ -10226,8 +10227,8 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
 <script>
 /* 11/11/2026 (Weslley, ATV4G70 F350 Prata Tokio: escreveu na observação geral da autorização "PEÇAS DEVEM SER COMPRADAS PELO CNPJ
  * DA WEV PARA REFATURAMENTO…" e o comprador, pelo formulário, não via — só no comentário do card) — camada 2.0, computador e
- * celular, telas do comprador: a observação geral de quem autorizou (servidor: CARD.obsAutorizacao, lida das linhas
- * "OBS GERAL: (autorização) …" da descrição completa) aparece em destaque:
+ * celular, telas do comprador: as observações gerais — a do pedido (consultor/atendente, CARD.obs) e as de quem autorizou
+ * (servidor: CARD.obsAutorizacao, lida das linhas "OBS GERAL: (autorização) …" da descrição completa) — aparecem em destaque:
  *  1) faixa amarela com barra vermelha no topo das abas do comprador (Cotação, Autorizar, Compra, Recebimento…);
  *  2) repetida dentro do balão de confirmação da compra ("Registrar a compra de N peças?"), para ser lida na hora de registrar.
  * Só exibição: nada muda nos envios. Tela clássica (?v2=0) segue mostrando só o comentário. */
@@ -10235,10 +10236,20 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
   if (/[?&]v2=0(&|$)/.test(location.search)) return;
   var g = function (id) { return document.getElementById(id); };
   var e2 = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
-  function obs() { var c = window.CARD; return (c && Array.isArray(c.obsAutorizacao) ? c.obsAutorizacao : []).filter(function (o) { return o && String(o.texto || '').trim(); }); }
+  /* 11/11/2026 10h57 (Weslley: "deve valer também para outras obs gerais, seja pelo atendente ou autorização etc"): a observação
+   * geral do PEDIDO (consultor/atendente, campo "Observações" — CARD.obs, que o comprador também não via) entra na mesma faixa,
+   * antes das de quem autorizou. A da devolução já tem o aviso próprio "↩️ Cotação devolvida" e não repete aqui. */
+  function obs() {
+    var c = window.CARD; if (!c) return [];
+    var out = [];
+    var op = String(c.obs || '').trim();
+    if (op) out.push({ de: 'Observação do pedido', quem: c.solicitante || '', quando: '', texto: op });
+    (Array.isArray(c.obsAutorizacao) ? c.obsAutorizacao : []).forEach(function (o) { if (o && String(o.texto || '').trim()) out.push({ de: 'Quem autorizou', quem: o.quem || '', quando: o.quando || '', texto: String(o.texto).trim() }); });
+    return out;
+  }
   function html(lista, noBalao) {
-    return '<div class="aviso v2-autobs' + (noBalao ? ' no-balao' : '') + '" role="alert"><span class="t">⚠️ Aviso de quem autorizou — leia antes de comprar</span>'
-      + lista.map(function (o) { return '<span class="o">' + e2(o.texto) + '</span>' + (o.quem || o.quando ? '<span class="q">' + e2(o.quem || '') + (o.quando ? ' · ' + e2(o.quando) : '') + '</span>' : ''); }).join('')
+    return '<div class="aviso v2-autobs' + (noBalao ? ' no-balao' : '') + '" role="alert"><span class="t">⚠️ Avisos para o comprador — leia antes de comprar</span>'
+      + lista.map(function (o) { return '<span class="o"><span class="de">' + e2(o.de) + ':</span> ' + e2(o.texto) + '</span>' + (o.quem || o.quando ? '<span class="q">' + e2(o.quem || '') + (o.quando ? ' · ' + e2(o.quando) : '') + '</span>' : ''); }).join('')
       + '</div>';
   }
   function topo() {
