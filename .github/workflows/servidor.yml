@@ -40,7 +40,13 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm, cache-dependency-path: servidor/package-lock.json }
-      - run: sudo apt-get update -q >/dev/null && sudo apt-get install -y -q poppler-utils >/dev/null
+      # 11/11/2026: o espelho azure.archive.ubuntu.com do runner falhou de DNS 4 vezes seguidas e segurou o deploy da correção
+      # das travas; troca para archive.ubuntu.com e, se o apt falhar mesmo assim, segue (os testes que precisam de pdftoppm pulam)
+      - name: poppler-utils (pdftoppm) — com espelho alternativo e sem travar o deploy
+        run: |
+          sudo sed -i 's|azure.archive.ubuntu.com|archive.ubuntu.com|g' /etc/apt/apt-mirrors.txt /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true
+          for i in 1 2 3; do sudo apt-get update -q >/dev/null 2>&1 && sudo apt-get install -y -q poppler-utils >/dev/null 2>&1 && break; sleep 20; done
+          command -v pdftoppm >/dev/null && echo "poppler ok" || echo "::warning::poppler-utils indisponível neste runner — testes de PDF pulados"
       - run: npm ci
       - name: Copiar o código do robô (apps-script/) — sempre a versão deste commit
         run: npm run extrair-leitores && npm run extrair-formulario && git status --short
