@@ -27,6 +27,8 @@ const ESTADO_DELEGACAO = { ok: false, erro: '', desde: '', tentadaEm: 0, usuario
 let emailContaServico = '';
 
 export function estadoDelegacao() { return { ...ESTADO_DELEGACAO, contaServico: emailContaServico }; }
+/** Força uma nova tentativa de delegação já (diagnóstico). */
+export function tentarDelegacaoAgora() { ESTADO_DELEGACAO.tentadaEm = 0; }
 
 async function tokenMetadados(escopo: string): Promise<{ access_token: string; expires_in: number }> {
   const r = await fetch(`http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token?scopes=${encodeURIComponent(escopo)}`,
@@ -68,8 +70,10 @@ export async function tokenGoogle(escopo = ESCOPO): Promise<string> {
   if (process.env.GOOGLE_TOKEN) return process.env.GOOGLE_TOKEN;
   const chave = (IMPERSONAR && ESTADO_DELEGACAO.ok ? 'dwd|' : 'sa|') + escopo;
   const c = tokens[chave];
-  if (c && c.expira > Date.now() + 60_000) return c.valor;
-  if (IMPERSONAR && (ESTADO_DELEGACAO.ok || Date.now() - ESTADO_DELEGACAO.tentadaEm > 10 * 60_000)) {
+  const tentarDelegacao = !!IMPERSONAR && (ESTADO_DELEGACAO.ok || Date.now() - ESTADO_DELEGACAO.tentadaEm > 10 * 60_000);
+  // token da conta de serviço em cache não adia a nova tentativa de delegação (senão ela só voltava a ser tentada 1 h depois)
+  if (c && c.expira > Date.now() + 60_000 && !(tentarDelegacao && !ESTADO_DELEGACAO.ok)) return c.valor;
+  if (tentarDelegacao) {
     ESTADO_DELEGACAO.tentadaEm = Date.now();
     try {
       const j = await tokenDelegado(escopo);
