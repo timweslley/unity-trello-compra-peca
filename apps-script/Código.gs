@@ -434,11 +434,18 @@ function instalarRotinaDiaria() {
 
 
 /** Card há mais de DIAS_ENCERRADO dias em ENCERRADO:
- *  checklists completos -> ENTREGUES; item pendente -> volta para FALTA CHEGAR. */
+ *  checklists completos -> ENTREGUES; item pendente -> volta para FALTA CHEGAR.
+ *  11/11/2026 (Weslley, log das conferências 07:57: vai-e-volta robô × robô — às 07:00 esta rotina mandou 5 cards sem nota para
+ *  ENTREGUES e às 07:10 a regra da nota (Recebimento.gs) devolveu todos: EUC2D77, OLM4E55, RHR9A41, BBO2G03, QAX3J48): a saída
+ *  para ENTREGUES passa pela MESMA régua da varredura (rc_liberarEncerrado_: tudo recebido · sem devolução aberta · nota da compra
+ *  da oficina no card). Sem nota o card fica em ENCERRADO, sem comentário. Só o card antigo sem item de checklist (nada a cobrar)
+ *  continua saindo pelo prazo. O ramo "item pendente → FALTA CHEGAR" não muda. */
 function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
   if (!idEnc || !idEntregues || !idFaltaChegar) return 0;
-  var cards = api_('/lists/' + idEnc + '/cards', { fields: 'name', checklists: 'all', checkItem_fields: 'state' });
+  var cards = api_('/lists/' + idEnc + '/cards', { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' });
   var n = 0;
+  var ctxLib = null;
+  try { if (typeof rc_liberarEncerrado_ === 'function' && typeof vd_contexto_ === 'function') ctxLib = vd_contexto_(); } catch (e) { console.log('moverEncerrados_: sem contexto para a régua da nota: ' + e); }
   // 19/10/2026 (Weslley: "rotina diária mais rápida"): o histórico de colunas de todos os cards vem em paralelo, de 10 em 10
   // (antes, uma chamada por card em fila: ~13 s); cada lote que falhar cai na leitura antiga, card a card
   var cr = cred_(), hist = {};
@@ -469,6 +476,18 @@ function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
       try { if (typeof st_permitir_ === 'function') st_permitir_(c.id, idFaltaChegar); } catch (e) {}
       api_('/cards/' + c.id, { idList: idFaltaChegar, pos: 'top' }, 'put');
       api_('/cards/' + c.id + '/actions/comments', { text: 'Movido automaticamente para FALTA CHEGAR: mais de ' + DIAS_ENCERRADO + ' dias em ENCERRADO com ' + pendentes + ' item(ns) de checklist pendente(s).' }, 'post');
+    } else if (ctxLib) {
+      // régua da nota (11/11/2026): move só se rc_liberarEncerrado_ liberar; senão fica em ENCERRADO e a varredura segue tentando
+      var lib = null;
+      try { lib = rc_liberarEncerrado_(c, ctxLib, null, 'robô', { comentar: true }); } catch (e) { console.log('moverEncerrados_ ' + c.shortLink + ': ' + e); return; }
+      if (!lib || !lib.movido) {
+        // card antigo sem item de checklist: nada a cobrar → sai pelo prazo como antes
+        var semItem = !(c.checklists || []).some(function (ck) { return (ck.checkItems || []).length; });
+        var legado = false; try { legado = typeof vd_legado_ === 'function' && vd_legado_(c.id); } catch (e) {}
+        if (!(semItem && legado)) return;
+        try { if (typeof st_permitir_ === 'function') st_permitir_(c.id, idEntregues); } catch (e) {}
+        api_('/cards/' + c.id, { idList: idEntregues, pos: 'top' }, 'put');
+      }
     } else {
       try { if (typeof st_permitir_ === 'function') st_permitir_(c.id, idEntregues); } catch (e) {}
       api_('/cards/' + c.id, { idList: idEntregues, pos: 'top' }, 'put');

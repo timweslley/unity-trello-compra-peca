@@ -625,7 +625,8 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
  * tempo (15 dias, moverEncerrados_). Agora: tudo recebido · sem devolução aguardando NF · toda compra da oficina (checklist
  * PAGAS*) com nota fiscal anexada no card → ENTREGUES. Vale na hora (recebimento, retirada, NF de devolução) e numa varredura
  * da coluna a cada 10 min (nota anexada pela rotina de NF ou à mão no card). A retirada deixa de segurar o card. Nota de
- * fornecimento (NF FORNECIMENTO) não é exigida nem conta. A regra dos 15 dias continua como rede de segurança.
+ * fornecimento (NF FORNECIMENTO) não é exigida nem conta. A regra dos 15 dias (moverEncerrados_, Código.gs, 07h) passa pela
+ * mesma régua desde 11/11/2026 (antes mandava sem nota para ENTREGUES e a varredura devolvia 10 min depois — vai-e-volta diário).
  * Nota ↔ compra: pelo nome do anexo (padrão das rotinas — "NF <EMITENTE> - nº - dd-mm", "📦 NF nº · PLACA · FORN · dd/MM",
  * "NF ML - vendedor - produto - dd-mm", "NFS-e nº - …"): uma palavra do emitente/fornecedor (3+ letras, fora das genéricas)
  * igual a uma palavra do fornecedor do item PAGAS ("CÓDIGO DESC - FORNECEDOR - R$ …") ou o código da peça no nome da nota;

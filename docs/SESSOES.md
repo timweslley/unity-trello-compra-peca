@@ -533,3 +533,8 @@ da outra, deixar um recado aqui e no commit.
   age como usuário interno `sistema@unitycs.com.br` por delegação em todo o domínio (`planilha.ts` tokenGoogle: signJwt + troca;
   fallback para a conta de serviço; estado em `/saude` e `/tarefas/google-identidade`). Falta a parte do Admin (passo a passo no
   README do servidor). Robô no Trello não foi afetado; gravações na planilha ficam pendentes até lá.
+- **11/11/2026 08h — log das conferências: vai-e-volta robô × robô às 07:00.** A rotina diária (`moverEncerrados_`, 15 dias) mandou 5
+  cards sem nota para ENTREGUES e a varredura da nota devolveu todos às 07:10 (EUC2D77, OLM4E55, RHR9A41, BBO2G03, QAX3J48 — nota da
+  IMPERIAL faltando); repetiria toda manhã. Agora a saída por prazo passa pela mesma régua (`rc_liberarEncerrado_`); sem nota o card
+  fica, sem comentário; card antigo sem item de checklist continua saindo pelo prazo. Log sem falha de gravação/robô desde 06/11; a
+  trava desfazendo ✔ manual em item de devolução (BXZ4J84, AAZ0E84, TSGh8EE4) está certa — aviso à equipe: devolução fecha pela aba 📦.
