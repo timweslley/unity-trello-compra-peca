@@ -528,3 +528,8 @@ da outra, deixar um recado aqui e no commit.
 - **10/11/2026 12h40 — BBQ3D35 Retorno preso em PENDENTE AUTORIZAR.** Duas peças "não cotadas" (cliente vai trazer / não precisa)
   sem saída na aba Autorizar (chip 🚫 escondido pela 2.0 e só da diretoria); Weslley tentou mover à mão e a trava devolveu. Camada
   2.0: peça não cotada ganha o chip 🚫 com o motivo preenchido. Regra de negócio não muda (quem decide continua decidindo).
+- **10/11/2026 22h40 — servidor perdeu o Drive/planilha (regra nova do Workspace: sem compartilhamento externo).** A conta de serviço
+  segue listada como editora, mas `drive-teste` devolve vazio e `rotina-base` não acha nada. Weslley escolheu a opção 2: o servidor
+  age como usuário interno `sistema@unitycs.com.br` por delegação em todo o domínio (`planilha.ts` tokenGoogle: signJwt + troca;
+  fallback para a conta de serviço; estado em `/saude` e `/tarefas/google-identidade`). Falta a parte do Admin (passo a passo no
+  README do servidor). Robô no Trello não foi afetado; gravações na planilha ficam pendentes até lá.

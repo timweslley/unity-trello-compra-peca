@@ -13,16 +13,77 @@ const ESCOPO = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 const ESCOPO_GRAVAR = 'https://www.googleapis.com/auth/spreadsheets';
 const tokens: Record<string, { valor: string; expira: number }> = {};
 
-/** Token da conta de serviço do Cloud Run (servidor de metadados). Em desenvolvimento: GOOGLE_TOKEN. */
-export async function tokenGoogle(escopo = ESCOPO): Promise<string> {
-  if (process.env.GOOGLE_TOKEN) return process.env.GOOGLE_TOKEN;
-  const c = tokens[escopo];
-  if (c && c.expira > Date.now() + 60_000) return c.valor;
+/**
+ * 10/11/2026 — o Workspace passou a bloquear compartilhamento fora do domínio e a conta de serviço (externa) perdeu o acesso à
+ * planilha e às bases do Drive, mesmo listada como editora. Saída: o servidor passa a agir como um usuário INTERNO
+ * (GOOGLE_IMPERSONAR, padrão sistema@unitycs.com.br) por delegação em todo o domínio: a conta de serviço assina um JWT
+ * (IAM Credentials signJwt — precisa do papel "Criador de token da conta de serviço" sobre ela mesma) com `sub` = o usuário,
+ * e troca por um token de acesso desse usuário. No Admin do Workspace a conta precisa estar em "Delegação em todo o domínio"
+ * com os escopos abaixo. Sem isso configurado, a troca falha e o servidor volta ao token da própria conta (comportamento
+ * anterior), tentando a delegação de novo a cada 10 min — a situação aparece em /saude (google.delegacao).
+ */
+export const IMPERSONAR = process.env.GOOGLE_IMPERSONAR === undefined ? 'sistema@unitycs.com.br' : process.env.GOOGLE_IMPERSONAR.trim();
+const ESTADO_DELEGACAO = { ok: false, erro: '', desde: '', tentadaEm: 0, usuario: IMPERSONAR };
+let emailContaServico = '';
+
+export function estadoDelegacao() { return { ...ESTADO_DELEGACAO, contaServico: emailContaServico }; }
+
+async function tokenMetadados(escopo: string): Promise<{ access_token: string; expires_in: number }> {
   const r = await fetch(`http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token?scopes=${encodeURIComponent(escopo)}`,
     { headers: { 'Metadata-Flavor': 'Google' } });
   if (!r.ok) throw new Error(`metadados do Google ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  const j = await r.json() as { access_token: string; expires_in: number };
-  tokens[escopo] = { valor: j.access_token, expira: Date.now() + j.expires_in * 1000 };
+  return r.json() as Promise<{ access_token: string; expires_in: number }>;
+}
+
+export async function emailDaContaServico(): Promise<string> {
+  if (emailContaServico) return emailContaServico;
+  const r = await fetch('http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/email', { headers: { 'Metadata-Flavor': 'Google' } });
+  if (!r.ok) throw new Error(`metadados do Google (e-mail) ${r.status}`);
+  emailContaServico = (await r.text()).trim();
+  return emailContaServico;
+}
+
+/** Token do usuário interno (delegação em todo o domínio) para o escopo pedido. Lança erro quando a delegação não está pronta. */
+async function tokenDelegado(escopo: string): Promise<{ access_token: string; expires_in: number }> {
+  const email = await emailDaContaServico();
+  const sa = await tokenMetadados('https://www.googleapis.com/auth/cloud-platform');
+  const agora = Math.floor(Date.now() / 1000);
+  const carga = { iss: email, sub: IMPERSONAR, scope: escopo, aud: 'https://oauth2.googleapis.com/token', iat: agora, exp: agora + 3600 };
+  const r1 = await fetch(`https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(email)}:signJwt`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + sa.access_token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ payload: JSON.stringify(carga) }), signal: AbortSignal.timeout(20_000),
+  });
+  if (!r1.ok) throw new Error(`signJwt ${r1.status}: ${(await r1.text()).slice(0, 200)} — a conta ${email} precisa do papel "Criador de token da conta de serviço" sobre ela mesma`);
+  const { signedJwt } = await r1.json() as { signedJwt: string };
+  const r2 = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: signedJwt }), signal: AbortSignal.timeout(20_000),
+  });
+  if (!r2.ok) throw new Error(`troca do token ${r2.status}: ${(await r2.text()).slice(0, 200)} — confira a delegação em todo o domínio no Admin (ID do cliente da conta e os escopos)`);
+  return r2.json() as Promise<{ access_token: string; expires_in: number }>;
+}
+
+/** Token do Google para o escopo: do usuário interno (delegação) quando configurada; senão, da conta de serviço do Cloud Run. Em desenvolvimento: GOOGLE_TOKEN. */
+export async function tokenGoogle(escopo = ESCOPO): Promise<string> {
+  if (process.env.GOOGLE_TOKEN) return process.env.GOOGLE_TOKEN;
+  const chave = (IMPERSONAR && ESTADO_DELEGACAO.ok ? 'dwd|' : 'sa|') + escopo;
+  const c = tokens[chave];
+  if (c && c.expira > Date.now() + 60_000) return c.valor;
+  if (IMPERSONAR && (ESTADO_DELEGACAO.ok || Date.now() - ESTADO_DELEGACAO.tentadaEm > 10 * 60_000)) {
+    ESTADO_DELEGACAO.tentadaEm = Date.now();
+    try {
+      const j = await tokenDelegado(escopo);
+      if (!ESTADO_DELEGACAO.ok) { ESTADO_DELEGACAO.ok = true; ESTADO_DELEGACAO.erro = ''; ESTADO_DELEGACAO.desde = new Date().toISOString(); console.log(`[google] delegação ativa: agindo como ${IMPERSONAR}`); }
+      tokens['dwd|' + escopo] = { valor: j.access_token, expira: Date.now() + j.expires_in * 1000 };
+      return j.access_token;
+    } catch (e) {
+      const msg = (e as Error).message;
+      if (ESTADO_DELEGACAO.ok || ESTADO_DELEGACAO.erro !== msg) console.warn(`[google] delegação para ${IMPERSONAR} indisponível (${msg.slice(0, 160)}): usando a conta de serviço`);
+      ESTADO_DELEGACAO.ok = false; ESTADO_DELEGACAO.erro = msg;
+    }
+  }
+  const j = await tokenMetadados(escopo);
+  tokens['sa|' + escopo] = { valor: j.access_token, expira: Date.now() + j.expires_in * 1000 };
   return j.access_token;
 }
 

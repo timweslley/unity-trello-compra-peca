@@ -74,3 +74,21 @@ o servidor — aparecem em `banco`/`migracao` no `/saude`.
 Enquanto `TRELLO_QUADRO=ZX4gRmnX` (TESTE) e `MODO=OBSERVAR`, o servidor **não lê nem escreve no quadro principal**
 (`oH4TbTqb`) e não escreve em nenhum quadro. O token do servidor é diferente do token do robô (Apps Script), então
 as chamadas do servidor não consomem o limite de chamadas do robô que atende o principal.
+
+## Acesso ao Google como usuário interno (delegação em todo o domínio) — 10/11/2026
+Em 10/11/2026 o Workspace passou a bloquear compartilhamento fora do domínio e a conta de serviço `compra-peca-run@…` (externa)
+perdeu o acesso à planilha e às bases do Drive, mesmo listada como editora. O servidor agora age como o usuário interno
+`sistema@unitycs.com.br` (variável `GOOGLE_IMPERSONAR`; vazia desliga). Sem a configuração abaixo ele cai no token da própria
+conta (como antes) e tenta de novo a cada 10 min; `/saude` → `google.delegacao` e `/tarefas/google-identidade` mostram o estado.
+
+Configuração (uma vez):
+1. **Google Cloud** (console.cloud.google.com, projeto `unity-compra-peca`) → IAM e administrador → Contas de serviço →
+   `compra-peca-run@unity-compra-peca.iam.gserviceaccount.com`: copiar o **ID exclusivo** (número longo). Na aba **Permissões**
+   → "Conceder acesso" → principal = a própria conta `compra-peca-run@…` → papel **Criador de token da conta de serviço** → Salvar.
+   Se `/tarefas/google-identidade` acusar "API not enabled", ativar a **IAM Service Account Credentials API** no projeto.
+2. **Admin do Workspace** (admin.google.com) → Segurança → Controle de acesso e dados → Controles de API → **Gerenciar delegação
+   em todo o domínio** → Adicionar nova → ID do cliente = o ID exclusivo do passo 1 → escopos (um por linha):
+   `https://www.googleapis.com/auth/spreadsheets`, `https://www.googleapis.com/auth/spreadsheets.readonly`,
+   `https://www.googleapis.com/auth/drive`, `https://www.googleapis.com/auth/drive.readonly` → Autorizar.
+3. O usuário `sistema@unitycs.com.br` precisa existir e ter acesso (editor) à planilha e à pasta das bases — já tem.
+Em até 10 min `/saude` mostra `google.delegacao.ok = true` e o Drive volta a responder.

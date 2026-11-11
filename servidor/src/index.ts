@@ -3,6 +3,7 @@
  * Rotas: GET /saude · HEAD|POST /trello/webhook · POST /tarefas/sincronizar · (fase 3) POST /api + login Google.
  * O Cloud Run só dá CPU durante uma requisição: todo trabalho (atualizar card, sincronizar) é feito DENTRO dela.
  */
+import { estadoDelegacao, emailDaContaServico } from './google/planilha.js';
 import Fastify from 'fastify';
 import { CFG } from './config.js';
 import { migrar, consulta } from './db.js';
@@ -117,7 +118,8 @@ export function criarApp() {
       !CFG.trello.segredo && 'TRELLO_SEGREDO',
       !CFG.urlPublica && 'URL_PUBLICA',
     ].filter(Boolean);
-    return { ok: true, versao: VERSAO, modo: CFG.modo, quadro: CFG.trello.quadro, banco, migracao: ESTADO.migracao, webhook: ESTADO.webhook, acoes, espelho,
+    return {
+      google: estadoDelegacao(), ok: true, versao: VERSAO, modo: CFG.modo, quadro: CFG.trello.quadro, banco, migracao: ESTADO.migracao, webhook: ESTADO.webhook, acoes, espelho,
       falta, chamadasTrello: chamadasTrello(), ativoHaSeg: Math.round((Date.now() - INICIO) / 1000) };
   });
 
@@ -345,6 +347,12 @@ ${ex.map((e) => `<tr><td>${h(new Date(e.chegou).toLocaleTimeString('pt-BR', { ti
   });
   /** Confere o acesso ao Drive (bases de orçamento) com a conta do servidor — só nomes e datas. */
   app.get('/tarefas/drive-teste', async () => testeDrive());
+  /** 10/11/2026: identidade do servidor no Google — conta de serviço, usuário delegado e se a delegação está funcionando (sem segredos). */
+  app.get('/tarefas/google-identidade', async () => {
+    let conta = ''; try { conta = await emailDaContaServico(); } catch (e) { conta = 'erro: ' + (e as Error).message.slice(0, 120); }
+    let drive: unknown = null; try { drive = await testeDrive(); } catch (e) { drive = 'erro: ' + (e as Error).message.slice(0, 160); }
+    return { ok: true, contaServico: conta, delegacao: estadoDelegacao(), drive };
+  });
   app.get('/tarefas/robo/comparar', async (req) => compararRobo(Math.min(48, Math.max(1, +((req.query as Record<string, string>)?.horas || 1))), String((req.query as Record<string, string>)?.detalhe || '')));
   app.get('/tarefas/robo/props', async () => tamanhoProps());
 
