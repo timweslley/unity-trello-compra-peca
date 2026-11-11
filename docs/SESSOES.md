@@ -538,3 +538,8 @@ da outra, deixar um recado aqui e no commit.
   IMPERIAL faltando); repetiria toda manhã. Agora a saída por prazo passa pela mesma régua (`rc_liberarEncerrado_`); sem nota o card
   fica, sem comentário; card antigo sem item de checklist continua saindo pelo prazo. Log sem falha de gravação/robô desde 06/11; a
   trava desfazendo ✔ manual em item de devolução (BXZ4J84, AAZ0E84, TSGh8EE4) está certa — aviso à equipe: devolução fecha pela aba 📦.
+- **11/11/2026 10h15 — publicação do Apps Script bloqueada pela regra nova do Workspace.** O `clasp deploy` falhou com "ANYONE access has
+  been disabled by your domain administrator": a implantação web do formulário é "qualquer pessoa, mesmo anônima" e a restrição de
+  compartilhamento externo (10/11) impede renová-la (a URL atual seguia respondendo). Solução do Weslley: UO **Sistemas** (dentro de
+  UNITY) só com `sistema@unitycs.com.br`, com "Compartilhamento fora da organização: ATIVADO" (restante da empresa continua restrito).
+  Workflow rodado de novo: versão 535 publicada.
