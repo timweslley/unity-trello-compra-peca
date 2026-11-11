@@ -10256,16 +10256,17 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
   var tOrig = window.telaComprador;
   if (typeof tOrig === 'function') window.telaComprador = function () { var r = tOrig.apply(this, arguments); try { topo(); } catch (x) { console.log('autobs', x && x.message); } return r; };
   setInterval(function () { try { topo(); } catch (x) {} }, 900);
-  // no balão de confirmação da compra
-  document.addEventListener('click', function (e) {
+  // no balão de confirmação da compra — ouve em window (captura), antes do bloco que abre o balão e corta a propagação
+  window.addEventListener('click', function (e) {
     var b = e.target && e.target.closest && e.target.closest('#btnCompra, #btnCompraParcial'); if (!b) return;
     var lista = obs(); if (!lista.length) return;
-    setTimeout(function () {
-      var bal = g('v2cpConf'); if (!bal || bal.style.display === 'none' || bal.querySelector('.v2-autobs')) return;
-      var alvo = bal.querySelector('.v2-bt') || bal.firstElementChild; if (!alvo) return;
-      alvo.insertAdjacentHTML('beforebegin', html(lista, true));
-    }, 80);
-  }, false);
+    var poe = function () {
+      var bal = g('v2cpConf'); if (!bal || bal.style.display === 'none' || bal.querySelector('.v2-autobs')) return false;
+      var alvo = bal.querySelector('.v2-bt') || bal.firstElementChild; if (!alvo) return false;
+      alvo.insertAdjacentHTML('beforebegin', html(lista, true)); return true;
+    };
+    setTimeout(poe, 80); setTimeout(poe, 400);
+  }, true);
 })();
 </script>
 </body>
