@@ -552,6 +552,7 @@ function vdf_montarCard_(c, lista, me) {
     todosAnexos: vdf_todosAnexos_(c.attachments, vd_prop_('VD_URL_FORM', VD.URL_FORM)),
     autorizadas: autorizadas,
     devolucao: (function () { try { return vd_ultimaDevolucao_(c.desc); } catch (e) { return null; } })(),
+    obsAutorizacao: (function () { try { return vd_obsAutorizacoes_(c.desc); } catch (e) { return []; } })(),   // 11/11/2026: aviso de quem autorizou, em destaque para o comprador
     podeAutorizar: vdf_podeAutorizar_(me, c, an),
     podeDevolver: vdf_podeDevolver_(me, c, an),
     fornecedores: fo_paraFormulario_(),
@@ -1990,6 +1991,24 @@ function vd_ultimaDevolucao_(desc) {
     else if (/^COTA[ÇC][ÃA]O\s+\d{1,2}\/\d{1,2}/i.test(l) || /^AUTORIZA[ÇC][ÃA]O\s+\d/i.test(l)) dev = null;
   });
   return dev;
+}
+
+/** 11/11/2026 (Weslley, ATV4G70 F350 Tokio: "peças devem ser compradas pelo CNPJ da WEV para refaturamento" escrito na observação
+ * geral da autorização — o comprador que compra pelo formulário não via): observações gerais de quem autorizou, todas as
+ * autorizações ainda valendo, na ordem, [{quem, quando, texto}]. Uma devolução para cotação apaga as anteriores (a autorização
+ * caiu); autorização parcial nova soma à lista. O formulário mostra em destaque nas abas do comprador. */
+function vd_obsAutorizacoes_(desc) {
+  var resto = vd_dividir_(desc).resto || '', out = [], atual = null;
+  resto.split('\n').forEach(function (raw) {
+    var l = vd_limpar_(raw).trim(), m;
+    if ((m = l.match(/^AUTORIZA[ÇC][ÃA]O\s+(\d{1,2}\/\d{1,2}\/\d{2,4}(?:\s+\d{1,2}:\d{2})?)\s+-\s+(.+)$/i))) { atual = { quando: m[1], quem: m[2].trim() }; return; }
+    if (/^DEVOLVIDA PARA COTA/i.test(l)) { out = []; atual = null; return; }
+    if (atual && (m = l.match(/^OBS GERAL\s*:\s*\(autoriza[çc][ãa]o\)\s*(.+)$/i))) {
+      var t = m[1].trim();
+      if (t && !out.some(function (o) { return o.texto === t; })) out.push({ quem: atual.quem, quando: atual.quando, texto: t });
+    }
+  });
+  return out;
 }
 
 /**

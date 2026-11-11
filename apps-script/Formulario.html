@@ -10212,5 +10212,61 @@ document.addEventListener('input', function (e) {
   }, true);
 })();
 </script>
+<style>
+/* 11/11/2026 — aviso de quem autorizou (observação geral da autorização), em destaque para o comprador */
+.aviso.v2-autobs { display:block !important; margin:0 0 12px !important; padding:12px 14px 12px 16px !important; background:#fff3c4 !important; border:2px solid #e2b203 !important; border-left:8px solid #c9372c !important; border-radius:var(--r-sm, 6px) !important; color:#172b4d !important; font-size:15px !important; line-height:21px !important; box-shadow:0 1px 2px #091e4226 !important; }
+.v2-autobs .t { display:block; font-weight:700; font-size:13px; letter-spacing:.3px; text-transform:uppercase; color:#7f1d1d; margin-bottom:4px; }
+.v2-autobs .o { display:block; font-weight:700; }
+.v2-autobs .o + .o { margin-top:6px; }
+.v2-autobs .q { display:block; font-size:12px; color:#44546f; margin-top:4px; font-weight:400; }
+.aviso.v2-autobs.no-balao { margin:0 0 10px !important; font-size:14px !important; line-height:20px !important; padding:10px 12px 10px 14px !important; }
+#infoComprador > .aviso.v2-autobs { margin-top:8px !important; }
+html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { font-size:15px !important; line-height:21px !important; }
+</style>
+<script>
+/* 11/11/2026 (Weslley, ATV4G70 F350 Prata Tokio: escreveu na observação geral da autorização "PEÇAS DEVEM SER COMPRADAS PELO CNPJ
+ * DA WEV PARA REFATURAMENTO…" e o comprador, pelo formulário, não via — só no comentário do card) — camada 2.0, computador e
+ * celular, telas do comprador: a observação geral de quem autorizou (servidor: CARD.obsAutorizacao, lida das linhas
+ * "OBS GERAL: (autorização) …" da descrição completa) aparece em destaque:
+ *  1) faixa amarela com barra vermelha no topo das abas do comprador (Cotação, Autorizar, Compra, Recebimento…);
+ *  2) repetida dentro do balão de confirmação da compra ("Registrar a compra de N peças?"), para ser lida na hora de registrar.
+ * Só exibição: nada muda nos envios. Tela clássica (?v2=0) segue mostrando só o comentário. */
+(function () {
+  if (/[?&]v2=0(&|$)/.test(location.search)) return;
+  var g = function (id) { return document.getElementById(id); };
+  var e2 = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  function obs() { var c = window.CARD; return (c && Array.isArray(c.obsAutorizacao) ? c.obsAutorizacao : []).filter(function (o) { return o && String(o.texto || '').trim(); }); }
+  function html(lista, noBalao) {
+    return '<div class="aviso v2-autobs' + (noBalao ? ' no-balao' : '') + '" role="alert"><span class="t">⚠️ Aviso de quem autorizou — leia antes de comprar</span>'
+      + lista.map(function (o) { return '<span class="o">' + e2(o.texto) + '</span>' + (o.quem || o.quando ? '<span class="q">' + e2(o.quem || '') + (o.quando ? ' · ' + e2(o.quando) : '') + '</span>' : ''); }).join('')
+      + '</div>';
+  }
+  function topo() {
+    var ic = g('infoComprador'), comp = g('comprador'); if (!ic || !comp || comp.classList.contains('oculto')) return;
+    var lista = obs(), atual = ic.querySelector(':scope > .v2-autobs');
+    if (!lista.length) { if (atual) atual.remove(); return; }
+    var h = html(lista, false);
+    if (atual && atual.outerHTML === h) return;
+    if (atual) atual.remove();
+    var w = document.createElement('div'); w.innerHTML = h; var el = w.firstChild;
+    // antes do primeiro aviso (devolução etc.) ou no fim do resumo
+    var prim = ic.querySelector(':scope > div');
+    if (prim) ic.insertBefore(el, prim); else ic.appendChild(el);
+  }
+  var tOrig = window.telaComprador;
+  if (typeof tOrig === 'function') window.telaComprador = function () { var r = tOrig.apply(this, arguments); try { topo(); } catch (x) { console.log('autobs', x && x.message); } return r; };
+  setInterval(function () { try { topo(); } catch (x) {} }, 900);
+  // no balão de confirmação da compra
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#btnCompra, #btnCompraParcial'); if (!b) return;
+    var lista = obs(); if (!lista.length) return;
+    setTimeout(function () {
+      var bal = g('v2cpConf'); if (!bal || bal.style.display === 'none' || bal.querySelector('.v2-autobs')) return;
+      var alvo = bal.querySelector('.v2-bt') || bal.firstElementChild; if (!alvo) return;
+      alvo.insertAdjacentHTML('beforebegin', html(lista, true));
+    }, 80);
+  }, false);
+})();
+</script>
 </body>
 </html>

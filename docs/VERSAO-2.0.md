@@ -107,3 +107,8 @@ Em aberto:
   "autorizar ou marcar 🚫 pela aba Autorizar", mas a camada 2.0 escondia o chip nas peças não cotadas (avaliação 19/10) e o chip só
   existia para a diretoria. Agora toda peça não cotada mostra "🚫 Não comprar · não cotada: <motivo do comprador>" com o motivo já
   preenchido; quem decide (consultor ou diretoria) confirma e envia — o servidor já aceitava a marca de qualquer um.
+- **11/11/2026 — Comprador vê o aviso de quem autorizou.** ATV4G70 F350 Tokio: a observação geral da autorização ("comprar pelo CNPJ
+  da WEV para refaturamento…") só ia para o comentário do card. Agora aparece em destaque — faixa amarela com barra vermelha,
+  "⚠️ Aviso de quem autorizou — leia antes de comprar" — no topo das abas do comprador (computador e celular) e repetida dentro do
+  balão "Registrar a compra de N peças?". Dado novo do servidor: `CARD.obsAutorizacao` (todas as autorizações valendo; devolução
+  para cotação apaga). Só exibição; envios iguais. Direto no principal com OK do Weslley.

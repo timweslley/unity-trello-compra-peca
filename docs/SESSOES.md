@@ -543,3 +543,7 @@ da outra, deixar um recado aqui e no commit.
   compartilhamento externo (10/11) impede renová-la (a URL atual seguia respondendo). Solução do Weslley: UO **Sistemas** (dentro de
   UNITY) só com `sistema@unitycs.com.br`, com "Compartilhamento fora da organização: ATIVADO" (restante da empresa continua restrito).
   Workflow rodado de novo: versão 535 publicada.
+- **11/11/2026 10h45 — ATV4G70 F350 Tokio: aviso de quem autorizou não chegava ao comprador.** Weslley escreveu na observação geral da
+  autorização "peças devem ser compradas pelo CNPJ da WEV para refaturamento…"; ia só para o comentário do card — a aba Compra
+  pulava a linha `OBS GERAL`. Agora o servidor devolve `obsAutorizacao` e a 2.0 mostra em destaque no topo das abas do comprador e
+  no balão "Registrar a compra". Direto no principal (Weslley: "é grave, preciso ajustar").

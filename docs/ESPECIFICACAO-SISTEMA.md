@@ -264,6 +264,8 @@ MANTIDA (comprada): CHAVE DA PEÇA
 INDISPONÍVEL: FORN - NOME PEÇA - R$ 140,00 - motivo
 ```
 
+`OBS GERAL: (autorização) …` — a observação geral de quem autorizou vai para o comentário "✅ AUTORIZADO · 📝 …" **e** (11/11/2026, ATV4G70 Tokio: "comprar pelo CNPJ da WEV para refaturamento") é devolvida ao formulário (`obsAutorizacao`, lida por `vd_obsAutorizacoes_` — todas as autorizações ainda valendo; uma `DEVOLVIDA PARA COTAÇÃO` apaga as anteriores). A camada 2.0 mostra em destaque (faixa amarela com barra vermelha, "⚠️ Aviso de quem autorizou — leia antes de comprar") no topo das abas do comprador e dentro do balão de confirmação da compra. Antes o comprador que registrava a compra pelo formulário não via.
+
 Atributos da peça: `pneu, codigo, descricao, tipos[], medida, categoria, marca, qtd, particular, partPor,
 complemento, compData, naoComprar, naoMotivo, valorOrc (líquido unitário no orçamento), obs`.
 Regras: `QTD` só quando > 1; `|` dentro de texto vira `/`; peça "NÃO COMPRAR" fica fora de cotação, autorização,
