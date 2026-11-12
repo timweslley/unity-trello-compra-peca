@@ -212,7 +212,7 @@ repete chamadas lentas em paralelo).
 
 ---
 
-**Quem liberou o pedido (12/11/2026 — só no TESTE; principal com `VD_LIBERADO_POR=SIM` + `PU_CFG.LIBERADO_POR: 'todos'`, com OK do Weslley).**
+**Quem liberou o pedido (12/11/2026 — ligado no principal às 12h19, Weslley: "pode ligar já"; desligar: `VD_LIBERADO_POR=NAO` + `PU_CFG.LIBERADO_POR: 'teste'`).**
 A conta do Compras (comprador que **não** é diretoria) pode abrir pedido e incluir peça — pedido oral —, mas o envio só sai com
 o nome de **quem liberou** (`p.liberadoPor`, 3 letras ou mais, até 60 caracteres, sem `@`). Vale para card novo com peça e para
 card existente quando entram mais peças do que saem (corrigir código/descrição ou trocar uma peça por outra não pede); vale

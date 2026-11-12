@@ -579,3 +579,6 @@ da outra, deixar um recado aqui e no commit.
   comprador pode registrar pedidos orais, mas podemos exigir que seja informado quem liberou o pedido". Conta do Compras abrindo
   pedido ou incluindo peça informa quem liberou (balão no envio; nome no comentário e no evento). Só no TESTE
   (`LIBERADO_POR: 'teste'`); principal com `VD_LIBERADO_POR=SIM` e o OK dele.
+- **12/11 (12h19)** — Weslley: "pode ligar já e coloca o monitoramento pra avisar". "Quem liberou o pedido" ligado no principal em
+  dois passos (chave da tela, depois a exigência no servidor, para o cache do Pages não deixar o Compras sem o balão).
+  Não houve teste de ponta a ponta com a conta do Compras antes de ligar — acompanhar os primeiros usos.

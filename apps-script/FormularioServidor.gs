@@ -2361,8 +2361,8 @@ function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || v
 
 /** 12/11/2026 (Weslley, RHZ4D88: "o comprador pode registrar pedidos orais, mas podemos exigir que seja informado quem liberou
  * o pedido"): conta do Compras (comprador que não é diretoria) abrindo pedido ou incluindo peça informa QUEM LIBEROU.
- * TESTE sempre; principal com a propriedade VD_LIBERADO_POR=SIM (só com o OK do Weslley). */
-function vdf_liberadoPorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_LIBERADO_POR', 'NAO') === 'SIM'; } catch (e) { return false; } }
+ * TESTE sempre; principal ligado em 12/11/2026 12h19 (Weslley: "pode ligar já"). Desligar: propriedade VD_LIBERADO_POR=NAO. */
+function vdf_liberadoPorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_LIBERADO_POR', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
 function vdf_salvar(token, p) {
   var trocasPart = { paraPart: [], paraSeg: [] };
