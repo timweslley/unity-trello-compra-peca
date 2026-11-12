@@ -557,3 +557,6 @@ da outra, deixar um recado aqui e no commit.
   instância líder (`robo_lider` em `guardado`, validade 100 s, renovada a cada minuto) roda o robô — ciclo de 1 min e
   ciclo rápido; (3) rede de segurança nas duas travas: comentário do formulário no card até 3 min da ação = ação do
   formulário (`lic_formularioAgiu_`). Weslley refez a compra pelo formulário às 12:38 (PAGAS de volta, 5 itens).
+- **12/11 (madrugada)** — Proteção contra exclusão: card **vazio** (sem descrição guardada e sem compra registrada) não é
+  mais recriado — voltava só o título com o aviso ♻️ (Weslley: "se eles foram excluídos vazios dá pra manter a exclusão").
+  Card com descrição ou compra continua voltando. Evento novo `CARD VAZIO EXCLUÍDO`.

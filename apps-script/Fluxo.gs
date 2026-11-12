@@ -369,6 +369,7 @@ function sla_rodarAgora() { Logger.log('avisos de prazo: ' + sla_executar_(true)
  * (checklists e anexos não voltam) e e-mail de alerta. Para tirar um card do quadro: ARQUIVAR.
  * Desligar: propriedade EXC_PROTEGER = NAO. Liberar outros usuários por nome: EXC_LIVRES = "usuario1, usuario2" (padrão timweslley).
  * 06/10/2026: o histórico compartilhado vinha sem idMemberCreator e o robô recriou card excluído pelo próprio Weslley — corrigido.
+ * 12/11/2026: card VAZIO (sem descrição guardada e sem compra registrada) não é recriado — a exclusão fica valendo.
  */
 function exc_executar_() {
   if (vd_prop_('EXC_PROTEGER', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
@@ -397,9 +398,16 @@ function exc_executar_() {
     try {
       var desc = vd_completa_(velho.id) || tr_ler_(velho.id) || '';
       var nome = String(velho.name || '').trim() || ('CARD RECUPERADO ' + (velho.idShort || ''));
+      var compras = exc_comprasDoCard_(velho.shortLink);
+      /* 12/11/2026 (Weslley: "os cards recuperados estão vazios; se foram excluídos vazios dá pra manter a exclusão"):
+       * card sem descrição guardada e sem compra registrada não tem o que recuperar — voltava só o título. A exclusão
+       * fica valendo; só registra o evento. Card com descrição ou compra continua sendo recriado. */
+      if (!String(desc).trim() && !compras.length) {
+        ev_registrar_('CARD VAZIO EXCLUÍDO', { name: nome, shortLink: velho.shortLink }, quem, null, { detalhe: 'sem descrição e sem compra — exclusão mantida' });
+        return;
+      }
       var novo = vd_api_('/cards', { method: 'post', payload: { idList: a.data.list.id, name: nome, pos: 'top' } });
       if (desc) vd_gravarDesc_(novo.id, desc);
-      var compras = exc_comprasDoCard_(velho.shortLink);
       vd_comentar_(novo, '@' + quem + ' ♻️ **Card recuperado**: ele foi excluído em ' + Utilities.formatDate(new Date(a.date), 'America/Sao_Paulo', 'dd/MM HH:mm') +
         ' e só administrador pode excluir — para tirar um card do quadro, use **Arquivar**.\nA descrição voltou; checklists e anexos não voltam com a exclusão.' +
         (compras.length ? '\n\n🛒 Compras registradas antes da exclusão (planilha de eventos):\n' + compras.map(function (c) { return '- ' + c; }).join('\n') : ''));

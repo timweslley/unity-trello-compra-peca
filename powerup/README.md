@@ -106,7 +106,7 @@ No Trello vai só a vitrine: carro em 2 linhas; por peça ✅ autorizada / 🛒 
   autoriza o consultor que lançou (ou quem criou o card) + diretoria; card misto só vai para AUTORIZADO COMPRA com as duas partes autorizadas.
 - **Eventos.gs**: aba EVENTOS (pedido, cotação, autorização, devolução, compra, recebimento, colunas, alertas). `EV_LIGADO`.
 - **Fluxo.gs**: trava de colunas (`ST_TRAVA`), prazos por etapa com menção (`SLA_*`; no TESTE só @timweslley),
-  proteção contra exclusão (`EXC_PROTEGER`: card excluído por não-admin é recriado).
+  proteção contra exclusão (`EXC_PROTEGER`: card excluído por não-admin é recriado; card vazio — sem descrição e sem compra — fica excluído).
 - **Fornecedores.gs**: aba FORNECEDORES (semente: tabela do Databox), autocompletar que aprende, apelido → nome oficial.
 - **Recebimento.gs**: aba 📦 Recebimento (data, obs por peça, foto/nota por peça ou para várias); tudo recebido → ENCERRADO COMPRAS/FORNEC.
 - **Campos.gs**: Unidade, Seguradora, Tipo, Placa, Consultor, Total comprado (`cf_sincronizarTodos()`).

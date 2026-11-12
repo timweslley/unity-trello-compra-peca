@@ -134,7 +134,7 @@ mover) e a trava de colunas também o reposicionam na hora (07/10/2026).
 | ENCERRADO → FALTA CHEGAR | rotina diária | > 15 dias e item pendente | "Movido automaticamente…" |
 | ENCERRADO/ENTREGUES/PENDÊNCIA DE FATURAMENTO/PENDÊNCIA TRATADA → **arquivado** | robô `fat_executar_` | comentário afirmativo com "faturado" (sem "?"; negação só conta a até 2 palavras antes — "não faturado", "ainda não foi faturado" — ou "faturado não"; "faturado, sem desconto" vale) **ou "fechado/fechada" junto de OK / O.S. / ordem** ("OK fechada", "O.S. fechada", "fechado" sozinho; "porta fechada" não) sem nenhuma negação, por usuário de `FAT_USUARIOS`, checklists completos, sem complementar antecipado pendente | evento FATURADO; se falha a condição responde "🧾 Não arquivei: …" |
 | idem, **arquivado à mão** por usuário de `FAT_USUARIOS` (10/10/2026) | robô `fat_executar_` (ação `updateCard:closed`) | arquivar = "faturado": mesmas condições; **card antigo** (anterior à virada) só ganha o evento, sem conferir ✔ | evento FATURADO ("arquivado à mão"); se falta ✔ ou há complementar antecipado pendente, o card é **desarquivado** com "🧾 Desarquivei o card: …" |
-| card excluído → recriado | robô `exc_executar_` | quem excluiu não é admin do quadro nem está em `EXC_LIVRES` | recria na mesma coluna com título + descrição completa; "♻️ Card recuperado"; e-mail |
+| card excluído → recriado | robô `exc_executar_` | quem excluiu não é admin do quadro nem está em `EXC_LIVRES` | recria na mesma coluna com título + descrição completa; "♻️ Card recuperado"; e-mail. **Card vazio** (sem descrição guardada e sem compra registrada) não é recriado: a exclusão fica valendo e só entra o evento `CARD VAZIO EXCLUÍDO` (12/11/2026, Weslley) |
 
 ### 2.3 Validação do pedido ("faltas")
 
@@ -416,7 +416,7 @@ do endereço (sem recarregar) — a biblioteca guarda o contexto lido na abertur
 
 Tipos de evento: PEDIDO, PEDIDO EDITADO, PEÇA NOVA, COTAÇÃO, AUTORIZAÇÃO, DEVOLUÇÃO, COMPRA, RECEBIMENTO, COLUNA,
 MOVIMENTO DESFEITO, CHECKLIST DESFEITO, ALERTA PRAZO, COMPLEMENTO, COTAÇÃO INDISPONÍVEL, PREVISÃO, FORNECIMENTO,
-FATURADO, CARD EXCLUÍDO E RECRIADO.
+FATURADO, CARD EXCLUÍDO E RECRIADO, CARD VAZIO EXCLUÍDO.
 
 ### 4.8 Estado interno (Propriedades do Script hoje)
 
