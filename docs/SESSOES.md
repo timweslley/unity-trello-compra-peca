@@ -567,3 +567,7 @@ da outra, deixar um recado aqui e no commit.
   não tinham onde ser registrados. Correções: (1) compra em devolução leva a marca `↩️ A DEVOLVER dd/MM` no item do PAGAS, não
   entra na retirada e aparece com ↩️ na descrição e no formulário; (2) seção "Chegou peça da seguradora que não está no card?" na
   aba Recebimento (`vdf_incluirColetaFo`, chave `COLETA_FO`) — pendência no DEVOLUÇÕES até a NF/comprovante de coleta.
+- **12/11 (11h30)** — ACQ0B71 (10:14–10:17): o Butler (conta do robô) encerrou o card com o checklist completo; em 16 s duas peças
+  foram desmarcadas à mão e a trava de coluna devolveu o card para FALTA CHEGAR dizendo "não pode ser movido à mão" com
+  menção a @timweslley. A volta estava certa (peça sem ✔); o aviso, não. Agora movimento FALTA CHEGAR → ENCERRADO feito pela
+  conta do robô que deixa de valer volta com "↩️ O card voltou… N peça(s) ficaram sem ✔", sem menção (`st_ehRobo_`).

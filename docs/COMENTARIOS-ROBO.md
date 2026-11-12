@@ -143,6 +143,7 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 |---|---|---|---|
 | `🔒 ALTERAÇÃO NÃO PERMITIDA — a descrição só muda pelo formulário; o texto voltou ao original` | edição manual da descrição | @quem editou | **M** |
 | `🔒 ALTERAÇÃO NÃO PERMITIDA — checklist só muda pelo formulário… Desfeito: …` | ✔/edição manual no checklist | @quem editou | **M** |
+| `↩️ O card voltou para FALTA CHEGAR: foi para ENCERRADO com o checklist completo, mas depois N peça(s) ficaram sem ✔…` | trava de coluna desfaz encerramento feito pela conta do robô (Butler) quando peça foi desmarcada em seguida (12/11, ACQ0B71) | não | **M** |
 | `🔒 motivo — O card voltou para COLUNA` | card arrastado para coluna proibida | @quem moveu | **M** |
 | `🗑️ Anexo repetido removido: «a» é o mesmo arquivo que «b»` | anexo idêntico | @quem anexou | **M** |
 | `📦↩️ PEÇA DA SEGURADORA FORA DO ORÇAMENTO — nome · PLACA` | formulário: peça da seguradora que chegou sem estar no card e aguarda coleta (12/11) | ninguém | **M** |

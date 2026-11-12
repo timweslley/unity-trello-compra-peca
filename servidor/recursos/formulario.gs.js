@@ -230,7 +230,10 @@ var ST = {
   LIMITE_MS: 30 * 1000
 };
 
-// Fluxo.gs:154
+// Fluxo.gs:51
+var ST_ROBO_ID = null;
+
+// Fluxo.gs:172
 var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, REPETIR_FATURAR_DU: 5, LIMITE_MS: 40 * 1000, RESUMO_MAX: 120 };
 
 // FormularioServidor.gs:26
@@ -3633,7 +3636,14 @@ function st_gastarLicenca_(cardId, idLista) {
   } catch (e) {}
 }
 
-// Fluxo.gs:51
+// Fluxo.gs:52
+function st_ehRobo_(a) {
+  try { if (ST_ROBO_ID === null) ST_ROBO_ID = (vd_api_('/members/me', { cru: true, query: { fields: 'id' } }) || {}).id || ''; } catch (e) { ST_ROBO_ID = ''; }
+  var q = (a && (a.idMemberCreator || (a.memberCreator && a.memberCreator.id))) || '';
+  return !!ST_ROBO_ID && q === ST_ROBO_ID;
+}
+
+// Fluxo.gs:59
 function st_executar_() {
   if (!st_ligado_() || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -3663,7 +3673,7 @@ function st_executar_() {
     if (vd_legado_(cardId)) return;   // card antigo: segue o jeito antigo
     var nPara = nome[para] || vd_nomeColuna_(a.data.listAfter.name);
     var nDe = nome[de] || vd_nomeColuna_(a.data.listBefore.name);
-    var motivo = '', ESP = 'ESPERA/NÃO AUTORIZADO', kEsp = 'ST_ESP_' + cardId;
+    var motivo = '', ESP = 'ESPERA/NÃO AUTORIZADO', kEsp = 'ST_ESP_' + cardId, semMarca = null;
     // 10/10/2026 (revisão): a marca "veio de X para a ESPERA" só era gravada e nunca apagada — card que saía da ESPERA
     // por licença (devolver para cotação) ou por outra coluna carregava a marca velha e era devolvido indevidamente na
     // passagem seguinte. Agora: saiu da ESPERA por qualquer caminho aceito = marca apagada; entrou na ESPERA vindo de
@@ -3685,6 +3695,11 @@ function st_executar_() {
         var cE = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name', checklists: 'all', checkItem_fields: 'name,state' } });
         var itE = vdf_itensRecebimento_(cE);
         if (itE.length && itE.every(function (i) { return i.ok; })) return;
+        /* 12/11/2026 (Weslley, ACQ0B71 10:14–10:17): a regra automática do Trello (Butler, que age pela conta do robô) encerrou
+         * o card com o checklist completo e, antes do julgamento (90 s), duas peças foram desmarcadas. Voltar o card está certo
+         * (tem peça sem ✔), mas o aviso dizia "não pode ser movido à mão" mencionando @timweslley. Movimento feito pela conta
+         * do robô não é "à mão": o card volta com um registro do motivo, sem menção. */
+        if (itE.length && st_ehRobo_(a)) semMarca = itE.filter(function (i) { return !i.ok; }).map(function (i) { return pv_curto_(i.base); });
       } catch (e) {}
     }
     if (nDe === ESP && ST.TRAVADAS[nPara] && props.getProperty(kEsp) === nPara) { props.deleteProperty(kEsp); return; }
@@ -3719,8 +3734,13 @@ function st_executar_() {
       desfeitos++;
       var quem = a.memberCreator ? a.memberCreator.username : '';
       var orig = ''; try { orig = es_autor_(cardId); } catch (e) {}
-      vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 ' + motivo + orig + '\nO card voltou para **' + nDe + '**.');
-      ev_registrar_('MOVIMENTO DESFEITO', c, quem || '?', null, { detalhe: nDe + ' → ' + nPara + ' (à mão) — voltou para ' + nDe });
+      if (semMarca && semMarca.length) {
+        vd_comentar_(c, '↩️ O card voltou para **' + nDe + '**: foi para **' + nPara + '** com o checklist completo, mas depois ' + semMarca.length + ' peça(s) ficaram sem ✔: ' + semMarca.slice(0, 6).join('; ') + (semMarca.length > 6 ? '…' : '') + '. Chegou? Registre pela aba **📦 Recebimento**.');
+        ev_registrar_('MOVIMENTO DESFEITO', c, 'robô', null, { detalhe: nDe + ' → ' + nPara + ' (regra automática) — voltou para ' + nDe + ': ' + semMarca.length + ' peça(s) sem ✔' });
+      } else {
+        vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 ' + motivo + orig + '\nO card voltou para **' + nDe + '**.');
+        ev_registrar_('MOVIMENTO DESFEITO', c, quem || '?', null, { detalhe: nDe + ' → ' + nPara + ' (à mão) — voltou para ' + nDe });
+      }
     } catch (e) { console.log('trava de colunas: ' + e); }
   });
   vd_marcaSet_('ST_ULTIMA', parou ? ultimaFeita : agora);
@@ -3728,16 +3748,16 @@ function st_executar_() {
   return desfeitos;
 }
 
-// Fluxo.gs:161
+// Fluxo.gs:179
 function sla_dia_(d) { d = new Date(d); return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12); }
 
-// Fluxo.gs:162
+// Fluxo.gs:180
 function sla_mais_(d, n) { d = sla_dia_(d); var g = 0; while (n > 0 && g++ < 400) { d.setDate(d.getDate() + 1); if (du_ehUtil_(d)) n--; } return d; }
 
-// Fluxo.gs:164
+// Fluxo.gs:182
 function sla_users_(prop, padrao) { if (vd_board_() === VD.BOARD_PADRAO) padrao = 'timweslley'; return String(vd_prop_(prop, padrao)).split(/[,;\s]+/).filter(String); }
 
-// Fluxo.gs:166
+// Fluxo.gs:184
 function pz_jaAvisouHoje_(cardId) {
   try {
     var props = PropertiesService.getScriptProperties(), k = 'PZ_DIA_' + cardId, hoje = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd');
@@ -3746,10 +3766,10 @@ function pz_jaAvisouHoje_(cardId) {
   } catch (e) { return false; }
 }
 
-// Fluxo.gs:173
+// Fluxo.gs:191
 function sla_mencao_(us) { return us.filter(function (u, i) { return u && us.indexOf(u) === i; }).map(function (u) { return '@' + u; }).join(' '); }
 
-// Fluxo.gs:179
+// Fluxo.gs:197
 function sla_podeAvisar_(props, chave, hoje) {
   var ult = props.getProperty(chave);
   if (!ult) return true;
@@ -3757,7 +3777,7 @@ function sla_podeAvisar_(props, chave, hoje) {
   return rep > 0 && sla_mais_(new Date(ult), rep) <= hoje;
 }
 
-// Fluxo.gs:187
+// Fluxo.gs:205
 function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
   if (vd_prop_('FAT_RESUMO', 'SIM') === 'NAO' || !itens.length) return false;
   var kDia = 'FAT_RESUMO_DIA', dia = Utilities.formatDate(hoje, 'America/Sao_Paulo', 'yyyy-MM-dd');
@@ -3784,7 +3804,7 @@ function sla_resumoFaturamento_(props, itens, hoje, diasPrazo) {
   } catch (e) { console.log('resumo de faturamento: ' + e); return false; }
 }
 
-// Fluxo.gs:213
+// Fluxo.gs:231
 function sla_executar_(forcar) {
   if (vd_prop_('SLA_LIGADO', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -3934,7 +3954,7 @@ function sla_executar_(forcar) {
   return n;
 }
 
-// Fluxo.gs:374
+// Fluxo.gs:392
 function exc_executar_() {
   if (vd_prop_('EXC_PROTEGER', 'SIM') === 'NAO' || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -3987,7 +4007,7 @@ function exc_executar_() {
   return n;
 }
 
-// Fluxo.gs:427
+// Fluxo.gs:445
 function exc_comprasDoCard_(shortLink) {
   if (!shortLink) return [];
   try {

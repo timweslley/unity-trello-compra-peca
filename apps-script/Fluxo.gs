@@ -47,6 +47,14 @@ function st_gastarLicenca_(cardId, idLista) {
   } catch (e) {}
 }
 
+/** A ação foi feita pela conta do próprio robô (o Butler do quadro age por ela)? */
+var ST_ROBO_ID = null;
+function st_ehRobo_(a) {
+  try { if (ST_ROBO_ID === null) ST_ROBO_ID = (vd_api_('/members/me', { cru: true, query: { fields: 'id' } }) || {}).id || ''; } catch (e) { ST_ROBO_ID = ''; }
+  var q = (a && (a.idMemberCreator || (a.memberCreator && a.memberCreator.id))) || '';
+  return !!ST_ROBO_ID && q === ST_ROBO_ID;
+}
+
 /** Ciclo de 1 minuto: desfaz movimentos manuais fora da regra. Devolve quantos desfez. */
 function st_executar_() {
   if (!st_ligado_() || !vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
@@ -77,7 +85,7 @@ function st_executar_() {
     if (vd_legado_(cardId)) return;   // card antigo: segue o jeito antigo
     var nPara = nome[para] || vd_nomeColuna_(a.data.listAfter.name);
     var nDe = nome[de] || vd_nomeColuna_(a.data.listBefore.name);
-    var motivo = '', ESP = 'ESPERA/NÃO AUTORIZADO', kEsp = 'ST_ESP_' + cardId;
+    var motivo = '', ESP = 'ESPERA/NÃO AUTORIZADO', kEsp = 'ST_ESP_' + cardId, semMarca = null;
     // 10/10/2026 (revisão): a marca "veio de X para a ESPERA" só era gravada e nunca apagada — card que saía da ESPERA
     // por licença (devolver para cotação) ou por outra coluna carregava a marca velha e era devolvido indevidamente na
     // passagem seguinte. Agora: saiu da ESPERA por qualquer caminho aceito = marca apagada; entrou na ESPERA vindo de
@@ -99,6 +107,11 @@ function st_executar_() {
         var cE = vd_api_('/cards/' + cardId, { cru: true, query: { fields: 'name', checklists: 'all', checkItem_fields: 'name,state' } });
         var itE = vdf_itensRecebimento_(cE);
         if (itE.length && itE.every(function (i) { return i.ok; })) return;
+        /* 12/11/2026 (Weslley, ACQ0B71 10:14–10:17): a regra automática do Trello (Butler, que age pela conta do robô) encerrou
+         * o card com o checklist completo e, antes do julgamento (90 s), duas peças foram desmarcadas. Voltar o card está certo
+         * (tem peça sem ✔), mas o aviso dizia "não pode ser movido à mão" mencionando @timweslley. Movimento feito pela conta
+         * do robô não é "à mão": o card volta com um registro do motivo, sem menção. */
+        if (itE.length && st_ehRobo_(a)) semMarca = itE.filter(function (i) { return !i.ok; }).map(function (i) { return pv_curto_(i.base); });
       } catch (e) {}
     }
     if (nDe === ESP && ST.TRAVADAS[nPara] && props.getProperty(kEsp) === nPara) { props.deleteProperty(kEsp); return; }
@@ -133,8 +146,13 @@ function st_executar_() {
       desfeitos++;
       var quem = a.memberCreator ? a.memberCreator.username : '';
       var orig = ''; try { orig = es_autor_(cardId); } catch (e) {}
-      vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 ' + motivo + orig + '\nO card voltou para **' + nDe + '**.');
-      ev_registrar_('MOVIMENTO DESFEITO', c, quem || '?', null, { detalhe: nDe + ' → ' + nPara + ' (à mão) — voltou para ' + nDe });
+      if (semMarca && semMarca.length) {
+        vd_comentar_(c, '↩️ O card voltou para **' + nDe + '**: foi para **' + nPara + '** com o checklist completo, mas depois ' + semMarca.length + ' peça(s) ficaram sem ✔: ' + semMarca.slice(0, 6).join('; ') + (semMarca.length > 6 ? '…' : '') + '. Chegou? Registre pela aba **📦 Recebimento**.');
+        ev_registrar_('MOVIMENTO DESFEITO', c, 'robô', null, { detalhe: nDe + ' → ' + nPara + ' (regra automática) — voltou para ' + nDe + ': ' + semMarca.length + ' peça(s) sem ✔' });
+      } else {
+        vd_comentar_(c, (quem ? '@' + quem + ' ' : '') + '🔒 ' + motivo + orig + '\nO card voltou para **' + nDe + '**.');
+        ev_registrar_('MOVIMENTO DESFEITO', c, quem || '?', null, { detalhe: nDe + ' → ' + nPara + ' (à mão) — voltou para ' + nDe });
+      }
     } catch (e) { console.log('trava de colunas: ' + e); }
   });
   vd_marcaSet_('ST_ULTIMA', parou ? ultimaFeita : agora);
