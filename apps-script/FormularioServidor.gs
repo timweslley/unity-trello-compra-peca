@@ -2455,12 +2455,13 @@ function vdf_salvar(token, p) {
   var fo = orc && orc.fo ? orc.fo : [];
   /* 08/10/2026 (Weslley, regra fixa): card CSS (ZACARIAS no título / nome do carro) -> toda peça da seguradora é FO:
    * sai da lista da oficina e entra no checklist FORNECIMENTO (fornecedor ZACARIAS). Peça particular continua na oficina. */
-  var cssCard = vd_cardCss_((card && card.name) || '') || vd_cardCss_(n.carro);
+  var nomeCss = vd_nomeCss_((card && card.name) || '') || vd_nomeCss_(n.carro);   // 12/11/2026: lista de concessionárias, não só ZACARIAS
+  var cssCard = !!nomeCss;
   if (cssCard) {
     var paraFo = [];
-    pecas = pecas.filter(function (x) { if (x.particular || x.naoComprar) return true; paraFo.push(vd_pecaParaFo_(x, 'ZACARIAS')); return false; });
+    pecas = pecas.filter(function (x) { if (x.particular || x.naoComprar) return true; paraFo.push(vd_pecaParaFo_(x, nomeCss)); return false; });
     if (paraFo.length) { fo = fo.concat(paraFo); orc = orc || { origem: 'CSS' }; }
-    if (p.complemento && (p.complemento.oficina || []).length) { var cc = vd_orcCss_(p.complemento, 'ZACARIAS'); p.complemento = { origem: p.complemento.origem, oficina: [], fo: cc.fo }; }
+    if (p.complemento && (p.complemento.oficina || []).length) { var cc = vd_orcCss_(p.complemento, nomeCss); p.complemento = { origem: p.complemento.origem, oficina: [], fo: cc.fo }; }
   }
   var tipo = vd_tipoNormPedido_(n.tipo) || 'SEGURADORA';
   if (tipo === 'SEGURADORA' && vd_pagadorParticular_(n.seguradora)) tipo = 'PARTICULAR';   // PILKINGTON/CARGLASS/AUTOGLASS/MAXPAR = particular (10/11/2026)
@@ -2495,11 +2496,11 @@ function vdf_salvar(token, p) {
     if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro — não pode ser usado como pedido. Clique em "Fazer pedido novo em vez disso".'] };
     // CSS pelo título do card (quando o nome do carro não trouxe ZACARIAS): mesma conversão para FO
     if (!cssCard && vd_cardCss_(card.name)) {
-      cssCard = true;
+      cssCard = true; nomeCss = vd_nomeCss_(card.name);
       var paraFo2 = [];
-      pecas = pecas.filter(function (x) { if (x.particular || x.naoComprar) return true; paraFo2.push(vd_pecaParaFo_(x, 'ZACARIAS')); return false; });
+      pecas = pecas.filter(function (x) { if (x.particular || x.naoComprar) return true; paraFo2.push(vd_pecaParaFo_(x, nomeCss)); return false; });
       if (paraFo2.length) { fo = fo.concat(paraFo2); extra.fo = fo; orc = orc || { origem: 'CSS' }; }
-      if (p.complemento && (p.complemento.oficina || []).length) { var cc2 = vd_orcCss_(p.complemento, 'ZACARIAS'); p.complemento = { origem: p.complemento.origem, oficina: [], fo: cc2.fo }; }
+      if (p.complemento && (p.complemento.oficina || []).length) { var cc2 = vd_orcCss_(p.complemento, nomeCss); p.complemento = { origem: p.complemento.origem, oficina: [], fo: cc2.fo }; }
     }
     lista = vd_api_('/lists/' + card.idList, { query: { fields: 'name' } }).name;
     posCot = vdf_ehPosCotacao_(lista);

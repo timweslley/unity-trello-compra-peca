@@ -2510,7 +2510,7 @@ function pintarChips(id) {
 
 /* 08/10/2026 (Weslley, regra fixa): carro da ZACARIAS (CSS) -> toda peça da seguradora é fornecida (FO); o servidor move para o
  * checklist FORNECIMENTO. Aqui só não exigimos código/tipo nem orçamento para essas peças. */
-var VD_CSS = /\bZACARIAS\b/i;
+var VD_CSS = /\b(ZACARIAS|FANCAR|GERMANO)\b/i;   // 12/11/2026: mesma lista do servidor (Validacao.gs)
 function ehCss() { return VD_CSS.test(((CARD && CARD.nome) || '') + ' ' + (($('carro') || {}).value || '')); }
 /* 14/10/2026 (A01): valor que não é número ("12abc") ou negativo não vai — antes o servidor gravava 12,00 sem o usuário ver */
 function valorInvalido(t) { t = String(t == null ? '' : t).trim(); if (!t) return false; var n = lerValorBR(t); return isNaN(n) || n < 0; }

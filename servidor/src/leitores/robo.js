@@ -1304,7 +1304,7 @@ function vd_orcCompacto_(lista) {
   });
 }
 
-// Validacao.gs:1116
+// Validacao.gs:1121
 function vd_orcExpandir_(lista) {
   return (lista || []).map(function (x) {
     return x[0] === 'P' && x.length === 4

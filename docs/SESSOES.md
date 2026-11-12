@@ -560,3 +560,5 @@ da outra, deixar um recado aqui e no commit.
 - **12/11 (madrugada)** — Proteção contra exclusão: card **vazio** (sem descrição guardada e sem compra registrada) não é
   mais recriado — voltava só o título com o aviso ♻️ (Weslley: "se eles foram excluídos vazios dá pra manter a exclusão").
   Card com descrição ou compra continua voltando. Evento novo `CARD VAZIO EXCLUÍDO`.
+- **12/11 (madrugada)** — Regra CSS (toda peça vira FO) deixa de ser só ZACARIAS: lista `VD_CSS` = ZACARIAS, FANCAR, GERMANO
+  (Weslley confirmou as duas; achadas nos títulos dos cards: FANCAR 6, GERMANO 8). Fornecedor do item FO = nome do título.
