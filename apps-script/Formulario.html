@@ -10396,5 +10396,103 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
   if (window.CARD) { try { marcarRec(window.CARD); marcarRet(window.CARD); coleta(window.CARD); } catch (e) {} }
 })();
 </script>
+<script>
+/* ================= CAMADA 2.0 — "Quem liberou este pedido?" (12/11/2026, Weslley, RHZ4D88) =================
+ * A conta do Compras pode abrir pedido e incluir peça (pedido oral), mas diz QUEM LIBEROU. A regra é do servidor
+ * (vdf_salvar, vdf_liberadoPorLigada_): quando falta só o nome, ele devolve pedeLiberadoPor e esta tela pergunta em balão
+ * (role=alertdialog, Esc e clique fora fecham, Tab preso, botões valem 400 ms depois de abrir, campo vazio fica vermelho)
+ * e reenvia o MESMO pedido com o nome. Atendente e diretoria nunca veem a pergunta. Só aparência: nada de regra aqui.
+ * Liga por PU_CFG.LIBERADO_POR: 'teste' (só no TESTE, srv=1) | 'todos' | desligado. */
+(function () {
+  if (!document.documentElement.classList.contains('v2')) return;
+  var cfg = window.PU_CFG && PU_CFG.LIBERADO_POR;
+  var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  if (typeof window.chamar !== 'function') return;
+
+  var st = document.createElement('style');
+  st.textContent = '#v2libFundo{position:fixed;inset:0;z-index:69;background:rgba(9,30,66,.35)}'
+    + '.v2 #v2libBal.v2-balao{position:fixed !important;z-index:70;left:50% !important;top:50% !important;transform:translate(-50%,-50%);margin:0 !important;'
+    + 'width:min(420px,calc(100vw - 24px)) !important;max-height:calc(100vh - 16px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;'
+    + 'background:#fff;border:1px solid #c1c7d0;border-radius:var(--r-sm,6px);box-shadow:0 10px 28px rgba(9,30,66,.25);color:#172b4d;animation:none}'
+    + '.v2 #v2libBal.v2-balao::before{display:none !important}'
+    + '#v2libBal .v2-bt{margin:0 0 6px;font-size:16px;font-weight:700;line-height:22px}'
+    + '#v2libBal .dica{margin:0 0 10px;font-size:14px;line-height:19px;color:#44546f}'
+    + '#v2libBal label{display:block;margin:0 0 4px;font-size:13px;font-weight:600;color:#44546f}'
+    + '#v2libNome{display:block;width:100%;box-sizing:border-box;min-height:36px;padding:6px 10px;font-size:15px;border:1px solid #c1c7d0;border-radius:var(--r-sm,6px);color:#172b4d;background:#fff}'
+    + '#v2libNome:focus{outline:2px solid #0c66e4;outline-offset:1px}'
+    + '#v2libNome[aria-invalid=true]{border:2px solid #c9372c;background:#ffeceb}'
+    + '#v2libErro{margin:4px 0 0;min-height:18px;font-size:13px;font-weight:600;color:#ae2e24}'
+    + '#v2libBal .bts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}#v2libBal .bts button{flex:1 1 auto;min-height:36px}'
+    + '.v2toque #v2libBal.v2-balao{left:0 !important;right:0;top:auto !important;bottom:0;transform:none;width:100% !important;max-height:90vh;'
+    + 'border-radius:12px 12px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}'
+    + '.v2toque #v2libNome{min-height:48px;font-size:16px}.v2.v2toque #v2libBal.v2-balao .bts button{min-height:48px !important;font-size:16px !important}';
+  document.head.appendChild(st);
+
+  function perguntar() {
+    return new Promise(function (resolver) {
+      var antigo = document.getElementById('v2libBal'); if (antigo) antigo.remove();
+      var fundo = document.createElement('div'); fundo.id = 'v2libFundo';
+      var bal = document.createElement('div'); bal.id = 'v2libBal'; bal.className = 'v2-balao v2c-balao';
+      bal.setAttribute('role', 'alertdialog'); bal.setAttribute('aria-modal', 'true');
+      bal.setAttribute('aria-labelledby', 'v2libBal-t'); bal.setAttribute('aria-describedby', 'v2libBal-d');
+      bal.innerHTML = '<p class="v2-bt" id="v2libBal-t">Quem liberou este pedido?</p>'
+        + '<div class="dica" id="v2libBal-d">Você está na conta do Compras. Escreva o nome de quem pediu a peça. Fica anotado no card.</div>'
+        + '<label for="v2libNome">Nome de quem liberou</label>'
+        + '<input type="text" id="v2libNome" maxlength="60" autocomplete="off" autocapitalize="words" aria-required="true" aria-describedby="v2libErro" placeholder="Ex.: João (atendente de Toledo)">'
+        + '<div id="v2libErro" role="alert"></div>'
+        + '<div class="bts"><button type="button" class="principal" id="v2libSim">Enviar pedido</button><button type="button" class="secundario" id="v2libNao">Voltar</button></div>';
+      var gat = document.getElementById('btnEnviar');
+      bal._gatilho = fundo; bal._devolver = null; bal._t0 = performance.now();   // _t0: os botões só valem 400 ms depois de abrir (trava geral da 2.0)
+      document.body.appendChild(fundo); document.body.appendChild(bal);
+      var nome = bal.querySelector('#v2libNome'), erro = bal.querySelector('#v2libErro'), feito = false;
+      function fim(valor) {
+        if (feito) return; feito = true; obs.disconnect();
+        bal.remove(); fundo.remove();
+        resolver(valor);
+        setTimeout(function () { try { if (gat && !gat.disabled && gat.offsetParent) gat.focus({ preventScroll: true }); } catch (e) {} }, 60);
+      }
+      function confirmar() {
+        var v = nome.value.replace(/\s+/g, ' ').trim();
+        if (v.replace(/[^A-Za-zÀ-ÿ]/g, '').length < 3) {
+          nome.setAttribute('aria-invalid', 'true'); erro.textContent = 'Escreva o nome de quem liberou.'; nome.focus(); return;
+        }
+        fim(v);
+      }
+      nome.addEventListener('input', function () { if (nome.getAttribute('aria-invalid')) { nome.removeAttribute('aria-invalid'); erro.textContent = ''; } });
+      nome.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); if (performance.now() - bal._t0 >= 400) confirmar(); } });
+      function cedo(e) { return e.detail > 0 && performance.now() - bal._t0 < 400; }
+      bal.querySelector('#v2libSim').addEventListener('click', function (e) { if (!cedo(e)) confirmar(); });
+      bal.querySelector('#v2libNao').addEventListener('click', function (e) { if (!cedo(e)) fim(null); });
+      fundo.addEventListener('mousedown', function (e) { e.preventDefault(); fim(null); });
+      bal.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fim(null); return; }
+        if (e.key !== 'Tab') return;
+        var fs = Array.prototype.slice.call(bal.querySelectorAll('input, button')).filter(function (x) { return !x.disabled; });
+        var i = fs.indexOf(document.activeElement), j = e.shiftKey ? (i <= 0 ? fs.length - 1 : i - 1) : (i < 0 || i === fs.length - 1 ? 0 : i + 1);
+        e.preventDefault(); fs[j].focus();
+      });
+      // os fechamentos gerais da 2.0 (Esc, clique fora, foco saindo) escondem o balão: aqui isso vale como "Voltar"
+      var obs = new MutationObserver(function () { if (bal.style.display === 'none') fim(null); });
+      obs.observe(bal, { attributes: true, attributeFilter: ['style'] });
+      setTimeout(function () { try { nome.focus({ preventScroll: true }); } catch (e) {} }, 30);
+    });
+  }
+
+  var chamarOrig = window.chamar;
+  window.chamar = function (fn) {
+    if (fn !== 'vdf_salvar' || !arguments[2] || typeof arguments[2] !== 'object') return chamarOrig.apply(this, arguments);
+    var eu = this, args = Array.prototype.slice.call(arguments), payload = args[2];
+    return chamarOrig.apply(eu, args).then(function (r) {
+      if (!r || r.ok || !r.pedeLiberadoPor) return r;
+      return perguntar().then(function (nome) {
+        if (!nome) return { ok: false, faltas: ['Quem liberou o pedido: clique em Enviar de novo e escreva o nome de quem pediu a peça.'] };
+        payload.liberadoPor = nome;
+        return chamarOrig.apply(eu, args);
+      });
+    });
+  };
+})();
+</script>
 </body>
 </html>

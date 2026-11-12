@@ -575,3 +575,7 @@ da outra, deixar um recado aqui e no commit.
   aparelhos (ZZT9H01: peça fictícia registrada para coleta, item no DEVOLUÇÕES, fechada com comprovante); aviso da trava de
   coluna (ACQ0B71) publicado. RHZ4D88: a versão do orçamento anexada em 30/10 trazia as 3 peças como fornecidas pela Yelum
   e o robô não agiu (a regra de 03/11 ainda não existia); retirada da guarnição acertada para a peça da seguradora.
+- **12/11 (11h50)** — Weslley (RHZ4D88, peças incluídas pela conta do Compras sem registro de quem pediu): "não precisa travar, o
+  comprador pode registrar pedidos orais, mas podemos exigir que seja informado quem liberou o pedido". Conta do Compras abrindo
+  pedido ou incluindo peça informa quem liberou (balão no envio; nome no comentário e no evento). Só no TESTE
+  (`LIBERADO_POR: 'teste'`); principal com `VD_LIBERADO_POR=SIM` e o OK dele.

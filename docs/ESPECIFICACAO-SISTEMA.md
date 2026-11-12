@@ -212,6 +212,14 @@ repete chamadas lentas em paralelo).
 
 ---
 
+**Quem liberou o pedido (12/11/2026 — só no TESTE; principal com `VD_LIBERADO_POR=SIM` + `PU_CFG.LIBERADO_POR: 'todos'`, com OK do Weslley).**
+A conta do Compras (comprador que **não** é diretoria) pode abrir pedido e incluir peça — pedido oral —, mas o envio só sai com
+o nome de **quem liberou** (`p.liberadoPor`, 3 letras ou mais, até 60 caracteres, sem `@`). Vale para card novo com peça e para
+card existente quando entram mais peças do que saem (corrigir código/descrição ou trocar uma peça por outra não pede); vale
+também no salvar parcial. Quando é a única falta, `vdf_salvar` devolve `pedeLiberadoPor` e a tela 2.0 pergunta em balão
+("Quem liberou este pedido?") e reenvia. O nome fica no card (`🗣️ Liberado por: …` no `✏️ PEDIDO EDITADO`, ou
+`🗣️ PEDIDO ABERTO PELO COMPRAS` em card novo) e no detalhe do evento (`liberado por …`). Atendente, diretoria e Rotina: nada muda.
+
 ## 4. Modelo de dados (como vive no Trello hoje)
 
 > Para o servidor próprio, isto vira tabelas (seção 11.3). Aqui está o formato atual, necessário para **migrar**

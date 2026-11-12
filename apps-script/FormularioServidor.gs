@@ -2359,6 +2359,11 @@ function vdf_fotoPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_p
 /** 23/10/2026: card da Rotina para orçamento só de mão de obra (p.soMaoDeObra) — sempre no TESTE; no principal com VD_SO_MO=SIM. */
 function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_SO_MO', 'SIM') !== 'NAO'; } catch (e) { return false; } }   // 23/10/2026 10h40: ligado no principal (pedido do Weslley de 23/10); desligar: VD_SO_MO=NAO
 
+/** 12/11/2026 (Weslley, RHZ4D88: "o comprador pode registrar pedidos orais, mas podemos exigir que seja informado quem liberou
+ * o pedido"): conta do Compras (comprador que não é diretoria) abrindo pedido ou incluindo peça informa QUEM LIBEROU.
+ * TESTE sempre; principal com a propriedade VD_LIBERADO_POR=SIM (só com o OK do Weslley). */
+function vdf_liberadoPorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_LIBERADO_POR', 'NAO') === 'SIM'; } catch (e) { return false; } }
+
 function vdf_salvar(token, p) {
   var trocasPart = { paraPart: [], paraSeg: [] };
   // 💾 Salvar parcial (13/10/2026, Weslley): grava o que já tem mesmo com dado faltando — o robô põe o card em FALTA DADOS e
@@ -2648,7 +2653,26 @@ function vdf_salvar(token, p) {
   }
   // 23/10/2026 (Weslley: "salvar parcial não deve exigir nada — é só para salvar e terminar depois"): só a placa (card novo precisa de título)
   if (parcial) faltas = faltas.filter(function (f) { return /^placa/i.test(f) && !p.shortLink; });
-  if (faltas.length) return { ok: false, faltas: faltas };
+  /* 12/11/2026 (Weslley, RHZ4D88 — as 3 peças foram incluídas pela conta do Compras e ninguém sabia a pedido de quem): a conta do
+   * Compras pode abrir pedido e incluir peça (pedido oral), mas diz QUEM LIBEROU. Vale também no salvar parcial (senão a peça
+   * entraria sem o nome). Peça nova = chave que não estava no card; só corrigir/trocar peça (entra uma, sai uma) não pede.
+   * Atendente e diretoria: nada muda. O nome vai para o comentário do card e para os eventos — sem @ (não notifica). */
+  var liberadoPor = String(p.liberadoPor || '').replace(/[\r\n*_`~@\[\]<>|]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+  var inclLib = [], pedeLib = false;
+  if (!rotina && !limpezaRotina && vdf_liberadoPorLigada_() && vdf_ehComprador_(me) && !vdf_ehAutorizador_(me)) {
+    if (!p.shortLink) inclLib = pecas.filter(function (x) { return !x.naoComprar; });
+    else if (pecasAntes) {
+      var agoraLib = {};
+      pecas.forEach(function (x) { agoraLib[vd_chavePeca_(x)] = 1; });
+      inclLib = pecas.filter(function (x) { return !x.naoComprar && !pecasAntes[vd_chavePeca_(x)]; });
+      var sairamLib = Object.keys(pecasAntes).filter(function (k) { return !agoraLib[k] && !pecasAntes[k].naoComprar; }).length;
+      if (inclLib.length <= sairamLib) inclLib = [];
+    }
+    pedeLib = inclLib.length > 0 && liberadoPor.replace(/[^A-Za-zÀ-ÿ]/g, '').length < 3;
+    if (!inclLib.length) liberadoPor = '';
+  } else liberadoPor = '';
+  if (pedeLib) faltas.push('Quem liberou o pedido: escreva o nome de quem pediu a peça (atendente, consultor ou diretoria)');
+  if (faltas.length) return { ok: false, faltas: faltas, pedeLiberadoPor: pedeLib && faltas.length === 1 };
 
   var titulo = String(n.carro || '').trim() ? vd_titulo_(d.placa, n.carro, extra.cor, extra.seguradora) : (!p.shortLink ? vd_titulo_(d.placa, '', extra.cor, extra.seguradora) : '');   // 23/10/2026: parcial sem carro → título só com placa (o robô pede o carro)
   var novasPecas = posCot ? an.novas : [];
@@ -2910,7 +2934,7 @@ function vdf_salvar(token, p) {
   try {
     var evPecas = (posCot ? novasPecas : an.pecas).map(ev_peca_);
     ev_registrar_(!p.shortLink ? 'PEDIDO' : (posCot && novasPecas.length ? 'PEÇA NOVA' : 'PEDIDO EDITADO'), { name: card.name, shortLink: card.shortLink, shortUrl: card.shortUrl, labels: (typeof c2 !== 'undefined' && c2 && c2.labels) || [] },
-      me.username, evPecas, { tipo: tipo, detalhe: soMO ? 'só mão de obra → ' + RC.LISTA_FIM : (nFo ? nFo + ' peça(s) FO' : '') });
+      me.username, evPecas, { tipo: tipo, detalhe: (soMO ? 'só mão de obra → ' + RC.LISTA_FIM : (nFo ? nFo + ' peça(s) FO' : '')) + (liberadoPor ? (soMO || nFo ? ' · ' : '') + 'liberado por ' + liberadoPor : '') });
   } catch (e) {}
 
   if (trocasPart.paraPart.length || trocasPart.paraSeg.length) {
@@ -2939,10 +2963,11 @@ function vdf_salvar(token, p) {
       Object.keys(pecasAntes).forEach(function (k) { if (!agoraCh[k] && !pecasAntes[k].naoComprar) tiradas.push(vd_nomePeca_(pecasAntes[k])); });
       if (incl.length || tipoDef.length || naoNovas.length || tiradas.length) {
         vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✏️ **PEDIDO EDITADO** — ' + me.fullName + ' (' + me.username + ')' +
-          (incl.length ? '\n➕ Incluiu: ' + incl.join('; ') : '') + (tipoDef.length ? '\n🏷️ Tipo definido: ' + tipoDef.join('; ') : '') +
+          (incl.length ? '\n➕ Incluiu: ' + incl.join('; ') : '') + (liberadoPor ? '\n🗣️ Liberado por: ' + liberadoPor : '') + (tipoDef.length ? '\n🏷️ Tipo definido: ' + tipoDef.join('; ') : '') +
           (tiradas.length ? '\n➖ Tirou do pedido: ' + tiradas.join('; ') : '') + (naoNovas.length ? '\n🚫 Não comprar: ' + naoNovas.join('; ') : '') } }, token);
       }
     } else {
+      if (liberadoPor) vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🗣️ **PEDIDO ABERTO PELO COMPRAS** — ' + me.fullName + ' (' + me.username + ')\n🗣️ Liberado por: ' + liberadoPor } }, token);
       var naoNovo = pecas.filter(function (x) { return x.naoComprar; });
       if (naoNovo.length) vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🚫 **NÃO COMPRAR** — ' + me.fullName + ' (' + me.username + ') marcou como não comprar: ' + naoNovo.map(function (x) { return vd_nomePeca_(x) + (x.naoMotivo ? ' (' + x.naoMotivo + ')' : ''); }).join('; ') } }, token);
     }

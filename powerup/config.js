@@ -54,6 +54,10 @@ window.PU_CFG = {
   /* 12/11/2026 (Weslley, RHZ4D88): aba Recebimento — "Chegou peça da seguradora que não está no card?" (peça a mais, aguarda
    * coleta; vira pendência no checklist DEVOLUÇÕES). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley). */
   COLETA_FO: 'todos',   // 12/11/2026 11h41 — Weslley: "pode fazer as correções" (conferido no TESTE no computador e no celular, card ZZT9H01; voltar: 'teste')
+  /* 12/11/2026 (Weslley, RHZ4D88): conta do Compras abrindo pedido ou incluindo peça informa "Quem liberou este pedido?"
+   * (balão no envio; o nome vai para o comentário do card e para os eventos). 'teste' = só no TESTE; 'todos' = principal
+   * (com OK do Weslley + propriedade VD_LIBERADO_POR=SIM no robô); outro valor desliga. */
+  LIBERADO_POR: 'teste',
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
