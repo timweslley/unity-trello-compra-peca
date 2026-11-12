@@ -571,3 +571,7 @@ da outra, deixar um recado aqui e no commit.
   foram desmarcadas à mão e a trava de coluna devolveu o card para FALTA CHEGAR dizendo "não pode ser movido à mão" com
   menção a @timweslley. A volta estava certa (peça sem ✔); o aviso, não. Agora movimento FALTA CHEGAR → ENCERRADO feito pela
   conta do robô que deixa de valer volta com "↩️ O card voltou… N peça(s) ficaram sem ✔", sem menção (`st_ehRobo_`).
+- **12/11 (11h41)** — Weslley: "pode fazer as correções". `COLETA_FO` ligada no principal (`'todos'`), conferida no TESTE nos dois
+  aparelhos (ZZT9H01: peça fictícia registrada para coleta, item no DEVOLUÇÕES, fechada com comprovante); aviso da trava de
+  coluna (ACQ0B71) publicado. RHZ4D88: a versão do orçamento anexada em 30/10 trazia as 3 peças como fornecidas pela Yelum
+  e o robô não agiu (a regra de 03/11 ainda não existia); retirada da guarnição acertada para a peça da seguradora.

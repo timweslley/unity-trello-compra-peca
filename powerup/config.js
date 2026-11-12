@@ -53,7 +53,7 @@ window.PU_CFG = {
   COT_KIT: 'todos',   // 27/10/2026 13h50 — Weslley: "aplica a melhora no principal do kit" (voltar: 'teste')
   /* 12/11/2026 (Weslley, RHZ4D88): aba Recebimento — "Chegou peça da seguradora que não está no card?" (peça a mais, aguarda
    * coleta; vira pendência no checklist DEVOLUÇÕES). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley). */
-  COLETA_FO: 'teste',
+  COLETA_FO: 'todos',   // 12/11/2026 11h41 — Weslley: "pode fazer as correções" (conferido no TESTE no computador e no celular, card ZZT9H01; voltar: 'teste')
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
   /* true só depois que o Apps Script v23 (rid anti-duplicação no doPost) estiver implantado:
