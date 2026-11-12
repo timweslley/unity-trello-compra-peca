@@ -597,7 +597,16 @@ function vdf_partesTitulo_(nome, dados) {
   // 17/10/2026 (DRL8G82 "HONDA CIVIC CINZA AZUL", orçamento da Porto): outra seguradora no fim do título também sai (AZUL é
   // seguradora e cor) e a cor lida do anexo não fica repetida no carro ("HONDA CIVIC CINZA CINZA PORTO")
   else if (ps.length > 1 && r.seguradora && VD_SEGURADORAS.some(function (s) { return s[0] === ps[ps.length - 1]; })) ps.pop();
+  /* 12/11/2026 (BBW5I86 "CAPTUR TOKIO MARINE TOKIO MARINE TOKIO MARINE TOKIO MARINE PRETA TOKIO MARINE"): seguradora com mais de
+   * uma palavra ("TOKIO MARINE") não saía do fim do título — a comparação era só com a última palavra — e cada edição do
+   * pedido colava o nome mais uma vez. Agora o nome inteiro sai do fim (quantas vezes estiver repetido), antes e depois da cor. */
+  var segPs = vd_semAcento_(r.seguradora || '').replace(/[^A-Z0-9 \-]/g, ' ').split(/\s+/).filter(String);
+  function tiraSegFim() {
+    while (segPs.length > 1 && ps.length > segPs.length && ps.slice(-segPs.length).join(' ') === segPs.join(' ')) ps.length -= segPs.length;
+  }
+  tiraSegFim();
   if (r.cor) { var corN = vd_semAcento_(r.cor); for (var k0 = ps.length - 1; k0 > 0; k0--) if (ps[k0] === corN) { ps.splice(k0, 1); break; } }
+  tiraSegFim();
   for (var k = ps.length - 1; k > 0; k--) {
     if (VD_CORES.indexOf(ps[k]) >= 0 && !(r.cor && k < ps.length - 1)) { var c = ps.splice(k, 1)[0]; if (!r.cor) r.cor = c; break; }
   }
