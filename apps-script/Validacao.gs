@@ -2808,7 +2808,8 @@ function vd_vitrine_(desc, nome, pagas) {
       if (/R\$/.test(forn) || (k && fS.indexOf(k) >= 0) || (p.descricao && fS.indexOf(vd_semAcento_(p.descricao)) >= 0)) forn = '';
       var val = (partes[partes.length - 1] || '').match(/R\$\s*[\d.,]+/);
       sub.push('🛒 ' + vd_md_([forn, val ? val[0] : '', pg.due ? 'previsão ' + vd_dataCurta_(pg.due) : ''].filter(String).join(' · ')) + (pg.state === 'complete' ? ' ✔' : '')
-        + (mk.local ? ' · 📍 ' + vd_md_(mk.local) : '') + (mk.retirada ? ' · ✋ ' + vd_md_(mk.retirada) : ''));
+        + (mk.local ? ' · 📍 ' + vd_md_(mk.local) : '') + (mk.retirada ? ' · ✋ ' + vd_md_(mk.retirada) : '')
+        + (mk.devolvida ? ' · ↩️ devolução ao fornecedor (' + vd_md_(mk.devolvida) + ')' : ''));   // 12/11/2026 (RHZ4D88)
     } else if (cp) {
       sub.push('🛒 ' + vd_md_([cp.fornecedor, cp.valor ? 'R$ ' + cp.valor : '', cp.previsao ? 'previsão ' + cp.previsao : ''].filter(String).join(' · ')));
     } else if (aut) {

@@ -801,6 +801,9 @@ function cp_foJaComprada_(card, conflitos, token, quem) {
     if (devs.some(function (d) { return d.peca === basePago; })) return;   // devolução já aberta: conflito conhecido
     var recebida = c.pago.state === 'complete', novo = null;
     try { novo = rc_registrarDevolucao_(card, { nome: c.pago.name }, 'seguradora passou a fornecer' + (recebida ? '' : ' · compra ainda não recebida'), false, token); } catch (e) { console.log('FO já comprada/devolução: ' + e); }
+    /* 12/11/2026 (Weslley, RHZ4D88): a compra fica marcada "↩️ A DEVOLVER dd/MM" no próprio item do PAGAS — sai da retirada,
+     * aparece com ↩️ na descrição e no formulário. Antes o item seguia igual aos outros e foi dado como retirado. */
+    if (novo) { try { var itP = { id: c.pago.id, nome: c.pago.name }; rc_gravarMarcas_(card.id, itP, { devolvida: 'A DEVOLVER ' + Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM') }, token); c.pago.name = itP.nome; } catch (e) { console.log('FO já comprada/marca: ' + e); } }
     var fo = String(c.item.name).split(/\s+[-—]\s+/), partes = rc_semMarcas_(c.pago.name).split(/\s+-\s+/);
     var forn = partes.length >= 2 ? partes[1] : '?';
     linhas.push('- ' + fo[0] + ' (seguradora' + (fo[1] ? ' · ' + fo[1] : '') + ') × compra da oficina ' + rc_semMarcas_(c.pago.name) + (recebida ? ' · ✔ recebida' : ' · ainda não recebida') +

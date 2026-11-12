@@ -127,7 +127,7 @@ function ck_aceitarManual_(cardId, m) {
     var it = porId[ci.id];
     if (!it || !it.ok) return;   // já desmarcado de novo / item sumiu
     aceitos.push(it.id);
-    if (it.devolvida) { try { rc_gravarMarcas_(card.id, it, { devolvida: '' }, null); } catch (e) {} }
+    if (it.devolvida && !/^PAGAS/.test(it.lista)) { try { rc_gravarMarcas_(card.id, it, { devolvida: '' }, null); } catch (e) {} }
     var atr = rc_atraso_(it.due, hoje);
     var atrTxt = atr === null ? '' : (atr > 0 ? ' · **' + atr + ' d.u. de atraso**' : (atr < 0 ? ' · ' + (-atr) + ' d.u. antes' : ' · no prazo'));
     linhas.push('✔ ' + it.base.split(/\s+-\s+/)[0] + ' — ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM') + atrTxt);
@@ -172,10 +172,14 @@ function vdf_salvarRetirada(token, p) {
   if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Em Toledo, a retirada é registrada pelo setor de compras (ou pela diretoria) — sua conta: ' + me.username + '.'] };
   var todos = vdf_itensRecebimento_(card), porId = {};
   todos.forEach(function (i) { porId[i.id] = i; });
-  var ids = (p.itens || []).filter(function (id) { return porId[id] && porId[id].ok && !porId[id].retirada; });
+  /* 12/11/2026 (Weslley, RHZ4D88 — "pode corrigir"): peça em devolução ao fornecedor (marca ↩️ no item de compra) não aceita
+   * retirada. A guarnição comprada estava devolvida (NF 5435) e foi registrada como retirada no lugar da peça da seguradora. */
+  var emDev = (p.itens || []).filter(function (id) { return porId[id] && porId[id].ok && porId[id].devolvida && /^PAGAS/.test(porId[id].lista); });
+  var ids = (p.itens || []).filter(function (id) { return porId[id] && porId[id].ok && !porId[id].retirada && emDev.indexOf(id) < 0; });
   var desf = (p.desfazer || []).filter(function (x) { return x && porId[x.id] && porId[x.id].retirada; });
   var quem = vd_semAcento_(String(p.quem || '')).replace(/[^A-Z0-9 \-\/]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24);
   var faltas = [];
+  emDev.forEach(function (id) { faltas.push(pv_curto_(porId[id].base) + ': está em devolução ao fornecedor (↩️) — não entra na retirada. Se a peça usada foi a da seguradora, marque a retirada na linha dela.'); });
   if (ids.length && !quem) faltas.push('Informe quem retirou as peças.');
   desf.forEach(function (x) { if (!String(x.motivo || '').trim()) faltas.push(pv_curto_(porId[x.id].base) + ': escreva o motivo para desfazer a retirada.'); });
   if (p.data && new Date(p.data + 'T12:00:00').getTime() > Date.now() + 864e5) faltas.push('Data da retirada no futuro (' + p.data + ') — confira.');
@@ -204,7 +208,7 @@ function vdf_salvarRetirada(token, p) {
   // ENCERRADO -> ENTREGUES: até 05/11 exigia todas as peças retiradas; desde 06/11/2026 (Weslley) o que libera é a nota da compra
   // da oficina no card (rc_liberarEncerrado_) — a retirada é registro, não segura mais
   var movido = '', lista = vdf_nomeLista_(ctx, card.idList);
-  var noEstoque = todos.filter(function (i) { return i.ok && !i.retirada; }), pendRec = todos.filter(function (i) { return !i.ok; });
+  var noEstoque = todos.filter(function (i) { return i.ok && !i.retirada && !(i.devolvida && /^PAGAS/.test(i.lista)); }), pendRec = todos.filter(function (i) { return !i.ok; });
   if (lista === RC.LISTA_FIM && todos.length) {
     try {
       var lib = rc_liberarEncerrado_(card, ctx, token, me.username);
@@ -347,7 +351,7 @@ function vdf_salvarRecebimento(token, p) {
   var anexos = (p.anexos || []).filter(function (a) { return a && a.fileId; });
   // 10/10/2026: local no estoque de peça já recebida, retirada (quem levou) e devolução ao fornecedor
   var locais = (p.locais || []).filter(function (x) { return porId[x.id] && porId[x.id].ok; });
-  var retiradas = (p.retiradas || []).filter(function (x) { return porId[x.id] && porId[x.id].ok; });
+  var retiradas = (p.retiradas || []).filter(function (x) { return porId[x.id] && porId[x.id].ok && !(porId[x.id].devolvida && /^PAGAS/.test(porId[x.id].lista)); });
   var devolucoes = (p.devolucoes || []).filter(function (x) { return porId[x.id] && porId[x.id].ok; });
   if (!itens.length && !anexos.length && !locais.length && !retiradas.length && !devolucoes.length) return { ok: false, faltas: ['Marque pelo menos uma peça que chegou (ou anexe a nota/foto).'] };
   var faltas = [];
@@ -366,8 +370,9 @@ function vdf_salvarRecebimento(token, p) {
       marcar.push({ caminho: '/cards/' + card.id + '/checkItem/' + it.id, opts: { method: 'put', payload: { state: 'complete' } } });
       it.ok = true; feitos++;
     }
-    if (local) { try { rc_gravarMarcas_(card.id, it, { local: local, devolvida: '' }, token); locaisNovos.push(local); } catch (e) { console.log('local: ' + e); } }
-    else if (it.devolvida) { try { rc_gravarMarcas_(card.id, it, { devolvida: '' }, token); } catch (e) {} }
+    var compraEmDev = !!it.devolvida && /^PAGAS/.test(it.lista);   // 12/11/2026: ↩️ em item de compra = devolução aberta (seguradora passou a fornecer) — fica
+    if (local) { try { rc_gravarMarcas_(card.id, it, compraEmDev ? { local: local } : { local: local, devolvida: '' }, token); locaisNovos.push(local); } catch (e) { console.log('local: ' + e); } }
+    else if (it.devolvida && !compraEmDev) { try { rc_gravarMarcas_(card.id, it, { devolvida: '' }, token); } catch (e) {} }
     var atr = rc_atraso_(it.due, quando);
     var atrTxt = atr === null ? '' : (atr > 0 ? ' · **' + atr + ' d.u. de atraso**' : (atr < 0 ? ' · ' + (-atr) + ' d.u. antes' : ' · no prazo'));
     linhas.push('✔ ' + it.base.split(/\s+-\s+/)[0] + ' — ' + Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM') + atrTxt + (local ? ' · 📍 ' + local : '') + (obs ? ' · 📝 ' + obs : ''));
@@ -400,7 +405,9 @@ function vdf_salvarRecebimento(token, p) {
   devolucoes.forEach(function (x) {
     var it = porId[x.id], motivo = String(x.motivo || '').replace(/\s*\n\s*/g, ' ').trim();
     try {
-      try { rc_registrarDevolucao_(card, it, motivo, !/^PAGAS/.test(it.lista), token); } catch (eD) { console.log('devolução/checklist: ' + eD); }   // 21/10/2026: checklist DEVOLUÇÕES
+      if (!(it.devolvida && /^PAGAS/.test(it.lista))) {   // 12/11/2026: compra já em devolução (aberta pelo robô) não ganha um 2º item no DEVOLUÇÕES
+        try { rc_registrarDevolucao_(card, it, motivo, !/^PAGAS/.test(it.lista), token); } catch (eD) { console.log('devolução/checklist: ' + eD); }   // 21/10/2026: checklist DEVOLUÇÕES
+      }
       if (/^PAGAS/.test(it.lista)) { devPagas++; linhas.push(rc_cancelarCompra_(card, it, motivo, 'devolvida', token, me)); delete porId[x.id]; todos = todos.filter(function (i) { return i.id !== it.id; }); }
       else {
         vd_api_('/cards/' + card.id + '/checkItem/' + it.id, { method: 'put', payload: { state: 'incomplete' } }, token);
@@ -848,12 +855,12 @@ function rc_checklistDev_(card, token) {
 }
 /** Cria o item da devolução. it = item do PAGAS/FORNECIMENTO (nome com marcas), motivo, fo = fornecimento da seguradora. */
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }   // 21/10/2026 21h33: ligado no principal com OK do Weslley (desligar: propriedade RC_DEV_PRINCIPAL=NAO)
-function rc_registrarDevolucao_(card, it, motivo, fo, token, quando) {
+function rc_registrarDevolucao_(card, it, motivo, fo, token, quando, opt) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
   var partes = rc_semMarcas_(it.nome).split(/\s+-\s+/), hoje = quando || new Date();
   var nome = '↩️ ' + partes[0] + ' - ' + (fo ? 'SEGURADORA (FO)' : (partes[1] || '?')) + (partes[2] && !fo ? ' - ' + partes[2] : '') +
-    ' · devolvida ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM') + (motivo ? ' (' + String(motivo).replace(/\s*·\s*/g, ' ').slice(0, 60) + ')' : '') + ' · ' + RC_DEV.AGUARDA;
+    ' · ' + ((opt && opt.verbo) || 'devolvida') + ' ' + Utilities.formatDate(hoje, 'America/Sao_Paulo', 'dd/MM') + (motivo ? ' (' + String(motivo).replace(/\s*·\s*/g, ' ').slice(0, 60) + ')' : '') + ' · ' + RC_DEV.AGUARDA;
   var due = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 15).toISOString();
   var novo = vd_api_('/checklists/' + k.id + '/checkItems', { method: 'post', payload: { name: nome.slice(0, 16000), due: due, pos: 'bottom' } }, token);
   k.checkItems.push(novo);
@@ -958,4 +965,39 @@ function vdf_incluirDevolucao(token, p) {
   if (!novo) return { ok: false, faltas: ['Controle de devoluções desligado neste quadro.'] };
   try { ev_registrar_('DEVOLUÇÃO', card, me.username, [{ peca: String(p.peca).trim(), fornecedor: p.fo ? 'SEGURADORA (FO)' : String(p.fornecedor || ''), detalhe: 'incluída no checklist DEVOLUÇÕES (devolvida ' + dt[2] + '/' + dt[1] + ')' }], { detalhe: 'inclusão pela diretoria' }); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, item: novo.name };
+}
+
+/** 12/11/2026 (Weslley, RHZ4D88: a seguradora mandou a grade e o recobrimento que a oficina já tinha resolvido; as peças ficaram
+ *  no estoque esperando o fornecedor recolher e o card não tinha onde registrar isso). Peça da SEGURADORA que chegou sem estar em
+ *  nenhum orçamento do card: entra no checklist DEVOLUÇÕES como "↩️ PEÇA - SEGURADORA (FO) · chegou dd/MM (motivo) · aguardando NF"
+ *  e fecha pela seção "Devoluções ao fornecedor — NF" (nº da NF ou do comprovante de coleta). Quem registra: quem pode receber
+ *  no card. O card não muda de coluna por isto. p = {shortLink, peca, motivo, local, data:'aaaa-mm-dd'} */
+function vdf_incluirColetaFo(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Sua conta (' + me.username + ') não registra recebimento neste card.'] };
+  var peca = vd_semAcento_(String(p.peca || '')).replace(/[^A-Z0-9 \-\/.,]/g, ' ').replace(/\s+-\s+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  var motivo = String(p.motivo || '').replace(/\s*\n\s*/g, ' ').replace(/[·()]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 44);
+  var local = rc_normLocal_(p.local), faltas = [];
+  if (peca.length < 3) faltas.push('Escreva qual peça chegou (código e nome).');
+  if (!motivo) faltas.push('Escreva por que a peça vai voltar (ex.: seguradora mandou a mais; a oficina já tinha a peça).');
+  if (p.data && !/^\d{4}-\d{2}-\d{2}$/.test(String(p.data))) faltas.push('Data da chegada inválida.');
+  else if (p.data && new Date(p.data + 'T12:00:00').getTime() > Date.now() + 864e5) faltas.push('Data da chegada no futuro (' + p.data + ') — confira.');
+  if (peca && rc_devolucoes_(card).some(function (d) { return !d.ok && vd_semAcento_(d.peca) === peca; })) faltas.push('Esta peça já está nas devoluções deste card.');
+  if (faltas.length) return { ok: false, faltas: faltas };
+  var quando = rc_data_(p.data), dd = Utilities.formatDate(quando, 'America/Sao_Paulo', 'dd/MM');
+  var novo = rc_registrarDevolucao_(card, { nome: peca }, (local ? 'em ' + local + ' — ' : '') + motivo, true, token, quando, { verbo: 'chegou' });
+  if (!novo) return { ok: false, faltas: ['O controle de devoluções está desligado neste quadro.'] };
+  if (local) { try { rc_guardarLocais_([local]); } catch (e) {} }
+  var placa = ''; try { placa = vd_placaDoTexto_(card.name) || ''; } catch (e) {}
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '📦↩️ **PEÇA DA SEGURADORA FORA DO ORÇAMENTO** — ' + me.fullName + (placa ? ' · ' + placa : '') +
+      '\n- ' + peca + ' — chegou em ' + dd + (local ? ' · 📍 ' + local : '') + '\n📝 ' + motivo +
+      '\n_Aguardando coleta: fica no checklist DEVOLUÇÕES até informar a NF ou o comprovante de coleta (aba 📦 Recebimento → Devoluções ao fornecedor)._' } }, token);
+  } catch (e) {}
+  try { ev_registrar_('DEVOLUÇÃO FO', card, me.username, [{ peca: peca, fornecedor: 'SEGURADORA (FO)', detalhe: 'chegou fora do orçamento em ' + dd + (local ? ' · ' + local : '') + ' — aguardando coleta: ' + motivo }], { detalhe: 'peça da seguradora fora do orçamento' }); } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, peca: peca, lista: vdf_nomeLista_(vd_contexto_(), card.idList) };
 }

@@ -562,3 +562,8 @@ da outra, deixar um recado aqui e no commit.
   Card com descrição ou compra continua voltando. Evento novo `CARD VAZIO EXCLUÍDO`.
 - **12/11 (madrugada)** — Regra CSS (toda peça vira FO) deixa de ser só ZACARIAS: lista `VD_CSS` = ZACARIAS, FANCAR, GERMANO
   (Weslley confirmou as duas; achadas nos títulos dos cards: FANCAR 6, GERMANO 8). Fornecedor do item FO = nome do título.
+- **12/11 (manhã)** — RHZ4D88 (O.S. 2270, Yelum): a guarnição comprada no ML estava em devolução (seguradora passou a fornecer,
+  NF 5435) e foi registrada como retirada no lugar da peça da seguradora; a grade e o recobrimento que a seguradora mandou a mais
+  não tinham onde ser registrados. Correções: (1) compra em devolução leva a marca `↩️ A DEVOLVER dd/MM` no item do PAGAS, não
+  entra na retirada e aparece com ↩️ na descrição e no formulário; (2) seção "Chegou peça da seguradora que não está no card?" na
+  aba Recebimento (`vdf_incluirColetaFo`, chave `COLETA_FO`) — pendência no DEVOLUÇÕES até a NF/comprovante de coleta.

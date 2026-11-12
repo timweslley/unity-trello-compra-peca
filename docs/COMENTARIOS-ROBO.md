@@ -145,6 +145,7 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 | `🔒 ALTERAÇÃO NÃO PERMITIDA — checklist só muda pelo formulário… Desfeito: …` | ✔/edição manual no checklist | @quem editou | **M** |
 | `🔒 motivo — O card voltou para COLUNA` | card arrastado para coluna proibida | @quem moveu | **M** |
 | `🗑️ Anexo repetido removido: «a» é o mesmo arquivo que «b»` | anexo idêntico | @quem anexou | **M** |
+| `📦↩️ PEÇA DA SEGURADORA FORA DO ORÇAMENTO — nome · PLACA` | formulário: peça da seguradora que chegou sem estar no card e aguarda coleta (12/11) | ninguém | **M** |
 | `♻️ Card recuperado: ele foi excluído em …` | card excluído recriado (card vazio não é recriado nem comentado — 12/11) | @quem excluiu | **M** |
 | `🛠️ CORREÇÃO DO ROBÔ (data) — …` | correções pontuais (11/10, 12/10) | @criador | **M** (histórico; não sai mais) |
 | `🔄 Card antigo voltou para cotação (veio de X): …` | card legado devolvido à cotação | não | **M** |

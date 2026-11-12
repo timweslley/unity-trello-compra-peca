@@ -9120,7 +9120,7 @@ document.addEventListener('input', function (e) {
         var meta = String(d.nome).replace(/^↩️\s*/, '').replace(/\s*·\s*aguardando NF\s*$/i, '');
         return '<div class="v2d-item" data-id="' + esc2(d.id) + '"><div class="v2d-topo"><b>↩️ ' + esc2(d.peca) + '</b><span class="v2d-meta">' + esc2(meta.replace(d.peca, '').replace(/^\s*-\s*/, '')) + '</span></div>'
           + '<div class="v2d-campos"><div><label>Data da devolução</label><input type="date" class="v2d-data" value="' + esc2(d.dueIso || '') + '"></div>'
-          + '<div><label>Nº da NF de devolução</label><input type="text" class="v2d-nf" inputmode="numeric" placeholder="ex.: 12345"></div>'
+          + '<div><label>Nº da NF de devolução (ou do comprovante de coleta)</label><input type="text" class="v2d-nf" placeholder="ex.: 12345"></div>'
           + '<div class="v2d-arq"><label class="v2-btnarq" data-v2c="1" style="cursor:pointer"><span class="v2i v2i-clip" aria-hidden="true"></span>Anexar NF (PDF/XML)<input type="file" class="v2d-file" accept="application/pdf,.xml,image/*" style="display:none"></label><div class="v2d-lista"></div></div></div></div>';
       }).join('')
       + (feitas.length ? '<div class="dica" style="margin:6px 0 4px">Com NF informada:</div>' + feitas.map(function (d) {
@@ -10455,6 +10455,122 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
     };
     setTimeout(poe, 80); setTimeout(poe, 400);
   }, true);
+})();
+</script>
+<script>
+/* 12/11/2026 (Weslley, RHZ4D88: "pode corrigir") — camada 2.0, computador e celular, abas 📦 Recebimento e ✋ Retirada:
+ * 1) Compra em devolução ao fornecedor (item do PAGAS com a marca ↩️ — a seguradora passou a fornecer a peça): ganha o selo
+ *    "↩️ em devolução ao fornecedor" e SAI da lista da retirada (a guarnição devolvida foi dada como retirada no lugar da peça da
+ *    seguradora). A regra é do servidor (vdf_salvarRetirada recusa); aqui só a aparência.
+ * 2) Seção "Chegou peça da seguradora que não está no card?" (chave PU_CFG.COLETA_FO: 'teste' | 'todos'): registra a peça que
+ *    a seguradora mandou a mais e vai ser recolhida; vira pendência no checklist DEVOLUÇÕES (vdf_incluirColetaFo) e fecha pela
+ *    seção "Devoluções ao fornecedor — NF". */
+(function () {
+  var html = document.documentElement;
+  if (!html.classList.contains('v2')) return;
+  function e2(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var st = document.createElement('style');
+  st.textContent = [
+    '.selo.v2dv{background:#fff7d6;color:#533f04;border:1px solid #e2b203;font-weight:600;margin-left:6px;white-space:normal}',
+    '#retDev{margin:10px 0 0;padding:10px 12px;border:1px solid #c1c7d0;border-left:4px solid #e2b203;border-radius:8px;background:#fff;font-size:14px;color:#172b4d}',
+    '#retDev b{display:block;margin-bottom:4px}',
+    '#secColeta .v2k-abre{min-height:36px}',
+    '#secColeta .v2k-form{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}',
+    '#secColeta .v2k-form .inteiro{grid-column:1 / -1}',
+    '#secColeta .v2k-form label{display:block;font-size:12px;color:#44546f;margin:0 0 3px}',
+    '#secColeta .v2k-form input{width:100%;box-sizing:border-box;min-height:36px;padding:6px 8px;border:1px solid #c1c7d0;border-radius:6px;font:inherit}',
+    '#secColeta .v2k-erro{border-color:#c62828 !important;background:#fff5f5}',
+    '#secColeta .v2k-rodape{grid-column:1 / -1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}',
+    'html.v2toque #secColeta .v2k-form{grid-template-columns:1fr}',
+    'html.v2toque #secColeta .v2k-form input,html.v2toque #secColeta .v2k-abre,html.v2toque #secColeta button{min-height:44px}'
+  ].join('\n');
+  document.head.appendChild(st);
+
+  /* ---------- 1) compra em devolução ---------- */
+  function emDev(c) {
+    var m = {};
+    ((c && c.recebiveis) || []).forEach(function (it) { if (it && it.ok && it.devolvida && /^PAGAS/.test(it.lista || '')) m[it.id] = it; });
+    return m;
+  }
+  function selo(d) {
+    if (d.querySelector('.v2dv')) return;
+    var sp = document.createElement('span'); sp.className = 'selo v2dv';
+    sp.title = 'A seguradora passou a fornecer esta peça: a compra da oficina volta ao fornecedor. Informe a NF em "Devoluções ao fornecedor — NF".';
+    sp.textContent = '↩️ em devolução ao fornecedor';
+    (d.querySelector('.item-topo') || d).appendChild(sp);
+  }
+  function marcarRec(c) {
+    var m = emDev(c); if (!Object.keys(m).length) return;
+    Array.prototype.slice.call(document.querySelectorAll('#recJa .item[data-id]')).forEach(function (d) { if (m[d.dataset.id]) selo(d); });
+  }
+  function marcarRet(c) {
+    var velho = document.getElementById('retDev'); if (velho) velho.remove();
+    var m = emDev(c), box = document.getElementById('retItens'); if (!box || !Object.keys(m).length) return;
+    var fora = [];
+    Array.prototype.slice.call(box.querySelectorAll('.item[data-id]')).forEach(function (d) { var it = m[d.dataset.id]; if (it) { fora.push(it); d.remove(); } });
+    Array.prototype.slice.call(document.querySelectorAll('#retJa .item[data-id]')).forEach(function (d) { if (m[d.dataset.id]) selo(d); });
+    if (!fora.length) return;
+    if (!box.querySelector('.item')) box.innerHTML = '<div class="dica">Nenhuma peça para retirar agora.</div>';
+    else if (box.querySelectorAll('.item').length < 2) { var tudo = box.querySelector(':scope > label.chip'); if (tudo) tudo.remove(); }
+    var av = document.createElement('div'); av.id = 'retDev';
+    av.innerHTML = '<b>↩️ Em devolução ao fornecedor — não entra na retirada</b>' + fora.map(function (it) { return e2(it.base || it.nome); }).join('<br>')
+      + '<div class="dica" style="margin-top:4px">A seguradora passou a fornecer. Se a peça usada foi a da seguradora, marque a retirada na linha dela.</div>';
+    box.parentNode.insertBefore(av, box.nextSibling);
+  }
+  if (typeof window.montarRecebimento === 'function') {
+    var oRec = window.montarRecebimento;
+    window.montarRecebimento = function (c) { var r = oRec.apply(this, arguments); try { marcarRec(c || window.CARD); } catch (e) { console.log('devolução/selo: ' + e); } try { coleta(c || window.CARD); } catch (e) { console.log('coleta: ' + e); } return r; };
+  }
+  if (typeof window.montarRetirada === 'function') {
+    var oRet = window.montarRetirada;
+    window.montarRetirada = function (c) { var r = oRet.apply(this, arguments); try { marcarRet(c || window.CARD); } catch (e) { console.log('devolução/retirada: ' + e); } return r; };
+  }
+
+  /* ---------- 2) peça da seguradora fora do orçamento ---------- */
+  function ligada() {
+    var cfg = window.PU_CFG && PU_CFG.COLETA_FO;
+    var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+    return cfg === 'todos' || (cfg === 'teste' && ehTeste);
+  }
+  function coleta(c) {
+    var pn = document.getElementById('painelRec'); if (!pn) return;
+    var sec = document.getElementById('secColeta');
+    if (!ligada() || !c || c.podeReceber === false) { if (sec) sec.remove(); return; }
+    if (!sec) { sec = document.createElement('section'); sec.id = 'secColeta'; }
+    var rod = pn.querySelector(':scope > .rodape');
+    if (rod) pn.insertBefore(sec, rod); else pn.appendChild(sec);
+    var hoje = (typeof hojeISO === 'function') ? hojeISO() : '';
+    sec.innerHTML = '<h2>Chegou peça da seguradora que não está no card?</h2>'
+      + '<div class="dica" style="margin-bottom:8px">Peça que a seguradora mandou a mais e o fornecedor vai recolher. Registre aqui: ela fica como pendência em <b>Devoluções ao fornecedor</b> até informar a NF ou o comprovante de coleta.</div>'
+      + '<button type="button" class="secundario v2k-abre" aria-expanded="false" aria-controls="v2kForm">＋ Registrar peça para coleta</button>'
+      + '<div class="v2k-form oculto" id="v2kForm">'
+      + '<div class="inteiro"><label for="v2kPeca">Peça (código e nome) <span class="obr">*</span></label><input type="text" id="v2kPeca" class="maiusc" maxlength="80" placeholder="Ex.: 86350R1020AS GRADE DO RADIADOR"></div>'
+      + '<div class="inteiro"><label for="v2kMotivo">Por que vai voltar <span class="obr">*</span></label><input type="text" id="v2kMotivo" maxlength="44" placeholder="Ex.: seguradora mandou a mais; a oficina já tinha a peça"></div>'
+      + '<div><label for="v2kLocal">Onde está guardada</label><input type="text" id="v2kLocal" class="maiusc" list="dlLocais" maxlength="16" placeholder="Ex.: A1"></div>'
+      + '<div><label for="v2kData">Chegou em</label><input type="date" id="v2kData" value="' + e2(hoje) + '" max="' + e2(hoje) + '"></div>'
+      + '<div class="v2k-rodape"><button type="button" class="principal" id="v2kEnviar">Registrar peça para coleta</button><button type="button" class="secundario" id="v2kCancelar">Cancelar</button><span class="carregando oculto" id="v2kEnviando">Enviando…</span></div>'
+      + '</div>';
+    var abre = sec.querySelector('.v2k-abre'), form = sec.querySelector('.v2k-form');
+    function alterna(mostra) { form.classList.toggle('oculto', !mostra); abre.setAttribute('aria-expanded', mostra ? 'true' : 'false'); if (mostra) sec.querySelector('#v2kPeca').focus(); else abre.focus(); }
+    abre.onclick = function () { alterna(form.classList.contains('oculto')); };
+    sec.querySelector('#v2kCancelar').onclick = function () { alterna(false); };
+    var bt = sec.querySelector('#v2kEnviar');
+    bt.onclick = function () {
+      var fp = sec.querySelector('#v2kPeca'), fm = sec.querySelector('#v2kMotivo'), env = sec.querySelector('#v2kEnviando'), faltas = [];
+      fp.classList.remove('v2k-erro'); fm.classList.remove('v2k-erro');
+      if ((fp.value || '').trim().length < 3) { fp.classList.add('v2k-erro'); faltas.push('Escreva qual peça chegou (código e nome).'); }
+      if (!(fm.value || '').trim()) { fm.classList.add('v2k-erro'); faltas.push('Escreva por que a peça vai voltar.'); }
+      if (faltas.length) { (fp.classList.contains('v2k-erro') ? fp : fm).focus(); try { errosComprador(faltas); } catch (e) {} return; }
+      bt.disabled = true; env.classList.remove('oculto');
+      chamar('vdf_incluirColetaFo', TOKEN, { shortLink: CARD_EDICAO, peca: fp.value, motivo: fm.value, local: sec.querySelector('#v2kLocal').value, data: sec.querySelector('#v2kData').value }).then(function (r) {
+        bt.disabled = false; env.classList.add('oculto');
+        if (!r.ok) return errosComprador(r.faltas);
+        sucesso('↩️ Peça da seguradora registrada para coleta no card <b>' + e2(r.nome) + '</b>: ' + e2(r.peca) + '.<br>Quando o fornecedor recolher, informe a NF ou o comprovante em <b>Devoluções ao fornecedor</b> (aba Recebimento).'
+          + (r.lista ? '<br>O card está em <b>' + e2(r.lista) + '</b>.' : ''), r.url, 'Voltar ao card');
+      }).catch(function (x) { bt.disabled = false; env.classList.add('oculto'); errosComprador([x.message]); });
+    };
+  }
+  if (window.CARD) { try { marcarRec(window.CARD); marcarRet(window.CARD); coleta(window.CARD); } catch (e) {} }
 })();
 </script>
 </body>
