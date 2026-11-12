@@ -582,3 +582,6 @@ da outra, deixar um recado aqui e no commit.
 - **12/11 (12h19)** — Weslley: "pode ligar já e coloca o monitoramento pra avisar". "Quem liberou o pedido" ligado no principal em
   dois passos (chave da tela, depois a exigência no servidor, para o cache do Pages não deixar o Compras sem o balão).
   Não houve teste de ponta a ponta com a conta do Compras antes de ligar — acompanhar os primeiros usos.
+- **12/11 (18h30)** — BBW5I86: título com "TOKIO MARINE" cinco vezes. Seguradora com mais de uma palavra não saía do fim do
+  título em `vdf_partesTitulo_` e cada edição do pedido colava o nome de novo. Corrigido (o nome inteiro sai, repetido ou não);
+  Weslley: "pode".
