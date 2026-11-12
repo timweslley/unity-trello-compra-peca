@@ -601,15 +601,18 @@ function vdf_partesTitulo_(nome, dados) {
    * uma palavra ("TOKIO MARINE") não saía do fim do título — a comparação era só com a última palavra — e cada edição do
    * pedido colava o nome mais uma vez. Agora o nome inteiro sai do fim (quantas vezes estiver repetido), antes e depois da cor. */
   var segPs = vd_semAcento_(r.seguradora || '').replace(/[^A-Z0-9 \-]/g, ' ').split(/\s+/).filter(String);
-  function tiraSegFim() {
-    while (segPs.length > 1 && ps.length > segPs.length && ps.slice(-segPs.length).join(' ') === segPs.join(' ')) ps.length -= segPs.length;
+  function tiraSegFim(min) {
+    while (segPs.length >= min && ps.length > segPs.length && ps.slice(-segPs.length).join(' ') === segPs.join(' ')) ps.length -= segPs.length;
   }
-  tiraSegFim();
+  tiraSegFim(2);
   if (r.cor) { var corN = vd_semAcento_(r.cor); for (var k0 = ps.length - 1; k0 > 0; k0--) if (ps[k0] === corN) { ps.splice(k0, 1); break; } }
-  tiraSegFim();
+  tiraSegFim(2);
   for (var k = ps.length - 1; k > 0; k--) {
     if (VD_CORES.indexOf(ps[k]) >= 0 && !(r.cor && k < ps.length - 1)) { var c = ps.splice(k, 1)[0]; if (!r.cor) r.cor = c; break; }
   }
+  // 12/11/2026 (varredura: ATZ8J34 "MONTANA GENTE PRATA GENTE", AYZ5A19 "S10 ZACARIAS PRETA ZACARIAS" e mais 4): seguradora de
+  // uma palavra que ficou antes da cor também sai — depois de separar a cor, para "Q5 AZUL AZUL" (cor e seguradora) não mudar
+  tiraSegFim(1);
   r.carro = ps.join(' ') || vd_carroCurto_(dados.modelo || '');
   return r;
 }

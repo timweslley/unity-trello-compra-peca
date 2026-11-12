@@ -585,3 +585,5 @@ da outra, deixar um recado aqui e no commit.
 - **12/11 (18h30)** — BBW5I86: título com "TOKIO MARINE" cinco vezes. Seguradora com mais de uma palavra não saía do fim do
   título em `vdf_partesTitulo_` e cada edição do pedido colava o nome de novo. Corrigido (o nome inteiro sai, repetido ou não);
   Weslley: "pode".
+- **12/11 (19h20)** — Varredura dos 766 cards abertos: 8 com a seguradora duas vezes no título (antes e depois da cor). Regra
+  estendida à seguradora de uma palavra (sai depois de separar a cor; "Q5 AZUL AZUL" não muda) e títulos acertados. Weslley: "sim".
