@@ -10671,5 +10671,36 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
   };
 })();
 </script>
+<script>
+/* ================= CAMADA 2.0 — nota/foto de várias peças: lista TODAS as peças (13/11/2026, Weslley, APH8961) =================
+ * A lista "refere-se a:" só trazia peça que ainda NÃO tinha chegado. Card com tudo recebido esperando só a nota (o caso que
+ * o próprio robô manda resolver: "falta anexar a nota fiscal … aba Recebimento → Nota fiscal") ficava com a lista vazia e o
+ * botão preso em "Falta marcar a quais peças a nota/foto se refere". Agora vêm todas: primeiro as que faltam chegar, depois
+ * as que já chegaram (com ✔), e um atalho "marcar todas". Só a tela: o servidor já aceitava nota ligada a peça recebida. */
+(function () {
+  if (typeof window.desenharAnexoGeral !== 'function') return;
+  window.desenharAnexoGeral = function (a) {
+    var todas = ((window.CARD && window.CARD.recebiveis) || []).slice();
+    var itens = todas.filter(function (i) { return !i.ok; }).concat(todas.filter(function (i) { return i.ok; }));
+    var d = document.createElement('div'); d.className = 'item'; d.dataset.fileId = a.fileId;
+    function e(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    d.innerHTML = '<div><b>📎 ' + e(a.nome) + '</b> — refere-se a:</div>'
+      + (itens.length > 1 ? '<div style="margin-top:6px"><button type="button" class="secundario v2-nf-todas">marcar todas</button></div>' : '')
+      + '<div class="chips" style="margin-top:6px">' + itens.map(function (i) {
+        return '<label class="chip"><input type="checkbox" value="' + e(i.id) + '" onchange="recMarcarAnexo(this)"> ' + (i.ok ? '✔ ' : '') + e(String(i.nome).split(' - ')[0]) + '</label>';
+      }).join('') + '</div>'
+      + (itens.length ? '' : '<div class="dica">Este card não tem peça para ligar à nota.</div>');
+    var bt = d.querySelector('.v2-nf-todas');
+    if (bt) bt.addEventListener('click', function () {
+      var cbs = Array.prototype.slice.call(d.querySelectorAll('.chips input')), marcar = cbs.some(function (c) { return !c.checked; });
+      cbs.forEach(function (c) { c.checked = marcar; c.parentNode.classList.toggle('marcado', marcar); });
+      if (cbs[0]) recMarcarAnexo(cbs[0]);
+      bt.textContent = marcar ? 'desmarcar todas' : 'marcar todas';
+      try { cbs[0].dispatchEvent(new Event('change', { bubbles: true })); } catch (x) {}
+    });
+    document.getElementById('recGerais').appendChild(d);
+  };
+})();
+</script>
 </body>
 </html>
