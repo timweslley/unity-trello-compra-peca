@@ -1605,15 +1605,20 @@ function vd_avisoDuplicado_(card, ctx, props) {
 /** Confere um card de EM COTAÇÃO / FALTA DADOS. ctx = {board, listas, modoAtivo, prazo, urlForm}. */
 /** 03/11/2026: texto da falta quando o campo "Nº Ordem" está vazio ('' se preenchido). Card criado há menos de 2 min fica de fora
  *  (o formulário grava o nº logo depois de criar o card); card sem customFieldItems lido também fica de fora (não acusa no escuro). */
+var VD_TXT_FALTA_ORDEM = 'nº da ordem (Databox) — abra a O.S. no Databox e informe o nº pelo ✏️ EDITAR (campo "Nº da ordem")';
 function vd_faltaOrdem_(card) {
   try {
+    // 13/11/2026 (Weslley, BBV4D31 Ranger Tokio: pedido da seguradora sem nº da ordem ficou 7 min em EM COTAÇÃO): a conferência
+    // feita na hora do salvar lia o card SEM o campo e, além disso, card com menos de 2 min ficava de fora — e o robô só olha
+    // de novo quando o card tem atividade. Quando o salvar do formulário informa o que foi digitado (_ordemForm), vale isso, na hora.
+    if (card && card._ordemForm !== undefined) return String(card._ordemForm).replace(/\D/g, '') ? '' : VD_TXT_FALTA_ORDEM;
     if (!card || !card.customFieldItems) return '';
     if (Date.now() - vd_criadoEmMs_(card.id) < 2 * 60000) return '';
     var d = cf_defs_()[VDF_CAMPO_ORDEM]; if (!d) return '';
     var it = card.customFieldItems.filter(function (i) { return i.idCustomField === d.id; })[0];
     var v = it && it.value ? String(it.value.number !== undefined && it.value.number !== null ? it.value.number : (it.value.text || '')) : '';
     if (v.replace(/\D/g, '')) return '';
-    return 'nº da ordem (Databox) — abra a O.S. no Databox e informe o nº pelo ✏️ EDITAR (campo "Nº da ordem")';
+    return VD_TXT_FALTA_ORDEM;
   } catch (e) { console.log('nº ordem: ' + e); return ''; }
 }
 function vd_criadoEmMs_(id) { var n = parseInt(String(id || '').slice(0, 8), 16); return isNaN(n) ? 0 : n * 1000; }

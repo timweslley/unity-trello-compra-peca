@@ -603,3 +603,7 @@ da outra, deixar um recado aqui e no commit.
 - **13/11 (16h20)** — Weslley: "não tenho a opção de corrigir uma descrição e/ou código na tela de autorização" → "✏️ Corrigir" na
   aba Autorizar (diretoria; `vdf_corrigirPeca`; vale na hora; cotações e autorização seguem a peça). Só no TESTE
   (`AUT_CORRIGIR: 'teste'`). Também: "RG PEÇAS" cadastrado na aba FORNECEDORES (ARX9B84, card antigo "FORN - DESC").
+- **13/11 (16h45)** — BBV4D31 (Ranger, Tokio): pedido da seguradora salvo parcial SEM nº da ordem ficou 7 min em EM COTAÇÃO
+  (16h27–16h34) e só foi para FALTA DADOS porque alguém anexou uma imagem. Causa: a conferência do salvar lia o card sem o
+  campo Nº Ordem, card com menos de 2 min ficava de fora e o robô só reconfere card com atividade. Agora o salvar passa o nº
+  digitado (`_ordemForm`) e a falta vale na hora. Regra de 03/11 (O.S. obrigatória) restabelecida.
