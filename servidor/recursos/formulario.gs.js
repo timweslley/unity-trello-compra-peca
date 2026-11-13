@@ -610,7 +610,10 @@ var DU = {
 // Validacao.gs:1359
 var DU_CACHE = {};
 
-// Validacao.gs:2007
+// Validacao.gs:1608
+var VD_TXT_FALTA_ORDEM = 'nº da ordem (Databox) — abra a O.S. no Databox e informe o nº pelo ✏️ EDITAR (campo "Nº da ordem")';
+
+// Validacao.gs:2012
 var VD_LINK = {
   EDITAR: '✏️ EDITAR/INCLUIR PEÇA',
   COMPRA: '💰 COTAÇÃO/COMPRA/RECEBIMENTO',
@@ -618,10 +621,10 @@ var VD_LINK = {
   RX_COMPRA: /Cota[çc][ãa]o \/ Compra|COTA[ÇC][ÃA]O\/COMPRA/i
 };
 
-// Validacao.gs:2216
+// Validacao.gs:2221
 var VD_TRAVA_PRESA_MS = 5 * 60000, VD_TRAVA_K = 'vd_trava_acionador';
 
-// Validacao.gs:2350
+// Validacao.gs:2355
 var PZ = {
   LISTAS_FORA: ['ESPERA/NÃO AUTORIZADO'],   // estacionamento: não ganha prazo
   /* 07/10/2026 (Weslley): card nessas colunas está concluído — o prazo fica marcado como concluído; se o card volta, desmarca */
@@ -633,7 +636,7 @@ var PZ = {
   LIMITE_MS: 40 * 1000
 };
 
-// Validacao.gs:2518
+// Validacao.gs:2523
 var REL = {
   EMAILS: 'weslley.santos@unitycs.com.br,christian.farias@unitycs.com.br',
   DIAS_FALTA_DADOS: 1,
@@ -645,7 +648,7 @@ var REL = {
   UNIDADES: [['TOLEDO', /\bTOL\b|TOLEDO/i], ['MARECHAL RONDON', /\bMCR\b|RONDON/i], ['CASCAVEL', /\bCVEL\b|CASCAVEL/i], ['CAMPO MOURÃO', /\bCMO?\b|MOUR/i]]
 };
 
-// Validacao.gs:2657
+// Validacao.gs:2662
 var VD_CMP_MEM = null;
 
 // Anexos.gs:18
@@ -6881,6 +6884,8 @@ function vdf_salvar(token, p) {
   var acao = '';
   try {
     var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url,date' } });
+    // nº da ordem digitado no formulário: a conferência deste salvar já sabe se está vazio (13/11/2026, BBV4D31)
+    if (p.dados && p.dados.ordem !== undefined) c2._ordemForm = String(p.dados.ordem || '');
     var props = PropertiesService.getScriptProperties();
     if (posCot) {
       if (novasPecas.length) {
@@ -6959,14 +6964,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:3085
+// FormularioServidor.gs:3087
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:3097
+// FormularioServidor.gs:3099
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -7041,21 +7046,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:3174
+// FormularioServidor.gs:3176
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:3180
+// FormularioServidor.gs:3182
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:3186
+// FormularioServidor.gs:3188
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {
@@ -12212,23 +12217,27 @@ function vd_avisoDuplicado_(card, ctx, props) {
     '\nSe for o mesmo serviço, use o card que já existe (pedido duplicado atrapalha compras e faturamento). Se for outro serviço ou retorno, pode seguir neste.');
 }
 
-// Validacao.gs:1608
+// Validacao.gs:1609
 function vd_faltaOrdem_(card) {
   try {
+    // 13/11/2026 (Weslley, BBV4D31 Ranger Tokio: pedido da seguradora sem nº da ordem ficou 7 min em EM COTAÇÃO): a conferência
+    // feita na hora do salvar lia o card SEM o campo e, além disso, card com menos de 2 min ficava de fora — e o robô só olha
+    // de novo quando o card tem atividade. Quando o salvar do formulário informa o que foi digitado (_ordemForm), vale isso, na hora.
+    if (card && card._ordemForm !== undefined) return String(card._ordemForm).replace(/\D/g, '') ? '' : VD_TXT_FALTA_ORDEM;
     if (!card || !card.customFieldItems) return '';
     if (Date.now() - vd_criadoEmMs_(card.id) < 2 * 60000) return '';
     var d = cf_defs_()[VDF_CAMPO_ORDEM]; if (!d) return '';
     var it = card.customFieldItems.filter(function (i) { return i.idCustomField === d.id; })[0];
     var v = it && it.value ? String(it.value.number !== undefined && it.value.number !== null ? it.value.number : (it.value.text || '')) : '';
     if (v.replace(/\D/g, '')) return '';
-    return 'nº da ordem (Databox) — abra a O.S. no Databox e informe o nº pelo ✏️ EDITAR (campo "Nº da ordem")';
+    return VD_TXT_FALTA_ORDEM;
   } catch (e) { console.log('nº ordem: ' + e); return ''; }
 }
 
-// Validacao.gs:1619
+// Validacao.gs:1624
 function vd_criadoEmMs_(id) { var n = parseInt(String(id || '').slice(0, 8), 16); return isNaN(n) ? 0 : n * 1000; }
 
-// Validacao.gs:1621
+// Validacao.gs:1626
 function vd_conferirCard_(card, ctx) {
   var props = PropertiesService.getScriptProperties();
   var nome = card.name || '';
@@ -12417,7 +12426,7 @@ function vd_conferirCard_(card, ctx) {
   return res;
 }
 
-// Validacao.gs:1816
+// Validacao.gs:1821
 function vd_importarOrcamento_(card, an, lido, ctx) {
   var o = lido.orcamento;
   var d = an.dados;
@@ -12460,7 +12469,7 @@ function vd_importarOrcamento_(card, an, lido, ctx) {
   return { texto: texto, titulo: titulo };
 }
 
-// Validacao.gs:1863
+// Validacao.gs:1868
 function vd_conferirPosCotacao_(card, ctx) {
   var props = PropertiesService.getScriptProperties();
   var res = { card: card.name, url: card.shortUrl, acao: '', faltas: [], preenchido: [], avisos: [] };
@@ -12564,7 +12573,7 @@ function vd_conferirPosCotacao_(card, ctx) {
   return res;
 }
 
-// Validacao.gs:1966
+// Validacao.gs:1971
 function vd_contexto_() {
   var board = vd_board_();
   var url = vd_prop_('VD_URL_FORM', VD.URL_FORM);
@@ -12577,7 +12586,7 @@ function vd_contexto_() {
   };
 }
 
-// Validacao.gs:1978
+// Validacao.gs:1983
 function vd_cardsDasListas_(ids, comAnexos) {
   var cards = [];
   ids.forEach(function (idL) {
@@ -12588,19 +12597,19 @@ function vd_cardsDasListas_(ids, comAnexos) {
   return cards;
 }
 
-// Validacao.gs:1988
+// Validacao.gs:1993
 function vd_cardsParaConferir_(ctx) {
   var ids = [ctx.listas[VD.LISTA_COTACAO], ctx.listas[VD.LISTA_FALTA]].filter(String);
   if (ids.length < 2) throw new Error('Quadro ' + ctx.board + ' sem as colunas "' + VD.LISTA_COTACAO + '" e "' + VD.LISTA_FALTA + '".');
   return vd_cardsDasListas_(ids, true);
 }
 
-// Validacao.gs:1994
+// Validacao.gs:1999
 function vd_listasPosCotacao_(ctx) {
   return Object.keys(ctx.listas).filter(function (n) { return VD.LISTAS_FORA.indexOf(n) < 0; }).map(function (n) { return ctx.listas[n]; });
 }
 
-// Validacao.gs:1998
+// Validacao.gs:2003
 function vd_marcar_(card) {
   try { cf_sincronizar_(card.id); } catch (e) {}   // campos personalizados antes de marcar (a gravação mexe na atividade)
   try {
@@ -12609,7 +12618,7 @@ function vd_marcar_(card) {
   } catch (e) {}
 }
 
-// Validacao.gs:2018
+// Validacao.gs:2023
 function vd_garantirLinks_(forcar) {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return 0;
   var props = PropertiesService.getScriptProperties();
@@ -12648,7 +12657,7 @@ function vd_garantirLinks_(forcar) {
   return n;
 }
 
-// Validacao.gs:2090
+// Validacao.gs:2095
 function vd_pkRebasear_(posCot, ctx) {
   var props = PropertiesService.getScriptProperties(), k = 'VD_PK2_REBASE';
   if (props.getProperty(k) === '2026-10-05c') return;
@@ -12667,7 +12676,7 @@ function vd_pkRebasear_(posCot, ctx) {
   console.log('rebase VD_PK2: ' + n + ' card(s) das colunas pós-cotação regravados a partir da descrição completa · ' + cards.length + ' cards em ' + listas.length + ' colunas · ' + leg + ' legado(s) · ' + semCmp + ' sem completa na TRAVA · completas na TRAVA: ' + Object.keys(mapa).length + ' · virada ' + new Date(vd_viradaMs_()).toLocaleString('pt-BR'));
 }
 
-// Validacao.gs:2113
+// Validacao.gs:2118
 function vd_fixarCardNovo_(ctx, cards, completa) {
   if (!ctx.modoAtivo) return false;
   var props = PropertiesService.getScriptProperties();
@@ -12688,7 +12697,7 @@ function vd_fixarCardNovo_(ctx, cards, completa) {
   return true;
 }
 
-// Validacao.gs:2133
+// Validacao.gs:2138
 function vd_fixarTopo_(idLista, token) {
   try {
     var g = String(PropertiesService.getScriptProperties().getProperty('VD_FIXO') || '').split('|');
@@ -12696,7 +12705,7 @@ function vd_fixarTopo_(idLista, token) {
   } catch (e) { console.log('fixar topo: ' + e); }
 }
 
-// Validacao.gs:2141
+// Validacao.gs:2146
 function vd_executarNucleo_() {
   if (!vd_ligado_()) return [];
   var ctx = vd_contexto_();
@@ -12760,12 +12769,12 @@ function vd_executarNucleo_() {
   return out;
 }
 
-// Validacao.gs:2206
+// Validacao.gs:2211
 function vd_roboNoServidor_() {
   try { return ScriptApp.getScriptId() !== 'servidor-compra-peca' && vd_prop_('VD_ROBO_SERVIDOR', 'NAO') === 'SIM'; } catch (e) { return false; }
 }
 
-// Validacao.gs:2217
+// Validacao.gs:2222
 function vd_travaAcionador_(esperaMs) {
   var lock = LockService.getScriptLock(), cache = CacheService.getScriptCache(), ok = false, meu = Date.now() + ':' + Utilities.getUuid();
   try { ok = lock.tryLock(esperaMs || 2000); } catch (e) {}
@@ -12782,7 +12791,7 @@ function vd_travaAcionador_(esperaMs) {
   };
 }
 
-// Validacao.gs:2233
+// Validacao.gs:2238
 function validarDadosPedido() {
   if (vd_roboNoServidor_()) { try { sd_vigiaServidor_(); } catch (e) {} return; }   // Google de reserva: só vigia o servidor (Saude.gs)
   if (qt_pausada_()) { console.log('ciclo pulado: ' + qt_resumoPausa_()); return; }   // cota estourada: não gasta chamada nem tempo
@@ -12839,7 +12848,7 @@ function validarDadosPedido() {
   } finally { soltar(); try { qt_registrar_('ciclo'); } catch (e) {} }
 }
 
-// Validacao.gs:2329
+// Validacao.gs:2334
 function vd_instalarAcionador() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
     if (t.getHandlerFunction() === 'validarDadosPedido') ScriptApp.deleteTrigger(t);
@@ -12847,7 +12856,7 @@ function vd_instalarAcionador() {
   ScriptApp.newTrigger('validarDadosPedido').timeBased().everyMinutes(1).create();
 }
 
-// Validacao.gs:2362
+// Validacao.gs:2367
 function pz_entradaColuna_(c, props) {
   var k = 'PZ_COL_' + c.id, g = String(props.getProperty(k) || '').split('|');
   if (g[0] === c.idList && g[1]) return g[1];
@@ -12864,7 +12873,7 @@ function pz_entradaColuna_(c, props) {
   return quando;
 }
 
-// Validacao.gs:2378
+// Validacao.gs:2383
 function pz_labelId_(board, nome, cor) {
   var cache = CacheService.getScriptCache();
   var k = 'pz_lbl_' + board + '_' + nome;
@@ -12877,22 +12886,22 @@ function pz_labelId_(board, nome, cor) {
   return l.id;
 }
 
-// Validacao.gs:2390
+// Validacao.gs:2395
 function pz_hoje_() {
   var d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-// Validacao.gs:2394
+// Validacao.gs:2399
 function pz_diaLocal_(iso) {
   var d = new Date(iso);
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-// Validacao.gs:2398
+// Validacao.gs:2403
 function pz_fmt_(iso) { return Utilities.formatDate(new Date(iso), 'America/Sao_Paulo', 'dd/MM'); }
 
-// Validacao.gs:2407
+// Validacao.gs:2412
 function pz_executar_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
   var board = vd_board_();
@@ -12998,7 +13007,7 @@ function pz_executar_() {
   return n;
 }
 
-// Validacao.gs:2529
+// Validacao.gs:2534
 function rel_unidade_(card) {
   // 19/10/2026: card aberto pela Rotina tem o campo Unidade mas não a etiqueta — valia "SEM UNIDADE"
   try {
@@ -13011,16 +13020,16 @@ function rel_unidade_(card) {
   return 'SEM UNIDADE';
 }
 
-// Validacao.gs:2540
+// Validacao.gs:2545
 function rel_dias_(ms) { return Math.floor((Date.now() - ms) / 864e5); }
 
-// Validacao.gs:2541
+// Validacao.gs:2546
 function rel_criacaoId_(id) { return 1000 * parseInt(String(id).substring(0, 8), 16); }
 
-// Validacao.gs:2542
+// Validacao.gs:2547
 function rel_esc_(s) { return String(s || '').replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
 
-// Validacao.gs:2545
+// Validacao.gs:2550
 function rel_coletar_() {
   var board = vd_prop_('REL_BOARD', vd_board_());
   var listas = vd_listas_(board);
@@ -13060,7 +13069,7 @@ function rel_coletar_() {
   return por;
 }
 
-// Validacao.gs:2584
+// Validacao.gs:2589
 function rel_html_(por) {
   var secoes = [['foVencido', '⏰ Fornecimento vencido (seguradora) — verificar prazo'], ['pagas', '💳 PAGAS há mais de ' + REL.DIAS_PAGAS + ' dias sem chegar / sem nota'],
     ['faltaDados', '⚠️ FALTA DADOS PARA COTAR parado há ' + REL.DIAS_FALTA_DADOS + '+ dia(s)'], ['entregues', '🧾 ENTREGUES há mais de ' + REL.DIAS_ENTREGUES + ' dias sem faturar']];
@@ -13082,7 +13091,7 @@ function rel_html_(por) {
   return h || '<p>Nenhuma exceção hoje. 🎉</p>';
 }
 
-// Validacao.gs:2605
+// Validacao.gs:2610
 function rel_enviar_() {
   var por = rel_coletar_();
   var total = 0;
@@ -13101,20 +13110,20 @@ function rel_enviar_() {
   return total;
 }
 
-// Validacao.gs:2624
+// Validacao.gs:2629
 function relatorioDiario() {
   if (vd_roboNoServidor_()) return;
   if (typeof comAlarme_ === 'function') return comAlarme_('relatório diário', rel_enviar_);
   return rel_enviar_();
 }
 
-// Validacao.gs:2630
+// Validacao.gs:2635
 function rel_instalar() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'relatorioDiario') ScriptApp.deleteTrigger(t); });
   ScriptApp.newTrigger('relatorioDiario').timeBased().everyDays(1).atHour(7).nearMinute(15).create();
 }
 
-// Validacao.gs:2636
+// Validacao.gs:2641
 function rel_instalarSeFaltar_() {
   var pp = PropertiesService.getScriptProperties();
   if (pp.getProperty('REL_INSTALADO') === 'SIM') return;
@@ -13123,16 +13132,16 @@ function rel_instalarSeFaltar_() {
   rel_enviar_();
 }
 
-// Validacao.gs:2659
+// Validacao.gs:2664
 function vd_vitrineLigada_() { return vd_prop_('VD_VITRINE', 'SIM') !== 'NAO'; }
 
-// Validacao.gs:2663
+// Validacao.gs:2668
 function vd_ehVitrineSemCompleta_(desc) {
   var d = String(desc || '');
   return /(^|\n)\d+\.\s+\*\*[^*\n]+\*\*/.test(d) && !/(^|\n)\s*\**\s*PE[ÇC]AS\s*\**\s*:/i.test(d);
 }
 
-// Validacao.gs:2668
+// Validacao.gs:2673
 function vd_completa_(cardId, vitrine) {
   if (!cardId) return '';
   if (VD_CMP_MEM && Object.prototype.hasOwnProperty.call(VD_CMP_MEM, cardId)) return VD_CMP_MEM[cardId];
@@ -13162,7 +13171,7 @@ function vd_completa_(cardId, vitrine) {
   return txt;
 }
 
-// Validacao.gs:2698
+// Validacao.gs:2703
 function vd_completasTodas_() {
   if (VD_CMP_MEM) return VD_CMP_MEM;
   VD_CMP_MEM = {};
@@ -13176,7 +13185,7 @@ function vd_completasTodas_() {
   return VD_CMP_MEM;
 }
 
-// Validacao.gs:2712
+// Validacao.gs:2717
 function vd_trocarPelaCompleta_(r) {
   if (!r) return r;
   if (Array.isArray(r)) {
@@ -13189,13 +13198,13 @@ function vd_trocarPelaCompleta_(r) {
   return r;
 }
 
-// Validacao.gs:2724
+// Validacao.gs:2729
 function vd_tit_(s) { s = String(s || '').toLowerCase(); return s.charAt(0).toUpperCase() + s.slice(1); }
 
-// Validacao.gs:2725
+// Validacao.gs:2730
 function vd_md_(s) { return String(s || '').replace(/([\\`*_\[\]#>|~])/g, '\\$1'); }
 
-// Validacao.gs:2731
+// Validacao.gs:2736
 function vd_vitrine_(desc, nome, pagas) {
   if (!vd_vitrineLigada_()) return null;
   if (/^\s*AVISO\b/i.test(nome || '') || /NOVO PEDIDO DE PE[ÇC]A/i.test(nome || '')) return null;
@@ -13332,7 +13341,7 @@ function vd_vitrine_(desc, nome, pagas) {
   return txt;
 }
 
-// Validacao.gs:2868
+// Validacao.gs:2873
 function vd_textoLegado_(desc) {
   var resto = vd_dividir_(desc).resto;
   if (!resto) return '';
@@ -13348,7 +13357,7 @@ function vd_textoLegado_(desc) {
   return out.join('\n').trim();
 }
 
-// Validacao.gs:2886
+// Validacao.gs:2891
 function vd_obsVitrine_() {
   var props = PropertiesService.getScriptProperties(), st = props.getProperty('VD_OBSVIT') || '2';
   if (st === 'FEITO' || !vd_ligado_() || vd_modo_() !== 'ATIVO' || !vd_vitrineLigada_()) return 0;

@@ -3003,6 +3003,8 @@ function vdf_salvar(token, p) {
   var acao = '';
   try {
     var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,desc,idList,shortLink,shortUrl,dateLastActivity,labels', attachments: 'true', attachment_fields: 'name,fileName,mimeType,isUpload,bytes,url,date' } });
+    // nº da ordem digitado no formulário: a conferência deste salvar já sabe se está vazio (13/11/2026, BBV4D31)
+    if (p.dados && p.dados.ordem !== undefined) c2._ordemForm = String(p.dados.ordem || '');
     var props = PropertiesService.getScriptProperties();
     if (posCot) {
       if (novasPecas.length) {
