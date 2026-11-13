@@ -587,3 +587,7 @@ da outra, deixar um recado aqui e no commit.
   Weslley: "pode".
 - **12/11 (19h20)** — Varredura dos 766 cards abertos: 8 com a seguradora duas vezes no título (antes e depois da cor). Regra
   estendida à seguradora de uma palavra (sai depois de separar a cor; "Q5 AZUL AZUL" não muda) e títulos acertados. Weslley: "sim".
+- **13/11 (14h20)** — APH8961 e o serão de 12/11 (Compras moveu ~13 cards de ENCERRADO para ENTREGUES e o robô devolveu por falta
+  de nota): (a) aba Recebimento — a nota/foto de várias peças lista também as peças que já chegaram (antes vinha vazia em card
+  com tudo recebido e o envio ficava preso) + atalho "marcar todas"; (b) Weslley: "WEV ESTOQUE pode dispensar a nota" — peça do
+  estoque próprio fica fora da régua da nota (`RC_NF_ESTOQUE`).

@@ -653,6 +653,8 @@ function rc_nfPalavras_(s) {
   });
   return out;
 }
+/** Fornecedor que é o estoque próprio (WEV ESTOQUE / ESTOQUE WEV / ESTOQUE): compra sem nota fiscal. */
+var RC_NF_ESTOQUE = /^(WEV\s+ESTOQUE|ESTOQUE\s+WEV|ESTOQUE)$/;
 /** Anexo que é nota fiscal de compra da oficina (não de fornecimento nem de devolução). */
 function rc_nfDeCompra_(a) {
   var n = String((a && a.name) || '');
@@ -667,7 +669,7 @@ function rc_notasOficina_(card) {
   // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
   // AUTOX cobrindo a compra da DIPAUTO)
   var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
-  var forns = [], porForn = {};
+  var forns = [], porForn = {}, doEstoque = 0;
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
   var cad = {}, lista = []; try { lista = fo_lista_(); lista.forEach(function (f) { cad[fo_norm_(f.nome)] = 1; (f.apelidos || []).forEach(function (a) { cad[fo_norm_(a)] = 1; }); }); } catch (e) {}
@@ -688,6 +690,9 @@ function rc_notasOficina_(card) {
     var pt = i.base.split(/\s+-\s+/), codigo = vd_semAcento_(String(pt[0] || '')).toUpperCase().split(/\s+/)[0];
     var iForn = pt.length >= 2 ? (cad[fo_norm_(pt[1])] ? 1 : (cad[fo_norm_(pt[0])] ? 0 : 1)) : -1;
     var forn = iForn >= 0 ? vd_semAcento_(pt[iForn]).toUpperCase().replace(/\s+/g, ' ').trim() : '(sem fornecedor)';
+    // 13/11/2026 (Weslley: "WEV ESTOQUE pode dispensar a nota"): peça do estoque próprio não tem nota fiscal de compra —
+    // não entra na régua (SWQ0F73, DPJ2D42, RHH0C51, BAI8D21 ficavam presos em ENCERRADO por causa dela)
+    if (RC_NF_ESTOQUE.test(forn)) { doEstoque++; return; }
     if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]).concat(palavrasCadastro(pt[iForn])) : [] }; forns.push(forn); }
     if (iForn < 0) rc_nfPalavras_(i.base).forEach(function (w) { if (porForn[forn].chaves.indexOf(w) < 0) porForn[forn].chaves.push(w); });
     if (iForn !== 0 && codigo && codigo.length >= 4 && /\d/.test(codigo) && porForn[forn].chaves.indexOf(codigo) < 0) porForn[forn].chaves.push(codigo);
@@ -704,7 +709,7 @@ function rc_notasOficina_(card) {
   var livres = Object.keys(emitentes).length, faltamN = Math.max(0, faltam.length - livres);
   if (faltam.length && !faltamN) { cobertos = cobertos.concat(faltam); faltam = []; }
   // faltamN = quantas compras ainda estão sem nota; faltam = fornecedores sem nota identificada pelo nome (lista inteira quando sobra alguma)
-  return { pagas: pagas.length, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };
+  return { pagas: pagas.length - doEstoque, estoque: doEstoque, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };
 }
 /**
  * Card em ENCERRADO: libera para ENTREGUES quando tudo foi recebido, não há devolução aguardando NF e toda compra da oficina
@@ -744,7 +749,7 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   if (r.pendRec.length || r.devAbertas.length || r.faltamNf.length) return r;
   r.movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, usuario || 'robô');
   if (r.movido && opt.comentar) {
-    try { vd_comentar_(card, '↪️ Card → **' + r.movido + '** (tudo recebido' + (nf.pagas ? ' · ' + nf.pagas + ' compra(s) da oficina com nota no card' : ' · só fornecimento da seguradora, sem compra da oficina') + ').'); } catch (e) {}
+    try { vd_comentar_(card, '↪️ Card → **' + r.movido + '** (tudo recebido' + (nf.pagas ? ' · ' + nf.pagas + ' compra(s) da oficina com nota no card' : (nf.estoque ? '' : ' · só fornecimento da seguradora, sem compra da oficina')) + (nf.estoque ? ' · ' + nf.estoque + ' peça(s) do estoque, sem nota' : '') + ').'); } catch (e) {}
   }
   return r;
 }
