@@ -656,9 +656,23 @@ function rc_nfPalavras_(s) {
 /** Fornecedor que é o estoque próprio (WEV ESTOQUE / ESTOQUE WEV / ESTOQUE): compra sem nota fiscal. */
 var RC_NF_ESTOQUE = /^(WEV\s+ESTOQUE|ESTOQUE\s+WEV|ESTOQUE)$/;
 /** Anexo que é nota fiscal de compra da oficina (não de fornecimento nem de devolução). */
-function rc_nfDeCompra_(a) {
-  var n = String((a && a.name) || '');
-  return !!(a && a.isUpload !== false) && ax_ehNota_(n) && !/FORNECIMENTO|DEVOLU/i.test(n);
+function rc_nfDeCompra_(a) { return rc_nfClasse_(a) === 'nota'; }
+/** 13/11/2026 (Weslley, serão de 12/11: 15 cards devolvidos de ENTREGUES "sem a nota" com a nota no card): o Compras anexa a
+ *  nota arrastando o PDF para o card, com o nome que vier — a chave de acesso ("4126…0752663.pdf IMPERIAL"), "DANFE - 23070",
+ *  ou só o fornecedor ("IMPERIAL", "2 pneus paulinho") — e o robô só reconhecia os nomes batizados pelo sistema/rotinas.
+ *  'nota'  = nome do sistema, ou PDF com a chave de 44 dígitos da NF-e (modelo 55) no nome/arquivo, ou "DANFE"/"NFSe" no arquivo;
+ *  'fraca' = outro PDF enviado à mão (scan, nome livre): só vale para o fornecedor que tem palavra em comum com o nome;
+ *  ''      = não é nota (orçamento, FO, cotação, comprovante de compra, foto, link, fornecimento, devolução). */
+function rc_nfClasse_(a) {
+  if (!a || a.isUpload === false) return '';
+  var n = String(a.name || ''), arq = String(a.fileName || String(a.url || '').split('/').pop() || '');
+  if (/FORNECIMENTO|DEVOLU/i.test(n)) return '';
+  if (ax_ehNota_(n)) return 'nota';
+  if (/^(📄|🚚|💬|🛒|📸|✏️|💰)/.test(n) || /^(https?:|ORC|ORÇ|Cilia\b|HDI\b)/i.test(n)) return '';
+  if (!/\.pdf$/i.test(arq) && !/\.pdf\b/i.test(n)) return '';
+  var chave = function (t) { var m = String(t).match(/(?:^|\D)(\d{44})(?:\D|$)/); return !!m && m[1].substr(20, 2) === '55'; };
+  if (chave(n) || chave(arq) || /^(DANFE|NFS-?e|NF-?e)[\s_\-\d]/i.test(arq)) return 'nota';
+  return 'fraca';
 }
 /** Compras da oficina (PAGAS*) × notas no card, por FORNECEDOR: {pagas, fornecedores, cobertos:[forn], faltam:[forn], notas}
  *  1º pela palavra em comum (nome da nota × fornecedor do item / código da peça); 2º por contagem: o apelido do checklist
@@ -668,7 +682,8 @@ function rc_notasOficina_(card) {
   var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
   // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
   // AUTOX cobrindo a compra da DIPAUTO)
-  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
+  // 'fraca' (PDF de nome livre) entra como a NFS-e: só cobre fornecedor com palavra em comum, fora da contagem
+  var notas = (card.attachments || []).filter(rc_nfClasse_).map(function (a) { var fraca = rc_nfClasse_(a) === 'fraca'; return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: fraca || /^NFS-?e\b/i.test(String(a.name || '')) || /^NFS-?e/i.test(String(a.fileName || '')) }; });
   var forns = [], porForn = {}, doEstoque = 0;
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
@@ -721,8 +736,9 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   var r = { movido: '', pendRec: [], devAbertas: [], faltamNf: [], faltamN: 0, notas: 0 };
   if (!card || vdf_cardProtegido_(card.name || '') || !ctx.listas['ENTREGUES']) return r;
   if (vdf_nomeLista_(ctx, card.idList) !== RC.LISTA_FIM) return r;
-  if (!card.attachments || !card.checklists) {
-    card = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' } }, token);
+  // anexo enviado sem o nome do arquivo (card veio de outra leitura): busca de novo — a nota anexada à mão se reconhece pelo arquivo
+  if (!card.attachments || !card.checklists || card.attachments.some(function (x) { return x && x.isUpload !== false && x.fileName === undefined && x.url === undefined; })) {
+    card = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } }, token);
   }
   var todos = vdf_itensRecebimento_(card);
   if (!todos.length) {
@@ -767,7 +783,7 @@ function rc_varrerEncerrado_() {
   if (new Date().getMinutes() % RC_NF.CADA_MIN !== 0) return;
   var ctx = vd_contexto_(), idEnc = ctx.listas[RC.LISTA_FIM];
   if (!idEnc || !ctx.listas['ENTREGUES']) return;
-  var cards = vd_api_('/lists/' + idEnc + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' } }) || [];
+  var cards = vd_api_('/lists/' + idEnc + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } }) || [];
   var fim = vd_prazo_(40 * 1000), n = 0;
   cards.forEach(function (c) {
     if (Date.now() > fim) return;
@@ -825,7 +841,7 @@ function rc_particularParaFinalizada_(ctx, fim) {
 function rc_devolverEntregues_(ctx, fim) {
   var idEnt = ctx.listas['ENTREGUES'], idEnc = ctx.listas[RC.LISTA_FIM];
   if (!idEnt || !idEnc) return 0;
-  var cards = vd_api_('/lists/' + idEnt + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' } }) || [];
+  var cards = vd_api_('/lists/' + idEnt + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } }) || [];
   var v = 0;
   cards.forEach(function (c) {
     if (Date.now() > fim || vdf_cardProtegido_(c.name || '')) return;
@@ -929,7 +945,7 @@ function vdf_salvarDevolucao(token, p) {
   // liberou? tudo recebido, sem devolução pendente e nota da compra da oficina no card -> ENTREGUES (06/11/2026: retirada não segura mais)
   var movido = '', segura = '';
   try {
-    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' } });
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } });
     var lib = rc_liberarEncerrado_(c2, ctx, token, me.username);
     movido = lib.movido; if (!movido && vdf_nomeLista_(ctx, c2.idList) === RC.LISTA_FIM) segura = rc_textoSegura_(lib);
   } catch (e) { console.log('devolução/coluna: ' + e); }

@@ -591,3 +591,6 @@ da outra, deixar um recado aqui e no commit.
   de nota): (a) aba Recebimento — a nota/foto de várias peças lista também as peças que já chegaram (antes vinha vazia em card
   com tudo recebido e o envio ficava preso) + atalho "marcar todas"; (b) Weslley: "WEV ESTOQUE pode dispensar a nota" — peça do
   estoque próprio fica fora da régua da nota (`RC_NF_ESTOQUE`).
+- **13/11 (14h40)** — Causa do serão de 12/11: as notas ESTAVAM nos 15 cards, anexadas à mão pelo Compras (arquivo com a chave da
+  NF-e, "DANFE", ou só o nome do fornecedor), e a régua só reconhecia nome batizado pelo sistema/rotinas. `rc_nfClasse_` passa a
+  reconhecer (leitura do robô); testado com os nomes reais dos anexos dos 15 cards. Weslley: "dar o ok pelas notas anexadas".
