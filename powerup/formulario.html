@@ -10702,5 +10702,56 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
   };
 })();
 </script>
+<script>
+/* ================= CAMADA 2.0 — "🛞 É pneu": transformar a peça em pneu (13/11/2026, Weslley, BBW5I86) =================
+ * "PNEU 215 60 17" foi incluído como peça comum (código 234252, tipo PARALELO). A troca Peça/Pneu da tela clássica existe
+ * (trocarTipo), mas a 2.0 esconde o seletor nas linhas já preenchidas — não havia como corrigir. Agora, na linha de PEÇA cuja
+ * descrição começa com PNEU, aparece o botão "🛞 É pneu": troca a linha para pneu (a mesma trocarTipo da tela clássica) e já
+ * preenche a medida lida da descrição ("215 60 17" → 215/60R17). Categoria ou marca quem informa é a pessoa (campo obrigatório
+ * do pneu). Só aparência/atalho: a regra do pneu continua sendo a do servidor. Linha travada só a diretoria troca. */
+(function () {
+  if (!document.documentElement.classList.contains('v2')) return;
+  if (typeof window.trocarTipo !== 'function') return;
+  var RE_PNEU = /^\s*(JOGO DE |KIT )?PNEUS?\b/i, RE_MED = /(\d{3})\s*[\/ ]\s*(\d{2})\s*[\/ ]?\s*(Z?R)?\s*(\d{2})(?!\d)/i;
+  function ehDiretoria() { try { return !!(window.CARD && window.CARD.diretoria); } catch (e) { return false; } }
+  function conferir(it) {
+    if (!it || !it.classList || !it.classList.contains('item') || it.dataset.tipo !== 'peca') return;
+    var d = it.querySelector('.f-desc'), topo = it.querySelector('.item-topo'), bt = it.querySelector('.v2-pneu-bt');
+    var mostra = !!d && !!topo && RE_PNEU.test(d.value || '') && !(it.dataset.travada && !ehDiretoria());
+    if (!mostra) { if (bt) bt.remove(); return; }
+    if (bt) return;
+    bt = document.createElement('button'); bt.type = 'button'; bt.className = 'secundario v2-pneu-bt';
+    bt.textContent = '🛞 É pneu'; bt.title = 'Esta peça é um pneu: troca a linha para pneu (medida, categoria ou marca)';
+    bt.addEventListener('click', function () {
+      var desc = String(d.value || '').toUpperCase(), m = desc.match(RE_MED), caixa = it.parentNode, antes = it.previousElementSibling;
+      var qtd = (it.querySelector('.f-qtd') || {}).value || '';
+      var marca = desc.replace(RE_PNEU, ' ').replace(RE_MED, ' ').replace(/[^A-Z0-9 ]/g, ' ').split(/\s+/).filter(function (w) { return w.length >= 3 && !/^(ARO|NOVO|NOVA|RADIAL|NACIONAL|IMPORTADO|LINHA|JOGO|KIT)$/.test(w) && !/^\d+$/.test(w); })[0] || '';
+      window.trocarTipo(it.id, 'pneu');
+      var novo = antes ? antes.nextElementSibling : caixa.firstElementChild;
+      if (!novo || novo.dataset.tipo !== 'pneu') return;
+      var med = novo.querySelector('.f-medida'), mar = novo.querySelector('.f-marca');
+      var q = novo.querySelector('.f-qtd'); if (q && qtd && q.value !== qtd) { q.value = qtd; q.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (med && m && !med.value) { med.value = m[1] + '/' + m[2] + 'R' + m[4]; med.dispatchEvent(new Event('input', { bubbles: true })); }
+      if (mar && marca && !mar.value) { mar.value = marca; mar.dispatchEvent(new Event('input', { bubbles: true })); }
+      var foco = (med && !med.value) ? med : (novo.querySelector('input[type=radio]') || med);
+      try { if (foco) foco.focus({ preventScroll: false }); } catch (e) {}
+    });
+    var rem = topo.querySelector('button.perigo');
+    if (rem) topo.insertBefore(bt, rem); else topo.appendChild(bt);
+  }
+  function varrer() { Array.prototype.forEach.call(document.querySelectorAll('#itens > .item, #itensPart > .item'), conferir); }
+  var st = document.createElement('style');
+  st.textContent = '.v2 .item-topo .v2-pneu-bt{flex:0 0 auto;white-space:nowrap;border-color:#0c66e4;color:#0c66e4;background:#e9f2ff;font-weight:600}'
+    + '.v2toque .item-topo .v2-pneu-bt{min-height:44px}';
+  document.head.appendChild(st);
+  ['itens', 'itensPart'].forEach(function (id) {
+    var cx = document.getElementById(id); if (!cx) return;
+    new MutationObserver(function () { setTimeout(varrer, 0); }).observe(cx, { childList: true });
+    cx.addEventListener('input', function (e) { if (e.target && e.target.classList && e.target.classList.contains('f-desc')) conferir(e.target.closest('.item')); });
+    cx.addEventListener('change', function (e) { if (e.target && e.target.classList && e.target.classList.contains('f-desc')) conferir(e.target.closest('.item')); });
+  });
+  setTimeout(varrer, 300);
+})();
+</script>
 </body>
 </html>
