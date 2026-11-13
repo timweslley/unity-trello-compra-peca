@@ -10753,5 +10753,113 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
   setTimeout(varrer, 300);
 })();
 </script>
+<script>
+/* ================= CAMADA 2.0 — aba Autorizar: "✏️ Corrigir" código/descrição da peça (13/11/2026, Weslley, BBW5I86) ==========
+ * "não tenho a opção de corrigir uma descrição e/ou código na tela de autorização". Só a DIRETORIA: botão "✏️ Corrigir" em cada
+ * peça ainda não comprada → balão com Código e Descrição (role=alertdialog, Esc/clique fora fecham, Tab preso, botões valem 400 ms
+ * depois de abrir, campo inválido fica vermelho) → grava NA HORA pelo servidor (vdf_corrigirPeca) e recarrega o card. Cotações e
+ * autorização seguem a peça corrigida. Regra toda no servidor. Liga por PU_CFG.AUT_CORRIGIR: 'teste' | 'todos' | desligado. */
+(function () {
+  if (!document.documentElement.classList.contains('v2')) return;
+  var cfg = window.PU_CFG && PU_CFG.AUT_CORRIGIR;
+  var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  if (typeof window.montarAutorizacao !== 'function' || typeof window.chamar !== 'function') return;
+  function e(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  var st = document.createElement('style');
+  st.textContent = '.v2a-corr{display:inline-flex;align-items:center;gap:4px;min-height:28px;margin-left:8px;padding:0 8px;border:1px solid #c1c7d0;border-radius:var(--r-sm,6px);background:#fff;color:#44546f;font:inherit;font-size:12.5px;font-weight:400;cursor:pointer;white-space:nowrap;vertical-align:middle}'
+    + '.v2a-corr:hover{background:#e9f2ff;color:#0055cc;border-color:#0c66e4}html.v2toque .v2a-corr{min-height:44px;font-size:14px}'
+    + '#v2acFundo{position:fixed;inset:0;z-index:69;background:rgba(9,30,66,.35)}'
+    + '.v2 #v2acBal.v2-balao{position:fixed !important;z-index:70;left:50% !important;top:50% !important;transform:translate(-50%,-50%);margin:0 !important;width:min(460px,calc(100vw - 24px)) !important;max-height:calc(100vh - 16px);overflow-y:auto;box-sizing:border-box;padding:14px 16px;background:#fff;border:1px solid #c1c7d0;border-radius:var(--r-sm,6px);box-shadow:0 10px 28px rgba(9,30,66,.25);color:#172b4d;animation:none}'
+    + '.v2 #v2acBal.v2-balao::before{display:none !important}'
+    + '#v2acBal .v2-bt{margin:0 0 4px;font-size:16px;font-weight:700;line-height:22px}#v2acBal .dica{margin:0 0 10px;font-size:13.5px;line-height:18px;color:#44546f}'
+    + '#v2acBal label{display:block;margin:8px 0 4px;font-size:13px;font-weight:600;color:#44546f}'
+    + '#v2acBal input[type=text]{display:block;width:100%;box-sizing:border-box;min-height:36px;padding:6px 10px;font-size:15px;border:1px solid #8590a2;border-radius:var(--r-sm,6px);color:#172b4d;background:#fff;text-transform:uppercase}'
+    + '#v2acBal input[type=text]:focus{outline:2px solid #0c66e4;outline-offset:1px}#v2acBal input[aria-invalid=true]{border:2px solid #c9372c;background:#ffeceb}'
+    + '#v2acErro{margin:6px 0 0;min-height:18px;font-size:13px;font-weight:600;color:#ae2e24}'
+    + '#v2acBal .bts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}#v2acBal .bts button{flex:1 1 auto;min-height:36px}'
+    + '.v2toque #v2acBal.v2-balao{left:0 !important;right:0;top:auto !important;bottom:0;transform:none;width:100% !important;max-height:90vh;border-radius:12px 12px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px))}'
+    + '.v2toque #v2acBal input[type=text]{min-height:48px;font-size:16px}.v2.v2toque #v2acBal.v2-balao .bts button{min-height:48px !important;font-size:16px !important}';
+  document.head.appendChild(st);
+
+  function pecaDe(chave) { return ((window.CARD && typeof pecasOficina === 'function') ? pecasOficina(window.CARD) : []).filter(function (x) { return x.chave === chave; })[0] || null; }
+  function limpo(s) { var c = String(s || '').replace(/\s+/g, '').toUpperCase(); return /^[A-Z0-9][A-Z0-9.\-\/]{3,39}$/.test(c) && /\d/.test(c) ? c : ''; }
+
+  function abrir(chave, gatilho) {
+    var p = pecaDe(chave); if (!p) return;
+    var cod0 = String(p.codigo || '').replace(/\s+/g, '').toUpperCase(), desc0 = String(p.descricao || '').replace(/\s+/g, ' ').trim().toUpperCase();
+    var velho = document.getElementById('v2acBal'); if (velho) velho.remove();
+    var fundo = document.createElement('div'); fundo.id = 'v2acFundo';
+    var bal = document.createElement('div'); bal.id = 'v2acBal'; bal.className = 'v2-balao v2c-balao';
+    bal.setAttribute('role', 'alertdialog'); bal.setAttribute('aria-modal', 'true'); bal.setAttribute('aria-labelledby', 'v2acT'); bal.setAttribute('aria-describedby', 'v2acD');
+    bal.innerHTML = '<p class="v2-bt" id="v2acT">Corrigir a peça</p>'
+      + '<div class="dica" id="v2acD">Vale na hora. As cotações e a autorização continuam nesta peça. O que você marcou nesta tela e ainda não enviou é recarregado.</div>'
+      + '<label for="v2acCod">Código</label><input type="text" id="v2acCod" maxlength="40" autocomplete="off" value="' + e(cod0) + '" placeholder="sem código">'
+      + '<label for="v2acDesc">Descrição</label><input type="text" id="v2acDesc" maxlength="120" autocomplete="off" aria-required="true" value="' + e(desc0) + '">'
+      + '<div id="v2acErro" role="alert"></div>'
+      + '<div class="bts"><button type="button" class="principal" id="v2acSim">Salvar correção</button><button type="button" class="secundario" id="v2acNao">Voltar</button></div>';
+    bal._gatilho = fundo; bal._devolver = null; bal._t0 = performance.now();
+    document.body.appendChild(fundo); document.body.appendChild(bal);
+    var iCod = bal.querySelector('#v2acCod'), iDesc = bal.querySelector('#v2acDesc'), erro = bal.querySelector('#v2acErro'), bSim = bal.querySelector('#v2acSim'), feito = false, enviando = false;
+    function fechar() {
+      if (feito || enviando) return; feito = true; obs.disconnect(); bal.remove(); fundo.remove();
+      setTimeout(function () { try { if (gatilho && gatilho.isConnected) gatilho.focus({ preventScroll: true }); } catch (x) {} }, 60);
+    }
+    function cedo(ev) { return ev.detail > 0 && performance.now() - bal._t0 < 400; }
+    function salvar() {
+      if (enviando) return;
+      var cod = iCod.value.trim().toUpperCase(), desc = iDesc.value.replace(/\s+/g, ' ').trim().toUpperCase();
+      iCod.removeAttribute('aria-invalid'); iDesc.removeAttribute('aria-invalid'); erro.textContent = '';
+      if (desc.replace(/[^A-Z]/g, '').length < 3) { iDesc.setAttribute('aria-invalid', 'true'); erro.textContent = 'Escreva a descrição da peça.'; iDesc.focus(); return; }
+      var mudaCod = cod.replace(/\s+/g, '') !== cod0, mudaDesc = desc !== desc0;
+      if (mudaCod && !cod) { iCod.setAttribute('aria-invalid', 'true'); erro.textContent = 'Não dá para apagar o código por aqui — escreva o código certo.'; iCod.focus(); return; }
+      if (mudaCod && !limpo(cod)) { iCod.setAttribute('aria-invalid', 'true'); erro.textContent = 'Código inválido: só letras, números, ponto, traço ou barra (mínimo 4, com número).'; iCod.focus(); return; }
+      if (!mudaCod && !mudaDesc) { erro.textContent = 'Nada mudou. Altere o código ou a descrição.'; iDesc.focus(); return; }
+      var envio = { shortLink: window.CARD_EDICAO || (window.CARD && window.CARD.shortLink), chave: chave };
+      if (mudaCod) envio.codigo = limpo(cod);
+      if (mudaDesc) envio.descricao = desc;
+      enviando = true; bSim.disabled = true; bSim.textContent = 'Salvando…';
+      window.chamar('vdf_corrigirPeca', TOKEN, envio).then(function (r) {
+        enviando = false;
+        if (!r || !r.ok) { bSim.disabled = false; bSim.textContent = 'Salvar correção'; erro.textContent = ((r && r.faltas) || ['Não deu para salvar. Tente de novo.']).join(' '); if (r && r.parcial && r.parcial.length) { fechar(); recarregar(); } return; }
+        fechar(); recarregar();
+      }).catch(function (x) { enviando = false; bSim.disabled = false; bSim.textContent = 'Salvar correção'; erro.textContent = 'Não deu para salvar: ' + (x && x.message ? x.message : x); });
+    }
+    function recarregar() { try { if (typeof carregarCard === 'function') carregarCard(window.CARD_EDICAO || (window.CARD && window.CARD.shortLink)); } catch (x) {} }
+    bSim.addEventListener('click', function (ev) { if (!cedo(ev)) salvar(); });
+    bal.querySelector('#v2acNao').addEventListener('click', function (ev) { if (!cedo(ev)) fechar(); });
+    fundo.addEventListener('mousedown', function (ev) { ev.preventDefault(); fechar(); });
+    bal.addEventListener('keydown', function (ev) {
+      if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); fechar(); return; }
+      if (ev.key === 'Enter' && ev.target && ev.target.tagName === 'INPUT') { ev.preventDefault(); if (performance.now() - bal._t0 >= 400) salvar(); return; }
+      if (ev.key !== 'Tab') return;
+      var fs = Array.prototype.slice.call(bal.querySelectorAll('input, button')).filter(function (x) { return !x.disabled; });
+      var i = fs.indexOf(document.activeElement), j = ev.shiftKey ? (i <= 0 ? fs.length - 1 : i - 1) : (i < 0 || i === fs.length - 1 ? 0 : i + 1);
+      ev.preventDefault(); fs[j].focus();
+    });
+    var obs = new MutationObserver(function () { if (bal.style.display === 'none') { bal.style.display = ''; fechar(); } });
+    obs.observe(bal, { attributes: true, attributeFilter: ['style'] });
+    setTimeout(function () { try { iDesc.focus({ preventScroll: true }); iDesc.select(); } catch (x) {} }, 30);
+  }
+
+  function enfeitar() {
+    var c = window.CARD; if (!c || !c.diretoria) return;
+    Array.prototype.forEach.call(document.querySelectorAll('#autItens > .item'), function (it) {
+      if (it.querySelector('.v2a-corr') || !it.dataset.chave) return;
+      var p = pecaDe(it.dataset.chave); if (!p || p.pneu) return;
+      if (it.querySelector('.comprado') && /já comprado/.test(it.querySelector('.comprado').textContent)) return;
+      var topo = it.querySelector('.item-topo'); if (!topo) return;
+      var bt = document.createElement('button'); bt.type = 'button'; bt.className = 'v2a-corr'; bt.textContent = '✏️ Corrigir';
+      bt.title = 'Diretoria: corrigir o código ou a descrição desta peça';
+      bt.setAttribute('aria-label', 'Corrigir código ou descrição — ' + String(p.nome || p.descricao || ''));
+      bt.addEventListener('click', function (ev) { ev.preventDefault(); ev.stopPropagation(); abrir(it.dataset.chave, bt); });
+      topo.appendChild(bt);
+    });
+  }
+  window.montarAutorizacao = (function (orig) { return function () { var r = orig.apply(this, arguments); try { enfeitar(); setTimeout(enfeitar, 60); } catch (x) {} return r; }; })(window.montarAutorizacao);
+  var cx = document.getElementById('autItens');
+  if (cx) new MutationObserver(function () { setTimeout(enfeitar, 0); }).observe(cx, { childList: true });
+})();
+</script>
 </body>
 </html>

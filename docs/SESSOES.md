@@ -600,3 +600,6 @@ da outra, deixar um recado aqui e no commit.
 - **13/11 (15h55)** — BBW5I86 ("PNEU 215 60 17" incluído como peça comum; Weslley: "podia ter uma opção pra transformar em pneu"):
   botão "🛞 É pneu" na linha da peça cuja descrição começa com PNEU (a tela 2.0 do computador escondia a troca Peça/Pneu):
   troca a linha para pneu e preenche medida, quantidade e marca lidas da descrição. Weslley: "pode".
+- **13/11 (16h20)** — Weslley: "não tenho a opção de corrigir uma descrição e/ou código na tela de autorização" → "✏️ Corrigir" na
+  aba Autorizar (diretoria; `vdf_corrigirPeca`; vale na hora; cotações e autorização seguem a peça). Só no TESTE
+  (`AUT_CORRIGIR: 'teste'`). Também: "RG PEÇAS" cadastrado na aba FORNECEDORES (ARX9B84, card antigo "FORN - DESC").

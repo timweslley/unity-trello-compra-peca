@@ -31,6 +31,7 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 |---|---|---|---|
 | `✏️ PEDIDO EDITADO — Nome (usuário)` + ➕ incluiu / 🏷️ tipo definido / ➖ tirou / 🚫 não comprar | edição do pedido com alguma dessas mudanças (21/10) | não | **M** (novo). Acrescentar `→ COLUNA` quando o card andar (ver §2 PEÇA NOVA) |
 | `🗣️ Liberado por: Nome` (linha do `✏️ PEDIDO EDITADO`) · `🗣️ PEDIDO ABERTO PELO COMPRAS — Nome (usuário)` + `🗣️ Liberado por: Nome` (card novo) | conta do Compras incluiu peça / abriu pedido (12/11 — ligado no principal) | não (o nome é texto, sem `@`) | **M** (novo) |
+| `✏️ DESCRIÇÃO CORRIGIDA NA AUTORIZAÇÃO — Nome` + `- ANTIGA → NOVA` | diretoria corrigiu a descrição pela aba Autorizar (13/11 — TESTE) | não | **M** (novo) |
 | `🚫 NÃO COMPRAR — Nome marcou…` | pedido NOVO com peça 🚫 | não | **J** no comentário de pedido novo (abaixo) |
 | `➕ COMPLEMENTO marcado por Nome — …` | consultor marcou ➕ complemento | não | **M** (Weslley quer essa informação) |
 | `📝 COMPLEMENTAR — Nome` (aba Compra, status do complementar) | comprador marcou autorizado/comprado antes | não | **M** |

@@ -220,6 +220,13 @@ também no salvar parcial. Quando é a única falta, `vdf_salvar` devolve `pedeL
 ("Quem liberou este pedido?") e reenvia. O nome fica no card (`🗣️ Liberado por: …` no `✏️ PEDIDO EDITADO`, ou
 `🗣️ PEDIDO ABERTO PELO COMPRAS` em card novo) e no detalhe do evento (`liberado por …`). Atendente, diretoria e Rotina: nada muda.
 
+**Corrigir peça pela aba Autorizar (13/11/2026 — só no TESTE; principal com `VD_AUT_CORRIGIR=SIM` + `PU_CFG.AUT_CORRIGIR: 'todos'`, com OK do Weslley).**
+A diretoria corrige o **código** e/ou a **descrição** de uma peça direto na aba Autorizar (`vdf_corrigirPeca`, botão "✏️ Corrigir"):
+vale na hora, regrava a linha da peça no pedido e as linhas dela abaixo do marcador (cotações, OBS, autorização) e troca a
+assinatura na base de "peça nova" — a peça não vira nova nem volta para cotação. Não vale para peça já comprada (o item do
+PAGAS leva o nome antigo) nem para pneu. Comentários: `✏️ DESCRIÇÃO CORRIGIDA NA AUTORIZAÇÃO` e `🔁 CÓDIGO CORRIGIDO NA COTAÇÃO`
+(o mesmo da troca de código do comprador); eventos `DESCRIÇÃO CORRIGIDA` / `CÓDIGO CORRIGIDO`.
+
 ## 4. Modelo de dados (como vive no Trello hoje)
 
 > Para o servidor próprio, isto vira tabelas (seção 11.3). Aqui está o formato atual, necessário para **migrar**

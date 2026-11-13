@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_servidorProps', 'vdf_limparCardRotina', 'vdf_rotinaPecasBase', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_incluirColetaFo', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_incluirDevolucao', 'vdf_reavaliarColuna', 'vdf_varrerTrocasCodigo'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_incluirColetaFo', 'vdf_corrigirPeca', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_incluirDevolucao', 'vdf_reavaliarColuna', 'vdf_varrerTrocasCodigo'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -1326,6 +1326,100 @@ function vdf_salvarCotacao(token, p) {
   var t = vdf_trocarCodigosCard_(token, me, p.shortLink, v.trocas);
   r.codigos = t.n; r.codigosTxt = t.txt;
   return r;
+}
+
+/* 13/11/2026 (Weslley: "não tenho a opção de corrigir uma descrição e/ou código na tela de autorização" — BBW5I86): a DIRETORIA
+ * corrige o código e/ou a descrição de uma peça direto da aba Autorizar, sem abrir o pedido do consultor.
+ * p = {shortLink, chave, codigo, descricao} — manda só o que mudou. Vale na hora (não espera o "Autorizar").
+ * Peça já comprada não muda por aqui (o item do checklist PAGAS leva o nome antigo); pneu também não (use "É pneu" no pedido).
+ * As cotações, a autorização e a base de "peça nova" seguem a peça corrigida — não vira peça nova nem volta para cotação.
+ * TESTE sempre; principal com VD_AUT_CORRIGIR=SIM (OK do Weslley). */
+function vdf_autCorrigirLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_AUT_CORRIGIR', 'NAO') === 'SIM'; } catch (e) { return false; } }
+function vdf_corrigirPeca(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  if (!vdf_autCorrigirLigada_()) return { ok: false, faltas: ['A correção de peça pela aba Autorizar ainda não está ligada neste quadro.'] };
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria corrige a peça pela aba Autorizar — sua conta: ' + me.username + '.'] };
+  var ler = function () { return vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl', checklists: 'all', checkItem_fields: 'name' } }); };
+  var card = ler();
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  var an = vd_analisar_(card.desc, card.name);
+  var peca = an.pecas.filter(function (x) { return vd_chavePeca_(x) === p.chave; })[0];
+  if (!peca) return { ok: false, faltas: ['Peça não encontrada no pedido — abra o card de novo.'] };
+  var nome = vd_nomePeca_(peca);
+  if (peca.pneu) return { ok: false, faltas: [nome + ': pneu não se corrige por aqui — abra "Editar o pedido".'] };
+  var pagas = [];
+  (card.checklists || []).forEach(function (k) { if (/^PAGAS/i.test(String(k.name || '').trim())) (k.checkItems || []).forEach(function (i) { pagas.push(vd_semAcento_(i.name)); }); });
+  var compras = []; try { compras = vd_comprasDaDescricao_(card.desc); } catch (e) {}
+  var comprada = pagas.some(function (n) { return vd_casaItem_(n, p.chave); })
+    || compras.some(function (c) { var ck = vd_semAcento_(String(c.codigo || '').replace(/\s+/g, '') || c.descricao || ''); return ck && ck === p.chave; });
+  if (comprada) return { ok: false, faltas: [nome + ': já comprada — o item da compra leva o nome antigo. Corrija pelo "Editar o pedido".'] };
+  var descNova = String(p.descricao == null ? '' : p.descricao).replace(/[\r\n|*_`<>\[\]]/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase().slice(0, 120);
+  var descAnt = String(peca.descricao || '').replace(/\s+/g, ' ').trim().toUpperCase();
+  var mudaDesc = !!descNova && descNova !== descAnt;
+  var codAnt = String(peca.codigo || '').replace(/\s+/g, '').toUpperCase(), codDig = String(p.codigo == null ? '' : p.codigo).trim();
+  var codNovo = codDig ? vdf_codigoLimpo_(codDig) : '';
+  if (codDig && !codNovo) return { ok: false, faltas: [nome + ': código inválido — use só letras, números, ponto, traço ou barra (mín. 4, com número).'] };
+  var mudaCod = !!codNovo && codNovo !== codAnt;
+  if (p.descricao != null && !descNova) return { ok: false, faltas: [nome + ': a descrição não pode ficar vazia.'] };
+  if (mudaDesc && descNova.replace(/[^A-Z]/g, '').length < 3) return { ok: false, faltas: [nome + ': descrição muito curta.'] };
+  if (mudaDesc && an.pecas.some(function (x) { return x !== peca && !x.pneu && String(x.descricao || '').replace(/\s+/g, ' ').trim().toUpperCase() === descNova && String(x.codigo || '').replace(/\s+/g, '').toUpperCase() === (mudaCod ? codNovo : codAnt); })) return { ok: false, faltas: [nome + ': já existe outra peça no card com esse código e essa descrição.'] };
+  if (!mudaDesc && !mudaCod) return { ok: false, faltas: ['Nada mudou: o código e a descrição são os mesmos.'] };
+  var txt = [], chave = p.chave;
+  if (mudaDesc) {
+    var d = vdf_trocarDescricaoCard_(token, me, card, an, peca, descNova);
+    if (!d.ok) return { ok: false, faltas: [nome + ': não consegui achar a linha da peça no card — corrija pelo "Editar o pedido".'] };
+    txt.push('descrição: ' + descAnt + ' → ' + descNova); chave = d.chave;
+    if (mudaCod) { card = ler(); an = vd_analisar_(card.desc, card.name); }
+  }
+  if (mudaCod) {
+    var v = vdf_validarCodigos_([{ chave: chave, codigo: codNovo }], card, an);
+    if (v.faltas.length) return { ok: false, faltas: v.faltas, parcial: txt };
+    var t = vdf_trocarCodigosCard_(token, me, p.shortLink, v.trocas);
+    if (!t.n) return { ok: false, faltas: [nome + ': o código não foi trocado — abra o card de novo.'], parcial: txt };
+    txt.push('código: ' + (codAnt || 'sem código') + ' → ' + codNovo);
+  }
+  return { ok: true, nome: card.name, url: card.shortUrl, txt: txt };
+}
+/** Troca a DESCRIÇÃO da peça no card: linha do pedido + linhas abaixo do marcador que são dela (cotações, OBS, autorização);
+ *  a base de "peça nova" troca a assinatura. Devolve {ok, chave} (chave nova da peça). */
+function vdf_trocarDescricaoCard_(token, me, card, an, peca, descNova) {
+  var chaves = vdf_chavesPecas_(an.pecas), chaveAnt = vd_chavePeca_(peca);
+  var div = vd_dividir_(card.desc), bloco = div.bloco, resto = div.temMarcador ? div.resto : VD.MARCADOR;
+  var escRx = function (s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); };
+  var nova = JSON.parse(JSON.stringify(peca)); nova.descricao = descNova;
+  var linhaNova = vd_linhaPeca_(nova, 0).replace(/^1\. /, ''), achou = false, sigNova = '';
+  bloco = bloco.split('\n').map(function (l) {
+    if (achou || vd_sigItem_(l) !== peca.sig) return l;
+    achou = true;
+    var mNum = l.match(/^(\s*\d+\s*[.)\-]\s*)/), nl = (mNum ? mNum[1].replace(/\s+$/, ' ') : '') + linhaNova;
+    sigNova = vd_sigItem_(nl);
+    return nl;
+  }).join('\n');
+  if (!achou) return { ok: false };
+  var descU = String(peca.descricao || '').replace(/\s+/g, ' ').trim();
+  var rxDesc = descU ? new RegExp(escRx(descU).replace(/\\?\s+/g, '\\s+'), 'i') : null;
+  resto = resto.split('\n').map(function (raw, i) {
+    if (i === 0 || !rxDesc) return raw;
+    var l = vd_limpar_(raw).trim(); if (!l) return raw;
+    var k = vdf_pecaDoTexto_(l, chaves); if (!k || k.chave !== chaveAnt) return raw;
+    return raw.replace(rxDesc, descNova);
+  }).join('\n');
+  vd_backup_(card, 'descrição corrigida na autorização por ' + me.username);
+  vd_gravarDesc_(card.id, bloco.replace(/\s+$/, '') + '\n\n' + resto.replace(/^\s+/, ''), token);
+  try {
+    var props = PropertiesService.getScriptProperties(), kPk = 'VD_PK2_' + card.id, bt = props.getProperty(kPk);
+    if (bt !== null && sigNova) {
+      var base = JSON.parse(bt).map(vd_pkH_), i0 = base.indexOf(vd_pkH_(peca.sig));
+      if (i0 >= 0) { base[i0] = vd_pkH_(sigNova); props.setProperty(kPk, JSON.stringify(base)); }
+    }
+  } catch (e) { console.log('descrição corrigida/base: ' + e); }
+  try { var ev = ev_peca_(nova); ev.detalhe = 'descrição ' + descU.toUpperCase() + ' → ' + descNova + ' (autorização)'; ev_registrar_('DESCRIÇÃO CORRIGIDA', card, me.username, [ev]); } catch (e) {}
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✏️ **DESCRIÇÃO CORRIGIDA NA AUTORIZAÇÃO** — ' + me.fullName + '\n- ' + descU.toUpperCase() + ' → ' + descNova + '\nAs cotações e a autorização desta peça seguem a descrição nova.' } }, token);
+  } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, chave: vd_chavePeca_(nova) };
 }
 
 /** Normaliza o código digitado pelo comprador: maiúsculo, sem espaço; '' se não parece código (4–40, com número). */

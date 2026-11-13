@@ -57,6 +57,9 @@ window.PU_CFG = {
   /* 12/11/2026 (Weslley, RHZ4D88): conta do Compras abrindo pedido ou incluindo peça informa "Quem liberou este pedido?"
    * (balão no envio; o nome vai para o comentário do card e para os eventos). 'teste' = só no TESTE; 'todos' = principal
    * (com OK do Weslley + propriedade VD_LIBERADO_POR=SIM no robô); outro valor desliga. */
+  /* 13/11/2026 (Weslley, BBW5I86): aba Autorizar — a diretoria corrige código/descrição da peça ("✏️ Corrigir"), vale na hora
+   * (vdf_corrigirPeca). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley + VD_AUT_CORRIGIR=SIM no robô). */
+  AUT_CORRIGIR: 'teste',
   LIBERADO_POR: 'todos',   // 12/11/2026 12h19 — Weslley: "pode ligar já" (voltar: 'teste' + VD_LIBERADO_POR=NAO)
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
