@@ -597,3 +597,6 @@ da outra, deixar um recado aqui e no commit.
 - **13/11 (15h20)** — Weslley: "era melhor conferir pelo conteúdo". O aceite da nota pelo NOME do arquivo (14h40, liberou ~19 cards
   de ENCERRADO) sai: a varredura de 10 min agora LÊ os PDFs anexados à mão, batiza os que são nota fiscal e só esses contam
   (`rc_nfCandidata_`/`rc_lerNotasMao_`). Os cards liberados pelo nome são conferidos em ENTREGUES; sem nota de verdade voltam.
+- **13/11 (15h55)** — BBW5I86 ("PNEU 215 60 17" incluído como peça comum; Weslley: "podia ter uma opção pra transformar em pneu"):
+  botão "🛞 É pneu" na linha da peça cuja descrição começa com PNEU (a tela 2.0 do computador escondia a troca Peça/Pneu):
+  troca a linha para pneu e preenche medida, quantidade e marca lidas da descrição. Weslley: "pode".
