@@ -656,23 +656,41 @@ function rc_nfPalavras_(s) {
 /** Fornecedor que é o estoque próprio (WEV ESTOQUE / ESTOQUE WEV / ESTOQUE): compra sem nota fiscal. */
 var RC_NF_ESTOQUE = /^(WEV\s+ESTOQUE|ESTOQUE\s+WEV|ESTOQUE)$/;
 /** Anexo que é nota fiscal de compra da oficina (não de fornecimento nem de devolução). */
-function rc_nfDeCompra_(a) { return rc_nfClasse_(a) === 'nota'; }
-/** 13/11/2026 (Weslley, serão de 12/11: 15 cards devolvidos de ENTREGUES "sem a nota" com a nota no card): o Compras anexa a
- *  nota arrastando o PDF para o card, com o nome que vier — a chave de acesso ("4126…0752663.pdf IMPERIAL"), "DANFE - 23070",
- *  ou só o fornecedor ("IMPERIAL", "2 pneus paulinho") — e o robô só reconhecia os nomes batizados pelo sistema/rotinas.
- *  'nota'  = nome do sistema, ou PDF com a chave de 44 dígitos da NF-e (modelo 55) no nome/arquivo, ou "DANFE"/"NFSe" no arquivo;
- *  'fraca' = outro PDF enviado à mão (scan, nome livre): só vale para o fornecedor que tem palavra em comum com o nome;
- *  ''      = não é nota (orçamento, FO, cotação, comprovante de compra, foto, link, fornecimento, devolução). */
-function rc_nfClasse_(a) {
-  if (!a || a.isUpload === false) return '';
+function rc_nfDeCompra_(a) {
+  var n = String((a && a.name) || '');
+  return !!(a && a.isUpload !== false) && ax_ehNota_(n) && !/FORNECIMENTO|DEVOLU/i.test(n);
+}
+/** 13/11/2026 (Weslley, serão de 12/11 + "era melhor conferir pelo conteúdo"): PDF que o Compras arrastou para o card com o
+ *  nome que veio (a chave da NF-e, "DANFE - 23070", "IMPERIAL", "scan_….pdf") é CANDIDATO a nota — só passa a contar depois
+ *  que o robô LÊ o arquivo, confirma que é nota fiscal e o batiza "NF <EMITENTE> - nº - dd-mm" (rc_lerNotasMao_). Fica de fora
+ *  o que o sistema já nomeou (orçamento, FO, cotação, comprovante, foto), link, fornecimento e devolução. */
+function rc_nfCandidata_(a) {
+  if (!a || a.isUpload === false) return false;
   var n = String(a.name || ''), arq = String(a.fileName || String(a.url || '').split('/').pop() || '');
-  if (/FORNECIMENTO|DEVOLU/i.test(n)) return '';
-  if (ax_ehNota_(n)) return 'nota';
-  if (/^(📄|🚚|💬|🛒|📸|✏️|💰)/.test(n) || /^(https?:|ORC|ORÇ|Cilia\b|HDI\b)/i.test(n)) return '';
-  if (!/\.pdf$/i.test(arq) && !/\.pdf\b/i.test(n)) return '';
-  var chave = function (t) { var m = String(t).match(/(?:^|\D)(\d{44})(?:\D|$)/); return !!m && m[1].substr(20, 2) === '55'; };
-  if (chave(n) || chave(arq) || /^(DANFE|NFS-?e|NF-?e)[\s_\-\d]/i.test(arq)) return 'nota';
-  return 'fraca';
+  if (ax_ehNota_(n) || /FORNECIMENTO|DEVOLU/i.test(n)) return false;
+  if (/^(📄|🚚|💬|🛒|📸|📦|✏️|💰)/.test(n) || /^(https?:|ORC|ORÇ|Cilia\b|HDI\b)/i.test(n) || /\(antigo\)\s*$/i.test(n)) return false;
+  return /\.pdf$/i.test(arq) || /\.pdf\b/i.test(n) || /pdf/i.test(a.mimeType || '');
+}
+/** Lê (até `max` por chamada, dentro do prazo) os PDFs candidatos do card ainda não lidos; o que for nota fiscal é batizado
+ *  no padrão das rotinas e passa a valer na régua. Devolve quantos candidatos AINDA faltam ler (0 = tudo conferido).
+ *  A leitura fica guardada (aba ANEXOS): candidato já lido que não era nota não é lido de novo e não conta. */
+var RC_NF_LEITURAS = { max: 4, feitas: 0 };
+function rc_lerNotasMao_(card, fim) {
+  var cand = (card.attachments || []).filter(function (a) { return rc_nfCandidata_(a) && a.url && vd_anexoLegivel_(a); });
+  var faltam = 0;
+  cand.forEach(function (a) {
+    var jaLido = vd_anxTem_(a.id);
+    if (!jaLido && (RC_NF_LEITURAS.feitas >= RC_NF_LEITURAS.max || (fim && Date.now() > fim - 12 * 1000))) { faltam++; return; }
+    try {
+      if (!jaLido) RC_NF_LEITURAS.feitas++;
+      var r = vd_lerAnexoTrello_(a);
+      if (!r) { if (!jaLido) faltam++; return; }   // o Trello não entregou o arquivo: tenta na próxima varredura
+      if (r.erro || !r.nf || r.orcamento) return;   // lido e não é nota fiscal: não conta
+      var nm = ax_nomeNfRotina_(r.nf, ax_nfDeFornecimento_(card, r.nf.emitente), a.date), de = a.name;
+      if (nm !== a.name && ax_renomear_(card.id, a.id, nm, null)) { try { ax_madRegistrar_(card.id, a.id, de, nm); } catch (e) {} a.name = nm; }
+    } catch (e) { console.log('ler nota anexada à mão ' + card.shortLink + ': ' + e); if (!jaLido) faltam++; }
+  });
+  return faltam;
 }
 /** Compras da oficina (PAGAS*) × notas no card, por FORNECEDOR: {pagas, fornecedores, cobertos:[forn], faltam:[forn], notas}
  *  1º pela palavra em comum (nome da nota × fornecedor do item / código da peça); 2º por contagem: o apelido do checklist
@@ -682,8 +700,7 @@ function rc_notasOficina_(card) {
   var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
   // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
   // AUTOX cobrindo a compra da DIPAUTO)
-  // 'fraca' (PDF de nome livre) entra como a NFS-e: só cobre fornecedor com palavra em comum, fora da contagem
-  var notas = (card.attachments || []).filter(rc_nfClasse_).map(function (a) { var fraca = rc_nfClasse_(a) === 'fraca'; return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: fraca || /^NFS-?e\b/i.test(String(a.name || '')) || /^NFS-?e/i.test(String(a.fileName || '')) }; });
+  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
   var forns = [], porForn = {}, doEstoque = 0;
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
@@ -736,9 +753,8 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   var r = { movido: '', pendRec: [], devAbertas: [], faltamNf: [], faltamN: 0, notas: 0 };
   if (!card || vdf_cardProtegido_(card.name || '') || !ctx.listas['ENTREGUES']) return r;
   if (vdf_nomeLista_(ctx, card.idList) !== RC.LISTA_FIM) return r;
-  // anexo enviado sem o nome do arquivo (card veio de outra leitura): busca de novo — a nota anexada à mão se reconhece pelo arquivo
-  if (!card.attachments || !card.checklists || card.attachments.some(function (x) { return x && x.isUpload !== false && x.fileName === undefined && x.url === undefined; })) {
-    card = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } }, token);
+  if (!card.attachments || !card.checklists || false) {
+    card = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } }, token);
   }
   var todos = vdf_itensRecebimento_(card);
   if (!todos.length) {
@@ -783,11 +799,14 @@ function rc_varrerEncerrado_() {
   if (new Date().getMinutes() % RC_NF.CADA_MIN !== 0) return;
   var ctx = vd_contexto_(), idEnc = ctx.listas[RC.LISTA_FIM];
   if (!idEnc || !ctx.listas['ENTREGUES']) return;
-  var cards = vd_api_('/lists/' + idEnc + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } }) || [];
+  var cards = vd_api_('/lists/' + idEnc + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } }) || [];
   var fim = vd_prazo_(40 * 1000), n = 0;
+  RC_NF_LEITURAS.feitas = 0;
   cards.forEach(function (c) {
     if (Date.now() > fim) return;
     try {
+      // nota anexada à mão: confere o conteúdo e batiza antes de decidir (só com tudo recebido — senão a nota ainda não segura nada)
+      if (!vdf_cardProtegido_(c.name || '') && !vdf_itensRecebimento_(c).some(function (i) { return !i.ok; })) rc_lerNotasMao_(c, fim);
       var lib = rc_liberarEncerrado_(c, ctx, null, 'robô', { comentar: true });
       if (lib.movido) { n++; return; }
       // 06/11/2026 (AAZ0E84 Cherokee: em ENCERRADO desde 22/10 com devolução aguardando NF — a regra de 05/11 leva para FALTA
@@ -841,7 +860,7 @@ function rc_particularParaFinalizada_(ctx, fim) {
 function rc_devolverEntregues_(ctx, fim) {
   var idEnt = ctx.listas['ENTREGUES'], idEnc = ctx.listas[RC.LISTA_FIM];
   if (!idEnt || !idEnc) return 0;
-  var cards = vd_api_('/lists/' + idEnt + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } }) || [];
+  var cards = vd_api_('/lists/' + idEnt + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } }) || [];
   var v = 0;
   cards.forEach(function (c) {
     if (Date.now() > fim || vdf_cardProtegido_(c.name || '')) return;
@@ -851,6 +870,11 @@ function rc_devolverEntregues_(ctx, fim) {
     var nf = rc_notasOficina_(c);
     if (!nf.faltamN) return;
     if (vd_legado_(c.id)) return;   // card antigo: fica na fila do faturamento (decisão 06/11)
+    // 13/11/2026: antes de devolver, lê os PDFs anexados à mão (nota de verdade é batizada e passa a contar); enquanto houver
+    // candidato por ler o card fica — só volta para ENCERRADO depois de conferido o conteúdo de todos
+    if (rc_lerNotasMao_(c, fim) > 0) return;
+    nf = rc_notasOficina_(c);
+    if (!nf.faltamN) return;
     var movido = vdf_moverPara_(c, ctx, RC.LISTA_FIM, null, 'robô');
     if (!movido) return;
     v++;
@@ -945,7 +969,7 @@ function vdf_salvarDevolucao(token, p) {
   // liberou? tudo recebido, sem devolução pendente e nota da compra da oficina no card -> ENTREGUES (06/11/2026: retirada não segura mais)
   var movido = '', segura = '';
   try {
-    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } });
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } });
     var lib = rc_liberarEncerrado_(c2, ctx, token, me.username);
     movido = lib.movido; if (!movido && vdf_nomeLista_(ctx, c2.idList) === RC.LISTA_FIM) segura = rc_textoSegura_(lib);
   } catch (e) { console.log('devolução/coluna: ' + e); }

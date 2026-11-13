@@ -442,7 +442,7 @@ function instalarRotinaDiaria() {
  *  continua saindo pelo prazo. O ramo "item pendente → FALTA CHEGAR" não muda. */
 function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
   if (!idEnc || !idEntregues || !idFaltaChegar) return 0;
-  var cards = api_('/lists/' + idEnc + '/cards', { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' });
+  var cards = api_('/lists/' + idEnc + '/cards', { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' });
   var n = 0;
   var ctxLib = null;
   try { if (typeof rc_liberarEncerrado_ === 'function' && typeof vd_contexto_ === 'function') ctxLib = vd_contexto_(); } catch (e) { console.log('moverEncerrados_: sem contexto para a régua da nota: ' + e); }

@@ -594,3 +594,6 @@ da outra, deixar um recado aqui e no commit.
 - **13/11 (14h40)** — Causa do serão de 12/11: as notas ESTAVAM nos 15 cards, anexadas à mão pelo Compras (arquivo com a chave da
   NF-e, "DANFE", ou só o nome do fornecedor), e a régua só reconhecia nome batizado pelo sistema/rotinas. `rc_nfClasse_` passa a
   reconhecer (leitura do robô); testado com os nomes reais dos anexos dos 15 cards. Weslley: "dar o ok pelas notas anexadas".
+- **13/11 (15h20)** — Weslley: "era melhor conferir pelo conteúdo". O aceite da nota pelo NOME do arquivo (14h40, liberou ~19 cards
+  de ENCERRADO) sai: a varredura de 10 min agora LÊ os PDFs anexados à mão, batiza os que são nota fiscal e só esses contam
+  (`rc_nfCandidata_`/`rc_lerNotasMao_`). Os cards liberados pelo nome são conferidos em ENTREGUES; sem nota de verdade voltam.

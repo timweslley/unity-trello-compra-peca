@@ -458,7 +458,10 @@ var RC_NF = {
 // Recebimento.gs:657
 var RC_NF_ESTOQUE = /^(WEV\s+ESTOQUE|ESTOQUE\s+WEV|ESTOQUE)$/;
 
-// Recebimento.gs:868
+// Recebimento.gs:677
+var RC_NF_LEITURAS = { max: 4, feitas: 0 };
+
+// Recebimento.gs:892
 var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF' };
 
 // Saude.gs:12
@@ -1935,7 +1938,7 @@ function atualizarPrazos_(idLista) {
 // Código.gs:443
 function moverEncerrados_(idEnc, idEntregues, idFaltaChegar) {
   if (!idEnc || !idEntregues || !idFaltaChegar) return 0;
-  var cards = api_('/lists/' + idEnc + '/cards', { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' });
+  var cards = api_('/lists/' + idEnc + '/cards', { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload' });
   var n = 0;
   var ctxLib = null;
   try { if (typeof rc_liberarEncerrado_ === 'function' && typeof vd_contexto_ === 'function') ctxLib = vd_contexto_(); } catch (e) { console.log('moverEncerrados_: sem contexto para a régua da nota: ' + e); }
@@ -9494,26 +9497,46 @@ function rc_nfPalavras_(s) {
   return out;
 }
 
-// Recebimento.gs:666
-function rc_nfClasse_(a) {
-  if (!a || a.isUpload === false) return '';
-  var n = String(a.name || ''), arq = String(a.fileName || String(a.url || '').split('/').pop() || '');
-  if (/FORNECIMENTO|DEVOLU/i.test(n)) return '';
-  if (ax_ehNota_(n)) return 'nota';
-  if (/^(📄|🚚|💬|🛒|📸|✏️|💰)/.test(n) || /^(https?:|ORC|ORÇ|Cilia\b|HDI\b)/i.test(n)) return '';
-  if (!/\.pdf$/i.test(arq) && !/\.pdf\b/i.test(n)) return '';
-  var chave = function (t) { var m = String(t).match(/(?:^|\D)(\d{44})(?:\D|$)/); return !!m && m[1].substr(20, 2) === '55'; };
-  if (chave(n) || chave(arq) || /^(DANFE|NFS-?e|NF-?e)[\s_\-\d]/i.test(arq)) return 'nota';
-  return 'fraca';
+// Recebimento.gs:659
+function rc_nfDeCompra_(a) {
+  var n = String((a && a.name) || '');
+  return !!(a && a.isUpload !== false) && ax_ehNota_(n) && !/FORNECIMENTO|DEVOLU/i.test(n);
 }
 
-// Recebimento.gs:681
+// Recebimento.gs:667
+function rc_nfCandidata_(a) {
+  if (!a || a.isUpload === false) return false;
+  var n = String(a.name || ''), arq = String(a.fileName || String(a.url || '').split('/').pop() || '');
+  if (ax_ehNota_(n) || /FORNECIMENTO|DEVOLU/i.test(n)) return false;
+  if (/^(📄|🚚|💬|🛒|📸|📦|✏️|💰)/.test(n) || /^(https?:|ORC|ORÇ|Cilia\b|HDI\b)/i.test(n) || /\(antigo\)\s*$/i.test(n)) return false;
+  return /\.pdf$/i.test(arq) || /\.pdf\b/i.test(n) || /pdf/i.test(a.mimeType || '');
+}
+
+// Recebimento.gs:678
+function rc_lerNotasMao_(card, fim) {
+  var cand = (card.attachments || []).filter(function (a) { return rc_nfCandidata_(a) && a.url && vd_anexoLegivel_(a); });
+  var faltam = 0;
+  cand.forEach(function (a) {
+    var jaLido = vd_anxTem_(a.id);
+    if (!jaLido && (RC_NF_LEITURAS.feitas >= RC_NF_LEITURAS.max || (fim && Date.now() > fim - 12 * 1000))) { faltam++; return; }
+    try {
+      if (!jaLido) RC_NF_LEITURAS.feitas++;
+      var r = vd_lerAnexoTrello_(a);
+      if (!r) { if (!jaLido) faltam++; return; }   // o Trello não entregou o arquivo: tenta na próxima varredura
+      if (r.erro || !r.nf || r.orcamento) return;   // lido e não é nota fiscal: não conta
+      var nm = ax_nomeNfRotina_(r.nf, ax_nfDeFornecimento_(card, r.nf.emitente), a.date), de = a.name;
+      if (nm !== a.name && ax_renomear_(card.id, a.id, nm, null)) { try { ax_madRegistrar_(card.id, a.id, de, nm); } catch (e) {} a.name = nm; }
+    } catch (e) { console.log('ler nota anexada à mão ' + card.shortLink + ': ' + e); if (!jaLido) faltam++; }
+  });
+  return faltam;
+}
+
+// Recebimento.gs:699
 function rc_notasOficina_(card) {
   var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
   // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
   // AUTOX cobrindo a compra da DIPAUTO)
-  // 'fraca' (PDF de nome livre) entra como a NFS-e: só cobre fornecedor com palavra em comum, fora da contagem
-  var notas = (card.attachments || []).filter(rc_nfClasse_).map(function (a) { var fraca = rc_nfClasse_(a) === 'fraca'; return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: fraca || /^NFS-?e\b/i.test(String(a.name || '')) || /^NFS-?e/i.test(String(a.fileName || '')) }; });
+  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
   var forns = [], porForn = {}, doEstoque = 0;
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
@@ -9557,15 +9580,14 @@ function rc_notasOficina_(card) {
   return { pagas: pagas.length - doEstoque, estoque: doEstoque, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };
 }
 
-// Recebimento.gs:734
+// Recebimento.gs:751
 function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   opt = opt || {};
   var r = { movido: '', pendRec: [], devAbertas: [], faltamNf: [], faltamN: 0, notas: 0 };
   if (!card || vdf_cardProtegido_(card.name || '') || !ctx.listas['ENTREGUES']) return r;
   if (vdf_nomeLista_(ctx, card.idList) !== RC.LISTA_FIM) return r;
-  // anexo enviado sem o nome do arquivo (card veio de outra leitura): busca de novo — a nota anexada à mão se reconhece pelo arquivo
-  if (!card.attachments || !card.checklists || card.attachments.some(function (x) { return x && x.isUpload !== false && x.fileName === undefined && x.url === undefined; })) {
-    card = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } }, token);
+  if (!card.attachments || !card.checklists || false) {
+    card = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } }, token);
   }
   var todos = vdf_itensRecebimento_(card);
   if (!todos.length) {
@@ -9597,7 +9619,7 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   return r;
 }
 
-// Recebimento.gs:773
+// Recebimento.gs:789
 function rc_textoSegura_(r) {
   if (!r) return '';
   if (r.pendRec.length) return r.pendRec.length + ' peça(s) ainda não recebida(s)';
@@ -9606,17 +9628,20 @@ function rc_textoSegura_(r) {
   return '';
 }
 
-// Recebimento.gs:781
+// Recebimento.gs:797
 function rc_varrerEncerrado_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
   if (new Date().getMinutes() % RC_NF.CADA_MIN !== 0) return;
   var ctx = vd_contexto_(), idEnc = ctx.listas[RC.LISTA_FIM];
   if (!idEnc || !ctx.listas['ENTREGUES']) return;
-  var cards = vd_api_('/lists/' + idEnc + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } }) || [];
+  var cards = vd_api_('/lists/' + idEnc + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } }) || [];
   var fim = vd_prazo_(40 * 1000), n = 0;
+  RC_NF_LEITURAS.feitas = 0;
   cards.forEach(function (c) {
     if (Date.now() > fim) return;
     try {
+      // nota anexada à mão: confere o conteúdo e batiza antes de decidir (só com tudo recebido — senão a nota ainda não segura nada)
+      if (!vdf_cardProtegido_(c.name || '') && !vdf_itensRecebimento_(c).some(function (i) { return !i.ok; })) rc_lerNotasMao_(c, fim);
       var lib = rc_liberarEncerrado_(c, ctx, null, 'robô', { comentar: true });
       if (lib.movido) { n++; return; }
       // 06/11/2026 (AAZ0E84 Cherokee: em ENCERRADO desde 22/10 com devolução aguardando NF — a regra de 05/11 leva para FALTA
@@ -9650,7 +9675,7 @@ function rc_varrerEncerrado_() {
   return n + m + v;
 }
 
-// Recebimento.gs:824
+// Recebimento.gs:843
 function rc_particularParaFinalizada_(ctx, fim) {
   var idPend = ctx.listas[VDF_LISTA_PENDENTE], idFin = ctx.listas[VDF_LISTA_FINALIZADA];
   if (!idPend || !idFin) return 0;
@@ -9668,11 +9693,11 @@ function rc_particularParaFinalizada_(ctx, fim) {
   return n;
 }
 
-// Recebimento.gs:841
+// Recebimento.gs:860
 function rc_devolverEntregues_(ctx, fim) {
   var idEnt = ctx.listas['ENTREGUES'], idEnc = ctx.listas[RC.LISTA_FIM];
   if (!idEnt || !idEnc) return 0;
-  var cards = vd_api_('/lists/' + idEnt + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } }) || [];
+  var cards = vd_api_('/lists/' + idEnt + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } }) || [];
   var v = 0;
   cards.forEach(function (c) {
     if (Date.now() > fim || vdf_cardProtegido_(c.name || '')) return;
@@ -9682,6 +9707,11 @@ function rc_devolverEntregues_(ctx, fim) {
     var nf = rc_notasOficina_(c);
     if (!nf.faltamN) return;
     if (vd_legado_(c.id)) return;   // card antigo: fica na fila do faturamento (decisão 06/11)
+    // 13/11/2026: antes de devolver, lê os PDFs anexados à mão (nota de verdade é batizada e passa a contar); enquanto houver
+    // candidato por ler o card fica — só volta para ENCERRADO depois de conferido o conteúdo de todos
+    if (rc_lerNotasMao_(c, fim) > 0) return;
+    nf = rc_notasOficina_(c);
+    if (!nf.faltamN) return;
     var movido = vdf_moverPara_(c, ctx, RC.LISTA_FIM, null, 'robô');
     if (!movido) return;
     v++;
@@ -9690,7 +9720,7 @@ function rc_devolverEntregues_(ctx, fim) {
   return v;
 }
 
-// Recebimento.gs:870
+// Recebimento.gs:894
 function rc_checklistDev_(card, token) {
   var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
   if (k) return k;
@@ -9699,10 +9729,10 @@ function rc_checklistDev_(card, token) {
   return k;
 }
 
-// Recebimento.gs:878
+// Recebimento.gs:902
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// Recebimento.gs:879
+// Recebimento.gs:903
 function rc_registrarDevolucao_(card, it, motivo, fo, token, quando, opt) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
@@ -9715,7 +9745,7 @@ function rc_registrarDevolucao_(card, it, motivo, fo, token, quando, opt) {
   return novo;
 }
 
-// Recebimento.gs:891
+// Recebimento.gs:915
 function rc_devolucoes_(card) {
   var out = [];
   (card.checklists || []).forEach(function (k) {
@@ -9729,10 +9759,10 @@ function rc_devolucoes_(card) {
   return out;
 }
 
-// Recebimento.gs:903
+// Recebimento.gs:927
 function rc_devolucoesPendentes_(card) { return rc_devolucoes_(card).filter(function (d) { return !d.ok; }); }
 
-// Recebimento.gs:906
+// Recebimento.gs:930
 function vdf_salvarDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -9775,7 +9805,7 @@ function vdf_salvarDevolucao(token, p) {
   // liberou? tudo recebido, sem devolução pendente e nota da compra da oficina no card -> ENTREGUES (06/11/2026: retirada não segura mais)
   var movido = '', segura = '';
   try {
-    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName' } });
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } });
     var lib = rc_liberarEncerrado_(c2, ctx, token, me.username);
     movido = lib.movido; if (!movido && vdf_nomeLista_(ctx, c2.idList) === RC.LISTA_FIM) segura = rc_textoSegura_(lib);
   } catch (e) { console.log('devolução/coluna: ' + e); }
@@ -9786,7 +9816,7 @@ function vdf_salvarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:963
+// Recebimento.gs:987
 function vdf_reavaliarColuna(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
@@ -9799,7 +9829,7 @@ function vdf_reavaliarColuna(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:974
+// Recebimento.gs:998
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
@@ -9817,7 +9847,7 @@ function vdf_incluirDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, item: novo.name };
 }
 
-// Recebimento.gs:996
+// Recebimento.gs:1020
 function vdf_incluirColetaFo(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
