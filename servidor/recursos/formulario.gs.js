@@ -500,10 +500,10 @@ var CK = {
   ESPERA_MS: 90 * 1000     // 17/10/2026: ação mais nova que isso espera o próximo ciclo (licença do servidor a caminho)
 };
 
-// TravaChecklist.gs:210
-var LIC_FORM_RE = /^@\S+ (registrou|lançou|autorizou|editou|marcou|devolveu|incluiu|alterou)\b[^\n]*— [^\n]*\*\*/;
+// TravaChecklist.gs:213
+var LIC_FORM_RE = /^@\S+ (registrou|lançou|autorizou|editou|marcou|devolveu|incluiu|alterou|atualizou|cancelou|conferiu|encerrou|mudou|passou|removeu)\b[^\n]*— [^\n]*\*\*/;
 
-// TravaChecklist.gs:211
+// TravaChecklist.gs:214
 var LIC_FORM_CACHE = {};
 
 // Treino.gs:10
@@ -10667,7 +10667,7 @@ function ck_executar_() {
   return n;
 }
 
-// TravaChecklist.gs:212
+// TravaChecklist.gs:215
 function lic_formularioAgiu_(cardId, tMs) {
   if (!cardId || !tMs) return false;
   try {
@@ -10680,7 +10680,7 @@ function lic_formularioAgiu_(cardId, tMs) {
   } catch (e) { console.log('licença pelo comentário ' + cardId + ': ' + e); return false; }
 }
 
-// TravaChecklist.gs:227
+// TravaChecklist.gs:230
 function lic_espelhar_(par, seg) {
   try {
     if (!vd_roboNoServidor_()) return;

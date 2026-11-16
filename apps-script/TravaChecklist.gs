@@ -207,7 +207,10 @@ function ck_executar_() {
  * formulário comentou no card perto da hora da ação ("@fulano registrou compra — 🛒 **COMPRA** …", "lançou a cotação",
  * "autorizou", "registrou recebimento/retirada/devolução", "editou o pedido", "marcou …"): esse comentário só o formulário
  * escreve, logo a ação veio dele. Janela: 3 min antes/depois. Uma chamada por card por ciclo, só no caminho raro (sem licença). */
-var LIC_FORM_RE = /^@\S+ (registrou|lançou|autorizou|editou|marcou|devolveu|incluiu|alterou)\b[^\n]*— [^\n]*\*\*/;
+/* 16/11/2026 (BBP7A67 Civic Zurich): a rotina gravou o fornecimento às 10h34 no meio de um deploy e a trava desfez às 10h36 —
+ * o comentário "@fulano atualizou o fornecimento — 🚚 **FORNECIMENTO**" não estava na lista. Entram todos os verbos que o
+ * formulário usa (vdf_txtAcao_ / Eventos): atualizou, cancelou, conferiu, encerrou, mudou, passou, removeu. */
+var LIC_FORM_RE = /^@\S+ (registrou|lançou|autorizou|editou|marcou|devolveu|incluiu|alterou|atualizou|cancelou|conferiu|encerrou|mudou|passou|removeu)\b[^\n]*— [^\n]*\*\*/;
 var LIC_FORM_CACHE = {};
 function lic_formularioAgiu_(cardId, tMs) {
   if (!cardId || !tMs) return false;
