@@ -727,7 +727,13 @@ function cp_foNaOficina_(card, token, quem) {
   try { an = vd_analisar_(card.desc || '', card.name || ''); } catch (e) { return []; }
   var codigos = {}, complementos = [];
   (an.pecas || []).forEach(function (p) { var k = cp_norm_(p.codigo); if (k.length >= 4) codigos[k] = p; if (p.complemento && !p.naoComprar) complementos.push(p); });
-  if (!Object.keys(codigos).length && !complementos.length) return [];
+  // 16/11/2026 (Weslley, AVO4E81 Celta Yelum: "o orçamento do Celta não tem fornecimento, tem?"): a calota era FORNECIDA na versão
+  // de 20/10 do orçamento e passou para OFICINA na de 30/10 (mesmo nº 964750.1); o robô importou a antiga, o consultor marcou a
+  // peça 🚫 não comprar e o item FO ficou segurando o card em FALTA CHEGAR. Peça 🚫 não comprar só tira o item FO quando o
+  // orçamento MAIS NOVO do card traz o código como peça da OFICINA (ofOrc, abaixo) — aí a seguradora não vai mandar.
+  var naoCods = {};
+  (an.naoComprar || []).forEach(function (p) { var k = cp_norm_(p.codigo); if (k.length >= 4) naoCods[k] = p; });
+  if (!Object.keys(codigos).length && !complementos.length && !Object.keys(naoCods).length) return [];
   // 28/10/2026 (Weslley, RAM9I31): a peça da oficina JÁ COMPRADA (item no PAGAS) que a seguradora passou a fornecer num laudo novo
   // NÃO tira o item FO — o conflito vira devolução da compra da oficina (checklist DEVOLUÇÕES) e o card volta a FALTA CHEGAR
   var pagas = [];
@@ -738,13 +744,14 @@ function cp_foNaOficina_(card, token, quem) {
   };
   // 03/11/2026 (SWQ0F73): item FO que o orçamento MAIS NOVO do card (cache de leitura) ainda traz como fornecido não sai — a
   // seguradora é quem fornece, mesmo que a peça esteja na lista da oficina (foi para lá na versão anterior do orçamento)
-  var foOrc = [];
+  var foOrc = [], ofOrc = [];
   try {
     var anx = (card.attachments || vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,date,mimeType' } }) || [])
       .filter(function (a) { return /^📄 OR[ÇC]\+? · /.test(String(a.name || '')); })
       .sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
     var oU = anx.length ? cp_orcDoCache_(anx[0].id) : null;
     if (oU) (oU.fo || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4) foOrc.push(k); });
+    if (oU) (oU.oficina || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4 && foOrc.indexOf(k) < 0) ofOrc.push(k); });
   } catch (e) { console.log('FO na oficina/orçamento: ' + e); }
   var removidos = [], conflitos = [];
   (card.checklists || []).forEach(function (k) {
@@ -764,6 +771,7 @@ function cp_foNaOficina_(card, token, quem) {
       // mesmo código na lista da oficina — ou, sem o código bater, peça ➕ complemento da oficina com a mesma descrição
       // (07/10/2026, QPG1B84: orçamento complementar trocou a CALOTA de FO para oficina com código novo)
       var pm = (kc && codigos[kc]) || complementos.filter(function (p) { return cp_similar_(p.descricao || '', descFo) > 0; })[0];
+      if (!pm && kc && naoCods[kc] && ofOrc.indexOf(kc) >= 0) pm = naoCods[kc];   // 16/11/2026 (AVO4E81)
       if (!pm) return;
       // só é conflito quando o item FO nasceu DEPOIS da compra (laudo novo): item FO mais velho que a compra = a oficina venceu
       // (RHM1J09, 07/10) e ele sai como antes. A idade vem do id do Trello (ObjectId: 1ºs 8 hex = época em segundos).
