@@ -678,6 +678,23 @@ function rc_nfCandidata_(a) {
  *  no padrão das rotinas e passa a valer na régua. Devolve quantos candidatos AINDA faltam ler (0 = tudo conferido).
  *  A leitura fica guardada (aba ANEXOS): candidato já lido que não era nota não é lido de novo e não conta. */
 var RC_NF_LEITURAS = { max: 4, feitas: 0 };
+/** 16/11/2026 (régua por peça): códigos lidos de uma nota já guardada no cache de leitura; null = conteúdo não lido. */
+function rc_nfCodsCache_(idAnexo) {
+  try { var v = vd_anxGet_(idAnexo); if (!v) return null; var r = JSON.parse(v); return r && r.nf && Array.isArray(r.nf.cods) ? r.nf.cods : null; } catch (e) { return null; }
+}
+/** Lê (com o mesmo limite por varredura das notas anexadas à mão) as notas de compra do card que ainda não têm os códigos
+ * guardados — só em card com 2+ compras com código, que é onde a conferência por peça muda alguma coisa. */
+function rc_lerCodsNotas_(card, fim) {
+  try {
+    var comCod = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista) && /\d/.test(String(i.base || '').split(/\s+/)[0]); }).length;
+    if (comCod < 2) return;
+    (card.attachments || []).filter(function (a) { return rc_nfDeCompra_(a) && a.url && vd_anexoLegivel_(a) && !rc_nfCodsCache_(a.id); }).forEach(function (a) {
+      if (RC_NF_LEITURAS.feitas >= RC_NF_LEITURAS.max || (fim && Date.now() > fim - 12 * 1000)) return;
+      RC_NF_LEITURAS.feitas++;
+      try { vd_lerAnexoTrello_(a, { nfCods: true }); } catch (e) { console.log('códigos da nota ' + card.shortLink + ': ' + e); }
+    });
+  } catch (e) { console.log('códigos das notas: ' + e); }
+}
 function rc_lerNotasMao_(card, fim) {
   var cand = (card.attachments || []).filter(function (a) { return rc_nfCandidata_(a) && a.url && vd_anexoLegivel_(a); });
   var faltam = 0;
@@ -703,7 +720,7 @@ function rc_notasOficina_(card) {
   var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
   // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
   // AUTOX cobrindo a compra da DIPAUTO)
-  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
+  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { id: a.id, nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
   var forns = [], porForn = {}, doEstoque = 0;
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
@@ -731,7 +748,9 @@ function rc_notasOficina_(card) {
     // 13/11/2026 (Weslley: "WEV ESTOQUE pode dispensar a nota"): peça do estoque próprio não tem nota fiscal de compra —
     // não entra na régua (SWQ0F73, DPJ2D42, RHH0C51, BAI8D21 ficavam presos em ENCERRADO por causa dela)
     if (RC_NF_ESTOQUE.test(forn)) { doEstoque++; return; }
-    if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]).concat(palavrasCadastro(pt[iForn])) : [] }; forns.push(forn); }
+    if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]).concat(palavrasCadastro(pt[iForn])) : [], cods: [] }; forns.push(forn); }
+    var codN = codigo.replace(/[^A-Z0-9]/g, '');
+    if (iForn > 0 && codN.length >= 6 && /\d/.test(codN) && porForn[forn].cods.indexOf(codN) < 0) porForn[forn].cods.push(codN);
     if (iForn < 0) rc_nfPalavras_(i.base).forEach(function (w) { if (porForn[forn].chaves.indexOf(w) < 0) porForn[forn].chaves.push(w); });
     if (iForn !== 0 && codigo && codigo.length >= 4 && /\d/.test(codigo) && porForn[forn].chaves.indexOf(codigo) < 0) porForn[forn].chaves.push(codigo);
   });
@@ -747,8 +766,29 @@ function rc_notasOficina_(card) {
   notas.filter(function (n) { return !n.usada && !n.servico && n.pal.indexOf('MERCADO') < 0; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
   var livres = Object.keys(emitentes).length, faltamN = Math.max(0, faltam.length - livres);
   if (faltam.length && !faltamN) { cobertos = cobertos.concat(faltam); faltam = []; }
+  /* 16/11/2026 (Weslley, BDD4D27 Sandero Yelum: 2 peças lançadas na OPEN TOLEDO, compradas em lojas diferentes — a 1ª nota
+   * liberou o card para ENTREGUES sem a 2ª; "alterar no principal"): conferência POR PEÇA. Fornecedor coberto, com 2 ou mais
+   * peças com código: se o código de pelo menos uma peça está dentro das notas dele (prova de que as notas trazem o código do
+   * card) e o de outra não está em nota nenhuma do card, essa outra está SEM NOTA. Só vale quando todas as notas do fornecedor
+   * têm o conteúdo lido (nf.cods); peça sem código, fornecedor de código próprio (paralelo: nenhum código bate) ou nota sem
+   * leitura = regra de antes. */
+  var semNotaPeca = [];
+  try {
+    var codsNota = {}, todosCods = [];
+    notas.forEach(function (n) { var cs = rc_nfCodsCache_(n.id); codsNota[n.id] = cs; if (cs) todosCods = todosCods.concat(cs); });
+    var temCod = function (k) { return todosCods.some(function (c) { return c === k || (c.length > k.length && c.indexOf(k) >= 0); }); };
+    forns.forEach(function (f) {
+      var pf = porForn[f];
+      if (cobertos.indexOf(f) < 0 || (pf.cods || []).length < 2) return;
+      var dele = notas.filter(function (n) { return n.pal.some(function (w) { return pf.chaves.indexOf(w) >= 0; }); });
+      if (!dele.length || dele.some(function (n) { return !codsNota[n.id]; })) return;
+      var achou = pf.cods.filter(temCod), falta = pf.cods.filter(function (k) { return !temCod(k); });
+      if (achou.length && falta.length) semNotaPeca.push({ forn: f, cods: falta });
+    });
+  } catch (e) { console.log('régua por peça: ' + e); }
+  semNotaPeca.forEach(function (x) { faltamN += x.cods.length; faltam.push(x.forn + ' — peça ' + x.cods.join(', ')); });
   // faltamN = quantas compras ainda estão sem nota; faltam = fornecedores sem nota identificada pelo nome (lista inteira quando sobra alguma)
-  return { pagas: pagas.length - doEstoque, estoque: doEstoque, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };
+  return { semNotaPeca: semNotaPeca, pagas: pagas.length - doEstoque, estoque: doEstoque, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };
 }
 /**
  * Card em ENCERRADO: libera para ENTREGUES quando tudo foi recebido, não há devolução aguardando NF e toda compra da oficina
@@ -813,7 +853,7 @@ function rc_varrerEncerrado_() {
     if (Date.now() > fim) return;
     try {
       // nota anexada à mão: confere o conteúdo e batiza antes de decidir (só com tudo recebido — senão a nota ainda não segura nada)
-      if (!vdf_cardProtegido_(c.name || '') && !vdf_itensRecebimento_(c).some(function (i) { return !i.ok; })) rc_lerNotasMao_(c, fim);
+      if (!vdf_cardProtegido_(c.name || '') && !vdf_itensRecebimento_(c).some(function (i) { return !i.ok; })) { rc_lerNotasMao_(c, fim); rc_lerCodsNotas_(c, fim); }
       var lib = rc_liberarEncerrado_(c, ctx, null, 'robô', { comentar: true });
       if (lib.movido) { n++; return; }
       // 06/11/2026 (AAZ0E84 Cherokee: em ENCERRADO desde 22/10 com devolução aguardando NF — a regra de 05/11 leva para FALTA

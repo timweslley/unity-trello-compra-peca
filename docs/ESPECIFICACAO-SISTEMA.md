@@ -221,6 +221,15 @@ também nessa coluna, e a varredura de FALTA CHEGAR reavalia card sem item. (4) 
 sai do FORNECIMENTO quando o orçamento **mais novo** do card traz o código como peça da oficina (AVO4E81: calota fornecida
 na versão de 20/10 e da oficina na de 30/10, mesmo nº); se o mais novo ainda fornece, ou não há leitura guardada, nada muda.
 
+**Régua da nota POR PEÇA (16/11/2026, Weslley, BDD4D27 Sandero Yelum — "alterar no principal").** As duas peças estavam
+lançadas na OPEN TOLEDO e foram compradas em lojas diferentes; a primeira nota liberou o card para ENTREGUES sem a segunda.
+Agora, depois da conferência por fornecedor: fornecedor coberto com **2 ou mais peças com código** — se o código de pelo
+menos uma está dentro das notas dele (prova de que a nota traz o código do card) e o de outra não aparece em **nenhuma nota
+do card**, essa outra conta como compra sem nota (`fornecedor — peça CÓDIGO` no aviso). Só vale quando todas as notas desse
+fornecedor têm o conteúdo lido (`nf.cods`, guardado na leitura do anexo; a varredura de ENCERRADO lê as que faltam, no mesmo
+limite de leituras). Peça sem código, fornecedor de código próprio (paralelo/usado: nenhum código bate) ou nota sem leitura
+= regra de antes (por fornecedor). Card que já está em ENTREGUES com leitura antiga não é mexido.
+
 **Nota de refaturamento (16/11/2026 — só no TESTE; principal: `VD_REFAT=SIM` + `PU_CFG.REFATURAMENTO: 'todos'`, com OK do Weslley).**
 No pedido novo e no ✏️ Editar, o consultor responde "🧾 Precisa de nota de refaturamento?" (Não / Sim + de qual empresa é o
 CNPJ, opcional — só o nome curto, nunca o número). Com Sim, a descrição oficial ganha `**REFATURAMENTO:** SIM — CNPJ <EMPRESA>`

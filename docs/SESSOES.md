@@ -616,3 +616,5 @@ da outra, deixar um recado aqui e no commit.
   CHEGAR sem nada para chegar: as 2 peças viraram 🚫 não comprar e o FORNECIMENTO ficou vazio).
 - **16/11 (10h)** — AVO4E81 (Celta, Yelum): calota no FORNECIMENTO vinda da versão antiga do orçamento (20/10); a de 30/10
   passou a peça para a oficina e o consultor marcou 🚫 não comprar. O robô agora tira o item FO nesse caso.
+- **16/11 (10h15)** — Publicadas com OK do Weslley (09h52) as correções de BBE0G95, AXY2C69 e AVO4E81, e a régua da nota
+  por peça (BDD4D27: uma nota da OPEN cobria duas peças compradas em lojas diferentes).

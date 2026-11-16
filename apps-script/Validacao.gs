@@ -941,6 +941,8 @@ function vd_lerAnexoTrello_(a, opt) {
     // leitor do Cilia corrigido (14/10/2026, JDC7H45: código com ponto no fim sumia): o formulário relê orçamento Cilia lido
     // pelo leitor antigo — só quando alguém pede no formulário, sem reler tudo de uma vez
     else if (r && opt.orcCompleto && r.orcamento === 'CILIA' && (r.rl || 0) < VD_LEITOR_V) r = null;
+    // 16/11/2026 (régua por peça): a régua pede os códigos da nota e a leitura guardada é de antes deles — lê de novo uma vez
+    else if (r && opt.nfCods && r.nf && !r.nf.cods) r = null;
     // cache sem a placa "com rótulo" e com placas ambíguas: lê de novo uma vez
     else if (r && !r.placasRot && (r.placas || []).length > 1) r = null;
     if (r) r.doCache = true;
@@ -959,7 +961,7 @@ function vd_lerAnexoTrello_(a, opt) {
       var orc = vd_lerOrcamento_(texto);
       if (api) { orc = cl_juntarApi_(orc, api, r); r.api = api.nv; }
       r.cor = orc.cor; r.seguradora = orc.seguradora; r.sinistro = orc.sinistro; r.orcamento = orc.origem;
-      if (!orc.origem) { try { var nfL = ax_dadosNf_(texto); if (nfL) r.nf = nfL; } catch (e) {} }   // nota fiscal: nome no padrão das rotinas (13/10/2026)
+      if (!orc.origem) { try { var nfL = ax_dadosNf_(texto); if (nfL) { nfL.cods = ax_codsNf_(texto); r.nf = nfL; } } catch (e) {} }   // nota fiscal: nome no padrão das rotinas (13/10/2026)
       // tipo do documento para o nome padronizado do anexo (05/10/2026): "Status do Pedido" do Cilia = fornecimento
       if (!orc.origem) {
         var nt = vd_normTexto_(texto);

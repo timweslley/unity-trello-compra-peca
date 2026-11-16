@@ -159,6 +159,18 @@ function ax_dadosNf_(texto) {
   var d = U.match(/DATA (?:DA |DE )?EMISSAO:? ?(\d{2})\/(\d{2})\/\d{2,4}/) || U.match(/\b(\d{2})\/(\d{2})\/20\d\d\b/);
   return { numero: numero, emitente: ax_emitente20_(em), emissao: d ? d[1] + '-' + d[2] : '' };
 }
+/** 16/11/2026 (régua por peça, BDD4D27): códigos que aparecem no texto da nota — palavras de 5 a 20 letras/números com pelo
+ * menos um número, sem pontuação (850457431R, 6445F9…). Fica guardado junto da leitura da nota (nf.cods); só serve para
+ * conferir se o código da peça comprada está na nota. Limite de 400 para não pesar o cache. */
+function ax_codsNf_(texto) {
+  var out = [], visto = {};
+  vd_semAcento_(String(texto || '')).toUpperCase().split(/[\s|;<>="']+/).forEach(function (w) {
+    var k = w.replace(/[^A-Z0-9]/g, '');
+    if (k.length < 5 || k.length > 20 || !/\d/.test(k) || visto[k] || out.length >= 400) return;
+    visto[k] = 1; out.push(k);
+  });
+  return out;
+}
 /** Nome no padrão das rotinas. dataUpload = quando a emissão não foi lida. */
 function ax_nomeNfRotina_(nf, fornecimento, dataUpload, ext) {
   var dt = nf.emissao || Utilities.formatDate(dataUpload ? new Date(dataUpload) : new Date(), 'America/Sao_Paulo', 'dd-MM');
