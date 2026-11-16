@@ -10907,10 +10907,21 @@ html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2to
   var ESTOQUE = /-\s*(WEV\s+ESTOQUE|ESTOQUE\s+WEV|ESTOQUE)\s*(-|$)/i;
   function pagas() { return ((window.CARD && window.CARD.recebiveis) || []).filter(function (i) { return /^PAGAS/.test(i.lista || '') && !ESTOQUE.test(String(i.base || i.nome || '')); }); }
   function nomeP(i) { return String(i.base || i.nome || '').split(' - ')[0]; }
-  var ULT = '';
+  var ULT = '', ULT_CARD = null, MSG = '', FICAR = false;
   function desenhar(forcar) {
     var c = window.CARD;
     if (!c || !c.nfPecaLigada) { if (box.innerHTML) box.innerHTML = ''; ULT = ''; return; }
+    // card acabou de abrir: se ele está parado em ENCERRADO só esperando a nota, a tela já abre na aba Recebimento
+    // (e volta para ela depois de salvar uma indicação, quando o card é recarregado)
+    if (c !== ULT_CARD) {
+      var primeira = ULT_CARD === null || !ULT_CARD || ULT_CARD.shortLink !== c.shortLink; ULT_CARD = c;
+      try {
+        var liga0 = c.nfPecas || {}, tem0 = {}; (c.notasCard || []).forEach(function (n) { tem0[n.id] = 1; });
+        var falta0 = pagas().some(function (p) { return !(liga0[p.id] && tem0[liga0[p.id].a]); });
+        if (typeof window.mostrarAba === 'function' && g('painelRec') && (FICAR || (primeira && falta0 && /ENCERRADO/i.test(String(c.lista || '')) && !/[?&]aba=/.test(location.search)))) setTimeout(function () { try { window.mostrarAba('rec'); if (FICAR) box.scrollIntoView({ block: 'center' }); } catch (x) {} FICAR = false; }, 60);
+      } catch (x) {}
+      if (primeira) MSG = '';
+    }
     var liga = c.nfPecas || {}, notas = c.notasCard || [], ps = pagas(), idsNota = {}; notas.forEach(function (n) { idsNota[n.id] = n; });
     var sig = JSON.stringify([c.shortLink, liga, notas.map(function (n) { return n.id; }), ps.map(function (p) { return p.id; })]);
     if (!forcar && sig === ULT) return; ULT = sig;
@@ -10919,6 +10930,7 @@ html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2to
     var h = sem.length
       ? '<div class="res falta">🧾 ' + (sem.length === 1 ? 'Falta indicar a nota de 1 compra' : 'Falta indicar a nota de ' + sem.length + ' compras') + ' — o card só vai para ENTREGUES depois disso:<ul>' + sem.map(function (p) { return '<li>' + e2(nomeP(p)) + '</li>'; }).join('') + '</ul></div>'
       : '<div class="res ok">🧾 Todas as compras deste card têm nota indicada ✓</div>';
+    if (MSG) h = '<div class="res ok" role="status">' + e2(MSG) + '</div>' + h;
     if (notas.length) h += '<div class="dica" style="margin-bottom:6px">Notas que já estão no card — marque de qual peça cada uma é e clique em <b>Salvar</b>:</div>';
     h += notas.map(function (n, k) {
       return '<div class="nota" data-id="' + e2(n.id) + '" role="group" aria-labelledby="v2nfpN' + k + '"><div class="n" id="v2nfpN' + k + '">📄 ' + e2(n.nome) + '</div><div class="q">É a nota de:</div><div class="chips">'
@@ -10947,6 +10959,8 @@ html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2to
       var msg = r.nada ? 'Nada mudou.' : 'Salvo ✓' + (r.movido ? ' — o card foi para ' + r.movido : '');
       desenhar(true);
       var novo = box.querySelector('.nota[data-id="' + nt.dataset.id + '"] .st'); if (novo) { novo.className = 'st ok'; novo.textContent = msg; }
+      // gravou: recarrega o card (coluna do cabeçalho, estado "salvo") e continua na aba Recebimento, com o aviso no alto do quadro
+      if (!r.nada && typeof window.carregarCard === 'function') { MSG = r.movido ? 'Nota indicada ✓ — o card foi para ' + r.movido + '.' : 'Nota indicada ✓'; FICAR = true; try { window.carregarCard(c.shortLink); } catch (x) { FICAR = false; } }
     }).catch(function (x) { bt.disabled = false; st.className = 'st erro'; st.textContent = 'Não deu para salvar: ' + (x && x.message || x); });
   });
   setInterval(function () { desenhar(false); }, 500);
