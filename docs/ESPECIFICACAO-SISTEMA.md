@@ -230,8 +230,10 @@ fornecedor têm o conteúdo lido (`nf.cods`, guardado na leitura do anexo; a var
 limite de leituras). Peça sem código, fornecedor de código próprio (paralelo/usado: nenhum código bate) ou nota sem leitura
 = regra de antes (por fornecedor). Card que já está em ENTREGUES com leitura antiga não é mexido.
 
-**Nota INDICADA por peça (16/11/2026 — só no TESTE; principal: `VD_NF_PECA=SIM`, `VD_NF_PECA_DESDE=<data da virada>` e
-`PU_CFG.NF_PECA: 'todos'`, com OK do Weslley).** Weslley (16/11, 10h34): "o atendente tem que lançar a nota e indicar a peça
+**Nota INDICADA por peça (16/11/2026 — ligada no principal às 11h30 com OK do Weslley: "o compras deve indicar, e precisa
+aparecer pra ele as notas que já estão anexadas"; virada = compras lançadas a partir de 16/11 12h00, `VD_NF_PECA_DESDE`;
+desligar: `VD_NF_PECA=NAO` + `PU_CFG.NF_PECA: 'teste'`). Vale também para a nota que a rotina da madrugada anexa (Qive,
+Mercado Livre): aparece no quadro "Notas deste card" e só conta depois de indicada.** Weslley (16/11, 10h34): "o atendente tem que lançar a nota e indicar a peça
 que está baixando; o automático era só para aquela vez". Até aqui o "refere-se a:" da aba 📦 Recebimento só dava nome ao
 arquivo. Agora: (1) a ligação nota ↔ peça comprada fica guardada (`RC_NFP_<card>`: item do PAGAS → anexo), gravada no
 recebimento e por `vdf_indicarNota` (aba Recebimento → quadro "Notas deste card": marca de qual peça é cada nota que já

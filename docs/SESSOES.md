@@ -621,3 +621,5 @@ da outra, deixar um recado aqui e no commit.
 - **16/11 (11h)** — Nota indicada por peça (Weslley: "o atendente tem que lançar a nota e indicar a peça que está baixando;
   o automático era só para aquela vez"): a ligação nota ↔ peça passa a ficar guardada, a régua exige nota indicada por compra
   e a aba Recebimento mostra as notas do card para indicar a peça. Só no TESTE (`PU_CFG.NF_PECA`, `vdf_nfPecaLigada_`).
+- **16/11 (11h30)** — Nota indicada por peça ligada no principal (OK do Weslley 10h48). Vale para card com todas as compras
+  lançadas a partir de 16/11 12h00; os demais seguem a régua por fornecedor. Conferido no TESTE (TST1R16) nos dois aparelhos.

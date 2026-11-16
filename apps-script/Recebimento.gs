@@ -689,8 +689,10 @@ var RC_NF_LEITURAS = { max: 4, feitas: 0 };
  * e, com a regra ligada, cada compra da oficina só conta com nota quando tem uma nota INDICADA para ela (anexo ainda no card).
  * Liga: quadro TESTE, ou VD_NF_PECA=SIM no principal (com OK). Só vale para card em que TODAS as compras foram lançadas depois
  * de VD_NF_PECA_DESDE (data da virada): card com compra anterior segue a regra de antes — nada volta em massa. */
-function vdf_nfPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_NF_PECA', 'NAO') === 'SIM'; } catch (e) { return false; } }
-function rc_nfPecaDesde_() { try { var d = Date.parse(vd_prop_('VD_NF_PECA_DESDE', '2026-11-16T12:00:00Z')); return isNaN(d) ? 0 : d; } catch (e) { return 0; } }
+/* 16/11/2026 10h48 — Weslley: "1 o compras deve indicar, e precisa aparecer pra ele as notas que já estão anexadas · 2 pode ser":
+ * ligado no principal (desligar: VD_NF_PECA=NAO + PU_CFG.NF_PECA: 'teste'). Virada: compras lançadas a partir de 16/11 12h00. */
+function vdf_nfPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_NF_PECA', 'SIM') !== 'NAO'; } catch (e) { return false; } }
+function rc_nfPecaDesde_() { try { var d = Date.parse(vd_prop_('VD_NF_PECA_DESDE', '2026-11-16T15:00:00Z')); return isNaN(d) ? 0 : d; } catch (e) { return 0; } }
 function rc_nfPecas_(cardId) { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('RC_NFP_' + cardId) || '{}') || {}; } catch (e) { return {}; } }
 /** novos = { idItem: {a, n, q} | null (tira a ligação) } */
 function rc_nfPecasGravar_(cardId, novos) {
