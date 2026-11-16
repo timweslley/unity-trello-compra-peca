@@ -217,7 +217,9 @@ repete chamadas lentas em paralelo).
 palavras dele, como o item sem " - ". (2) Nota "NF ML - …" sobrando não cobre fornecedor sem nota que não seja o Mercado
 Livre. (3) Card em FALTA CHEGAR sem item nenhum de checklist, sem devolução aberta e com toda peça 🚫 não comprar (AXY2C69)
 vai para ENTREGUES — a regra de 06/11 ("sem peça a comprar nem a fornecer pode ir direto para ENTREGUES") passa a valer
-também nessa coluna, e a varredura de FALTA CHEGAR reavalia card sem item.
+também nessa coluna, e a varredura de FALTA CHEGAR reavalia card sem item. (4) Item FO pendente de peça marcada 🚫 não comprar
+sai do FORNECIMENTO quando o orçamento **mais novo** do card traz o código como peça da oficina (AVO4E81: calota fornecida
+na versão de 20/10 e da oficina na de 30/10, mesmo nº); se o mais novo ainda fornece, ou não há leitura guardada, nada muda.
 
 **Nota de refaturamento (16/11/2026 — só no TESTE; principal: `VD_REFAT=SIM` + `PU_CFG.REFATURAMENTO: 'todos'`, com OK do Weslley).**
 No pedido novo e no ✏️ Editar, o consultor responde "🧾 Precisa de nota de refaturamento?" (Não / Sim + de qual empresa é o

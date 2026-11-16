@@ -826,11 +826,19 @@ function rc_varrerEncerrado_() {
   // ficou em FALTA CHEGAR com tudo ✔ desde 30/10. Agora a varredura também olha FALTA CHEGAR: tudo ✔ → reavalia (→ ENCERRADO → ENTREGUES).
   var idChegar = ctx.listas[VDF_LISTA_CHEGAR], m = 0;
   if (idChegar && Date.now() < fim) {
-    var pendentes = vd_api_('/lists/' + idChegar + '/cards', { query: { fields: 'name,idList,shortLink', checklists: 'all', checkItem_fields: 'name,state' } }) || [];
+    var pendentes = vd_api_('/lists/' + idChegar + '/cards', { query: { fields: 'name,idList,shortLink,desc', checklists: 'all', checkItem_fields: 'name,state' } }) || [];
     pendentes.forEach(function (c) {
       if (Date.now() > fim || vdf_cardProtegido_(c.name || '')) return;
       var its = vdf_itensRecebimento_(c);
-      if (its.some(function (i) { return !i.ok; })) return;   // 16/11/2026: sem item nenhum também reavalia (AXY2C69: tudo 🚫 não comprar)
+      // 16/11/2026 (AVO4E81): item FO pendente de peça que o pedido marca 🚫 não comprar — a reavaliação confere com o orçamento
+      // mais novo (cp_foNaOficina_) e tira o item se a peça passou para a oficina. Só esses cards com pendência são reavaliados.
+      var foNao = its.some(function (i) {
+        if (i.ok || !/^FORNECIMENTO/.test(i.lista)) return false;
+        var cod = vd_semAcento_(String(i.base || '')).toUpperCase().split(/\s+/)[0];
+        if (cod.length < 4 || !/\d/.test(cod)) return false;
+        return String(c.desc || '').split('\n').some(function (l) { return l.indexOf(cod) >= 0 && /🚫|N[ÃA]O COMPRAR/i.test(l); });
+      });
+      if (its.some(function (i) { return !i.ok; }) && !foNao) return;   // 16/11/2026: sem item nenhum também reavalia (AXY2C69: tudo 🚫 não comprar)
       try { if (rc_reavaliarColuna_(c.id, null, 'robô', { reavaliar: true, varredura: true })) m++; } catch (e) { console.log('varredura FALTA CHEGAR ' + c.shortLink + ': ' + e); }
     });
   }

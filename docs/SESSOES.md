@@ -614,3 +614,5 @@ da outra, deixar um recado aqui e no commit.
 - **16/11 (09h45)** — Falhas do robô vistas pelo Weslley: BBE0G95 (item antigo do PAGAS lido com o valor "450,00" como
   fornecedor — a régua cobrava nota para sempre; e nota do ML sobrando cobria a DIPAUTO) e AXY2C69 (card 3 semanas em FALTA
   CHEGAR sem nada para chegar: as 2 peças viraram 🚫 não comprar e o FORNECIMENTO ficou vazio).
+- **16/11 (10h)** — AVO4E81 (Celta, Yelum): calota no FORNECIMENTO vinda da versão antiga do orçamento (20/10); a de 30/10
+  passou a peça para a oficina e o consultor marcou 🚫 não comprar. O robô agora tira o item FO nesse caso.
