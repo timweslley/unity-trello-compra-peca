@@ -611,3 +611,6 @@ da outra, deixar um recado aqui e no commit.
   opção a compra com o CNPJ fica obrigatória"): opção no pedido novo/edição, marca `**REFATURAMENTO:**` na descrição, aviso ao
   comprador e caixa obrigatória "Comprei com nota no CNPJ…" na compra (servidor recusa sem ela). Só no TESTE
   (`PU_CFG.REFATURAMENTO: 'teste'`, `vdf_refatLigada_`); principal espera o OK.
+- **16/11 (09h45)** — Falhas do robô vistas pelo Weslley: BBE0G95 (item antigo do PAGAS lido com o valor "450,00" como
+  fornecedor — a régua cobrava nota para sempre; e nota do ML sobrando cobria a DIPAUTO) e AXY2C69 (card 3 semanas em FALTA
+  CHEGAR sem nada para chegar: as 2 peças viraram 🚫 não comprar e o FORNECIMENTO ficou vazio).

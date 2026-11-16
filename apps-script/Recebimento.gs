@@ -562,10 +562,13 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   else if (lista === RC.LISTA_FIM && devAbertas.length && !vd_legado_(card.id)) { alvo = VDF_LISTA_CHEGAR; soFo = devAbertas.length + ' devolução(ões) aguardando NF'; }
   // sem peça da oficina para comprar (só FO, ou tudo marcado 🚫 não comprar) em qualquer coluna antes da compra:
   // não tem o que cotar/autorizar -> FALTA CHEGAR (FO pendente) ou ENCERRADO (nada a receber). 05/10/2026 (QPG1B84)
-  if (!alvo && !semCompleta && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
+  // 16/11/2026 (AXY2C69 Fiesta HDI: as 2 peças viraram 🚫 não comprar em 26/10, checklist FORNECIMENTO vazio, e o card ficou 3
+  // semanas em FALTA CHEGAR sem nada para chegar): a mesma regra vale em FALTA CHEGAR quando não há item nenhum de checklist.
+  var chegarVazio = lista === VDF_LISTA_CHEGAR && !itens.length && !devAbertas.length;
+  if (!alvo && !semCompleta && ([VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 || chegarVazio) &&
       itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista) || i.ok; }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido; PAGAS já recebido não impede (13/10/2026, BBG3844: tudo 🚫 e compras antigas ✔)
     var an = vd_analisar_(card.desc, card.name);
-    if (!an.pecas.length && (itens.length || (an.naoComprar || []).length || devAbertas.length)) {
+    if (!an.pecas.length && (itens.length || (an.naoComprar || []).length || devAbertas.length) && (!chegarVazio || (an.naoComprar || []).length)) {
       // 06/11/2026 (Weslley): "se não tiver peça a comprar nem a fornecer pode ir direto para ENTREGUES" — sem item nenhum de
       // checklist (nada comprado, nada da seguradora) e sem devolução, não passa por ENCERRADO
       alvo = pendOuDev ? VDF_LISTA_CHEGAR : (itens.length ? RC.LISTA_FIM : 'ENTREGUES');
@@ -721,6 +724,9 @@ function rc_notasOficina_(card) {
   pagas.forEach(function (i) {
     var pt = i.base.split(/\s+-\s+/), codigo = vd_semAcento_(String(pt[0] || '')).toUpperCase().split(/\s+/)[0];
     var iForn = pt.length >= 2 ? (cad[fo_norm_(pt[1])] ? 1 : (cad[fo_norm_(pt[0])] ? 0 : 1)) : -1;
+    // 16/11/2026 (BBE0G95 Peugeot 208, item antigo "RETROVISOR DIR ML MATRIZ US - 450,00"): a parte escolhida era o VALOR — o robô
+    // cobrava nota do "fornecedor 450,00" para sempre. Valor não é fornecedor: o item vale pelas palavras dele (como o item sem " - ").
+    if (iForn >= 0 && /^[R$\s\d.,]+$/.test(pt[iForn])) iForn = -1;
     var forn = iForn >= 0 ? vd_semAcento_(pt[iForn]).toUpperCase().replace(/\s+/g, ' ').trim() : '(sem fornecedor)';
     // 13/11/2026 (Weslley: "WEV ESTOQUE pode dispensar a nota"): peça do estoque próprio não tem nota fiscal de compra —
     // não entra na régua (SWQ0F73, DPJ2D42, RHH0C51, BAI8D21 ficavam presos em ENCERRADO por causa dela)
@@ -737,7 +743,8 @@ function rc_notasOficina_(card) {
   });
   // nota sobrando: duas notas do mesmo emitente (SGA 100175 e SGA 101802) contam uma só — não cobrem dois fornecedores diferentes
   var emitentes = {};
-  notas.filter(function (n) { return !n.usada && !n.servico; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
+  // 16/11/2026 (BBE0G95): nota do Mercado Livre sobrando ("NF ML - …") é de compra do ML — não cobre outro fornecedor sem nota (DIPAUTO)
+  notas.filter(function (n) { return !n.usada && !n.servico && n.pal.indexOf('MERCADO') < 0; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
   var livres = Object.keys(emitentes).length, faltamN = Math.max(0, faltam.length - livres);
   if (faltam.length && !faltamN) { cobertos = cobertos.concat(faltam); faltam = []; }
   // faltamN = quantas compras ainda estão sem nota; faltam = fornecedores sem nota identificada pelo nome (lista inteira quando sobra alguma)
@@ -823,7 +830,7 @@ function rc_varrerEncerrado_() {
     pendentes.forEach(function (c) {
       if (Date.now() > fim || vdf_cardProtegido_(c.name || '')) return;
       var its = vdf_itensRecebimento_(c);
-      if (!its.length || its.some(function (i) { return !i.ok; })) return;
+      if (its.some(function (i) { return !i.ok; })) return;   // 16/11/2026: sem item nenhum também reavalia (AXY2C69: tudo 🚫 não comprar)
       try { if (rc_reavaliarColuna_(c.id, null, 'robô', { reavaliar: true, varredura: true })) m++; } catch (e) { console.log('varredura FALTA CHEGAR ' + c.shortLink + ': ' + e); }
     });
   }

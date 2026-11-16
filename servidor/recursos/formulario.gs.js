@@ -449,19 +449,19 @@ var RC = { LISTA_FIM: 'ENCERRADO COMPRAS/FORNEC.', LOCAIS_MAX: 60 };
 // Recebimento.gs:17
 var RC_RE_MARCA = /\s*·\s*(📍|✋|↩️?|🔁)\s*([^·]*?)\s*(?=\s*·\s*(?:📍|✋|↩️?|🔁)|$)/g;
 
-// Recebimento.gs:641
+// Recebimento.gs:644
 var RC_NF = {
   CADA_MIN: 10,
   GENERICAS: /^(NF|NFE|NFSE|DANFE|NOTA|FISCAL|LTDA|EPP|EIRELI|MEI|COMERCIO|COMERCIAL|INDUSTRIA|INDUSTRIAL|DISTRIBUIDORA|DISTRIBUICAO|AUTO|AUTOMOTIVA|AUTOMOTIVO|AUTOMOTIVOS|AUTOPECAS|AUTOPECA|PECAS|PECA|ACESSORIOS|ACESSORIO|IMPORTADORA|IMPORTACAO|IMPORT|VEICULOS|VEICULO|SERVICOS|SERVICO|CENTER|CENTRO|BRASIL|DOS|DAS|COM|PARA|RESUMO|PDF|XML|FORNECIMENTO|DEVOLUCAO|FILIAL|MATRIZ|GRUPO|CIA|THE|AND|NOVA|NOVO|SUL|NORTE|SAO|SANTA|SANTO)$/
 };
 
-// Recebimento.gs:657
+// Recebimento.gs:660
 var RC_NF_ESTOQUE = /^(WEV\s+ESTOQUE|ESTOQUE\s+WEV|ESTOQUE)$/;
 
-// Recebimento.gs:677
+// Recebimento.gs:680
 var RC_NF_LEITURAS = { max: 4, feitas: 0 };
 
-// Recebimento.gs:892
+// Recebimento.gs:899
 var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF' };
 
 // Saude.gs:12
@@ -9548,10 +9548,13 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   else if (lista === RC.LISTA_FIM && devAbertas.length && !vd_legado_(card.id)) { alvo = VDF_LISTA_CHEGAR; soFo = devAbertas.length + ' devolução(ões) aguardando NF'; }
   // sem peça da oficina para comprar (só FO, ou tudo marcado 🚫 não comprar) em qualquer coluna antes da compra:
   // não tem o que cotar/autorizar -> FALTA CHEGAR (FO pendente) ou ENCERRADO (nada a receber). 05/10/2026 (QPG1B84)
-  if (!alvo && !semCompleta && [VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 &&
+  // 16/11/2026 (AXY2C69 Fiesta HDI: as 2 peças viraram 🚫 não comprar em 26/10, checklist FORNECIMENTO vazio, e o card ficou 3
+  // semanas em FALTA CHEGAR sem nada para chegar): a mesma regra vale em FALTA CHEGAR quando não há item nenhum de checklist.
+  var chegarVazio = lista === VDF_LISTA_CHEGAR && !itens.length && !devAbertas.length;
+  if (!alvo && !semCompleta && ([VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 || chegarVazio) &&
       itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista) || i.ok; }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido; PAGAS já recebido não impede (13/10/2026, BBG3844: tudo 🚫 e compras antigas ✔)
     var an = vd_analisar_(card.desc, card.name);
-    if (!an.pecas.length && (itens.length || (an.naoComprar || []).length || devAbertas.length)) {
+    if (!an.pecas.length && (itens.length || (an.naoComprar || []).length || devAbertas.length) && (!chegarVazio || (an.naoComprar || []).length)) {
       // 06/11/2026 (Weslley): "se não tiver peça a comprar nem a fornecer pode ir direto para ENTREGUES" — sem item nenhum de
       // checklist (nada comprado, nada da seguradora) e sem devolução, não passa por ENCERRADO
       alvo = pendOuDev ? VDF_LISTA_CHEGAR : (itens.length ? RC.LISTA_FIM : 'ENTREGUES');
@@ -9611,7 +9614,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   return movido;
 }
 
-// Recebimento.gs:646
+// Recebimento.gs:649
 function rc_nfPalavras_(s) {
   var t = vd_semAcento_(String(s || '')).toUpperCase().replace(/\.(PDF|XML|JPE?G|PNG)$/i, '');
   var out = [];
@@ -9623,13 +9626,13 @@ function rc_nfPalavras_(s) {
   return out;
 }
 
-// Recebimento.gs:659
+// Recebimento.gs:662
 function rc_nfDeCompra_(a) {
   var n = String((a && a.name) || '');
   return !!(a && a.isUpload !== false) && ax_ehNota_(n) && !/FORNECIMENTO|DEVOLU/i.test(n);
 }
 
-// Recebimento.gs:667
+// Recebimento.gs:670
 function rc_nfCandidata_(a) {
   if (!a || a.isUpload === false) return false;
   var n = String(a.name || ''), arq = String(a.fileName || String(a.url || '').split('/').pop() || '');
@@ -9638,7 +9641,7 @@ function rc_nfCandidata_(a) {
   return /\.pdf$/i.test(arq) || /\.pdf\b/i.test(n) || /pdf/i.test(a.mimeType || '');
 }
 
-// Recebimento.gs:678
+// Recebimento.gs:681
 function rc_lerNotasMao_(card, fim) {
   var cand = (card.attachments || []).filter(function (a) { return rc_nfCandidata_(a) && a.url && vd_anexoLegivel_(a); });
   var faltam = 0;
@@ -9657,7 +9660,7 @@ function rc_lerNotasMao_(card, fim) {
   return faltam;
 }
 
-// Recebimento.gs:699
+// Recebimento.gs:702
 function rc_notasOficina_(card) {
   var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
   // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
@@ -9683,6 +9686,9 @@ function rc_notasOficina_(card) {
   pagas.forEach(function (i) {
     var pt = i.base.split(/\s+-\s+/), codigo = vd_semAcento_(String(pt[0] || '')).toUpperCase().split(/\s+/)[0];
     var iForn = pt.length >= 2 ? (cad[fo_norm_(pt[1])] ? 1 : (cad[fo_norm_(pt[0])] ? 0 : 1)) : -1;
+    // 16/11/2026 (BBE0G95 Peugeot 208, item antigo "RETROVISOR DIR ML MATRIZ US - 450,00"): a parte escolhida era o VALOR — o robô
+    // cobrava nota do "fornecedor 450,00" para sempre. Valor não é fornecedor: o item vale pelas palavras dele (como o item sem " - ").
+    if (iForn >= 0 && /^[R$\s\d.,]+$/.test(pt[iForn])) iForn = -1;
     var forn = iForn >= 0 ? vd_semAcento_(pt[iForn]).toUpperCase().replace(/\s+/g, ' ').trim() : '(sem fornecedor)';
     // 13/11/2026 (Weslley: "WEV ESTOQUE pode dispensar a nota"): peça do estoque próprio não tem nota fiscal de compra —
     // não entra na régua (SWQ0F73, DPJ2D42, RHH0C51, BAI8D21 ficavam presos em ENCERRADO por causa dela)
@@ -9699,14 +9705,15 @@ function rc_notasOficina_(card) {
   });
   // nota sobrando: duas notas do mesmo emitente (SGA 100175 e SGA 101802) contam uma só — não cobrem dois fornecedores diferentes
   var emitentes = {};
-  notas.filter(function (n) { return !n.usada && !n.servico; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
+  // 16/11/2026 (BBE0G95): nota do Mercado Livre sobrando ("NF ML - …") é de compra do ML — não cobre outro fornecedor sem nota (DIPAUTO)
+  notas.filter(function (n) { return !n.usada && !n.servico && n.pal.indexOf('MERCADO') < 0; }).forEach(function (n) { emitentes[n.pal.slice(0, 2).join(' ') || n.nome] = 1; });
   var livres = Object.keys(emitentes).length, faltamN = Math.max(0, faltam.length - livres);
   if (faltam.length && !faltamN) { cobertos = cobertos.concat(faltam); faltam = []; }
   // faltamN = quantas compras ainda estão sem nota; faltam = fornecedores sem nota identificada pelo nome (lista inteira quando sobra alguma)
   return { pagas: pagas.length - doEstoque, estoque: doEstoque, fornecedores: forns.length, cobertos: cobertos, faltam: faltam, faltamN: faltamN, notas: notas.length };
 }
 
-// Recebimento.gs:751
+// Recebimento.gs:758
 function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   opt = opt || {};
   var r = { movido: '', pendRec: [], devAbertas: [], faltamNf: [], faltamN: 0, notas: 0 };
@@ -9745,7 +9752,7 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   return r;
 }
 
-// Recebimento.gs:789
+// Recebimento.gs:796
 function rc_textoSegura_(r) {
   if (!r) return '';
   if (r.pendRec.length) return r.pendRec.length + ' peça(s) ainda não recebida(s)';
@@ -9754,7 +9761,7 @@ function rc_textoSegura_(r) {
   return '';
 }
 
-// Recebimento.gs:797
+// Recebimento.gs:804
 function rc_varrerEncerrado_() {
   if (!vd_ligado_() || vd_modo_() !== 'ATIVO') return;
   if (new Date().getMinutes() % RC_NF.CADA_MIN !== 0) return;
@@ -9784,7 +9791,7 @@ function rc_varrerEncerrado_() {
     pendentes.forEach(function (c) {
       if (Date.now() > fim || vdf_cardProtegido_(c.name || '')) return;
       var its = vdf_itensRecebimento_(c);
-      if (!its.length || its.some(function (i) { return !i.ok; })) return;
+      if (its.some(function (i) { return !i.ok; })) return;   // 16/11/2026: sem item nenhum também reavalia (AXY2C69: tudo 🚫 não comprar)
       try { if (rc_reavaliarColuna_(c.id, null, 'robô', { reavaliar: true, varredura: true })) m++; } catch (e) { console.log('varredura FALTA CHEGAR ' + c.shortLink + ': ' + e); }
     });
   }
@@ -9801,7 +9808,7 @@ function rc_varrerEncerrado_() {
   return n + m + v;
 }
 
-// Recebimento.gs:843
+// Recebimento.gs:850
 function rc_particularParaFinalizada_(ctx, fim) {
   var idPend = ctx.listas[VDF_LISTA_PENDENTE], idFin = ctx.listas[VDF_LISTA_FINALIZADA];
   if (!idPend || !idFin) return 0;
@@ -9819,7 +9826,7 @@ function rc_particularParaFinalizada_(ctx, fim) {
   return n;
 }
 
-// Recebimento.gs:860
+// Recebimento.gs:867
 function rc_devolverEntregues_(ctx, fim) {
   var idEnt = ctx.listas['ENTREGUES'], idEnc = ctx.listas[RC.LISTA_FIM];
   if (!idEnt || !idEnc) return 0;
@@ -9846,7 +9853,7 @@ function rc_devolverEntregues_(ctx, fim) {
   return v;
 }
 
-// Recebimento.gs:894
+// Recebimento.gs:901
 function rc_checklistDev_(card, token) {
   var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
   if (k) return k;
@@ -9855,10 +9862,10 @@ function rc_checklistDev_(card, token) {
   return k;
 }
 
-// Recebimento.gs:902
+// Recebimento.gs:909
 function rc_devLigado_() { try { return vd_board_() === VD.BOARD_PADRAO || vd_prop_('RC_DEV_PRINCIPAL', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// Recebimento.gs:903
+// Recebimento.gs:910
 function rc_registrarDevolucao_(card, it, motivo, fo, token, quando, opt) {
   if (!rc_devLigado_()) return null;
   var k = rc_checklistDev_(card, token);
@@ -9871,7 +9878,7 @@ function rc_registrarDevolucao_(card, it, motivo, fo, token, quando, opt) {
   return novo;
 }
 
-// Recebimento.gs:915
+// Recebimento.gs:922
 function rc_devolucoes_(card) {
   var out = [];
   (card.checklists || []).forEach(function (k) {
@@ -9885,10 +9892,10 @@ function rc_devolucoes_(card) {
   return out;
 }
 
-// Recebimento.gs:927
+// Recebimento.gs:934
 function rc_devolucoesPendentes_(card) { return rc_devolucoes_(card).filter(function (d) { return !d.ok; }); }
 
-// Recebimento.gs:930
+// Recebimento.gs:937
 function vdf_salvarDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -9942,7 +9949,7 @@ function vdf_salvarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:987
+// Recebimento.gs:994
 function vdf_reavaliarColuna(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
@@ -9955,7 +9962,7 @@ function vdf_reavaliarColuna(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:998
+// Recebimento.gs:1005
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
@@ -9973,7 +9980,7 @@ function vdf_incluirDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, item: novo.name };
 }
 
-// Recebimento.gs:1020
+// Recebimento.gs:1027
 function vdf_incluirColetaFo(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
