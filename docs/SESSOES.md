@@ -623,3 +623,6 @@ da outra, deixar um recado aqui e no commit.
   e a aba Recebimento mostra as notas do card para indicar a peça. Só no TESTE (`PU_CFG.NF_PECA`, `vdf_nfPecaLigada_`).
 - **16/11 (11h30)** — Nota indicada por peça ligada no principal (OK do Weslley 10h48). Vale para card com todas as compras
   lançadas a partir de 16/11 12h00; os demais seguem a régua por fornecedor. Conferido no TESTE (TST1R16) nos dois aparelhos.
+- **16/11 (11h35)** — BBP7A67 (Civic, Zurich): a rotina gravou o fornecimento do emblema às 10h34, no meio de um deploy, e a
+  trava desfez às 10h36 (duas instâncias; a rede de segurança pelo comentário não conhecia "atualizou o fornecimento").
+  Lista de verbos completada (OK do Weslley 11h30). O "google ok=false" das 10h43 foi do mesmo deploy.
