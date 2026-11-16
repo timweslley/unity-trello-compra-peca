@@ -376,8 +376,20 @@ var VD_ROT_EXTRA = {
   tipo: 'TIPO(?:\\s*D[OE]\\s*PEDIDO)?',
   cor: 'COR',
   seguradora: 'SEGURADORA',
-  sinistro: 'SINISTRO|N[ºO°.]*\\s*SINISTRO'
+  sinistro: 'SINISTRO|N[ºO°.]*\\s*SINISTRO',
+  refat: '(?:NOTA\\s+DE\\s+)?REFATURAMENTO'   // 16/11/2026: pedido precisa de nota de refaturamento (compra com nota no CNPJ)
 };
+
+/** 16/11/2026 (Weslley: "o consultor informa se será necessário nota de refaturamento; com essa opção a compra com o CNPJ fica
+ * obrigatória"): lê a linha `**REFATURAMENTO:** SIM — CNPJ WEV` do cabeçalho. Devolve {sim, cnpj} (cnpj = de qual empresa, opcional). */
+function vd_refatLer_(txt) {
+  var v = vd_semAcento_(String(txt || '')).toUpperCase().trim();
+  if (!/^SIM\b/.test(v)) return { sim: false, cnpj: '' };
+  return { sim: true, cnpj: vd_refatCnpj_(v.replace(/^SIM\b[\s\-–—:·]*/, '').replace(/^CNPJ\s*(D[AEO]S?\s+)?/, '')) };
+}
+/** Nome curto da empresa do CNPJ (só letras/números/espaço, até 30) — nunca o número do CNPJ. */
+function vd_refatCnpj_(s) { return vd_semAcento_(String(s || '')).toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 30); }
+function vd_refatTexto_(cnpj) { return 'comprar com nota no CNPJ ' + (cnpj ? 'da ' + cnpj : 'da empresa'); }
 
 /** Assinatura de uma linha de peça (para saber se é peça nova). */
 function vd_sigItem_(linha) {
@@ -462,6 +474,7 @@ function vd_analisar_(desc, nomeCard, opts) {
     seguradora: vd_campo_(bloco, VD_ROT_EXTRA.seguradora),
     sinistro: vd_campo_(bloco, VD_ROT_EXTRA.sinistro)
   };
+  var refatL = vd_refatLer_(vd_campo_(bloco, VD_ROT_EXTRA.refat)); d.refat = refatL.sim ? 'SIM' : ''; d.refatCnpj = refatL.cnpj;
   if (!d.placa) d.placa = vd_placaDoTexto_(nomeCard);
   d.pais = d.pais && vd_placaEstrangeira_(d.placa) === d.pais.toUpperCase() ? d.pais.toUpperCase() : '';
   if (!d.ano && d.modelo) {
@@ -679,6 +692,7 @@ function vd_montarBloco_(d, pecas, obs, rodape, extra) {
   if (extra.cor) L.push('**COR:** ' + extra.cor);
   if (extra.seguradora) L.push('**SEGURADORA:** ' + extra.seguradora);
   if (extra.sinistro) L.push('**SINISTRO:** ' + extra.sinistro);
+  if (extra.refat) L.push('**REFATURAMENTO:** SIM' + (extra.refatCnpj ? ' — CNPJ ' + vd_refatCnpj_(extra.refatCnpj) : ''));   // 16/11/2026
   L.push('');
   L.push('**PEÇAS:**');
   if (pecas.length) pecas.forEach(function (p, i) { L.push(vd_linhaPeca_(p, i)); });
@@ -1826,6 +1840,7 @@ function vd_importarOrcamento_(card, an, lido, ctx) {
     cor: d.cor || (lido.cor && lido.cor.v) || '',
     seguradora: d.seguradora || (lido.seguradora && lido.seguradora.v) || '',
     sinistro: d.sinistro || (lido.sinistro && lido.sinistro.v) || '',
+    refat: d.refat, refatCnpj: d.refatCnpj,   // 16/11/2026: a marca de refaturamento não se perde quando o robô importa o orçamento
     fo: o.fo,
     origemOrc: o.origem
   };
@@ -2753,6 +2768,7 @@ function vd_vitrine_(desc, nome, pagas) {
   var L = ['**' + vd_md_(l1.filter(String).join(' · ')) + '**', vd_md_(l2.filter(String).join(' · '))];
 
   var obsGeral = vd_campo_(an.div.bloco, 'OBS|OBSERVA[ÇC][ÃA]O');
+  if (d.refat) L.push('🧾 **NOTA DE REFATURAMENTO** — ' + vd_md_(vd_refatTexto_(d.refatCnpj)));   // 16/11/2026
   if (obsGeral) L.push('📝 ' + vd_md_(obsGeral));
 
   var cot = { cotacoes: [], nt: [], obs: [], semCot: [] }, auts = [], compras = [], dev = null;

@@ -6252,7 +6252,7 @@ iniciar();
   function assinaturaPedido() {
     try {
       var r = coletarOrig ? coletarOrig() : coletar(); var pl = (r && r.payload) || {};
-      return JSON.stringify({ d: pl.dados, n: pl.novo, o: pl.obs, a: (pl.arquivos || []).length + '/' + (pl.fileIds || []).length + '/' + (pl.capaId || ''),
+      return JSON.stringify({ d: pl.dados, n: pl.novo, o: pl.obs, rf: (window.V2_REFAT && V2_REFAT.sig()) || '',   /* 16/11/2026: nota de refaturamento */ a: (pl.arquivos || []).length + '/' + (pl.fileIds || []).length + '/' + (pl.capaId || ''),
         p: (pl.pecas || []).map(function (x) { var y = {}; Object.keys(x).forEach(function (k) { if (k === 'valorOrc') { var nv = lerValorBR(x[k]); y[k] = isNaN(nv) ? String(x[k] || '').trim() : nv; } else y[k] = x[k]; }); return y; }) });
     } catch (e) { return null; }
   }
@@ -7245,6 +7245,7 @@ iniciar();
       // 21/10/2026 (Weslley): unidade e quem pediu são informação importante para quem autoriza
       + kv('Unidade', (function () { var un = document.getElementById('unidade'), o = un && c.unidadeId ? Array.prototype.filter.call(un.options, function (x) { return x.value === c.unidadeId; })[0] : null; return o ? txt(o.text) : '<span class="v2c-sem">sem unidade</span>'; })())
       + (c.solicitante ? kv('Pedido por', txt(c.solicitante)) : '')
+      + (c.dados && c.dados.refat ? kv('Nota de refaturamento', 'SIM · CNPJ ' + txt(c.dados.refatCnpj ? 'da ' + c.dados.refatCnpj : 'da empresa'), 'Refat!') : '')   // 16/11/2026
       + kv('Peças pela oficina', String(pecs.length))
       + (orc ? kv('Total no orçamento', txt(fmtValor(orc))) : '')
       + (T.cot ? kv('Menor cotação', txt(fmtValor(T.cot))) : '')
@@ -10378,11 +10379,13 @@ document.addEventListener('input', function (e) {
       + '<ul style="margin:4px 0 6px 18px;padding:0">' + vao.map(function (x) { return '<li>' + linha(x) + '</li>'; }).join('') + '</ul>'
       + (ficam.length ? '<div class="dica">Fornecedor pré-marcado pela autorização, sem você escolher — <b>não</b> vai ser registrado agora: ' + ficam.join('; ') + '. Para comprar, escolha o fornecedor na peça.</div>' : '')
       + '<div class="dica">A peça registrada entra no checklist PAGAS como comprada' + (parcial ? ' (o card não muda de coluna no parcial)' : '') + '.</div>'
+      + ((window.V2_REFAT && V2_REFAT.htmlCompra && V2_REFAT.htmlCompra()) || '')   /* 16/11/2026: caixa obrigatória da nota de refaturamento */
       + '<div class="bts"><button type="button" class="principal" id="v2cpSim">' + (parcial ? 'Registrar e salvar' : 'Registrar compra') + '</button><button type="button" class="secundario" id="v2cpNao">Cancelar</button></div>';
     var bal = V2_BALAO.abrir('v2cpConf', b, html, 'v2cpNao');
     var fechar = function (dev) { try { V2_BALAO.fechar(bal, dev); } catch (x) {} if (bal) bal.style.display = 'none'; };
     g('v2cpNao').onclick = function () { fechar(true); restaurar(); delete b.dataset.v2ficam; };
     g('v2cpSim').onclick = function () {
+      if (window.V2_REFAT && V2_REFAT.validarCompra && !V2_REFAT.validarCompra()) return;   // 16/11/2026
       fechar(false); b.dataset.v2conf = '1';
       try { b.click(); } finally { delete b.dataset.v2conf; delete b.dataset.v2ficam; setTimeout(restaurar, 0); }
     };
@@ -10419,6 +10422,8 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
   function obs() {
     var c = window.CARD; if (!c) return [];
     var out = [];
+    // 16/11/2026: pedido com nota de refaturamento — primeiro aviso da faixa (e do balão da compra)
+    if (c.dados && c.dados.refat) out.push({ de: 'Nota de refaturamento', quem: '', quando: '', texto: 'Comprar com nota no CNPJ ' + (c.dados.refatCnpj ? 'da ' + c.dados.refatCnpj : 'da empresa') + '.' });
     var op = String(c.obs || '').trim();
     if (op) out.push({ de: 'Observação do pedido', quem: c.solicitante || '', quando: '', texto: op });
     (Array.isArray(c.obsAutorizacao) ? c.obsAutorizacao : []).forEach(function (o) { if (o && String(o.texto || '').trim()) out.push({ de: 'Quem autorizou', quem: o.quem || '', quando: o.quando || '', texto: String(o.texto).trim() }); });
@@ -10859,6 +10864,176 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
   window.montarAutorizacao = (function (orig) { return function () { var r = orig.apply(this, arguments); try { enfeitar(); setTimeout(enfeitar, 60); } catch (x) {} return r; }; })(window.montarAutorizacao);
   var cx = document.getElementById('autItens');
   if (cx) new MutationObserver(function () { setTimeout(enfeitar, 0); }).observe(cx, { childList: true });
+})();
+</script>
+<style>
+/* 16/11/2026 — nota de refaturamento (pedido + compra) */
+.v2rf { margin:12px 0 0; padding:10px 12px; border:1px solid #c1c7d0; border-radius:var(--r-sm, 6px); background:#fff; color:#172b4d; }
+.v2rf .t { font-weight:700; font-size:14px; line-height:20px; margin:0 0 2px; }
+.v2rf .dica { margin:0 0 8px; font-size:13px; line-height:18px; color:#44546f; }
+.v2rf .ops { display:flex; gap:8px; flex-wrap:wrap; }
+.v2rf .ops label { display:inline-flex; align-items:center; gap:6px; min-height:32px; padding:4px 14px; border:1px solid #c1c7d0; border-radius:var(--r-sm, 6px); font-size:14px; font-weight:600; cursor:pointer; background:#fff; color:#172b4d; margin:0; }
+.v2rf .ops label.on { border-color:#0c66e4; background:#e9f2ff; color:#0c66e4; }
+.v2rf .ops label.on.sim { border-color:#c9372c; background:#ffeceb; color:#ae2e24; }
+.v2rf .ops input { margin:0; width:16px; height:16px; }
+.v2rf .ops label:focus-within { outline:2px solid #0c66e4; outline-offset:1px; }
+.v2rf .qual { margin-top:8px; }
+.v2rf .qual label { display:block; font-size:13px; font-weight:600; color:#44546f; margin:0 0 4px; }
+.v2rf .qual input { display:block; width:100%; max-width:320px; box-sizing:border-box; min-height:32px; padding:4px 8px; font-size:14px; border:1px solid #c1c7d0; border-radius:var(--r-sm, 6px); color:#172b4d; text-transform:uppercase; }
+.v2rf .aviso-rf { margin-top:8px; font-size:13px; line-height:18px; font-weight:600; color:#ae2e24; }
+html.v2toque .v2rf .ops label { min-height:48px; padding:8px 18px; font-size:16px; flex:1 1 0; justify-content:center; }
+html.v2toque .v2rf .ops input { width:20px; height:20px; }
+html.v2toque .v2rf .qual input { min-height:48px; font-size:16px; max-width:none; }
+html.v2toque .v2rf .t { font-size:16px; line-height:22px; } html.v2toque .v2rf .dica, html.v2toque .v2rf .aviso-rf { font-size:14px; line-height:20px; }
+/* confirmação na compra */
+.v2rf-conf { margin:8px 0 6px; padding:8px 10px; border:1px solid #e2b203; border-left:6px solid #c9372c; border-radius:var(--r-sm, 6px); background:#fff3c4; color:#172b4d; font-size:14px; line-height:20px; }
+.v2rf-conf label { display:flex; align-items:flex-start; gap:8px; margin:6px 0 0; font-weight:700; cursor:pointer; min-height:24px; }
+.v2rf-conf input { margin:2px 0 0; width:18px; height:18px; flex:0 0 auto; }
+.v2rf-conf.erro { border-color:#c9372c; border-width:2px 2px 2px 6px; background:#ffeceb; }
+.v2rf-conf .e { display:block; min-height:18px; margin-top:4px; font-size:13px; font-weight:600; color:#ae2e24; }
+html.v2toque .v2rf-conf { font-size:15px; line-height:21px; } html.v2toque .v2rf-conf label { min-height:44px; align-items:center; } html.v2toque .v2rf-conf input { width:24px; height:24px; margin:0; }
+#v2rfFundo { position:fixed; inset:0; z-index:69; background:rgba(9,30,66,.35); }
+.v2 #v2rfBal.v2-balao { position:fixed !important; z-index:70; left:50% !important; top:50% !important; transform:translate(-50%,-50%); margin:0 !important; width:min(440px,calc(100vw - 24px)) !important; max-height:calc(100vh - 16px); overflow-y:auto; box-sizing:border-box; padding:14px 16px; background:#fff; border:1px solid #c1c7d0; border-radius:var(--r-sm,6px); box-shadow:0 10px 28px rgba(9,30,66,.25); color:#172b4d; animation:none; }
+.v2 #v2rfBal.v2-balao::before { display:none !important; }
+#v2rfBal .v2-bt { margin:0 0 6px; font-size:16px; font-weight:700; line-height:22px; }
+#v2rfBal .bts { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; } #v2rfBal .bts button { flex:1 1 auto; min-height:36px; }
+.v2toque #v2rfBal.v2-balao { left:0 !important; right:0; top:auto !important; bottom:0; transform:none; width:100% !important; max-height:90vh; border-radius:12px 12px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px)); }
+.v2.v2toque #v2rfBal.v2-balao .bts button { min-height:48px !important; font-size:16px !important; }
+</style>
+<script>
+/* ================= CAMADA 2.0 — NOTA DE REFATURAMENTO (16/11/2026, Weslley) =================
+ * "Criar uma opção no formulário de novo pedido/edição onde o consultor informa se será necessário nota de refaturamento;
+ *  com essa opção a compra de peças com o CNPJ fica obrigatória."
+ *  1) Pedido novo / ✏️ Editar: bloco "Precisa de nota de refaturamento?" (Não / Sim + de qual empresa é o CNPJ, opcional),
+ *     dentro da seção Observações. Vai no mesmo envio (novo.refat / novo.refatCnpj) — nenhuma regra aqui.
+ *  2) Comprador: a marca aparece na faixa de avisos, no resumo lateral e no balão "Registrar a compra…", que passa a ter a
+ *     caixa obrigatória "Comprei com nota no CNPJ…" (vermelha e segura o envio se ficar vazia). O servidor (vdf_salvarCompra)
+ *     é quem recusa a compra sem a confirmação; se a tela não mandou (pedeCnpj), um balão pergunta e reenvia.
+ * Liga por PU_CFG.REFATURAMENTO: 'teste' (só no TESTE, srv=1) | 'todos' | desligado. Servidor: vdf_refatLigada_. */
+(function () {
+  if (!document.documentElement.classList.contains('v2')) return;
+  var cfg = window.PU_CFG && PU_CFG.REFATURAMENTO;
+  var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  if (typeof window.chamar !== 'function') return;
+  var g = function (id) { return document.getElementById(id); };
+  var e2 = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var limpo = function (s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 30); };
+  var doCard = function () { var d = (window.CARD && window.CARD.dados) || {}; return { sim: !!d.refat, cnpj: d.refat ? String(d.refatCnpj || '') : '' }; };
+  var onde = function (cnpj) { return 'no CNPJ ' + (cnpj ? 'da ' + cnpj : 'da empresa'); };
+
+  /* ---------- 1) pedido ---------- */
+  var obsEl = g('obs'), sec = obsEl && obsEl.closest('section'), TOCADO = false, ULT = undefined;
+  if (sec) {
+    var box = document.createElement('div'); box.className = 'v2rf'; box.id = 'v2rf'; box.setAttribute('role', 'group'); box.setAttribute('aria-labelledby', 'v2rfT');
+    box.innerHTML = '<div class="t" id="v2rfT">🧾 Precisa de nota de refaturamento?</div>'
+      + '<div class="dica" id="v2rfD">Marque <b>Sim</b> quando as peças têm de ser compradas com nota no CNPJ da empresa. O comprador só registra a compra confirmando isso.</div>'
+      + '<div class="ops" role="radiogroup" aria-labelledby="v2rfT" aria-describedby="v2rfD">'
+      + '<label class="nao"><input type="radio" name="v2rfOp" id="v2rfNao" value="NAO" checked> Não</label>'
+      + '<label class="sim"><input type="radio" name="v2rfOp" id="v2rfSim" value="SIM"> Sim</label></div>'
+      + '<div class="qual" id="v2rfQual" hidden><label for="v2rfCnpj">CNPJ de qual empresa? (opcional)</label>'
+      + '<input type="text" id="v2rfCnpj" maxlength="30" autocomplete="off" placeholder="Ex.: WEV">'
+      + '<div class="aviso-rf">A compra só será registrada com nota neste CNPJ.</div></div>';
+    sec.appendChild(box);
+    var rSim = box.querySelector('#v2rfSim'), rNao = box.querySelector('#v2rfNao'), inC = box.querySelector('#v2rfCnpj'), qual = box.querySelector('#v2rfQual');
+    var pintar = function () {
+      rSim.parentNode.classList.toggle('on', rSim.checked); rNao.parentNode.classList.toggle('on', rNao.checked);
+      qual.hidden = !rSim.checked;
+    };
+    var mostrar = function (v) { rSim.checked = !!v.sim; rNao.checked = !v.sim; inC.value = v.sim ? v.cnpj : ''; pintar(); };
+    box.addEventListener('change', function (e) { if (e.target === rSim || e.target === rNao) { TOCADO = true; pintar(); } });
+    inC.addEventListener('input', function () { TOCADO = true; });
+    // card trocou (abriu outro, pedido novo): a tela volta a mostrar o que o card tem
+    setInterval(function () { if (window.CARD !== ULT) { ULT = window.CARD; TOCADO = false; mostrar(doCard()); } }, 300);
+    mostrar(doCard());
+  }
+  function valor() {
+    if (!sec || !TOCADO) return doCard();
+    var s = g('v2rfSim').checked; return { sim: s, cnpj: s ? limpo(g('v2rfCnpj').value) : '' };
+  }
+  window.V2_REFAT = {
+    valor: valor,
+    sig: function () { var v = valor(); return (v.sim ? 'S' : 'N') + '|' + v.cnpj; },   // entra na conta de "alterações não salvas"
+    // trecho do balão "Registrar a compra…": caixa obrigatória quando o card pede nota de refaturamento
+    htmlCompra: function () {
+      var v = doCard(); if (!v.sim) return '';
+      return '<div class="v2rf-conf" id="v2rfConf"><b>🧾 Este pedido precisa de nota de refaturamento.</b> A compra tem de sair com nota ' + e2(onde(v.cnpj)) + '.'
+        + '<label for="v2rfOk"><input type="checkbox" id="v2rfOk" aria-required="true" aria-describedby="v2rfOkE"> Comprei com nota ' + e2(onde(v.cnpj)) + '</label>'
+        + '<span class="e" id="v2rfOkE" role="alert"></span></div>';
+    },
+    validarCompra: function () {
+      var c = g('v2rfConf'); if (!c) return true;
+      var ok = g('v2rfOk'); if (ok && ok.checked) { OK_COMPRA = true; return true; }
+      c.classList.add('erro'); if (ok) { ok.setAttribute('aria-invalid', 'true'); try { ok.focus(); } catch (x) {} }
+      var e = g('v2rfOkE'); if (e) e.textContent = 'Marque a caixa para registrar. Se a compra não saiu com nota no CNPJ, clique em Cancelar.';
+      return false;
+    }
+  };
+  document.addEventListener('change', function (e) { if (e.target && e.target.id === 'v2rfOk') { var c = g('v2rfConf'); if (c) c.classList.remove('erro'); e.target.removeAttribute('aria-invalid'); var x = g('v2rfOkE'); if (x) x.textContent = ''; } }, true);
+
+  /* ---------- 2) compra: balão de reserva (o servidor pediu a confirmação e a tela não tinha mandado) ---------- */
+  var OK_COMPRA = false;
+  function perguntar(cnpj) {
+    return new Promise(function (resolver) {
+      var antigo = g('v2rfBal'); if (antigo) antigo.remove();
+      var fundo = document.createElement('div'); fundo.id = 'v2rfFundo';
+      var bal = document.createElement('div'); bal.id = 'v2rfBal'; bal.className = 'v2-balao v2c-balao';
+      bal.setAttribute('role', 'alertdialog'); bal.setAttribute('aria-modal', 'true'); bal.setAttribute('aria-labelledby', 'v2rfBal-t'); bal.setAttribute('aria-describedby', 'v2rfBalConf');
+      bal.innerHTML = '<p class="v2-bt" id="v2rfBal-t">A compra saiu com nota no CNPJ?</p>'
+        + '<div class="v2rf-conf" id="v2rfBalConf"><b>🧾 Este pedido precisa de nota de refaturamento.</b> A compra tem de sair com nota ' + e2(onde(cnpj)) + '.'
+        + '<label for="v2rfBalOk"><input type="checkbox" id="v2rfBalOk" aria-required="true" aria-describedby="v2rfBalE"> Comprei com nota ' + e2(onde(cnpj)) + '</label>'
+        + '<span class="e" id="v2rfBalE" role="alert"></span></div>'
+        + '<div class="bts"><button type="button" class="principal" id="v2rfBalSim">Registrar compra</button><button type="button" class="secundario" id="v2rfBalNao">Voltar</button></div>';
+      bal._gatilho = fundo; bal._devolver = null; bal._t0 = performance.now();
+      document.body.appendChild(fundo); document.body.appendChild(bal);
+      var ok = bal.querySelector('#v2rfBalOk'), conf = bal.querySelector('#v2rfBalConf'), erro = bal.querySelector('#v2rfBalE'), feito = false;
+      var gat = g('btnCompra');
+      function fim(v) { if (feito) return; feito = true; mo.disconnect(); bal.remove(); fundo.remove(); resolver(v); setTimeout(function () { try { if (gat && !gat.disabled && gat.offsetParent) gat.focus({ preventScroll: true }); } catch (e) {} }, 60); }
+      function confirmar() { if (!ok.checked) { conf.classList.add('erro'); ok.setAttribute('aria-invalid', 'true'); erro.textContent = 'Marque a caixa para registrar a compra.'; ok.focus(); return; } fim(true); }
+      ok.addEventListener('change', function () { conf.classList.remove('erro'); ok.removeAttribute('aria-invalid'); erro.textContent = ''; });
+      function cedo(e) { return e.detail > 0 && performance.now() - bal._t0 < 400; }
+      bal.querySelector('#v2rfBalSim').addEventListener('click', function (e) { if (!cedo(e)) confirmar(); });
+      bal.querySelector('#v2rfBalNao').addEventListener('click', function (e) { if (!cedo(e)) fim(false); });
+      fundo.addEventListener('mousedown', function (e) { e.preventDefault(); fim(false); });
+      bal.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); fim(false); return; }
+        if (e.key !== 'Tab') return;
+        var fs = Array.prototype.slice.call(bal.querySelectorAll('input, button')).filter(function (x) { return !x.disabled; });
+        var i = fs.indexOf(document.activeElement), j = e.shiftKey ? (i <= 0 ? fs.length - 1 : i - 1) : (i < 0 || i === fs.length - 1 ? 0 : i + 1);
+        e.preventDefault(); fs[j].focus();
+      });
+      var mo = new MutationObserver(function () { if (bal.style.display === 'none') fim(false); });
+      mo.observe(bal, { attributes: true, attributeFilter: ['style'] });
+      setTimeout(function () { try { bal.querySelector('#v2rfBalNao').focus({ preventScroll: true }); } catch (e) {} }, 30);   // foco no botão seguro
+    });
+  }
+
+  var chamarOrig = window.chamar;
+  window.chamar = function (fn) {
+    var eu = this, args = Array.prototype.slice.call(arguments), payload = args[2];
+    if (!payload || typeof payload !== 'object') return chamarOrig.apply(eu, args);
+    if (fn === 'vdf_salvar') {
+      var v = valor();
+      payload.novo = payload.novo || {}; payload.novo.refat = v.sim ? 'SIM' : 'NAO'; payload.novo.refatCnpj = v.cnpj;
+      return chamarOrig.apply(eu, args).then(function (r) {
+        // gravou: o card em tela passa a ter o que foi enviado (a tela não "volta" para o valor antigo)
+        if (r && r.ok !== false) { try { if (window.CARD && window.CARD.dados) { window.CARD.dados.refat = v.sim ? 'SIM' : ''; window.CARD.dados.refatCnpj = v.cnpj; } } catch (e) {} TOCADO = false; }
+        return r;
+      });
+    }
+    if (fn === 'vdf_salvarCompra') {
+      if (OK_COMPRA) { payload.cnpjOk = true; OK_COMPRA = false; }
+      return chamarOrig.apply(eu, args).then(function (r) {
+        if (!r || r.ok || !r.pedeCnpj) return r;
+        return perguntar(r.cnpj || '').then(function (sim) {
+          if (!sim) return { ok: false, faltas: ['🧾 Nota de refaturamento: a compra não foi registrada. Clique em registrar de novo e confirme que saiu com nota no CNPJ.'] };
+          payload.cnpjOk = true;
+          return chamarOrig.apply(eu, args);
+        });
+      });
+    }
+    return chamarOrig.apply(eu, args);
+  };
 })();
 </script>
 </body>

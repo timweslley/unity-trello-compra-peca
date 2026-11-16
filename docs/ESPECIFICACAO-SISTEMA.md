@@ -212,6 +212,16 @@ repete chamadas lentas em paralelo).
 
 ---
 
+**Nota de refaturamento (16/11/2026 — só no TESTE; principal: `VD_REFAT=SIM` + `PU_CFG.REFATURAMENTO: 'todos'`, com OK do Weslley).**
+No pedido novo e no ✏️ Editar, o consultor responde "🧾 Precisa de nota de refaturamento?" (Não / Sim + de qual empresa é o
+CNPJ, opcional — só o nome curto, nunca o número). Com Sim, a descrição oficial ganha `**REFATURAMENTO:** SIM — CNPJ <EMPRESA>`
+(cabeçalho, depois do sinistro), a vitrine mostra `🧾 NOTA DE REFATURAMENTO — comprar com nota no CNPJ da <EMPRESA>` e o card
+recebe um comentário de registro (marcou / retirou). A marca não se perde quando o robô importa o orçamento nem quando o
+pedido é regravado por quem não manda o campo (tela antiga, Rotina). **Compra**: em card com a marca, `vdf_salvarCompra` só
+grava compra com `cnpjOk` — a caixa obrigatória "Comprei com nota no CNPJ…" do balão de confirmação (sem ela o servidor devolve
+`pedeCnpj` e a tela pergunta em balão); a confirmação sai no comentário da compra. O comprador vê a marca na faixa de avisos
+e no resumo lateral. Não muda a régua da nota (ENCERRADO → ENTREGUES).
+
 **Quem liberou o pedido (12/11/2026 — ligado no principal às 12h19, Weslley: "pode ligar já"; desligar: `VD_LIBERADO_POR=NAO` + `PU_CFG.LIBERADO_POR: 'teste'`).**
 A conta do Compras (comprador que **não** é diretoria) pode abrir pedido e incluir peça — pedido oral —, mas o envio só sai com
 o nome de **quem liberou** (`p.liberadoPor`, 3 letras ou mais, até 60 caracteres, sem `@`). Vale para card novo com peça e para
@@ -256,6 +266,7 @@ cache na memória dele, devolvia cotações velhas ao formulário por até 6 h. 
 **MODELO:** …            **ANO:** …          **MOTOR/VERSÃO:** …
 **CHASSI:** …            **PLACA:** …        **TIPO:** PARTICULAR|RETORNO   (só nesses tipos)
 **COR:** …               **SEGURADORA:** …   **SINISTRO:** …
+**REFATURAMENTO:** SIM — CNPJ <EMPRESA>   (só quando o pedido precisa de nota de refaturamento; 16/11/2026)
 
 **PEÇAS:**
 1. CÓDIGO | DESCRIÇÃO | TIPO[/TIPO2][ | QTD n][ | COMPLEMENTO dd/mm][ | COMPL: AUTORIZADO|ANTECIPADO nome][ | PARTICULAR @user][ | NÃO COMPRAR: motivo][ | ORÇ R$ 1.234,56][ | OBS: texto][ | FOTO]

@@ -2238,6 +2238,12 @@ function vdf_salvarCompra(token, p) {
   (p.anexosExtra || []).forEach(function (a) { if (a && a.fileId) arqs.push({ fileId: a.fileId, nome: a.nome, forn: '', peca: porChave[a.chave] ? vd_nomePeca_(porChave[a.chave]) : '' }); });
   if (!compras.length && !faltas.length && parcial && !arqs.length && !complMarcas.length) faltas.push('Escolha o fornecedor de pelo menos uma peça para salvar.');
   if (faltas.length) return { ok: false, faltas: faltas };
+  // 16/11/2026 (Weslley): pedido com NOTA DE REFATURAMENTO — a compra só entra com a confirmação de que saiu com nota no CNPJ.
+  // A tela nova pergunta em balão (pedeCnpj) e reenvia com cnpjOk; sem a confirmação nada é gravado.
+  var refatC = vdf_refatLigada_() && an.dados.refat ? { cnpj: an.dados.refatCnpj || '' } : null;
+  if (refatC && compras.length && p.cnpjOk !== true)
+    return { ok: false, pedeCnpj: true, cnpj: refatC.cnpj, faltas: ['🧾 Este pedido precisa de NOTA DE REFATURAMENTO. Confirme que a compra foi feita com nota no CNPJ ' + (refatC.cnpj ? 'da ' + refatC.cnpj : 'da empresa') + ' e envie de novo.'] };
+  var txtRefat = refatC && compras.length ? '\n🧾 Nota de refaturamento: ' + me.fullName + ' confirmou a compra com nota no CNPJ ' + (refatC.cnpj ? 'da ' + refatC.cnpj : 'da empresa') + '.' : '';
   // grava a situação do complementar na linha da peça (antes do resto, para a vitrine e o comentário já saírem certos)
   var txtCompl = '';
   if (complMarcas.length) {
@@ -2338,7 +2344,7 @@ function vdf_salvarCompra(token, p) {
     if (!parcial) vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +   // 21/10/2026: salvar parcial não comenta
       (parcial ? '💾 **COMPRA PARCIAL salva** — ' : '🛒 **COMPRA** — ') + me.fullName + ' · ' + n + ' item(ns)' + (movido ? ' → **' + movido + '**' : '') +
       (pendentes ? '\n⏳ Falta comprar: ' + pendentes + ' peça(s)' : '') + (parcial && !pendentes ? '\nTudo comprado — envie a compra para o card seguir.' : '') +
-      (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') + txtCompl + vdf_txtAnexosCompra_(axC) } }, token);
+      (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') + txtCompl + txtRefat + vdf_txtAnexosCompra_(axC) } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, parcial: parcial, url: card.shortUrl, nome: card.name, pagas: n, pendentes: pendentes, foraAut: foraAut, anexos: axC.anexados, repetidos: axC.repetidos, lista: movido || vdf_nomeLista_(ctx, card.idList) };
@@ -2468,6 +2474,10 @@ function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || v
 /** 12/11/2026 (Weslley, RHZ4D88: "o comprador pode registrar pedidos orais, mas podemos exigir que seja informado quem liberou
  * o pedido"): conta do Compras (comprador que não é diretoria) abrindo pedido ou incluindo peça informa QUEM LIBEROU.
  * TESTE sempre; principal ligado em 12/11/2026 12h19 (Weslley: "pode ligar já"). Desligar: propriedade VD_LIBERADO_POR=NAO. */
+/** 16/11/2026 (Weslley): "nota de refaturamento" no pedido — o consultor marca; com ela a compra só é registrada com a
+ * confirmação de que saiu com nota no CNPJ. Primeiro só no TESTE; no principal liga com VD_REFAT=SIM (+ PU_CFG.REFATURAMENTO). */
+function vdf_refatLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_REFAT', 'NAO') === 'SIM'; } catch (e) { return false; } }
+
 function vdf_liberadoPorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_LIBERADO_POR', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
 function vdf_salvar(token, p) {
@@ -2734,6 +2744,17 @@ function vdf_salvar(token, p) {
   }
   // 22/10/2026: peça que já tinha foto (| FOTO) continua com a marca quando o pedido é reenviado
   if (pecasAntes) pecas.forEach(function (x) { var o = pecasAntes[vd_chavePeca_(x)]; if (o && o.foto && !x.pneu) x.foto = true; });
+  // 16/11/2026: nota de refaturamento. Quem não manda o campo (tela antiga, Rotina, quadro com a opção desligada) não mexe:
+  // vale o que o card já tinha. Só a tela nova (novo.refat = 'SIM'|'NAO') muda a marca.
+  var refatAntes = { sim: false, cnpj: '' }, refatMudou = false;
+  try { if (typeof anAntes !== 'undefined' && anAntes && anAntes.dados) refatAntes = { sim: !!anAntes.dados.refat, cnpj: anAntes.dados.refatCnpj || '' }; } catch (e) {}
+  var refatAgora = refatAntes;
+  if (n.refat !== undefined && vdf_refatLigada_()) {
+    var simR = /^(SIM|S|1|TRUE)$/i.test(String(n.refat).trim());
+    refatAgora = { sim: simR, cnpj: simR ? vd_refatCnpj_(n.refatCnpj) : '' };
+    refatMudou = refatAgora.sim !== refatAntes.sim || (refatAgora.sim && refatAgora.cnpj !== refatAntes.cnpj);
+  }
+  extra.refat = refatAgora.sim ? 'SIM' : ''; extra.refatCnpj = refatAgora.cnpj;
   var bloco = vd_montarBloco_(d, pecas, obs, 'Pedido enviado por ' + me.fullName + ' pelo formulário em ' + agora, extra);
   var an = vd_analisar_(bloco, d.placa, posCot ? { base: baseSigs, tipo: tipo } : { tipo: tipo });
   var faltas = an.faltas.slice();
@@ -3080,7 +3101,16 @@ function vdf_salvar(token, p) {
       if (naoNovo.length) vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🚫 **NÃO COMPRAR** — ' + me.fullName + ' (' + me.username + ') marcou como não comprar: ' + naoNovo.map(function (x) { return vd_nomePeca_(x) + (x.naoMotivo ? ' (' + x.naoMotivo + ')' : ''); }).join('; ') } }, token);
     }
   } catch (e) {}
-  return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
+  // 16/11/2026: registro no card quando a marca de refaturamento entra, muda de CNPJ ou sai (sem menção)
+  try {
+    if (refatMudou) {
+      vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: refatAgora.sim
+        ? '🧾 **NOTA DE REFATURAMENTO** — ' + me.fullName + ' (' + me.username + ') marcou que este pedido precisa de nota de refaturamento: ' + vd_refatTexto_(refatAgora.cnpj) + '.'
+        : '🧾 **NOTA DE REFATURAMENTO retirada** — ' + me.fullName + ' (' + me.username + ') marcou que este pedido não precisa mais de nota de refaturamento.' } }, token);
+      try { ev_registrar_('PEDIDO EDITADO', card, me.username, [], { detalhe: 'nota de refaturamento: ' + (refatAgora.sim ? 'SIM' + (refatAgora.cnpj ? ' (CNPJ ' + refatAgora.cnpj + ')' : '') : 'NÃO') }); } catch (e2) {}
+    }
+  } catch (e) { console.log('refaturamento/comentário: ' + e); }
+  return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, refat: refatAgora.sim, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
 /** Sobe um arquivo do formulário para a pasta temporária (sem ler) — fotos, capa etc. */

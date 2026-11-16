@@ -607,3 +607,7 @@ da outra, deixar um recado aqui e no commit.
   (16h27–16h34) e só foi para FALTA DADOS porque alguém anexou uma imagem. Causa: a conferência do salvar lia o card sem o
   campo Nº Ordem, card com menos de 2 min ficava de fora e o robô só reconfere card com atividade. Agora o salvar passa o nº
   digitado (`_ordemForm`) e a falta vale na hora. Regra de 03/11 (O.S. obrigatória) restabelecida.
+- **16/11 (manhã)** — Nota de refaturamento (Weslley: "o consultor informa se será necessário nota de refaturamento; com essa
+  opção a compra com o CNPJ fica obrigatória"): opção no pedido novo/edição, marca `**REFATURAMENTO:**` na descrição, aviso ao
+  comprador e caixa obrigatória "Comprei com nota no CNPJ…" na compra (servidor recusa sem ela). Só no TESTE
+  (`PU_CFG.REFATURAMENTO: 'teste'`, `vdf_refatLigada_`); principal espera o OK.

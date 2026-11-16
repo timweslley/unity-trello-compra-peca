@@ -60,6 +60,10 @@ window.PU_CFG = {
   /* 13/11/2026 (Weslley, BBW5I86): aba Autorizar — a diretoria corrige código/descrição da peça ("✏️ Corrigir"), vale na hora
    * (vdf_corrigirPeca). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley + VD_AUT_CORRIGIR=SIM no robô). */
   AUT_CORRIGIR: 'teste',
+  /* 16/11/2026 (Weslley): "Precisa de nota de refaturamento?" no pedido novo/edição; com Sim, a compra só é registrada com a
+   * confirmação de nota no CNPJ (vdf_salvarCompra). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley +
+   * propriedade VD_REFAT=SIM no robô); outro valor desliga. */
+  REFATURAMENTO: 'teste',
   LIBERADO_POR: 'todos',   // 12/11/2026 12h19 — Weslley: "pode ligar já" (voltar: 'teste' + VD_LIBERADO_POR=NAO)
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
