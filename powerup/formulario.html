@@ -11017,7 +11017,7 @@ html.v2toque .v2rf-conf { font-size:15px; line-height:21px; } html.v2toque .v2rf
       payload.novo = payload.novo || {}; payload.novo.refat = v.sim ? 'SIM' : 'NAO'; payload.novo.refatCnpj = v.cnpj;
       return chamarOrig.apply(eu, args).then(function (r) {
         // gravou: o card em tela passa a ter o que foi enviado (a tela não "volta" para o valor antigo)
-        if (r && r.ok !== false) { try { if (window.CARD && window.CARD.dados) { window.CARD.dados.refat = v.sim ? 'SIM' : ''; window.CARD.dados.refatCnpj = v.cnpj; } } catch (e) {} TOCADO = false; }
+        if (r && r.ok === true && (r.url || r.shortLink)) { try { if (window.CARD && window.CARD.dados) { window.CARD.dados.refat = v.sim ? 'SIM' : ''; window.CARD.dados.refatCnpj = v.cnpj; } } catch (e) {} TOCADO = false; }
         return r;
       });
     }
