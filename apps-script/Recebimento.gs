@@ -454,6 +454,10 @@ function vdf_salvarRecebimento(token, p) {
         : ax_nome_(AX.FOTO, placaCard, ['recebimento', forns.join(', ') || refs.slice(0, 2).join(', ')]);
       var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: f.getBlob(), name: nome } }, token);
       if (at && at.id) { nome = ax_batizar_(card.id, at.id, nome, anexosCard, token, { semVersao: !ehNf, nomeAtual: nome }); anexosCard.push({ id: at.id, name: nome, date: new Date().toISOString() }); }
+      // 16/11/2026: a nota fica ligada às peças compradas marcadas em "refere-se a" (rc_nfPecas_)
+      if (ehNf && at && at.id && vdf_nfPecaLigada_()) {
+        try { var nvL = {}; (a.ids || []).forEach(function (id) { if (porId[id] && /^PAGAS/.test(porId[id].lista || '')) nvL[id] = { a: at.id, n: nfR ? nfR.numero : '', q: me.username }; }); if (Object.keys(nvL).length) rc_nfPecasGravar_(card.id, nvL); } catch (eL) { console.log('nota indicada (recebimento): ' + eL); }
+      }
       f.setTrashed(true);
       nAnexos++; nomesAnexos.push(nome);
     } catch (e) { console.log('recebimento/anexo: ' + e); }
@@ -678,6 +682,58 @@ function rc_nfCandidata_(a) {
  *  no padrão das rotinas e passa a valer na régua. Devolve quantos candidatos AINDA faltam ler (0 = tudo conferido).
  *  A leitura fica guardada (aba ANEXOS): candidato já lido que não era nota não é lido de novo e não conta. */
 var RC_NF_LEITURAS = { max: 4, feitas: 0 };
+/* ============================ NOTA INDICADA POR PEÇA (16/11/2026) ============================
+ * Weslley (16/11, 10h34): "o atendente tem que lançar a nota e indicar a peça que está baixando; o automático era só para
+ * aquela vez". Até aqui o "refere-se a:" da aba Recebimento só dava nome ao arquivo — a ligação nota ↔ peça não ficava
+ * guardada, e a régua conferia por fornecedor. Agora a ligação fica em RC_NFP_<card> = { idItemPAGAS: {a: idAnexo, n: nº, q: quem} }
+ * e, com a regra ligada, cada compra da oficina só conta com nota quando tem uma nota INDICADA para ela (anexo ainda no card).
+ * Liga: quadro TESTE, ou VD_NF_PECA=SIM no principal (com OK). Só vale para card em que TODAS as compras foram lançadas depois
+ * de VD_NF_PECA_DESDE (data da virada): card com compra anterior segue a regra de antes — nada volta em massa. */
+function vdf_nfPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_NF_PECA', 'NAO') === 'SIM'; } catch (e) { return false; } }
+function rc_nfPecaDesde_() { try { var d = Date.parse(vd_prop_('VD_NF_PECA_DESDE', '2026-11-16T12:00:00Z')); return isNaN(d) ? 0 : d; } catch (e) { return 0; } }
+function rc_nfPecas_(cardId) { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('RC_NFP_' + cardId) || '{}') || {}; } catch (e) { return {}; } }
+/** novos = { idItem: {a, n, q} | null (tira a ligação) } */
+function rc_nfPecasGravar_(cardId, novos) {
+  sg_secao_('RC_NFP_' + cardId, function () {
+    var o = rc_nfPecas_(cardId);
+    Object.keys(novos).forEach(function (k) { if (novos[k]) o[k] = novos[k]; else delete o[k]; });
+    PropertiesService.getScriptProperties().setProperty('RC_NFP_' + cardId, JSON.stringify(o));
+  });
+}
+function rc_nfNumeroDoNome_(nome) { var m = String(nome || '').match(/\s-\s0*(\d{1,9})\s-\s\d{2}-\d{2}/); return m ? m[1] : ''; }
+/**
+ * Indica a quais peças compradas uma nota QUE JÁ ESTÁ NO CARD se refere (sem subir o arquivo de novo).
+ * p = {shortLink, idAnexo, ids:[idItemPAGAS...]} — as peças marcadas ficam ligadas à nota; as que estavam ligadas a ela e
+ * saíram da lista perdem a ligação.
+ */
+function vdf_indicarNota(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  if (!vdf_nfPecaLigada_()) return { ok: false, faltas: ['Esta opção ainda não está ligada neste quadro.'] };
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Em Toledo, a nota é lançada pelo setor de compras (ou pela diretoria) — sua conta: ' + me.username + '.'] };
+  var at = (card.attachments || []).filter(function (a) { return a.id === p.idAnexo; })[0];
+  if (!at || at.isUpload === false) return { ok: false, faltas: ['Não achei esta nota no card. Feche e abra o card de novo.'] };
+  if (!(rc_nfDeCompra_(at) || rc_nfCandidata_(at))) return { ok: false, faltas: ['Este anexo não é nota fiscal de compra da oficina.'] };
+  var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
+  var ids = (p.ids || []).map(String), liga = rc_nfPecas_(card.id), nv = {}, entrou = [], saiu = [];
+  var numero = rc_nfNumeroDoNome_(at.name);
+  pagas.forEach(function (i) {
+    var sel = ids.indexOf(i.id) >= 0, ja = liga[i.id] && liga[i.id].a === at.id, nomeP = String(i.base || i.nome).split(/\s+-\s+/)[0];
+    if (sel && !ja) { nv[i.id] = { a: at.id, n: numero, q: me.username }; entrou.push(nomeP); }
+    else if (!sel && ja) { nv[i.id] = null; saiu.push(nomeP); }
+  });
+  if (!entrou.length && !saiu.length) return { ok: true, nada: true, n: 0 };
+  rc_nfPecasGravar_(card.id, nv);
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🧾 **NOTA INDICADA** — ' + me.fullName + ' (' + me.username + '): «' + at.name + '»' +
+      (entrou.length ? '\n✔ É a nota de: ' + entrou.join('; ') : '') + (saiu.length ? '\n✖ Deixou de ser a nota de: ' + saiu.join('; ') : '') } }, token);
+  } catch (e) { console.log('nota indicada/comentário: ' + e); }
+  try { ev_registrar_('RECEBIMENTO', card, me.username, entrou.concat(saiu).map(function (n) { return { peca: n, detalhe: 'nota indicada' }; }), { detalhe: 'nota indicada: ' + at.name }); } catch (e) {}
+  var movido = ''; try { movido = rc_reavaliarColuna_(card.id, token, me.username, { reavaliar: true }); } catch (e) { console.log('nota indicada/coluna: ' + e); }
+  return { ok: true, n: entrou.length, tirou: saiu.length, movido: movido };
+}
 /** 16/11/2026 (régua por peça): códigos lidos de uma nota já guardada no cache de leitura; null = conteúdo não lido. */
 function rc_nfCodsCache_(idAnexo) {
   try { var v = vd_anxGet_(idAnexo); if (!v) return null; var r = JSON.parse(v); return r && r.nf && Array.isArray(r.nf.cods) ? r.nf.cods : null; } catch (e) { return null; }
@@ -721,7 +777,7 @@ function rc_notasOficina_(card) {
   // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
   // AUTOX cobrindo a compra da DIPAUTO)
   var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { id: a.id, nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
-  var forns = [], porForn = {}, doEstoque = 0;
+  var forns = [], porForn = {}, doEstoque = 0, comprasNf = [];
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
   var cad = {}, lista = []; try { lista = fo_lista_(); lista.forEach(function (f) { cad[fo_norm_(f.nome)] = 1; (f.apelidos || []).forEach(function (a) { cad[fo_norm_(a)] = 1; }); }); } catch (e) {}
@@ -748,12 +804,22 @@ function rc_notasOficina_(card) {
     // 13/11/2026 (Weslley: "WEV ESTOQUE pode dispensar a nota"): peça do estoque próprio não tem nota fiscal de compra —
     // não entra na régua (SWQ0F73, DPJ2D42, RHH0C51, BAI8D21 ficavam presos em ENCERRADO por causa dela)
     if (RC_NF_ESTOQUE.test(forn)) { doEstoque++; return; }
+    comprasNf.push({ id: i.id, forn: forn, peca: String(pt[0] || '').trim() });
     if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]).concat(palavrasCadastro(pt[iForn])) : [], cods: [] }; forns.push(forn); }
     var codN = codigo.replace(/[^A-Z0-9]/g, '');
     if (iForn > 0 && codN.length >= 6 && /\d/.test(codN) && porForn[forn].cods.indexOf(codN) < 0) porForn[forn].cods.push(codN);
     if (iForn < 0) rc_nfPalavras_(i.base).forEach(function (w) { if (porForn[forn].chaves.indexOf(w) < 0) porForn[forn].chaves.push(w); });
     if (iForn !== 0 && codigo && codigo.length >= 4 && /\d/.test(codigo) && porForn[forn].chaves.indexOf(codigo) < 0) porForn[forn].chaves.push(codigo);
   });
+  // 16/11/2026 (nota indicada por peça): regra ligada e todas as compras do card posteriores à virada — cada compra precisa de
+  // uma nota indicada para ela (aba 📦 Recebimento → Nota fiscal → "refere-se a"), com o anexo ainda no card. Nada de palavra/contagem.
+  try {
+    if (vdf_nfPecaLigada_() && comprasNf.length && comprasNf.every(function (c) { return cp_idEpoca_(c.id) * 1000 >= rc_nfPecaDesde_(); })) {
+      var ligaP = rc_nfPecas_(card.id), temAx = {}; (card.attachments || []).forEach(function (a) { temAx[a.id] = 1; });
+      var semInd = comprasNf.filter(function (c) { return !(ligaP[c.id] && temAx[ligaP[c.id].a]); });
+      return { porPeca: true, pagas: pagas.length - doEstoque, estoque: doEstoque, fornecedores: forns.length, cobertos: [], faltam: semInd.map(function (c) { return c.forn + ' — ' + c.peca; }), faltamN: semInd.length, notas: notas.length };
+    }
+  } catch (e) { console.log('nota indicada por peça: ' + e); }
   var cobertos = [], faltam = [];
   forns.forEach(function (f) {
     var ch = porForn[f].chaves, n = null;
@@ -824,7 +890,7 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   r.pendRec = todos.filter(function (i) { return !i.ok; });
   try { r.devAbertas = rc_devolucoes_(card).filter(function (d) { return !d.ok; }); } catch (e) {}
   var nf = rc_notasOficina_(card);
-  r.faltamNf = nf.faltam; r.faltamN = nf.faltamN; r.notas = nf.notas;
+  r.faltamNf = nf.faltam; r.faltamN = nf.faltamN; r.notas = nf.notas; r.porPeca = !!nf.porPeca;
   if (r.pendRec.length || r.devAbertas.length || r.faltamNf.length) return r;
   r.movido = vdf_moverPara_(card, ctx, 'ENTREGUES', token, usuario || 'robô');
   if (r.movido && opt.comentar) {
@@ -837,6 +903,7 @@ function rc_textoSegura_(r) {
   if (!r) return '';
   if (r.pendRec.length) return r.pendRec.length + ' peça(s) ainda não recebida(s)';
   if (r.devAbertas.length) return 'NF de devolução pendente — ' + r.devAbertas.map(function (d) { return d.peca; }).join('; ');
+  if (r.faltamNf.length && r.porPeca) return 'falta indicar a nota fiscal de ' + r.faltamN + ' compra(s) da oficina (' + r.faltamNf.join('; ') + ') — aba 📦 Recebimento → Nota fiscal: anexe a nota e marque a peça que ela baixa';
   if (r.faltamNf.length) return 'falta anexar a nota fiscal de ' + r.faltamN + ' compra(s) da oficina (fornecedor sem nota identificada: ' + r.faltamNf.join('; ') + ') — aba 📦 Recebimento → Nota fiscal';
   return '';
 }

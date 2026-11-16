@@ -10859,5 +10859,119 @@ html.v2toque .v2rf-conf { font-size:15px; line-height:21px; } html.v2toque .v2rf
   };
 })();
 </script>
+<style>
+/* 16/11/2026 — nota indicada por peça (aba Recebimento) */
+#v2nfp { margin:0 0 12px; }
+#v2nfp .res { padding:8px 10px; border-radius:var(--r-sm, 6px); font-size:14px; line-height:20px; font-weight:600; margin-bottom:8px; }
+#v2nfp .res.falta { background:#ffeceb; border:1px solid #c9372c; border-left:6px solid #c9372c; color:#172b4d; }
+#v2nfp .res.ok { background:#dcfff1; border:1px solid #1f845a; color:#164b35; }
+#v2nfp .res ul { margin:4px 0 0 18px; padding:0; font-weight:400; }
+#v2nfp .nota { border:1px solid #c1c7d0; border-radius:var(--r-sm, 6px); padding:8px 10px; margin-bottom:8px; background:#fff; }
+#v2nfp .nota .n { font-weight:700; font-size:14px; line-height:20px; color:#172b4d; word-break:break-word; }
+#v2nfp .nota .q { font-size:13px; color:#44546f; margin:2px 0 6px; }
+#v2nfp .chips { display:flex; flex-wrap:wrap; gap:6px; }
+#v2nfp .chips label { display:inline-flex; align-items:center; gap:6px; min-height:30px; padding:3px 10px; border:1px solid #c1c7d0; border-radius:var(--r-sm, 6px); font-size:13px; line-height:18px; cursor:pointer; background:#fff; color:#172b4d; margin:0; }
+#v2nfp .chips label.on { border-color:#0c66e4; background:#e9f2ff; }
+#v2nfp .chips label small { color:#44546f; font-size:12px; }
+#v2nfp .chips input { margin:0; width:16px; height:16px; }
+#v2nfp .chips label:focus-within { outline:2px solid #0c66e4; outline-offset:1px; }
+#v2nfp .acoes { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px; }
+#v2nfp .acoes button { min-height:32px; }
+#v2nfp .acoes .st { font-size:13px; font-weight:600; color:#44546f; }
+#v2nfp .acoes .st.ok { color:#1f845a; } #v2nfp .acoes .st.erro { color:#ae2e24; }
+html.v2toque #v2nfp .chips label { min-height:44px; font-size:15px; padding:6px 12px; } html.v2toque #v2nfp .chips input { width:20px; height:20px; }
+html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2toque #v2nfp .res, html.v2toque #v2nfp .nota .n { font-size:15px; line-height:21px; }
+#recGerais .item.v2nfp-falta { outline:2px solid #c9372c; background:#ffeceb; }
+#recGerais .v2nfp-msg { color:#ae2e24; font-weight:600; font-size:13px; margin-top:6px; }
+</style>
+<script>
+/* ================= CAMADA 2.0 — NOTA INDICADA POR PEÇA (16/11/2026, Weslley) =================
+ * "O atendente tem que lançar a nota e indicar a peça que está baixando; o automático era só para aquela vez."
+ * Aba 📦 Recebimento → Nota fiscal:
+ *  1) quadro "Notas deste card": diz quais compras ainda estão SEM nota indicada e lista as notas que já estão no card, cada
+ *     uma com as peças compradas para marcar ("É a nota de…") — sem subir o arquivo de novo. Grava por vdf_indicarNota.
+ *  2) nota nova (PDF/XML) anexada em "Nota fiscal ou fotos de várias peças" só segue com pelo menos uma peça marcada: o item
+ *     fica vermelho e o envio para.
+ * A regra (cada compra da oficina precisa de nota indicada para o card ir a ENTREGUES) é do servidor: rc_notasOficina_ /
+ * vdf_nfPecaLigada_. Liga por PU_CFG.NF_PECA: 'teste' (só no TESTE, srv=1) | 'todos' | desligado. */
+(function () {
+  if (!document.documentElement.classList.contains('v2')) return;
+  var cfg = window.PU_CFG && PU_CFG.NF_PECA;
+  var ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  var g = function (id) { return document.getElementById(id); };
+  var e2 = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  var arq = g('recArqGeral'), sec = arq && arq.closest('section'); if (!sec) return;
+  var box = document.createElement('div'); box.id = 'v2nfp'; box.setAttribute('aria-live', 'polite');
+  sec.insertBefore(box, sec.querySelector('.dica') || arq);
+  var ESTOQUE = /-\s*(WEV\s+ESTOQUE|ESTOQUE\s+WEV|ESTOQUE)\s*(-|$)/i;
+  function pagas() { return ((window.CARD && window.CARD.recebiveis) || []).filter(function (i) { return /^PAGAS/.test(i.lista || '') && !ESTOQUE.test(String(i.base || i.nome || '')); }); }
+  function nomeP(i) { return String(i.base || i.nome || '').split(' - ')[0]; }
+  var ULT = '';
+  function desenhar(forcar) {
+    var c = window.CARD;
+    if (!c || !c.nfPecaLigada) { if (box.innerHTML) box.innerHTML = ''; ULT = ''; return; }
+    var liga = c.nfPecas || {}, notas = c.notasCard || [], ps = pagas(), idsNota = {}; notas.forEach(function (n) { idsNota[n.id] = n; });
+    var sig = JSON.stringify([c.shortLink, liga, notas.map(function (n) { return n.id; }), ps.map(function (p) { return p.id; })]);
+    if (!forcar && sig === ULT) return; ULT = sig;
+    if (!ps.length) { box.innerHTML = ''; return; }
+    var sem = ps.filter(function (p) { return !(liga[p.id] && idsNota[liga[p.id].a]); });
+    var h = sem.length
+      ? '<div class="res falta">🧾 ' + (sem.length === 1 ? 'Falta indicar a nota de 1 compra' : 'Falta indicar a nota de ' + sem.length + ' compras') + ' — o card só vai para ENTREGUES depois disso:<ul>' + sem.map(function (p) { return '<li>' + e2(nomeP(p)) + '</li>'; }).join('') + '</ul></div>'
+      : '<div class="res ok">🧾 Todas as compras deste card têm nota indicada ✓</div>';
+    if (notas.length) h += '<div class="dica" style="margin-bottom:6px">Notas que já estão no card — marque de qual peça cada uma é e clique em <b>Salvar</b>:</div>';
+    h += notas.map(function (n, k) {
+      return '<div class="nota" data-id="' + e2(n.id) + '" role="group" aria-labelledby="v2nfpN' + k + '"><div class="n" id="v2nfpN' + k + '">📄 ' + e2(n.nome) + '</div><div class="q">É a nota de:</div><div class="chips">'
+        + ps.map(function (p) {
+          var l = liga[p.id], desta = !!(l && l.a === n.id), outra = l && !desta && idsNota[l.a];
+          return '<label class="' + (desta ? 'on' : '') + '"><input type="checkbox" value="' + e2(p.id) + '"' + (desta ? ' checked' : '') + '> ' + e2(nomeP(p)) + (outra ? ' <small>(já na NF ' + e2(l.n || 'outra') + ')</small>' : '') + '</label>';
+        }).join('') + '</div><div class="acoes"><button type="button" class="principal v2nfp-salvar">Salvar</button><span class="st" role="status"></span></div></div>';
+    }).join('');
+    if (!notas.length) h += '<div class="dica" style="margin-bottom:6px">Este card ainda não tem nota anexada. Anexe a nota abaixo e marque a peça que ela baixa.</div>';
+    box.innerHTML = h;
+  }
+  box.addEventListener('change', function (e) { var cb = e.target; if (cb && cb.type === 'checkbox') cb.parentNode.classList.toggle('on', cb.checked); });
+  box.addEventListener('click', function (e) {
+    var bt = e.target && e.target.closest && e.target.closest('.v2nfp-salvar'); if (!bt || bt.disabled) return;
+    var nt = bt.closest('.nota'), st = nt.querySelector('.st'), c = window.CARD; if (!c) return;
+    var ids = Array.prototype.slice.call(nt.querySelectorAll('.chips input')).filter(function (x) { return x.checked; }).map(function (x) { return x.value; });
+    bt.disabled = true; st.className = 'st'; st.textContent = 'Salvando…';
+    window.chamar('vdf_indicarNota', TOKEN, { shortLink: c.shortLink, idAnexo: nt.dataset.id, ids: ids }).then(function (r) {
+      bt.disabled = false;
+      if (!r || r.ok === false) { st.className = 'st erro'; st.textContent = ((r && r.faltas) || ['Não deu para salvar. Tente de novo.']).join(' '); return; }
+      // a tela passa a mostrar o que ficou gravado
+      c.nfPecas = c.nfPecas || {};
+      Object.keys(c.nfPecas).forEach(function (k) { if (c.nfPecas[k] && c.nfPecas[k].a === nt.dataset.id && ids.indexOf(k) < 0) delete c.nfPecas[k]; });
+      var num = (String((nt.querySelector('.n') || {}).textContent || '').match(/\s-\s0*(\d{1,9})\s-\s\d{2}-\d{2}/) || [])[1] || '';
+      ids.forEach(function (k) { c.nfPecas[k] = { a: nt.dataset.id, n: num }; });
+      var msg = r.nada ? 'Nada mudou.' : 'Salvo ✓' + (r.movido ? ' — o card foi para ' + r.movido : '');
+      desenhar(true);
+      var novo = box.querySelector('.nota[data-id="' + nt.dataset.id + '"] .st'); if (novo) { novo.className = 'st ok'; novo.textContent = msg; }
+    }).catch(function (x) { bt.disabled = false; st.className = 'st erro'; st.textContent = 'Não deu para salvar: ' + (x && x.message || x); });
+  });
+  setInterval(function () { desenhar(false); }, 500);
+
+  /* nota nova (PDF/XML) sem peça marcada: não envia */
+  function semPeca() {
+    var lista = (typeof REC_ANEXOS !== 'undefined' && REC_ANEXOS) || [], ruins = [];
+    Array.prototype.forEach.call(document.querySelectorAll('#recGerais .item'), function (it) {
+      var a = lista.filter(function (x) { return x.fileId === it.dataset.fileId; })[0];
+      var nf = a && /\.(pdf|xml)$/i.test(String(a.nome || '')), vazio = a && !(a.ids || []).length;
+      var m = it.querySelector('.v2nfp-msg');
+      if (nf && vazio) { ruins.push(it); it.classList.add('v2nfp-falta'); if (!m) { m = document.createElement('div'); m.className = 'v2nfp-msg'; m.setAttribute('role', 'alert'); it.appendChild(m); } m.textContent = 'Marque a peça que esta nota baixa.'; }
+      else { it.classList.remove('v2nfp-falta'); if (m) m.remove(); }
+    });
+    return ruins;
+  }
+  document.addEventListener('change', function (e) { if (e.target && e.target.closest && e.target.closest('#recGerais')) setTimeout(semPeca, 0); }, true);
+  window.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#btnRec'); if (!b) return;
+    if (!(window.CARD && window.CARD.nfPecaLigada)) return;
+    var ruins = semPeca(); if (!ruins.length) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    try { ruins[0].scrollIntoView({ block: 'center' }); var cb = ruins[0].querySelector('input[type=checkbox]'); if (cb) cb.focus({ preventScroll: true }); } catch (x) {}
+  }, true);
+})();
+</script>
 </body>
 </html>

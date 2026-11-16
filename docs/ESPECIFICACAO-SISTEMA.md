@@ -230,6 +230,17 @@ fornecedor têm o conteúdo lido (`nf.cods`, guardado na leitura do anexo; a var
 limite de leituras). Peça sem código, fornecedor de código próprio (paralelo/usado: nenhum código bate) ou nota sem leitura
 = regra de antes (por fornecedor). Card que já está em ENTREGUES com leitura antiga não é mexido.
 
+**Nota INDICADA por peça (16/11/2026 — só no TESTE; principal: `VD_NF_PECA=SIM`, `VD_NF_PECA_DESDE=<data da virada>` e
+`PU_CFG.NF_PECA: 'todos'`, com OK do Weslley).** Weslley (16/11, 10h34): "o atendente tem que lançar a nota e indicar a peça
+que está baixando; o automático era só para aquela vez". Até aqui o "refere-se a:" da aba 📦 Recebimento só dava nome ao
+arquivo. Agora: (1) a ligação nota ↔ peça comprada fica guardada (`RC_NFP_<card>`: item do PAGAS → anexo), gravada no
+recebimento e por `vdf_indicarNota` (aba Recebimento → quadro "Notas deste card": marca de qual peça é cada nota que já
+está no card, sem subir de novo; comentário `🧾 NOTA INDICADA`); (2) a régua (`rc_notasOficina_`) só considera a compra com
+nota quando há nota indicada para ela e o anexo continua no card — sem palavra em comum, contagem ou leitura do conteúdo;
+peça do WEV ESTOQUE segue dispensada; (3) nota nova (PDF/XML) na aba Recebimento só é enviada com peça marcada. **Virada**:
+a regra nova só vale para card em que todas as compras foram lançadas depois de `VD_NF_PECA_DESDE`; card com compra anterior
+segue a regra de antes (por fornecedor) — nada volta de ENTREGUES em massa.
+
 **Nota de refaturamento (16/11/2026 — só no TESTE; principal: `VD_REFAT=SIM` + `PU_CFG.REFATURAMENTO: 'todos'`, com OK do Weslley).**
 No pedido novo e no ✏️ Editar, o consultor responde "🧾 Precisa de nota de refaturamento?" (Não / Sim + de qual empresa é o
 CNPJ, opcional — só o nome curto, nunca o número). Com Sim, a descrição oficial ganha `**REFATURAMENTO:** SIM — CNPJ <EMPRESA>`

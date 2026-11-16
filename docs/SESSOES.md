@@ -618,3 +618,6 @@ da outra, deixar um recado aqui e no commit.
   passou a peça para a oficina e o consultor marcou 🚫 não comprar. O robô agora tira o item FO nesse caso.
 - **16/11 (10h15)** — Publicadas com OK do Weslley (09h52) as correções de BBE0G95, AXY2C69 e AVO4E81, e a régua da nota
   por peça (BDD4D27: uma nota da OPEN cobria duas peças compradas em lojas diferentes).
+- **16/11 (11h)** — Nota indicada por peça (Weslley: "o atendente tem que lançar a nota e indicar a peça que está baixando;
+  o automático era só para aquela vez"): a ligação nota ↔ peça passa a ficar guardada, a régua exige nota indicada por compra
+  e a aba Recebimento mostra as notas do card para indicar a peça. Só no TESTE (`PU_CFG.NF_PECA`, `vdf_nfPecaLigada_`).

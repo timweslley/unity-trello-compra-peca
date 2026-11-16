@@ -64,6 +64,10 @@ window.PU_CFG = {
    * confirmação de nota no CNPJ (vdf_salvarCompra). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley +
    * propriedade VD_REFAT=SIM no robô); outro valor desliga. */
   REFATURAMENTO: 'teste',
+  /* 16/11/2026 (Weslley: "o atendente tem que lançar a nota e indicar a peça que está baixando"): aba Recebimento mostra as
+   * notas do card para indicar a peça, e nota nova só segue com peça marcada; a régua (servidor) exige nota indicada por
+   * compra. 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley + VD_NF_PECA=SIM e VD_NF_PECA_DESDE no robô). */
+  NF_PECA: 'teste',
   LIBERADO_POR: 'todos',   // 12/11/2026 12h19 — Weslley: "pode ligar já" (voltar: 'teste' + VD_LIBERADO_POR=NAO)
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',
