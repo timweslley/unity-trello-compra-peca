@@ -1771,6 +1771,7 @@ function vd_conferirCard_(card, ctx) {
   // dado — vale para card só-FO também (card aberto pela Rotina a partir do portal, antes de existir a O.S., ia a FALTA CHEGAR)
   // pedido PARTICULAR fica de fora: no formulário o nº da ordem é opcional nele (Weslley, 13/10/2026) — mesma regra aqui
   var fOrdem = an.dados.tipo === 'PARTICULAR' ? '' : vd_faltaOrdem_(card); if (fOrdem) faltas.push(fOrdem);
+  try { var fFo = vd_faltaFoSemItem_(card, an); if (fFo) faltas.push(fFo); } catch (eFo) { console.log('falta FO sem item: ' + eFo); }
   if (avisoAnexo && faltas.some(function (f) { return /^chassi$/.test(f); })) faltas.push('obs.: ' + avisoAnexo);
   res.faltas = faltas;
   // tipo marcado x o que o orçamento autorizou (só avisa)
@@ -2005,6 +2006,22 @@ function vd_cardsDasListas_(ids, comAnexos) {
     cards = cards.concat(vd_api_('/lists/' + idL + '/cards', { query: q }));
   });
   return cards;
+}
+
+/** 17/11/2026 (Weslley, AYZ5A19): quantas peças de fornecimento a descrição declara ("FORNECIMENTO (seguradora): 1 peça(s)"); 0 = nenhuma. */
+function vd_foDeclarado_(desc) {
+  var m = vd_limpar_(vd_dividir_(desc).bloco).match(/FORNECIMENTO[^\n:]*:\s*\**\s*([1-9]\d*)/i);
+  return m ? +m[1] : 0;
+}
+/** Pedido só com fornecimento da seguradora (nenhuma peça da oficina) cuja peça NÃO está em checklist nenhum: é falta de dado.
+ *  Só vale com o card parado há 10 min (o formulário grava a descrição antes do checklist) e sem item em checklist algum. */
+function vd_faltaFoSemItem_(card, an) {
+  if ((an.pecas || []).length || (an.naoComprar || []).length) return '';
+  var n = vd_foDeclarado_(card.desc); if (!n) return '';
+  var t = Date.parse(card.dateLastActivity || ''); if (!t || Date.now() - t < 10 * 60 * 1000) return '';
+  var cks = vd_api_('/cards/' + card.id + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name', fields: 'name' } }) || [];
+  if (cks.some(function (k) { return (k.checkItems || []).length; })) return '';
+  return 'peça da seguradora: a descrição diz ' + n + ' peça(s) de fornecimento, mas o checklist FORNECIMENTO está vazio — lance a peça de novo pelo ✏️ EDITAR/INCLUIR PEÇA (importe o orçamento); se não há peça nenhuma, peça à diretoria para encerrar o card';
 }
 
 function vd_cardsParaConferir_(ctx) {

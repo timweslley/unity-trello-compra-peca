@@ -626,7 +626,12 @@ da outra, deixar um recado aqui e no commit.
 - **16/11 (11h35)** — BBP7A67 (Civic, Zurich): a rotina gravou o fornecimento do emblema às 10h34, no meio de um deploy, e a
   trava desfez às 10h36 (duas instâncias; a rede de segurança pelo comentário não conhecia "atualizou o fornecimento").
   Lista de verbos completada (OK do Weslley 11h30). O "google ok=false" das 10h43 foi do mesmo deploy.
+- **17/11 (22h)** — Card sem peça preso (Weslley): SFE3C96 (Pulse, Zurich) ficou 4 dias em EM COTAÇÃO com orçamento só de mão
+  de obra importado pelo robô — a regra "sem peça vai para ENTREGUES" exigia item de checklist ou 🚫. Agora card validado sem
+  peça nenhuma segue para ENTREGUES. AYZ5A19 (S10, Zacarias) fica: a descrição cita 1 peça de fornecimento sem checklist.
 - **17/11 (22h)** — RAM9I31 (Tiggo 2, HDI, O.S. 1924): devolução do radiador do ML aberta em 28/10 não tinha como ser desfeita
-  → `vdf_cancelarDevolucao` + botão na aba Recebimento (`CANCELAR_DEVOLUCAO: 'teste'`). AYZ5A19 (S10, O.S. 2666): o formulário
+  → `vdf_cancelarDevolucao` + botão na aba Recebimento (`CANCELAR_DEVOLUCAO: 'todos'`, OK 22h23). AYZ5A19 (S10, O.S. 2666): o formulário
   adotou o checklist "FORNECIMENTO ZACARIAS" feito à mão e a trava apagou-o com a peça dentro (nome da peça perdido) →
   formulário só usa checklist de nome oficial; trava escreve os itens no comentário antes de apagar.
+  OK do Weslley 22h23 para publicar tudo (inclusive o card só de mão de obra → ENTREGUES, SFE3C96). Regra nova: fornecimento
+  declarado na descrição sem item no checklist volta para FALTA DADOS (AYZ5A19).
