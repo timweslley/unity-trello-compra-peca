@@ -643,3 +643,5 @@ da outra, deixar um recado aqui e no commit.
 - **18/11 (18h30)** — UBD7A27 (Tracker HDI): item FO de peça 🚫 ficou 5 dias segurando o card porque a regra só usava a leitura
   guardada do orçamento → passa a ler o anexo na hora. O PDF do laudo 2.1 que a rotina anexou em 11/11 tem acentos quebrados e o
   robô não o reconheceu como orçamento (a ver na rotina).
+- **18/11 (20h)** — Weslley: "checa as colunas antes de entregue, tá aparecendo muita coisa". TBD4H07 ia e voltava entre ENCERRADO e
+  ENTREGUES (nota repetida contava como sobra; "VW CAS" não batia com "VW CASCAVEL") → régua corrigida.

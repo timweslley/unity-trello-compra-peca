@@ -819,7 +819,15 @@ function rc_notasOficina_(card) {
   var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
   // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
   // AUTOX cobrindo a compra da DIPAUTO)
-  var notas = (card.attachments || []).filter(rc_nfDeCompra_).map(function (a) { return { id: a.id, nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
+  // 18/11/2026 (Weslley, TBD4H07 Saveiro: "tá aparecendo muita coisa" antes de ENTREGUES — o card foi e voltou 3 vezes no dia):
+  // o Compras subia de novo as MESMAS duas notas; enquanto a cópia estava no card ela contava como "nota sobrando" e liberava
+  // o card; o robô apagava a cópia (anexo repetido) e a varredura devolvia o card para ENCERRADO. Anexo com o mesmo nome e o
+  // mesmo tamanho de outro conta UMA vez.
+  var vistasNf = {};
+  var notas = (card.attachments || []).filter(rc_nfDeCompra_).filter(function (a) {
+    var k = vd_semAcento_(String(a.name || '')).toUpperCase().replace(/\s+/g, ' ').replace(/\s+V\d+$/, '').trim() + '|' + (a.bytes || '');
+    if (vistasNf[k]) return false; vistasNf[k] = 1; return true;
+  }).map(function (a) { return { id: a.id, nome: a.name, pal: rc_nfPalavras_(a.name), usada: false, servico: /^NFS-?e\b/i.test(String(a.name || '')) }; });
   var forns = [], porForn = {}, doEstoque = 0, comprasNf = [];
   // cadastro de fornecedores (nome/apelidos): decide qual parte do item é o fornecedor — padrão novo "CÓDIGO DESC - FORN - R$",
   // card antigo "FORN - DESC - R$valor" (FIAT FIPAL - LANTERNA TRAS LD - R$655; ML - RADAR DIANT USADO - R$925)
@@ -832,7 +840,13 @@ function rc_notasOficina_(card) {
     lista.forEach(function (f) {
       var txt = fo_norm_(f.nome) + ' | ' + (f.apelidos || []).map(fo_norm_).join(' | ') + ' | ' + fo_norm_(f.cadastro || '');
       var bate = fo_norm_(f.nome) === nf || (f.apelidos || []).some(function (a) { return fo_norm_(a) === nf; }) ||
-        (pal.length && pal.every(function (w) { return (' ' + txt + ' ').indexOf(' ' + w + ' ') >= 0; }));
+        (pal.length && pal.every(function (w) { return (' ' + txt + ' ').indexOf(' ' + w + ' ') >= 0; })) ||
+        // 18/11/2026 (TBD4H07): "VW CAS" no item × "VW CASCAVEL" no cadastro — nome abreviado no checklist. Com 2+ palavras, vale
+        // a palavra inteira ou o COMEÇO de uma palavra do nome/apelido do cadastro (mín. 3 letras), todas no mesmo nome.
+        (nf.split(/\s+/).length >= 2 && [f.nome].concat(f.apelidos || []).some(function (nm) {
+          var ws = fo_norm_(nm).split(/\s+/);
+          return nf.split(/\s+/).every(function (w) { return ws.some(function (x) { return x === w || (w.length >= 3 && x.indexOf(w) === 0); }); });
+        }));
       if (bate) rc_nfPalavras_(f.nome + ' ' + (f.apelidos || []).join(' ') + ' ' + (f.cadastro || '')).forEach(function (w) { if (out.indexOf(w) < 0) out.push(w); });
     });
     return out;
