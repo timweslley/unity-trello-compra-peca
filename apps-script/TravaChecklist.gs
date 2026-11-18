@@ -99,8 +99,13 @@ function ck_desfazer_(a) {
       vd_api_('/checklists/' + cl.id + '/checkItems', { method: 'post', payload: corpo });
       return 'item apagado voltou: ' + pv_curto_(it.name);
     case 'addChecklistToCard':
+      // 17/11/2026 (Weslley, AYZ5A19: "precisamos salvar o que tem antes de apagar, o que tinha nele?"): os itens do checklist
+      // feito à mão ficam escritos no comentário da trava (e no evento) ANTES de apagar. Se não der para ler, não apaga.
+      var itensCl = vd_api_('/checklists/' + cl.id + '/checkItems', { query: { fields: 'name,state' } }) || [];
       vd_api_('/checklists/' + cl.id, { method: 'delete' });
-      return 'apagado checklist criado à mão: ' + (cl.name || '');
+      return 'apagado checklist criado à mão: ' + (cl.name || '') + (itensCl.length
+        ? ' — tinha ' + itensCl.length + ' item(ns): ' + itensCl.slice(0, 40).map(function (i) { return (i.state === 'complete' ? '✔ ' : '') + String(i.name || '').replace(/\s+/g, ' ').slice(0, 140); }).join(' ; ') + (itensCl.length > 40 ? ' ; …' : '') + ' (lançar pelo formulário)'
+        : ' (estava vazio)');
     case 'updateChecklist':
       if (!d.old || d.old.name === undefined) return '';
       vd_api_('/checklists/' + cl.id, { method: 'put', payload: { name: d.old.name } });

@@ -68,6 +68,9 @@ window.PU_CFG = {
    * notas do card para indicar a peça, e nota nova só segue com peça marcada; a régua (servidor) exige nota indicada por
    * compra. 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley + VD_NF_PECA=SIM e VD_NF_PECA_DESDE no robô). */
   NF_PECA: 'todos',   // 16/11/2026 10h48 — Weslley: "o compras deve indicar… pode ser" (voltar: 'teste' + VD_NF_PECA=NAO)
+  /* 17/11/2026 (Weslley, RAM9I31): botão "Cancelar devolução" na aba Recebimento (peça ficou com a oficina; motivo obrigatório).
+   * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley). O servidor (vdf_cancelarDevolucao) já aceita nos dois. */
+  CANCELAR_DEVOLUCAO: 'teste',
   LIBERADO_POR: 'todos',   // 12/11/2026 12h19 — Weslley: "pode ligar já" (voltar: 'teste' + VD_LIBERADO_POR=NAO)
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',
   NOME: 'Pedido de Peça Unity',

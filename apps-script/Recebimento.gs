@@ -1013,7 +1013,7 @@ function rc_devolverEntregues_(ctx, fim) {
  * O COMPRADOR confirma a data, informa o nº da NF de devolução e anexa o PDF (vdf_salvarDevolucao): o item fica ✔ e o nome
  * termina em "· NF nº dd/MM". Enquanto houver devolução sem NF, o card NÃO vai para ENTREGUES (segura em ENCERRADO).
  * Prazo: SLA_DIAS_NF_DEVOLUCAO (3 d.u.) depois da devolução → ⏰ para o setor de compras, uma vez por item. */
-var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF' };
+var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF', RX_CANC: /·\s*devolução cancelada\s+\d{1,2}\/\d{1,2}/i };
 
 function rc_checklistDev_(card, token) {
   var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
@@ -1043,7 +1043,8 @@ function rc_devolucoes_(card) {
     (k.checkItems || []).forEach(function (i) {
       var m = String(i.name || '').match(/\s*·\s*NF\s+(\S+)\s+(\d{1,2}\/\d{1,2})\s*$/i);
       out.push({ id: i.id, nome: i.name, peca: String(i.name || '').replace(/^↩️\s*/, '').split(/\s+-\s+/)[0], ok: i.state === 'complete', due: i.due || '',
-        dueIso: i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', nf: m ? m[1] : '', nfData: m ? m[2] : '' });
+        dueIso: i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', nf: m ? m[1] : '', nfData: m ? m[2] : '',
+        cancelada: RC_DEV.RX_CANC.test(String(i.name || '')) });
     });
   });
   return out;
@@ -1102,6 +1103,64 @@ function vdf_salvarDevolucao(token, p) {
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
+
+/** 17/11/2026 (Weslley, RAM9I31 TIGGO 2 · O.S. 1924: "olha esse e ajusta de uma vez"). A devolução foi aberta em 28/10 porque a
+ *  seguradora passou a fornecer o radiador que a oficina já tinha comprado; em 05/11 o complemento autorizou as DUAS peças e a
+ *  compra da oficina ficou valendo — mas não havia como desfazer a devolução e o card ficou em FALTA CHEGAR cobrando uma NF
+ *  de devolução que nunca vai existir. Agora quem registra recebimento (comprador / diretoria) CANCELA a devolução, com motivo:
+ *  o item do checklist DEVOLUÇÕES fica (registro) com "· devolução cancelada dd/MM (motivo)" e ✔, a marca "↩️ A DEVOLVER" sai
+ *  da compra (PAGAS*), fica o comentário de registro e o evento, e a coluna é reavaliada.
+ *  p = {shortLink, id (item do checklist DEVOLUÇÕES), motivo}. */
+function vdf_cancelarDevolucao(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  var ctx = vd_contexto_();
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Só quem registra recebimento neste card (comprador / diretoria) cancela devolução.'] };
+  var d = rc_devolucoes_(card).filter(function (x) { return x.id === String(p.id || ''); })[0];
+  if (!d) return { ok: false, faltas: ['Não achei esta devolução no card. Atualize a página e tente de novo.'] };
+  if (d.ok) return { ok: false, faltas: [d.cancelada ? 'Esta devolução já foi cancelada.' : 'Esta devolução já tem NF informada — não dá para cancelar.'] };
+  var motivo = String(p.motivo || '').replace(/\s+/g, ' ').replace(/\s*·\s*/g, ' ').trim();
+  if (motivo.length < 5) return { ok: false, faltas: ['Escreva o motivo do cancelamento da devolução.'] };
+  var ddmm = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM');
+  var base = String(d.nome).replace(/\s*·\s*aguardando NF\s*$/i, '');
+  var nomeNovo = base + ' · devolução cancelada ' + ddmm + ' (' + motivo.slice(0, 80) + ')';
+  try { vd_api_('/cards/' + card.id + '/checkItem/' + d.id, { method: 'put', payload: { name: nomeNovo.slice(0, 16000), state: 'complete' } }, token); }
+  catch (e) { return { ok: false, faltas: ['Não consegui gravar no card: ' + e] }; }
+  // a compra da oficina volta a valer: sai a marca "↩️ A DEVOLVER" do item do PAGAS* (mesma peça)
+  var compra = null;
+  (card.checklists || []).forEach(function (k) {
+    if (!/^PAGAS/i.test(String(k.name || '').trim())) return;
+    (k.checkItems || []).forEach(function (i) {
+      if (compra) return;
+      var mk = rc_marcas_(i.name);
+      if (mk.base.split(/\s+-\s+/)[0].trim() === d.peca) compra = { id: i.id, nome: i.name, marcas: mk, recebida: i.state === 'complete' };
+    });
+  });
+  if (compra && /DEVOLVER/i.test(compra.marcas.devolvida || '')) { try { rc_gravarMarcas_(card.id, compra, { devolvida: '' }, token); } catch (e) { console.log('cancelar devolução/marca: ' + e); } }
+  var forn = String(d.nome).replace(/^↩️\s*/, '').split(/\s+-\s+/)[1] || '';
+  forn = forn.split(/\s*·\s*/)[0];
+  try { ev_registrar_('DEVOLUÇÃO', card, me.username, [{ peca: d.peca, fornecedor: forn, detalhe: 'devolução CANCELADA · ' + motivo.slice(0, 120) }], { detalhe: 'devolução cancelada' }); } catch (e) {}
+  var movido = '', segura = '';
+  try {
+    movido = rc_reavaliarColuna_(card.id, token, me.username, { reavaliar: true }) || '';
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } });
+    if (vdf_nomeLista_(ctx, c2.idList) === RC.LISTA_FIM) {
+      var lib = rc_liberarEncerrado_(c2, ctx, token, me.username);
+      if (lib.movido) movido = lib.movido; else segura = rc_textoSegura_(lib);
+    }
+    card.idList = c2.idList;
+  } catch (e) { console.log('cancelar devolução/coluna: ' + e); }
+  var aviso = compra ? '' : 'A compra desta peça não está mais no checklist PAGAS — se a peça ficou com a oficina, lance a compra de novo pelo formulário.';
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '↩️ **DEVOLUÇÃO CANCELADA** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') +
+      '\n- ' + d.peca + (forn ? ' (' + forn + ')' : '') + ' — a peça fica com a oficina; não haverá NF de devolução.' +
+      '\n- Motivo: ' + motivo.slice(0, 300) + (aviso ? '\n⚠️ ' + aviso : '') + (segura ? '\n⏳ O card fica em **' + RC.LISTA_FIM + '**: ' + segura : '') } }, token);
+  } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, peca: d.peca, aviso: aviso, pendentes: rc_devolucoesPendentes_(card).length - 1, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
 /** 21/10/2026 (Weslley: "os que ainda não foram entregues dá pra incluir") — diretoria inclui no checklist DEVOLUÇÕES uma devolução

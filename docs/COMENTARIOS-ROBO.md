@@ -117,6 +117,7 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 | `⏳ O card fica em ENCERRADO: falta anexar a nota fiscal de N compra(s) da oficina (fornecedor sem nota identificada: …) — aba 📦 Recebimento → Nota fiscal` (linha dentro do comentário do recebimento / retirada / NF de devolução) | ação pelo formulário com o card em ENCERRADO e compra sem nota (06/11/2026) | não | **M** (novo) |
 | `↪️ Card → COLUNA (motivo)` | robô reavaliou a coluna (tudo comprado / só FO / sem compra) | não | **F**: só quando NÃO veio de uma ação pelo formulário (o comentário da ação já traz `→ COLUNA`) |
 | `↩️ NF DE DEVOLUÇÃO — Nome` + linhas por peça (NF nº, anexo) | comprador informou a NF de devolução (21/10) | não | **M** (novo) |
+| `↩️ DEVOLUÇÃO CANCELADA — Nome` + peça, "a peça fica com a oficina", motivo | comprador/diretoria cancelou a devolução (17/11, RAM9I31) | não | **M** (novo) |
 | `⏰ NF de devolução pendente há mais de N d.u. — …` | SLA, 3 d.u. após a devolução, 1 vez por item | @compras | **M** (novo) |
 | `🔒 Encerrado sem peças — Nome → ENCERRADO · 📝 motivo` | diretoria encerrou card sem peça (21/10) | não | **M** |
 | `Movido automaticamente para FALTA CHEGAR: mais de N dias em ENCERRADO…` (Código.gs, rotina antiga) | card antigo | não | **?** conferir se ainda roda; se roda, formato `↪️ Card → FALTA CHEGAR (…)` |
@@ -146,7 +147,7 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 | Comentário | Quando sai | @ | Proposta |
 |---|---|---|---|
 | `🔒 ALTERAÇÃO NÃO PERMITIDA — a descrição só muda pelo formulário; o texto voltou ao original` | edição manual da descrição | @quem editou | **M** |
-| `🔒 ALTERAÇÃO NÃO PERMITIDA — checklist só muda pelo formulário… Desfeito: …` | ✔/edição manual no checklist | @quem editou | **M** |
+| `🔒 ALTERAÇÃO NÃO PERMITIDA — checklist só muda pelo formulário… Desfeito: …` | ✔/edição manual no checklist; checklist criado à mão sai com a lista dos itens que tinha (17/11, AYZ5A19) | @quem editou | **M** |
 | `↩️ O card voltou para FALTA CHEGAR: foi para ENCERRADO com o checklist completo, mas depois N peça(s) ficaram sem ✔…` | trava de coluna desfaz encerramento feito pela conta do robô (Butler) quando peça foi desmarcada em seguida (12/11, ACQ0B71) | não | **M** |
 | `🔒 motivo — O card voltou para COLUNA` | card arrastado para coluna proibida | @quem moveu | **M** |
 | `🗑️ Anexo repetido removido: «a» é o mesmo arquivo que «b»` | anexo idêntico | @quem anexou | **M** |
