@@ -635,3 +635,5 @@ da outra, deixar um recado aqui e no commit.
   formulário só usa checklist de nome oficial; trava escreve os itens no comentário antes de apagar.
   OK do Weslley 22h23 para publicar tudo (inclusive o card só de mão de obra → ENTREGUES, SFE3C96). Regra nova: fornecimento
   declarado na descrição sem item no checklist volta para FALTA DADOS (AYZ5A19).
+- **18/11 (10h40)** — Weslley: "confere todos os cards em cotação, parece ter anomalia". AYZ5A19 tinha voltado de FALTA DADOS para
+  EM COTAÇÃO às 22h30 (a espera de 10 min da regra nova deixava o validador liberar o card e não reconferia) → corrigido.

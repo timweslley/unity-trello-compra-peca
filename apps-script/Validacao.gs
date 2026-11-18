@@ -1771,7 +1771,13 @@ function vd_conferirCard_(card, ctx) {
   // dado — vale para card só-FO também (card aberto pela Rotina a partir do portal, antes de existir a O.S., ia a FALTA CHEGAR)
   // pedido PARTICULAR fica de fora: no formulário o nº da ordem é opcional nele (Weslley, 13/10/2026) — mesma regra aqui
   var fOrdem = an.dados.tipo === 'PARTICULAR' ? '' : vd_faltaOrdem_(card); if (fOrdem) faltas.push(fOrdem);
-  try { var fFo = vd_faltaFoSemItem_(card, an); if (fFo) faltas.push(fFo); } catch (eFo) { console.log('falta FO sem item: ' + eFo); }
+  // 18/11/2026 (AYZ5A19): card mexido há menos de 3 min fica para o próximo ciclo (o formulário grava a descrição antes do
+  // checklist). Antes a conferência simplesmente passava e o card saía de FALTA DADOS para EM COTAÇÃO 2 min depois de entrar.
+  try {
+    var fFo = vd_faltaFoSemItem_(card, an);
+    if (fFo === 'ESPERAR') { res.acao = 'fornecimento sem item, card mexido agora — fica para o próximo ciclo'; res.pular = true; return res; }
+    if (fFo) faltas.push(fFo);
+  } catch (eFo) { console.log('falta FO sem item: ' + eFo); }
   if (avisoAnexo && faltas.some(function (f) { return /^chassi$/.test(f); })) faltas.push('obs.: ' + avisoAnexo);
   res.faltas = faltas;
   // tipo marcado x o que o orçamento autorizou (só avisa)
@@ -2014,13 +2020,13 @@ function vd_foDeclarado_(desc) {
   return m ? +m[1] : 0;
 }
 /** Pedido só com fornecimento da seguradora (nenhuma peça da oficina) cuja peça NÃO está em checklist nenhum: é falta de dado.
- *  Só vale com o card parado há 10 min (o formulário grava a descrição antes do checklist) e sem item em checklist algum. */
+ *  Sem item em checklist algum; card mexido há menos de 3 min devolve 'ESPERAR' (reconfere no próximo ciclo). */
 function vd_faltaFoSemItem_(card, an) {
   if ((an.pecas || []).length || (an.naoComprar || []).length) return '';
   var n = vd_foDeclarado_(card.desc); if (!n) return '';
-  var t = Date.parse(card.dateLastActivity || ''); if (!t || Date.now() - t < 10 * 60 * 1000) return '';
   var cks = vd_api_('/cards/' + card.id + '/checklists', { query: { checkItems: 'all', checkItem_fields: 'name', fields: 'name' } }) || [];
   if (cks.some(function (k) { return (k.checkItems || []).length; })) return '';
+  var t = Date.parse(card.dateLastActivity || ''); if (t && Date.now() - t < 3 * 60 * 1000) return 'ESPERAR';
   return 'peça da seguradora: a descrição diz ' + n + ' peça(s) de fornecimento, mas o checklist FORNECIMENTO está vazio — lance a peça de novo pelo ✏️ EDITAR/INCLUIR PEÇA (importe o orçamento); se não há peça nenhuma, peça à diretoria para encerrar o card';
 }
 

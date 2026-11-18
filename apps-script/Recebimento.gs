@@ -587,7 +587,7 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
     // que há fornecimento da seguradora, mas não existe item nenhum de checklist (a peça se perdeu) — o card não tem o que
     // esperar em FALTA CHEGAR: volta para FALTA DADOS, onde o validador diz o que falta (vd_faltaFoSemItem_).
     var foSemItem = false;
-    try { foSemItem = chegarVazio && !an.pecas.length && !(an.naoComprar || []).length && !!vd_foDeclarado_(card.desc); } catch (eFS) { foSemItem = false; }
+    try { foSemItem = (chegarVazio || (lista === VD.LISTA_COTACAO && !itens.length && !devAbertas.length)) && !an.pecas.length && !(an.naoComprar || []).length && !!vd_foDeclarado_(card.desc); } catch (eFS) { foSemItem = false; }
     if (foSemItem) {
       alvo = VD.LISTA_FALTA;
       soFo = 'a descrição diz que há peça da seguradora, mas o checklist FORNECIMENTO está vazio — lançar a peça de novo pelo formulário (✏️ EDITAR/INCLUIR PEÇA)';
