@@ -619,6 +619,23 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
       }
     } catch (e) { console.log('coluna/já comprado: ' + e); }
   }
+  /* 18/11/2026 (Weslley, ATV4G70 F350 · O.S. 2802, na conferência dos cards em cotação): o card voltou para EM COTAÇÃO em 16/11
+   * (marcaram um item 🚫 como complemento) sem ter peça para cotar — 5 compradas e 1 já autorizada sem compra — e o robô
+   * cobrava cotação atrasada do Compras. Nada para cotar e o que falta comprar já está autorizado → AUTORIZADO COMPRA. */
+  if (!alvo && !semCompleta && [VD.LISTA_COTACAO, VD.LISTA_FALTA].indexOf(lista) >= 0 && !vd_legado_(card.id)) {
+    try {
+      var anA = vd_analisar_(card.desc, card.name), pagasA = vdf_itensPagas_(card);
+      if ((anA.pecas || []).length && !(anA.faltas || []).length) {
+        var autsA = vd_autorizacoesDaDescricao_(card.desc, anA.pecas);
+        var faltaComprarA = anA.pecas.filter(function (p) { var k = vd_chavePeca_(p); return !pagasA.some(function (n) { return vd_casaItem_(n, k); }); });
+        if (faltaComprarA.length && faltaComprarA.every(function (p) { var k = vd_chavePeca_(p); return autsA.some(function (x) { return x.chave === k; }); })) {
+          alvo = VDF_LISTA_AUTORIZADO;
+          soFo = 'nada para cotar: ' + faltaComprarA.length + ' peça(s) já autorizada(s) — verificar compra do item ' +
+            faltaComprarA.slice(0, 6).map(function (p) { return vd_chavePeca_(p); }).join(', ') + (faltaComprarA.length > 6 ? ', …' : '');
+        }
+      }
+    } catch (e) { console.log('coluna/autorizada sem compra: ' + e); }
+  }
   /* 26/10/2026 (Weslley, AYT6699: "mudei para seguradora e continua em COTAÇÃO FINALIZADA, deveria ir para PENDENTE AUTORIZAR"):
    * quem paga mudou depois da cotação e ninguém autorizou ainda — COTAÇÃO FINALIZADA (só peça particular: o consultor autoriza)
    * ↔ PENDENTE AUTORIZAR (tem peça da seguradora: a diretoria autoriza), a mesma regra do "Enviar cotação". */

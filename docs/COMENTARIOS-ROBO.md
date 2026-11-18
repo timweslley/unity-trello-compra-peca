@@ -118,6 +118,7 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 | `↪️ Card → COLUNA (motivo)` | robô reavaliou a coluna (tudo comprado / só FO / sem compra) | não | **F**: só quando NÃO veio de uma ação pelo formulário (o comentário da ação já traz `→ COLUNA`) |
 | `↩️ NF DE DEVOLUÇÃO — Nome` + linhas por peça (NF nº, anexo) | comprador informou a NF de devolução (21/10) | não | **M** (novo) |
 | `↩️ DEVOLUÇÃO CANCELADA — Nome` + peça, "a peça fica com a oficina", motivo | comprador/diretoria cancelou a devolução (17/11, RAM9I31) | não | **M** (novo) |
+| `📄 Orçamento Cilia N.v desta placa é outro orçamento (COBERTURA N) — este card é do orçamento …` | rotina do Cilia achou orçamento de outra cobertura para a mesma placa (18/11, ARX9B84) | não | **M** (novo) |
 | `⏰ NF de devolução pendente há mais de N d.u. — …` | SLA, 3 d.u. após a devolução, 1 vez por item | @compras | **M** (novo) |
 | `🔒 Encerrado sem peças — Nome → ENCERRADO · 📝 motivo` | diretoria encerrou card sem peça (21/10) | não | **M** |
 | `Movido automaticamente para FALTA CHEGAR: mais de N dias em ENCERRADO…` (Código.gs, rotina antiga) | card antigo | não | **?** conferir se ainda roda; se roda, formato `↪️ Card → FALTA CHEGAR (…)` |

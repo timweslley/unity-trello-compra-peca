@@ -210,6 +210,14 @@ function cl_acharCard_(board, o) {
   });
   if (!cands.length) return { nenhum: true };
   if (cands.length === 1) return { card: cands[0] };
+  // 18/11/2026 (ARX9B84): dois cards da placa com o mesmo sinistro (CASCO e CARROCERIA) — decide o nº do orçamento do Cilia
+  // no nome dos anexos ("Cilia 1973851.2"): só quando um único card já tem versão desse orçamento.
+  var nOrc = (String(o.versao_baixada || '').match(/^(\d{5,9})\./) || [])[1] || '';
+  if (nOrc) {
+    var reOrc = new RegExp('(^|[^0-9.])' + nOrc + '\\.\\d');
+    var porOrc = cands.filter(function (c) { try { return (vd_api_('/cards/' + c.id + '/attachments', { query: { fields: 'name' } }) || []).some(function (a) { return reOrc.test(String(a.name || '')); }); } catch (e) { return false; } });
+    if (porOrc.length === 1) return { card: porOrc[0] };
+  }
   var sin = String(o.sinistro || '').replace(/\D/g, '');
   if (sin.length >= 5) {
     var porSin = cands.filter(function (c) { return String(c.desc || '').replace(/[.\-\/\s]/g, '').indexOf(sin) >= 0; });
@@ -223,6 +231,32 @@ function cl_acharCard_(board, o) {
     if (porSeg.length === 1) return { card: porSeg[0] };
   }
   return { varios: cands.map(function (c) { return c.name; }) };
+}
+
+/** 18/11/2026 (Weslley, ARX9B84 CARGO BRADESCO · O.S. 2214: "é novo sinistro, o sistema achou que era o mesmo"). O Cilia abriu
+ *  DOIS orçamentos para a mesma placa e o mesmo nº de sinistro — 1973850 (CASCO, o do card) e 1973851 (CARROCERIA, o baú) —
+ *  e a versão 1973851.2 entrou no card do casco como complemento (9 peças; card de ENTREGUES para FALTA DADOS).
+ *  Identidade do orçamento do Cilia no texto do PDF: {n: nº sem a versão, c: cobertura do cabeçalho "CASCO - FORD - CARGO…"}. */
+function cl_idOrc_(texto) {
+  var t = String(texto || '');
+  var n = (t.match(/Or[çc]amento\s+(\d{5,9})\.\d+\s*-\s*\d{2}\/\d{2}/i) || [])[1] || '';
+  var m = t.slice(0, 3000).match(/(^|\n)\s*([A-ZÀ-Ú][A-ZÀ-Ú ]{2,24}?)\s+-\s+[A-ZÀ-Ú][A-ZÀ-Ú. ]{1,20}?\s+-\s+/);
+  return { n: n, c: m ? vd_semAcento_(m[2]).replace(/\s+/g, ' ').trim().toUpperCase() : '' };
+}
+/** A versão nv é de OUTRO orçamento do Cilia que não o do card? Só diz que sim com as duas provas: o card tem orçamento do
+ *  Cilia com outro número E a cobertura do PDF novo é diferente da(s) do card. Devolve '' ou o texto para o registro. */
+function cl_outroOrcamento_(card, anexos, nv, pdfBlob, nome) {
+  var nNovo = (String(nv).match(/^(\d{5,9})\./) || [])[1] || '';
+  if (!nNovo) return '';
+  var ids = anexos.filter(function (a) { return a.isUpload && /pdf/i.test(a.mimeType || '') && String(a.name || '').indexOf(AX.ORC) === 0 && /cilia/i.test(a.name || ''); })
+    .slice(-6).map(function (a) { try { var l = vd_lerAnexoTrello_(a, { ciliaId: true }); return l && l.ci; } catch (e) { return null; } })
+    .filter(function (x) { return x && x.n; });
+  if (!ids.length || ids.some(function (x) { return x.n === nNovo; })) return '';
+  var cobs = ids.map(function (x) { return x.c; }).filter(String);
+  if (!cobs.length) return '';
+  var novo = cl_idOrc_(vd_ocr_(pdfBlob, nome));
+  if (!novo.c || cobs.indexOf(novo.c) >= 0) return '';
+  return novo.c + ' ' + nNovo + ' × card: ' + cobs[0] + ' ' + ids[0].n;
 }
 
 /* ---------- registro ---------- */
@@ -389,6 +423,13 @@ function cl_tratarVersao_(board, c, x, o, opt, B) {
   var pdf = cl_pdf_(B, o.pdf);
   if (!pdf) return { acao: 'não anexei: PDF não achado no Drive', det: o.pdf };
   var nome = cl_nomeAnexo_(B, nv, vd_normPlaca_(o.placa));
+  if (B.id === 'CILIA') {
+    var outroOrc = ''; try { outroOrc = cl_outroOrcamento_(card, anexos, nv, pdf.getBlob(), nome); } catch (e) { console.log('cilia/outro orçamento: ' + e); }
+    if (outroOrc) {
+      try { vd_comentar_(card, '📄 **Orçamento Cilia ' + nv + '** desta placa é **outro orçamento** (' + outroOrc.split(' × ')[0] + ') — este card é do orçamento ' + outroOrc.split('card: ')[1] + '. O robô não anexou aqui: esse orçamento precisa de card próprio.'); } catch (e) {}
+      return { acao: 'não anexei: é OUTRO orçamento do Cilia para a mesma placa', det: outroOrc };
+    }
+  }
   var at = vd_api_('/cards/' + card.id + '/attachments', { method: 'post', multipart: { file: pdf.getBlob().setName(nome), name: nome } });
   if (!at || !at.id) throw new Error('o Trello não devolveu o anexo');
   try { cp_marcarVistos_([at.id]); } catch (e) {}   // o ciclo do complemento não trata de novo: quem trata é este módulo

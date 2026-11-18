@@ -637,3 +637,6 @@ da outra, deixar um recado aqui e no commit.
   declarado na descrição sem item no checklist volta para FALTA DADOS (AYZ5A19).
 - **18/11 (10h40)** — Weslley: "confere todos os cards em cotação, parece ter anomalia". AYZ5A19 tinha voltado de FALTA DADOS para
   EM COTAÇÃO às 22h30 (a espera de 10 min da regra nova deixava o validador liberar o card e não reconferia) → corrigido.
+  ATV4G70 (O.S. 2802) parado em EM COTAÇÃO sem nada a cotar → regra "nada para cotar e peça autorizada → AUTORIZADO COMPRA".
+  ARX9B84 (O.S. 2214): orçamento da CARROCERIA (Cilia 1973851) entrou como complemento no card do CASCO (1973850), mesmo nº de
+  sinistro → a rotina do Cilia passa a comparar nº do orçamento + cobertura antes de anexar.
