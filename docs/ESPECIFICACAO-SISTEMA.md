@@ -230,6 +230,12 @@ fornecedor têm o conteúdo lido (`nf.cods`, guardado na leitura do anexo; a var
 limite de leituras). Peça sem código, fornecedor de código próprio (paralelo/usado: nenhum código bate) ou nota sem leitura
 = regra de antes (por fornecedor). Card que já está em ENTREGUES com leitura antiga não é mexido.
 
+**Card validado sem peça nenhuma (17/11/2026, Weslley: "continuo com problemas com cards que não têm peça, eles ficam
+presos" — SFE3C96 Pulse Zurich, 4 dias em EM COTAÇÃO com 0 peça).** Orçamento importado só de mão de obra em card que já
+existia: bloco PEÇAS com a linha "nenhuma peça…", sem falta de dado, sem item de checklist, sem 🚫 e sem fornecimento na
+descrição → **ENTREGUES** direto (regra de 06/11), de qualquer coluna antes da compra e de FALTA CHEGAR. Se a descrição
+diz que há fornecimento e o checklist FORNECIMENTO não existe (AYZ5A19), o card não é mexido — falta registrar a peça.
+
 **Nota INDICADA por peça (16/11/2026 — ligada no principal às 11h30 com OK do Weslley: "o compras deve indicar, e precisa
 aparecer pra ele as notas que já estão anexadas"; virada = compras lançadas a partir de 16/11 12h00, `VD_NF_PECA_DESDE`;
 desligar: `VD_NF_PECA=NAO` + `PU_CFG.NF_PECA: 'teste'`). Vale também para a nota que a rotina da madrugada anexa (Qive,

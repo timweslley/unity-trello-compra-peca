@@ -626,3 +626,6 @@ da outra, deixar um recado aqui e no commit.
 - **16/11 (11h35)** — BBP7A67 (Civic, Zurich): a rotina gravou o fornecimento do emblema às 10h34, no meio de um deploy, e a
   trava desfez às 10h36 (duas instâncias; a rede de segurança pelo comentário não conhecia "atualizou o fornecimento").
   Lista de verbos completada (OK do Weslley 11h30). O "google ok=false" das 10h43 foi do mesmo deploy.
+- **17/11 (22h)** — Card sem peça preso (Weslley): SFE3C96 (Pulse, Zurich) ficou 4 dias em EM COTAÇÃO com orçamento só de mão
+  de obra importado pelo robô — a regra "sem peça vai para ENTREGUES" exigia item de checklist ou 🚫. Agora card validado sem
+  peça nenhuma segue para ENTREGUES. AYZ5A19 (S10, Zacarias) fica: a descrição cita 1 peça de fornecimento sem checklist.

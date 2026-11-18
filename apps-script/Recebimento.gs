@@ -572,6 +572,21 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   if (!alvo && !semCompleta && ([VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_FINALIZADA, VDF_LISTA_PENDENTE, VDF_LISTA_AUTORIZADO].indexOf(lista) >= 0 || chegarVazio) &&
       itens.every(function (i) { return /^FORNECIMENTO/.test(i.lista) || i.ok; }) && !vd_legado_(card.id)) {   // card antigo (sem descrição do formulário) não é mexido; PAGAS já recebido não impede (13/10/2026, BBG3844: tudo 🚫 e compras antigas ✔)
     var an = vd_analisar_(card.desc, card.name);
+    // 17/11/2026 (Weslley: "continuo com problemas com cards que não têm peça, eles ficam presos" — SFE3C96 Pulse Zurich, 4 dias
+    // em EM COTAÇÃO com 0 peça: orçamento do Cilia só de mão de obra importado pelo robô): card validado SEM peça nenhuma — bloco
+    // PEÇAS com a linha "nenhuma peça…", sem falta de dado, sem item de checklist, sem 🚫 e sem fornecimento na descrição — não
+    // tem o que cotar nem o que chegar: ENTREGUES, pela regra de 06/11. Se a descrição diz que há fornecimento e o checklist
+    // não existe (AYZ5A19), o card NÃO é mexido: falta a peça da seguradora no checklist, é caso de conferir.
+    var semNada = false;
+    try {
+      var blocoSN = vd_limpar_(vd_dividir_(card.desc).bloco);
+      semNada = !an.pecas.length && !itens.length && !(an.naoComprar || []).length && !devAbertas.length && !(an.faltas || []).length &&
+        /(^|\n)_?NENHUMA PE[ÇC]A/i.test(blocoSN) && !/FORNECIMENTO[^\n]*:\s*\**\s*[1-9]/i.test(blocoSN);
+    } catch (eSN) { semNada = false; }
+    if (semNada) {
+      alvo = 'ENTREGUES';
+      soFo = 'orçamento sem peça de troca nem fornecimento (só mão de obra) · nada a comprar nem a receber';
+    } else
     if (!an.pecas.length && (itens.length || (an.naoComprar || []).length || devAbertas.length) && (!chegarVazio || (an.naoComprar || []).length)) {
       // 06/11/2026 (Weslley): "se não tiver peça a comprar nem a fornecer pode ir direto para ENTREGUES" — sem item nenhum de
       // checklist (nada comprado, nada da seguradora) e sem devolução, não passa por ENCERRADO
