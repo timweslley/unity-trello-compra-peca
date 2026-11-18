@@ -750,6 +750,23 @@ function cp_foNaOficina_(card, token, quem) {
       .filter(function (a) { return /^📄 OR[ÇC]\+? · /.test(String(a.name || '')); })
       .sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
     var oU = anx.length ? cp_orcDoCache_(anx[0].id) : null;
+    // 18/11/2026 (Weslley, UBD7A27 Tracker HDI: "ao ler novamente pelo formulário ele não tinha lido... o que houve?"): o orçamento
+    // de 13/11 entrou pelo formulário com o card em FALTA CHEGAR; o robô só guarda a leitura de anexo de card em cotação, então
+    // não havia leitura guardada, esta regra ficava muda e o item FO da guia (🚫 não comprar, "fornecida pela oficina" no
+    // orçamento) segurou o card até 18/11. Sem leitura guardada e com item FO pendente de peça 🚫: lê o orçamento agora.
+    if (!oU && anx.length && Object.keys(naoCods).length) {
+      var pendNao = (card.checklists || []).some(function (k) {
+        return /^FORNECIMENTO/i.test(String(k.name || '').trim()) && (k.checkItems || []).some(function (i) {
+          return i.state !== 'complete' && !!naoCods[cp_norm_(vd_semAcento_(String(i.name || '')).split(/\s+/)[0])];
+        });
+      });
+      if (pendNao) {
+        try {
+          var aU = (vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,date,mimeType,isUpload,url,bytes' } }) || []).filter(function (x) { return x.id === anx[0].id; })[0];
+          if (aU && aU.isUpload) { vd_lerAnexoTrello_(aU, { orcCompleto: true }); oU = cp_orcDoCache_(aU.id); }
+        } catch (e) { console.log('FO na oficina/ler orçamento: ' + e); }
+      }
+    }
     if (oU) (oU.fo || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4) foOrc.push(k); });
     if (oU) (oU.oficina || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4 && foOrc.indexOf(k) < 0) ofOrc.push(k); });
   } catch (e) { console.log('FO na oficina/orçamento: ' + e); }

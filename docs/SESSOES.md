@@ -640,3 +640,6 @@ da outra, deixar um recado aqui e no commit.
   ATV4G70 (O.S. 2802) parado em EM COTAÇÃO sem nada a cotar → regra "nada para cotar e peça autorizada → AUTORIZADO COMPRA".
   ARX9B84 (O.S. 2214): orçamento da CARROCERIA (Cilia 1973851) entrou como complemento no card do CASCO (1973850), mesmo nº de
   sinistro → a rotina do Cilia passa a comparar nº do orçamento + cobertura antes de anexar.
+- **18/11 (18h30)** — UBD7A27 (Tracker HDI): item FO de peça 🚫 ficou 5 dias segurando o card porque a regra só usava a leitura
+  guardada do orçamento → passa a ler o anexo na hora. O PDF do laudo 2.1 que a rotina anexou em 11/11 tem acentos quebrados e o
+  robô não o reconheceu como orçamento (a ver na rotina).

@@ -2797,6 +2797,23 @@ function cp_foNaOficina_(card, token, quem) {
       .filter(function (a) { return /^📄 OR[ÇC]\+? · /.test(String(a.name || '')); })
       .sort(function (a, b) { return String(b.date || '').localeCompare(String(a.date || '')); });
     var oU = anx.length ? cp_orcDoCache_(anx[0].id) : null;
+    // 18/11/2026 (Weslley, UBD7A27 Tracker HDI: "ao ler novamente pelo formulário ele não tinha lido... o que houve?"): o orçamento
+    // de 13/11 entrou pelo formulário com o card em FALTA CHEGAR; o robô só guarda a leitura de anexo de card em cotação, então
+    // não havia leitura guardada, esta regra ficava muda e o item FO da guia (🚫 não comprar, "fornecida pela oficina" no
+    // orçamento) segurou o card até 18/11. Sem leitura guardada e com item FO pendente de peça 🚫: lê o orçamento agora.
+    if (!oU && anx.length && Object.keys(naoCods).length) {
+      var pendNao = (card.checklists || []).some(function (k) {
+        return /^FORNECIMENTO/i.test(String(k.name || '').trim()) && (k.checkItems || []).some(function (i) {
+          return i.state !== 'complete' && !!naoCods[cp_norm_(vd_semAcento_(String(i.name || '')).split(/\s+/)[0])];
+        });
+      });
+      if (pendNao) {
+        try {
+          var aU = (vd_api_('/cards/' + card.id + '/attachments', { query: { fields: 'name,date,mimeType,isUpload,url,bytes' } }) || []).filter(function (x) { return x.id === anx[0].id; })[0];
+          if (aU && aU.isUpload) { vd_lerAnexoTrello_(aU, { orcCompleto: true }); oU = cp_orcDoCache_(aU.id); }
+        } catch (e) { console.log('FO na oficina/ler orçamento: ' + e); }
+      }
+    }
     if (oU) (oU.fo || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4) foOrc.push(k); });
     if (oU) (oU.oficina || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4 && foOrc.indexOf(k) < 0) ofOrc.push(k); });
   } catch (e) { console.log('FO na oficina/orçamento: ' + e); }
@@ -2841,10 +2858,10 @@ function cp_foNaOficina_(card, token, quem) {
   return removidos.concat(novos);   // quem chama reavalia a coluna quando a lista não vem vazia
 }
 
-// Complemento.gs:797
+// Complemento.gs:814
 function cp_idEpoca_(id) { var n = parseInt(String(id || '').slice(0, 8), 16); return isNaN(n) ? 0 : n; }
 
-// Complemento.gs:805
+// Complemento.gs:822
 function cp_foJaComprada_(card, conflitos, token, quem) {
   var devs = rc_devolucoes_(card), linhas = [], evs = [], novos = [];
   conflitos.forEach(function (c) {
@@ -2873,12 +2890,12 @@ function cp_foJaComprada_(card, conflitos, token, quem) {
   return novos;
 }
 
-// Complemento.gs:836
+// Complemento.gs:853
 function cp_revLista_(cardId) {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('FO_REV_' + cardId) || '[]'); } catch (e) { return []; }
 }
 
-// Complemento.gs:839
+// Complemento.gs:856
 function cp_revGuardar_(cardId, nomes, por) {
   nomes = (nomes || []).filter(String);
   if (!nomes.length) return;
@@ -2892,7 +2909,7 @@ function cp_revGuardar_(cardId, nomes, por) {
   });
 }
 
-// Complemento.gs:853
+// Complemento.gs:870
 function vdf_foRevertidas(token, shortLink) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard' } });
@@ -2900,7 +2917,7 @@ function vdf_foRevertidas(token, shortLink) {
   return cp_revLista_(card.id).filter(function (x) { return !x.fim; });
 }
 
-// Complemento.gs:861
+// Complemento.gs:878
 function cp_revDosComentarios_(cardId) {
   var acts = vd_api_('/cards/' + cardId + '/actions', { cru: true, query: { filter: 'commentCard', limit: 300, fields: 'data,date' } }) || [];
   var l = [], fim = {};
@@ -2917,7 +2934,7 @@ function cp_revDosComentarios_(cardId) {
   PropertiesService.getScriptProperties().setProperty('FO_REV_' + cardId, JSON.stringify(l.slice(-20)));
 }
 
-// Complemento.gs:877
+// Complemento.gs:894
 function vdf_foRevertidaDevolvida(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
