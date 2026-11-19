@@ -12,7 +12,9 @@
  * então renomear não muda nada no funcionamento. Trello aceita PUT /cards/{id}/attachments/{id} {name}.
  */
 var AX = { ORC: '📄 ORÇ', ORC_MAIS: '📄 ORÇ+', FO: '🚚 FO', NF: '📦 NF', FOTO: '📸', COMPRA: '🛒 COMPRA', COT: '💬 COTAÇÃO', SEP: ' · ' };   // COT: print/foto/PDF da cotação (23/10/2026)
-var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?|🛒 COMPRA) · |📸 )/;
+// 19/11/2026: "💬 COTAÇÃO · " (print da cotação, criado em 23/10) não estava no padrão — a padronização sob demanda da diretoria
+// (vdf_padronizarAnexos) rebatizava o print da cotação como foto "📸 PLACA · dd/MM" e o nome do fornecedor se perdia (BCV3E21, BDD2J09).
+var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?|🛒 COMPRA|💬 COTAÇÃO) · |📸 )/;
 /** Anexo que o próprio sistema batizou sabendo o que é (nota, foto, comprovante de compra): o robô não gasta OCR lendo-o
  *  à procura de orçamento (08/10/2026). ORÇ/FO ficam de fora de propósito — podem ser orçamento complementar. */
 function ax_semLeituraRobo_(nome) { return ax_ehNota_(nome) || /^((📦 NF( \d+)?|🛒 COMPRA) · |📸 )/.test(String(nome || '')); }
