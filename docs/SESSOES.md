@@ -662,3 +662,5 @@ da outra, deixar um recado aqui e no commit.
   "· sem NF de devolução dd/MM (motivo)". Botão "Fechar sem nota" na aba Recebimento atrás de `PU_CFG.DEV_SEM_NF: 'teste'`.
 - **19/11 (10h10)** — Card de concessionária (CSS): reler o orçamento pelo formulário (`vdf_lerAnexoCard`) já devolve tudo como fornecimento —
   a tela mostrava "passou de fornecida para oficina" nas 16 peças do TBA8F60 (Onix Zacarias, O.S. 2955). FMR7E11: devolução fechada sem nota → ENTREGUES.
+- **19/11 (11h00)** — Régua da nota: fornecedor digitado com uma letra diferente em outra compra do mesmo card ("GAUCHO FOZ" × "CAUCHO FOZ",
+  AZV7F58 Clio · O.S. 2363) conta como o mesmo fornecedor — o card ficava em ENCERRADO pedindo uma nota a mais.

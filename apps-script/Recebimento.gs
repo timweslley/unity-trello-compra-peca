@@ -816,6 +816,15 @@ function rc_lerNotasMao_(card, fim) {
  *  1º pela palavra em comum (nome da nota × fornecedor do item / código da peça); 2º por contagem: o apelido do checklist
  *  muitas vezes não é a razão social da nota (HYUNDAI CASCAVEL × VETOR AUTOMOVEIS; FIAT JEEP CASCAVEL × FIPAL), então
  *  fornecedor sem palavra em comum fica coberto se sobrar nota não usada por outro fornecedor (uma nota por fornecedor). */
+/** true quando a e b diferem em no máximo uma letra (troca, sobra ou falta) — erro de digitação no nome do fornecedor. */
+function rc_umaLetra_(a, b) {
+  a = String(a || ''); b = String(b || '');
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1 || Math.min(a.length, b.length) < 8) return false;
+  var i = 0; while (i < a.length && i < b.length && a.charAt(i) === b.charAt(i)) i++;
+  if (a.length === b.length) return a.slice(i + 1) === b.slice(i + 1);
+  return a.length > b.length ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1);
+}
 function rc_notasOficina_(card) {
   var pagas = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista); });
   // NFS-e (serviço) só cobre fornecedor com palavra em comum — não entra na contagem (06/11/2026: NRQ8F23 saiu com a NFS-e da
@@ -862,6 +871,10 @@ function rc_notasOficina_(card) {
     // 13/11/2026 (Weslley: "WEV ESTOQUE pode dispensar a nota"): peça do estoque próprio não tem nota fiscal de compra —
     // não entra na régua (SWQ0F73, DPJ2D42, RHH0C51, BAI8D21 ficavam presos em ENCERRADO por causa dela)
     if (RC_NF_ESTOQUE.test(forn)) { doEstoque++; return; }
+    // 19/11/2026 (AZV7F58 Clio · O.S. 2363: "coloquei todas as notas… mas não saiu do encerrado"): duas compras no mesmo fornecedor,
+    // uma digitada "GAUCHO FOZ" e a outra "CAUCHO FOZ" — contavam como dois fornecedores e faltava sempre uma nota.
+    // Nome com 8+ letras que difere de outro do card em UMA letra (trocada, a mais ou a menos) é o mesmo fornecedor.
+    if (iForn >= 0 && !porForn[forn] && forn.length >= 8) { var igual = forns.filter(function (g) { return rc_umaLetra_(g, forn); })[0]; if (igual) forn = igual; }
     comprasNf.push({ id: i.id, forn: forn, peca: String(pt[0] || '').trim() });
     if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]).concat(palavrasCadastro(pt[iForn])) : [], cods: [], n: 0 }; forns.push(forn); }
     porForn[forn].n++;
