@@ -987,6 +987,7 @@ function rc_liberarEncerrado_(card, ctx, token, usuario, opt) {
   }
   r.pendRec = todos.filter(function (i) { return !i.ok; });
   try { r.devAbertas = rc_devolucoes_(card).filter(function (d) { return !d.ok; }); } catch (e) {}
+  if (vd_anxIndisponivel_()) { r.faltamNf = ['conferência das notas indisponível agora — o robô confere de novo em até 10 min']; r.faltamN = 1; return r; }
   var nf = rc_notasOficina_(card);
   r.faltamNf = nf.faltam; r.faltamN = nf.faltamN; r.notas = nf.notas; r.porPeca = !!nf.porPeca;
   if (r.pendRec.length || r.devAbertas.length || r.faltamNf.length) return r;
@@ -1011,6 +1012,7 @@ function rc_varrerEncerrado_() {
   if (new Date().getMinutes() % RC_NF.CADA_MIN !== 0) return;
   var ctx = vd_contexto_(), idEnc = ctx.listas[RC.LISTA_FIM];
   if (!idEnc || !ctx.listas['ENTREGUES']) return;
+  if (vd_anxIndisponivel_()) { console.log('varredura da nota pulada: leituras guardadas dos anexos indisponíveis agora'); return; }
   var cards = vd_api_('/lists/' + idEnc + '/cards', { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } }) || [];
   var fim = vd_prazo_(40 * 1000), n = 0;
   RC_NF_LEITURAS.feitas = 0;

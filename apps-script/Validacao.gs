@@ -847,7 +847,7 @@ function vd_anexoLegivel_(a) {
  * o núcleo). Agora fica na aba ANEXOS da planilha de controle (id do anexo · quando · leitura JSON), com a memória da
  * execução e o CacheService na frente. As VD_ANX3_ antigas continuam sendo lidas e vão para a planilha aos poucos
  * (vd_anxMigrar_, no ciclo). Limpeza: sd_limparPropriedades_ tira as linhas de anexo que não está mais em card aberto. */
-var VD_ANXS = { ABA: 'ANEXOS', SH: null, ROW: null, MAX: 45000 };
+var VD_ANXS = { ABA: 'ANEXOS', SH: null, ROW: null, MAX: 45000, FALHA: false };
 function vd_anxAba_() {
   if (VD_ANXS.SH) return VD_ANXS.SH;
   var ss = vd_planilhaBackup_().getParent(), sh = ss.getSheetByName(VD_ANXS.ABA);
@@ -861,8 +861,17 @@ function vd_anxIdx_() {
   try {
     var sh = vd_anxAba_(), n = sh.getLastRow();
     if (n > 1) sh.getRange(2, 1, n - 1, 1).getValues().forEach(function (r, i) { if (r[0]) idx[String(r[0])] = i + 2; });
-  } catch (e) { console.log('anexos/índice: ' + e); }
+    // 19/11/2026: aba vazia no quadro principal não existe em operação normal — é a limpeza no meio do caminho ou leitura que falhou
+    VD_ANXS.FALHA = n <= 1 && vd_board_() !== 'ZX4gRmnX';
+  } catch (e) { console.log('anexos/índice: ' + e); VD_ANXS.FALHA = true; return idx; }   // não guarda o índice vazio: tenta de novo na próxima chamada
   return (VD_ANXS.ROW = idx);
+}
+/** 19/11/2026 (monitor 15h57: às 15h20 a varredura levou 6 cards de ENTREGUES para ENCERRADO "sem nota" e 3 de ENCERRADO para
+ *  ENTREGUES "com nota"; às 15h30 desfez os 9): as leituras guardadas das notas (códigos das peças dentro da nota) ficaram
+ *  indisponíveis por um instante e a régua decidiu sem elas. Sem as leituras a régua da nota NÃO move card — espera a próxima. */
+function vd_anxIndisponivel_() {
+  try { vd_anxIdx_(); } catch (e) { return true; }
+  return !!VD_ANXS.FALHA;
 }
 /** Leitura guardada de um anexo (texto JSON) ou null. */
 function vd_anxGet_(id) {

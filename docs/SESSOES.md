@@ -671,3 +671,6 @@ da outra, deixar um recado aqui e no commit.
 - **19/11 (11h55)** — "Fechar sem nota" (devolução sem NF) liberado para quem registra recebimento no card (Weslley 11h38), não só a diretoria.
   Título do card: seguradora no meio do nome do carro (TBA8F60 "ONIX BRADESCO ZACARIAS BRANCA BRADESCO") deixa de repetir.
 - **19/11 (14h20)** — Servidor: leitura da planilha (TRAVA/EVENTOS para o banco) tenta de novo com a delegação quando dá 403 — o erro "espelho planilha 403" do monitor (16/11) vinha da queda momentânea para a conta de serviço logo após deploy. Ramo `planilha-403-retry`, entra na próxima publicação.
+- **19/11 (16h15)** — Vai-e-volta de 9 cards ENTREGUES↔ENCERRADO às 15h20/15h30 (monitor 15h57): a limpeza da aba ANEXOS apagava tudo
+  antes de regravar e a varredura da régua da nota decidiu sem os códigos lidos das notas. Limpeza grava antes de apagar a sobra;
+  sem as leituras (`vd_anxIndisponivel_`) a régua não move card. Junto: leitura da planilha pelo servidor tenta de novo no 403.

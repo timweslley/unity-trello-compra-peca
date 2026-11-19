@@ -195,8 +195,10 @@ function sd_limparPropriedades_() {
         if (anexos[idA] || parseInt(idA.slice(0, 8), 16) >= recente) ficam.unshift(rowsA[iA]);
       }
       if (ficam.length < rowsA.length) {
-        shA.getRange(2, 1, nA - 1, 3).clearContent();
+        // 19/11/2026: grava primeiro o que fica e só depois limpa a sobra do fim — antes a aba ficava VAZIA entre o apagar e o
+        // gravar, e a varredura da régua da nota que rodasse nesse instante decidia sem as leituras (9 cards foram e voltaram às 15h20)
         if (ficam.length) shA.getRange(2, 1, ficam.length, 3).setValues(ficam);
+        if (rowsA.length > ficam.length) shA.getRange(2 + ficam.length, 1, rowsA.length - ficam.length, 3).clearContent();
         VD_ANXS.ROW = null;
         n += rowsA.length - ficam.length;
       }
