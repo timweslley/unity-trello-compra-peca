@@ -670,3 +670,4 @@ da outra, deixar um recado aqui e no commit.
   balões de devolução (cancelar / fechar sem nota) viraram painel que sobe de baixo, com botões de 48 px.
 - **19/11 (11h55)** — "Fechar sem nota" (devolução sem NF) liberado para quem registra recebimento no card (Weslley 11h38), não só a diretoria.
   Título do card: seguradora no meio do nome do carro (TBA8F60 "ONIX BRADESCO ZACARIAS BRANCA BRADESCO") deixa de repetir.
+- **19/11 (14h20)** — Servidor: leitura da planilha (TRAVA/EVENTOS para o banco) tenta de novo com a delegação quando dá 403 — o erro "espelho planilha 403" do monitor (16/11) vinha da queda momentânea para a conta de serviço logo após deploy. Ramo `planilha-403-retry`, entra na próxima publicação.

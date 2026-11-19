@@ -126,7 +126,15 @@ export class ErroPlanilha extends Error {
 async function lerIntervalo(planilhaId: string, intervalo: string): Promise<unknown[][]> {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${planilhaId}/values/${encodeURIComponent(intervalo)}` +
     `?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER`;
-  const r = await fetch(url, { headers: { Authorization: 'Bearer ' + await tokenGoogle() } });
+  let r = await fetch(url, { headers: { Authorization: 'Bearer ' + await tokenGoogle() } });
+  // 19/11/2026 (monitor: "espelho planilha 403 EVENTOS!A:P" desde 16/11): logo depois de um deploy a delegação
+  // (agir como sistema@…) pode falhar uma vez e a leitura caía na conta de serviço, que não enxerga a planilha → 403.
+  // Em vez de registrar erro, força uma nova tentativa de delegação e lê de novo (uma vez).
+  if (r.status === 403 && IMPERSONAR) {
+    await new Promise((ok) => setTimeout(ok, 3000));
+    ESTADO_DELEGACAO.tentadaEm = 0;
+    r = await fetch(url, { headers: { Authorization: 'Bearer ' + await tokenGoogle() } });
+  }
   if (!r.ok) {
     const corpo = await r.text();
     const dica = r.status === 403 ? ' (a planilha está compartilhada com compra-peca-run@…? a API do Sheets está ativada no projeto?)' : '';
