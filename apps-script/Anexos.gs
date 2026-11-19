@@ -14,7 +14,8 @@
 var AX = { ORC: '📄 ORÇ', ORC_MAIS: '📄 ORÇ+', FO: '🚚 FO', NF: '📦 NF', FOTO: '📸', COMPRA: '🛒 COMPRA', COT: '💬 COTAÇÃO', SEP: ' · ' };   // COT: print/foto/PDF da cotação (23/10/2026)
 // 19/11/2026: "💬 COTAÇÃO · " (print da cotação, criado em 23/10) não estava no padrão — a padronização sob demanda da diretoria
 // (vdf_padronizarAnexos) rebatizava o print da cotação como foto "📸 PLACA · dd/MM" e o nome do fornecedor se perdia (BCV3E21, BDD2J09).
-var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?|🛒 COMPRA|💬 COTAÇÃO) · |📸 )/;
+// 19/11/2026 (2): a nota de devolução ("↩️ NF DEVOLUÇÃO nº · …", que o formulário batiza) também é padrão — não pode virar foto (BBN4J04).
+var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?|🛒 COMPRA|💬 COTAÇÃO) · |↩️ NF DEVOLUÇÃO |📸 )/;
 /** Anexo que o próprio sistema batizou sabendo o que é (nota, foto, comprovante de compra): o robô não gasta OCR lendo-o
  *  à procura de orçamento (08/10/2026). ORÇ/FO ficam de fora de propósito — podem ser orçamento complementar. */
 function ax_semLeituraRobo_(nome) { return ax_ehNota_(nome) || /^((📦 NF( \d+)?|🛒 COMPRA) · |📸 )/.test(String(nome || '')); }
@@ -41,7 +42,9 @@ function ax_placa_(card) {
 /** Nome de arquivo gerado pelo aparelho/sistema (sem informação): uuid, image.png, IMG_1234, WhatsApp Image, Screenshot… */
 function ax_nomeAutomatico_(nome) {
   var n = String(nome || '').replace(/\.[a-z0-9]{2,5}$/i, '').trim();
-  return !n || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(n) || /^(image|img|imagem|foto|photo|picture|pic|screenshot|captura|print|scan|pdf_report|document|documento|file|arquivo|whatsapp image|whatsapp|dsc|pxl|vid|video)[\s_\-\d().]*(at[\s_\-\d().]*)?$/i.test(n) || /^[\d_\-\s().]+$/.test(n);
+  return !n || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(n) || /^(image|img|imagem|foto|photo|picture|pic|screenshot|captura|print|scan|pdf_report|document|documento|file|arquivo|whatsapp image|whatsapp|dsc|pxl|vid|video)[\s_\-\d().]*(at[\s_\-\d().]*)?$/i.test(n) || /^[\d_\-\s().]+$/.test(n)
+    // 19/11/2026: nomes que o celular/Trello geram e não entravam: trello123….jpg, WhatsAppImage2026-10-05at…-ae88cb7, IMG-20261103-WA0023
+    || /^trello\d+$/i.test(n) || /^whatsapp\s*image[\s_\-\d().a-z]*$/i.test(n) || /^img[-_ ]?\d+[-_ ]?wa\d+$/i.test(n) || /^image \(.*\)$/i.test(n);
 }
 
 /** Já está no padrão (não mexe de novo). */
@@ -207,7 +210,8 @@ function vdf_padronizarAnexos(token, shortLink) {
     var r = vd_anexoLegivel_(a) ? vd_lerAnexoTrello_(a) : null;
     if (r && !r.erro && !r.doc && !r.orcamento && /\bFO\b|status/i.test(de)) r.doc = 'FO';   // leitura antiga (cache sem o tipo) de um "Status do Pedido"
     var para = r ? ax_batizarLido_(card, a, r, temOrc) : '';
-    if (!para && /^image\//i.test(a.mimeType || '')) { para = ax_batizar_(card.id, a.id, ax_nome_(AX.FOTO, ax_placa_(card), [], a.date), [], token, { semVersao: true }); a.name = para; }
+    // 19/11/2026: foto com nome que alguém escreveu ("ORDEM DE SERVIÇO 2616") fica como está — só nome automático vira "📸 PLACA · dd/MM"
+    if (!para && /^image\//i.test(a.mimeType || '') && ax_nomeAutomatico_(a.name)) { para = ax_batizar_(card.id, a.id, ax_nome_(AX.FOTO, ax_placa_(card), [], a.date), [], token, { semVersao: true }); a.name = para; }
     if (para) { out.renomeados.push({ de: de, para: para }); if (para.indexOf(AX.ORC + AX.SEP) === 0) temOrc = true; }
     else out.pulados.push(de);
   });

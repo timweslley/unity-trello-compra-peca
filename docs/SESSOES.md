@@ -648,3 +648,5 @@ da outra, deixar um recado aqui e no commit.
 - **19/11 (00h30)** — Publicadas a régua (anexo repetido, "VW CAS"), "WEV" dispensa nota (RNG0J11). Lendo o histórico do monitoramento de
   hora em hora (não vinha sendo acompanhado nesta sessão): ACZ5D61 perdeu o item FO DEFLETOR SUP DO RADIADOR em 18/11 08h08
   (comparação por descrição) → corrigido (posição tem de ser a mesma) e item reposto.
+- **19/11 (01h10)** — Padronização de nomes sob demanda (`vdf_padronizarAnexos`): foto com nome escrito por alguém ("ORDEM DE SERVIÇO 2616")
+  não vira mais "📸 PLACA · dd/MM" (só nome automático: trello123…, WhatsAppImage…, IMG-…-WA…); "↩️ NF DEVOLUÇÃO …" entra no padrão (BBN4J04).

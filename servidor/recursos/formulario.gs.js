@@ -5,10 +5,10 @@
 // Anexos.gs:14
 var AX = { ORC: '📄 ORÇ', ORC_MAIS: '📄 ORÇ+', FO: '🚚 FO', NF: '📦 NF', FOTO: '📸', COMPRA: '🛒 COMPRA', COT: '💬 COTAÇÃO', SEP: ' · ' };
 
-// Anexos.gs:17
-var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?|🛒 COMPRA|💬 COTAÇÃO) · |📸 )/;
+// Anexos.gs:18
+var AX_RE_PADRAO = /^((📄 ORÇ\+?|🚚 FO|📦 NF( \d+)?|🛒 COMPRA|💬 COTAÇÃO) · |↩️ NF DEVOLUÇÃO |📸 )/;
 
-// Anexos.gs:342
+// Anexos.gs:346
 var AX_MAD_MAX_LEITURAS = 150;
 
 // Campos.gs:12
@@ -652,38 +652,40 @@ var REL = {
 // Validacao.gs:2705
 var VD_CMP_MEM = null;
 
-// Anexos.gs:20
+// Anexos.gs:21
 function ax_semLeituraRobo_(nome) { return ax_ehNota_(nome) || /^((📦 NF( \d+)?|🛒 COMPRA) · |📸 )/.test(String(nome || '')); }
 
-// Anexos.gs:24
+// Anexos.gs:25
 function ax_ehNota_(nome) { return /^(📦 NF( \d+)? · |NF(S-e|-e|e)?\s*(\d+\s*)?[-–](?!\S)|NF(S-e|-e|e)? (FORNECIMENTO|ML\b|\d+|[A-Z0-9][^·]*? - \d+ - \d{2}-\d{2}))/i.test(String(nome || '')); }
 
-// Anexos.gs:26
+// Anexos.gs:27
 function ax_hoje_(d) { var dt = d ? new Date(d) : new Date(); if (isNaN(dt.getTime())) dt = new Date(); return Utilities.formatDate(dt, 'America/Sao_Paulo', 'dd/MM'); }
 
-// Anexos.gs:29
+// Anexos.gs:30
 function ax_origem_(o) {
   o = String(o || '').trim().toUpperCase();
   if (!o) return '';
   return o === 'HDI' ? 'HDI' : o.charAt(0) + o.slice(1).toLowerCase();
 }
 
-// Anexos.gs:36
+// Anexos.gs:37
 function ax_placa_(card) {
   var nome = String((card && card.name) || '');
   return vd_placaDoTexto_(nome.split(/\s+/)[0]) || vd_placaDoTexto_(nome) || '';
 }
 
-// Anexos.gs:42
+// Anexos.gs:43
 function ax_nomeAutomatico_(nome) {
   var n = String(nome || '').replace(/\.[a-z0-9]{2,5}$/i, '').trim();
-  return !n || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(n) || /^(image|img|imagem|foto|photo|picture|pic|screenshot|captura|print|scan|pdf_report|document|documento|file|arquivo|whatsapp image|whatsapp|dsc|pxl|vid|video)[\s_\-\d().]*(at[\s_\-\d().]*)?$/i.test(n) || /^[\d_\-\s().]+$/.test(n);
+  return !n || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(n) || /^(image|img|imagem|foto|photo|picture|pic|screenshot|captura|print|scan|pdf_report|document|documento|file|arquivo|whatsapp image|whatsapp|dsc|pxl|vid|video)[\s_\-\d().]*(at[\s_\-\d().]*)?$/i.test(n) || /^[\d_\-\s().]+$/.test(n)
+    // 19/11/2026: nomes que o celular/Trello geram e não entravam: trello123….jpg, WhatsAppImage2026-10-05at…-ae88cb7, IMG-20261103-WA0023
+    || /^trello\d+$/i.test(n) || /^whatsapp\s*image[\s_\-\d().a-z]*$/i.test(n) || /^img[-_ ]?\d+[-_ ]?wa\d+$/i.test(n) || /^image \(.*\)$/i.test(n);
 }
 
-// Anexos.gs:48
+// Anexos.gs:51
 function ax_padronizado_(nome) { return AX_RE_PADRAO.test(String(nome || '')); }
 
-// Anexos.gs:51
+// Anexos.gs:54
 function ax_nome_(tipo, placa, partes, data) {
   var p = [tipo].concat(placa ? [placa] : []).concat((partes || []).map(function (s) { return String(s || '').trim(); }).filter(String));
   p.push(ax_hoje_(data));
@@ -691,13 +693,13 @@ function ax_nome_(tipo, placa, partes, data) {
   return /[A-Z]/i.test(tipo) ? nome : nome.replace(AX.SEP, ' ');   // "📸 RHV1E04 · capa · 05/10" (tipo só com o ícone)
 }
 
-// Anexos.gs:59
+// Anexos.gs:62
 function ax_renomear_(cardId, idAnexo, nome, token) {
   try { vd_api_('/cards/' + cardId + '/attachments/' + idAnexo, { method: 'put', payload: { name: nome } }, token); return true; }
   catch (e) { console.log('renomear anexo ' + idAnexo + ': ' + e); return false; }
 }
 
-// Anexos.gs:70
+// Anexos.gs:73
 function ax_batizar_(cardId, idAnexo, nomeNovo, anexos, token, opt) {
   opt = opt || {};
   var nome = nomeNovo;
@@ -717,12 +719,12 @@ function ax_batizar_(cardId, idAnexo, nomeNovo, anexos, token, opt) {
   return nome;
 }
 
-// Anexos.gs:90
+// Anexos.gs:93
 function ax_anexos_(cardId, token) {
   try { return vd_api_('/cards/' + cardId + '/attachments', { query: { fields: 'name,date,isUpload' } }, token) || []; } catch (e) { return []; }
 }
 
-// Anexos.gs:99
+// Anexos.gs:102
 function ax_batizarLido_(card, a, r, complementar, token) {
   try {
     if (!card || !a || !r || r.erro || ax_padronizado_(a.name)) return '';
@@ -745,10 +747,10 @@ function ax_batizarLido_(card, a, r, complementar, token) {
   } catch (e) { console.log('ax_batizarLido_: ' + e); return ''; }
 }
 
-// Anexos.gs:142
+// Anexos.gs:145
 function ax_emitente20_(s) { return vd_semAcento_(String(s || '')).toUpperCase().replace(/[^A-Z0-9 &.\-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 20).trim(); }
 
-// Anexos.gs:144
+// Anexos.gs:147
 function ax_dadosNf_(texto) {
   var bruto = String(texto || ''), m;
   if (/<nfeProc|<infNFe/i.test(bruto)) {
@@ -770,7 +772,7 @@ function ax_dadosNf_(texto) {
   return { numero: numero, emitente: ax_emitente20_(em), emissao: d ? d[1] + '-' + d[2] : '' };
 }
 
-// Anexos.gs:167
+// Anexos.gs:170
 function ax_codsNf_(texto) {
   var out = [], visto = {};
   vd_semAcento_(String(texto || '')).toUpperCase().split(/[\s|;<>="']+/).forEach(function (w) {
@@ -781,13 +783,13 @@ function ax_codsNf_(texto) {
   return out;
 }
 
-// Anexos.gs:177
+// Anexos.gs:180
 function ax_nomeNfRotina_(nf, fornecimento, dataUpload, ext) {
   var dt = nf.emissao || Utilities.formatDate(dataUpload ? new Date(dataUpload) : new Date(), 'America/Sao_Paulo', 'dd-MM');
   return 'NF ' + (fornecimento ? 'FORNECIMENTO - ' : '') + (nf.emitente || 'EMITENTE') + ' - ' + nf.numero + ' - ' + dt + (ext || '.pdf');
 }
 
-// Anexos.gs:182
+// Anexos.gs:185
 function ax_nfDeFornecimento_(card, emitente) {
   var w = String(emitente || '').split(' ')[0];
   if (!w || w.length < 3) return false;
@@ -800,7 +802,7 @@ function ax_nfDeFornecimento_(card, emitente) {
   return noFo && !noPagas;
 }
 
-// Anexos.gs:198
+// Anexos.gs:201
 function vdf_padronizarAnexos(token, shortLink) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria padroniza os anexos antigos.'] };
@@ -813,14 +815,15 @@ function vdf_padronizarAnexos(token, shortLink) {
     var r = vd_anexoLegivel_(a) ? vd_lerAnexoTrello_(a) : null;
     if (r && !r.erro && !r.doc && !r.orcamento && /\bFO\b|status/i.test(de)) r.doc = 'FO';   // leitura antiga (cache sem o tipo) de um "Status do Pedido"
     var para = r ? ax_batizarLido_(card, a, r, temOrc) : '';
-    if (!para && /^image\//i.test(a.mimeType || '')) { para = ax_batizar_(card.id, a.id, ax_nome_(AX.FOTO, ax_placa_(card), [], a.date), [], token, { semVersao: true }); a.name = para; }
+    // 19/11/2026: foto com nome que alguém escreveu ("ORDEM DE SERVIÇO 2616") fica como está — só nome automático vira "📸 PLACA · dd/MM"
+    if (!para && /^image\//i.test(a.mimeType || '') && ax_nomeAutomatico_(a.name)) { para = ax_batizar_(card.id, a.id, ax_nome_(AX.FOTO, ax_placa_(card), [], a.date), [], token, { semVersao: true }); a.name = para; }
     if (para) { out.renomeados.push({ de: de, para: para }); if (para.indexOf(AX.ORC + AX.SEP) === 0) temOrc = true; }
     else out.pulados.push(de);
   });
   return out;
 }
 
-// Anexos.gs:222
+// Anexos.gs:226
 function ax_padronizarCard_(card, token) {
   try {
     var ans = (card && card.attachments || []).filter(function (a) { return a.isUpload && !ax_padronizado_(a.name); });
@@ -847,7 +850,7 @@ function ax_padronizarCard_(card, token) {
   } catch (e) { console.log('ax_padronizarCard_: ' + e); return 0; }
 }
 
-// Anexos.gs:249
+// Anexos.gs:253
 function axPadronizarQuadro() {
   var props = PropertiesService.getScriptProperties();
   if (!props.getProperty('AX_PASSO')) return;   // nada agendado
@@ -867,7 +870,7 @@ function axPadronizarQuadro() {
   }
 }
 
-// Anexos.gs:269
+// Anexos.gs:273
 function vdf_padronizarQuadro(token) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria roda a padronização do quadro.'] };
@@ -880,19 +883,19 @@ function vdf_padronizarQuadro(token) {
   return { ok: true, cards: cards.length };
 }
 
-// Anexos.gs:282
+// Anexos.gs:286
 function vdf_padronizarQuadroStatus(token) {
   vdf_usuario_(token);
   var p = PropertiesService.getScriptProperties().getProperty('AX_PASSO');
   return { rodando: !!p, passo: p || '' };
 }
 
-// Anexos.gs:290
+// Anexos.gs:294
 function ax_md5_(blob) {
   return Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, blob.getBytes()).map(function (b) { return ('0' + (b & 255).toString(16)).slice(-2); }).join('');
 }
 
-// Anexos.gs:293
+// Anexos.gs:297
 function ax_hashAnexo_(a) {
   try {
     var r = qt_fetch_(a.url, { headers: { Authorization: vd_auth_() }, muteHttpExceptions: true });
@@ -900,7 +903,7 @@ function ax_hashAnexo_(a) {
   } catch (e) { console.log('hash do anexo ' + a.id + ': ' + e); return ''; }
 }
 
-// Anexos.gs:304
+// Anexos.gs:308
 function ax_removerRepetido_(cardId, a, quem) {
   try {
     if (!a || !a.isUpload || !a.bytes) return false;
@@ -922,7 +925,7 @@ function ax_removerRepetido_(cardId, a, quem) {
   } catch (e) { console.log('ax_removerRepetido_: ' + e); return false; }
 }
 
-// Anexos.gs:326
+// Anexos.gs:330
 function vdf_removerRepetidos(token, shortLink) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria.'] };
@@ -933,7 +936,7 @@ function vdf_removerRepetidos(token, shortLink) {
   return { ok: true, removidos: removidos };
 }
 
-// Anexos.gs:345
+// Anexos.gs:349
 function ax_madRegistrar_(cardId, anexoId, de, para) {
   try {
     var props = PropertiesService.getScriptProperties(), l = JSON.parse(props.getProperty('AX_MAD_REN') || '[]');
@@ -943,7 +946,7 @@ function ax_madRegistrar_(cardId, anexoId, de, para) {
   } catch (e) {}
 }
 
-// Anexos.gs:354
+// Anexos.gs:358
 function ax_madrugada_(teste) {
   var h = +Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'H');
   if (!teste && (h < 3 || h > 5)) return 'fora do horário';   // 3h–5h59: depois da Rotina Unity (1h59), que precisa do robô livre para ler os PDFs que anexa
@@ -1008,7 +1011,7 @@ function ax_madrugada_(teste) {
   return st.pos + '/' + st.fila.length + ' cards · ' + st.lidos + ' lidos · ' + st.renomeados + ' renomeados';
 }
 
-// Anexos.gs:419
+// Anexos.gs:423
 function vdf_anexosAntigosCard(token, shortLink) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) throw new Error('Só a diretoria.');
