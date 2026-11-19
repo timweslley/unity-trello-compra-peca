@@ -72,7 +72,7 @@ window.PU_CFG = {
    * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley). O servidor (vdf_cancelarDevolucao) já aceita nos dois. */
   /* 19/11/2026 (Weslley, FMR7E11): botão "Fechar sem nota" na devolução (peça devolvida, sem NF de devolução) — só a diretoria vê.
    * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley). O servidor (vdf_dispensarNfDevolucao) já aceita nos dois. */
-  DEV_SEM_NF: 'teste',
+  DEV_SEM_NF: 'todos',   // 19/11/2026 11h19 — Weslley: "ok habilitar" (conferido no TESTE no computador e no celular, card ZZT9H01; voltar: 'teste')
   CANCELAR_DEVOLUCAO: 'todos',   // 17/11/2026 22h23 — Weslley: "pode aplicar direto no principal" (voltar: 'teste')
   LIBERADO_POR: 'todos',   // 12/11/2026 12h19 — Weslley: "pode ligar já" (voltar: 'teste' + VD_LIBERADO_POR=NAO)
   CHAVE: '0a1a64b229b408a84f2e1d673a3c1da5',

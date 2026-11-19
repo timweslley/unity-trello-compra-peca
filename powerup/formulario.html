@@ -11234,6 +11234,12 @@ html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2to
   /* com o botão "Corrigir" a linha tem 4 filhos: as ações (+ Comp. / Não comprar / + Obs.) caíam na 1ª coluna e a alargavam */
   .v2pc #comprador.v2c .item > .item-topo:has(> .v2c-tit) > :nth-child(n+4) { grid-column:1 / -1; }
   .v2pc #v2fotos .vf-cont, .v2pc #v2topo #v2fotos button.vf-trocar, .v2pc .selo#seloTeste { font-size:12px !important; }
+  /* 19/11/2026: balões "Cancelar devolução" e "Fechar sem nota" no celular — painel que sobe de baixo, botões de 48 px, letra de 16 px */
+  html.v2toque :is(#v2dSemNfBal, #v2dCancBal) { position:fixed !important; left:0 !important; right:0 !important; bottom:0 !important; top:auto !important; transform:none !important; width:auto !important; max-width:none !important; margin:0 !important; border-radius:14px 14px 0 0 !important; padding:16px !important; z-index:70; box-sizing:border-box; }
+  html.v2toque :is(#v2dSemNfBal, #v2dCancBal) .bts { display:flex !important; gap:10px; margin-top:12px; }
+  html.v2toque :is(#v2dSemNfBal, #v2dCancBal) .bts button { min-height:48px !important; height:auto !important; flex:1 1 0; font-size:16px !important; }
+  html.v2toque :is(#v2dSemNfBal, #v2dCancBal) textarea { font-size:16px !important; min-height:88px; }
+  html.v2toque :is(#v2dSemNfBal, #v2dCancBal) :is(.v2-bt, .dica, label) { font-size:15px !important; line-height:21px !important; }
 </style>
 </body>
 </html>

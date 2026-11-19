@@ -666,3 +666,5 @@ da outra, deixar um recado aqui e no commit.
   AZV7F58 Clio · O.S. 2363) conta como o mesmo fornecedor — o card ficava em ENCERRADO pedindo uma nota a mais.
 - **19/11 (11h15)** — Devolução para o estoque próprio (WEV / WEV ESTOQUE) não exige NF de devolução (Weslley, ATP5105 Gol · O.S. 2045):
   `rc_devolucoes_` já devolve a devolução como resolvida; a tela mostra "estoque próprio — não precisa de nota de devolução".
+- **19/11 (11h40)** — Botão "Fechar sem nota" (devolução sem NF, só diretoria) ligado no principal (Weslley 11h19: "ok habilitar"); no celular os
+  balões de devolução (cancelar / fechar sem nota) viraram painel que sobe de baixo, com botões de 48 px.
