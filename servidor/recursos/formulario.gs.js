@@ -2818,6 +2818,16 @@ function cp_foNaOficina_(card, token, quem) {
     if (oU) (oU.oficina || []).forEach(function (f) { var k = cp_norm_(f.codigo || f.codigoOrc); if (k.length >= 4 && foOrc.indexOf(k) < 0) ofOrc.push(k); });
   } catch (e) { console.log('FO na oficina/orçamento: ' + e); }
   var removidos = [], conflitos = [];
+  // 19/11/2026 (ACZ5D61 Basalt · O.S. 2826, alerta do monitoramento de 18/11 08h57): o complementar trouxe 9859552480 DEFLETOR
+  // SUP DO RADIADOR como FO e DEFLETOR DIR / DEFLETOR INF DO RADIADOR para a oficina; a comparação por descrição achou o "SUP"
+  // parecido com o "DIR" (eixos diferentes não conflitavam) e o robô apagou o item FO — a peça sumiu do card. Para tirar um
+  // item FO por descrição, a posição tem de ser a MESMA nos dois (mesmos eixos, mesmos valores).
+  var mesmaPeca = function (descOf, descFo) {
+    if (!(cp_similar_(descOf || '', descFo || '') > 0)) return false;
+    var xa = cp_posicoes_(cp_palavras_(descOf || '')), xb = cp_posicoes_(cp_palavras_(descFo || ''));
+    var ka = Object.keys(xa), kb = Object.keys(xb);
+    return ka.length === kb.length && ka.every(function (e) { return xb[e] === xa[e]; });
+  };
   (card.checklists || []).forEach(function (k) {
     if (!/^FORNECIMENTO/i.test(String(k.name || '').trim())) return;
     (k.checkItems || []).forEach(function (i) {
@@ -2827,14 +2837,14 @@ function cp_foNaOficina_(card, token, quem) {
       var kc = m ? cp_norm_(m[1]) : '', descFo = m ? m[2] : base;
       if (kc.length >= 4 && foOrc.indexOf(kc) >= 0) {
         // o orçamento mais novo diz que a seguradora fornece: fica; se a oficina já comprou, é o conflito de 28/10
-        var pmFo = codigos[kc] || complementos.filter(function (p) { return cp_similar_(p.descricao || '', descFo) > 0; })[0];
+        var pmFo = codigos[kc] || complementos.filter(function (p) { return mesmaPeca(p.descricao, descFo); })[0];
         var pagoFo = pmFo ? pagoDe(pmFo) : null;
         if (pagoFo) conflitos.push({ item: i, peca: pmFo, pago: pagoFo });
         return;
       }
       // mesmo código na lista da oficina — ou, sem o código bater, peça ➕ complemento da oficina com a mesma descrição
       // (07/10/2026, QPG1B84: orçamento complementar trocou a CALOTA de FO para oficina com código novo)
-      var pm = (kc && codigos[kc]) || complementos.filter(function (p) { return cp_similar_(p.descricao || '', descFo) > 0; })[0];
+      var pm = (kc && codigos[kc]) || complementos.filter(function (p) { return mesmaPeca(p.descricao, descFo); })[0];
       if (!pm && kc && naoCods[kc] && ofOrc.indexOf(kc) >= 0) pm = naoCods[kc];   // 16/11/2026 (AVO4E81)
       if (!pm) return;
       // só é conflito quando o item FO nasceu DEPOIS da compra (laudo novo): item FO mais velho que a compra = a oficina venceu
@@ -2858,10 +2868,10 @@ function cp_foNaOficina_(card, token, quem) {
   return removidos.concat(novos);   // quem chama reavalia a coluna quando a lista não vem vazia
 }
 
-// Complemento.gs:814
+// Complemento.gs:824
 function cp_idEpoca_(id) { var n = parseInt(String(id || '').slice(0, 8), 16); return isNaN(n) ? 0 : n; }
 
-// Complemento.gs:822
+// Complemento.gs:832
 function cp_foJaComprada_(card, conflitos, token, quem) {
   var devs = rc_devolucoes_(card), linhas = [], evs = [], novos = [];
   conflitos.forEach(function (c) {
@@ -2890,12 +2900,12 @@ function cp_foJaComprada_(card, conflitos, token, quem) {
   return novos;
 }
 
-// Complemento.gs:853
+// Complemento.gs:863
 function cp_revLista_(cardId) {
   try { return JSON.parse(PropertiesService.getScriptProperties().getProperty('FO_REV_' + cardId) || '[]'); } catch (e) { return []; }
 }
 
-// Complemento.gs:856
+// Complemento.gs:866
 function cp_revGuardar_(cardId, nomes, por) {
   nomes = (nomes || []).filter(String);
   if (!nomes.length) return;
@@ -2909,7 +2919,7 @@ function cp_revGuardar_(cardId, nomes, por) {
   });
 }
 
-// Complemento.gs:870
+// Complemento.gs:880
 function vdf_foRevertidas(token, shortLink) {
   vdf_usuario_(token);
   var card = vd_api_('/cards/' + shortLink, { query: { fields: 'idBoard' } });
@@ -2917,7 +2927,7 @@ function vdf_foRevertidas(token, shortLink) {
   return cp_revLista_(card.id).filter(function (x) { return !x.fim; });
 }
 
-// Complemento.gs:878
+// Complemento.gs:888
 function cp_revDosComentarios_(cardId) {
   var acts = vd_api_('/cards/' + cardId + '/actions', { cru: true, query: { filter: 'commentCard', limit: 300, fields: 'data,date' } }) || [];
   var l = [], fim = {};
@@ -2934,7 +2944,7 @@ function cp_revDosComentarios_(cardId) {
   PropertiesService.getScriptProperties().setProperty('FO_REV_' + cardId, JSON.stringify(l.slice(-20)));
 }
 
-// Complemento.gs:894
+// Complemento.gs:904
 function vdf_foRevertidaDevolvida(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);

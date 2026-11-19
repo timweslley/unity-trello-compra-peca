@@ -645,3 +645,6 @@ da outra, deixar um recado aqui e no commit.
   robô não o reconheceu como orçamento (a ver na rotina).
 - **18/11 (20h)** — Weslley: "checa as colunas antes de entregue, tá aparecendo muita coisa". TBD4H07 ia e voltava entre ENCERRADO e
   ENTREGUES (nota repetida contava como sobra; "VW CAS" não batia com "VW CASCAVEL") → régua corrigida.
+- **19/11 (00h30)** — Publicadas a régua (anexo repetido, "VW CAS"), "WEV" dispensa nota (RNG0J11). Lendo o histórico do monitoramento de
+  hora em hora (não vinha sendo acompanhado nesta sessão): ACZ5D61 perdeu o item FO DEFLETOR SUP DO RADIADOR em 18/11 08h08
+  (comparação por descrição) → corrigido (posição tem de ser a mesma) e item reposto.
