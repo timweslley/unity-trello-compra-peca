@@ -1339,7 +1339,8 @@ function vdf_salvarCotacao(token, p) {
  * Peça já comprada não muda por aqui (o item do checklist PAGAS leva o nome antigo); pneu também não (use "É pneu" no pedido).
  * As cotações, a autorização e a base de "peça nova" seguem a peça corrigida — não vira peça nova nem volta para cotação.
  * TESTE sempre; principal com VD_AUT_CORRIGIR=SIM (OK do Weslley). */
-function vdf_autCorrigirLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_AUT_CORRIGIR', 'NAO') === 'SIM'; } catch (e) { return false; } }
+// 19/11/2026 01h22 — Weslley: "os 2" (ligar no principal). Desligar: propriedade VD_AUT_CORRIGIR=NAO (+ chave no powerup/config.js em 'teste').
+function vdf_autCorrigirLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_AUT_CORRIGIR', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 function vdf_corrigirPeca(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -2472,7 +2473,8 @@ function vdf_rotinaPecasBase(token, p) {
 }
 
 /** 22/10/2026: exigir código ou foto da peça particular/retorno — sempre no TESTE; no principal com VD_FOTO_PECA=SIM. */
-function vdf_fotoPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_FOTO_PECA', 'NAO') === 'SIM'; } catch (e) { return false; } }
+// 19/11/2026 01h22 — Weslley: "os 2" (ligar no principal). Desligar: propriedade VD_FOTO_PECA=NAO (+ chave no powerup/config.js em 'teste').
+function vdf_fotoPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_FOTO_PECA', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 /** 23/10/2026: card da Rotina para orçamento só de mão de obra (p.soMaoDeObra) — sempre no TESTE; no principal com VD_SO_MO=SIM. */
 function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_SO_MO', 'SIM') !== 'NAO'; } catch (e) { return false; } }   // 23/10/2026 10h40: ligado no principal (pedido do Weslley de 23/10); desligar: VD_SO_MO=NAO
 

@@ -11018,5 +11018,15 @@ html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2to
   }, true);
 })();
 </script>
+<!-- ================= CAMADA 2.0 — acertos da conferência de diretrizes (19/11/2026, Weslley: "sim", corrigir os 3 desvios) =================
+     Só aparência. 1) celular: miniatura da foto do topo e links "ler anexo do card" com alvo de toque de 44 px;
+     2) computador, aba Autorizar: o número da peça voltava esticado numa barra (coluna do grid) — fica como selo;
+     3) computador: contador da capa, "Trocar capa" e o selo TESTE com letra de 12 px (eram 10,5–11 px). -->
+<style>
+  html.v2toque #v2topo #v2fotos { height:46px !important; min-height:46px !important; }
+  html.v2toque .v2-ler .linha a.nome { min-height:44px; display:flex !important; align-items:center; }
+  .v2pc #comprador.v2c .item > .item-topo:has(> .v2c-tit) > .v2num { justify-self:start; width:auto; }
+  .v2pc #v2fotos .vf-cont, .v2pc #v2topo #v2fotos button.vf-trocar, .v2pc .selo#seloTeste { font-size:12px !important; }
+</style>
 </body>
 </html>

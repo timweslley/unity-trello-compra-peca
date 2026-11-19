@@ -710,7 +710,7 @@ Sufixos de fornecedor nos itens FO ("- MEDIADORA - PRISMATEC / MARAJO") são rec
 | `SLA_LIGADO`, `SLA_DIAS_COTAR` 2, `SLA_DIAS_AUTORIZAR` 2, `SLA_DIAS_FATURAR` 7, `SLA_DIAS_RECEBER` 1, `SLA_COTAR`, `SLA_AUTORIZAR`, `SLA_RECEBER` | | prazos e destinatários |
 | `ST_TRAVA`, `CK_TRAVA`, `VD_TRAVA_DESC`, `EXC_PROTEGER`, `FAT_LIGADO`, `CP_LIGADO`, `CF_LIGADO`, `EV_LIGADO` | SIM | liga/desliga módulos |
 | `VD_VITRINE`, `VD_DIAS_UTEIS`, `VD_ACOES_COMPARTILHADAS` | SIM | |
-| `VD_FOTO_PECA` | NAO (no TESTE vale sempre) | código/foto na peça particular (22/10) |
+| `VD_FOTO_PECA` | SIM desde 19/11/2026 (no TESTE vale sempre) | código/foto na peça particular (22/10) |
 | `VD_SO_MO` | SIM (ligado no principal em 23/10 10h40) | card da Rotina para orçamento só de mão de obra (23/10) |
 | `EXC_EMAIL`, `REL_EMAILS` | weslley.santos@…; + christian.farias@… | destinos |
 | `DU_EXTRAS`, `DU_REMOVER` | | feriados |
@@ -829,3 +829,4 @@ seção 10) · `usuario` (username trello, nome, papéis, unidade).
 
 - **Pagador particular com nome de empresa** (10/11/2026, Weslley — TBX4I16 T-Cross): **PILKINGTON, CARGLASS, AUTOGLASS e MAXPAR** no lugar da seguradora (título ou cabeçalho) tornam o pedido **PARTICULAR** mesmo que o formulário diga SEGURADORA (`vd_pagadorParticular_`): sem orçamento Cilia/HDI/Websoma obrigatório, nº da ordem opcional, cotação vai para COTAÇÃO FINALIZADA e o consultor autoriza; o nome da empresa fica no título/cabeçalho e no campo Unidade/Seguradora (`an.dados.pagador`). **Código de enchimento** (09/11/2026, ICT9375 Fusca): "0000", "000", "XXXX", "----", "N/A" não identificam a peça — valem como *sem código* (`vd_codigoVazio_`/`vd_codigoDeEnchimento_`): a chave da peça passa a ser a descrição, o item de checklist nasce sem o 0000 e o FALTA DADOS diz "código \"0000\" não identifica a peça — buscar no Cilia ou escrever ACESSORIO". Antes, três peças com 0000 viravam uma chave só e a cotação do farol caía no paralama e na moldura.
 - **19/11 (01h10)** — Nomes de anexo: a padronização sob demanda da diretoria só rebatiza como foto (`📸 PLACA · dd/MM`) a imagem com **nome automático** do aparelho; imagem com nome escrito por alguém fica como está. `↩️ NF DEVOLUÇÃO nº · …` conta como nome no padrão.
+- **19/11 (01h50)** — No quadro principal desde 19/11/2026 (OK do Weslley): correção de código/descrição pela aba Autorizar (`vdf_corrigirPeca`; desligar `VD_AUT_CORRIGIR=NAO` + `PU_CFG.AUT_CORRIGIR: 'teste'`) e peça particular/de retorno sem código só entra com **foto da peça** (desligar `VD_FOTO_PECA=NAO` + `PU_CFG.FOTO_PECA: 'teste'`).

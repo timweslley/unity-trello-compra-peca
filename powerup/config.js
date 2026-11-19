@@ -44,7 +44,7 @@ window.PU_CFG = {
   VISUAL_CEL: 'todos',   // 20/10/2026 23h20 — Weslley: "se tiver ok dá pra por no principal" (conferido no TESTE nas 4 telas; voltar: 'teste')
   /* 22/10/2026 (Weslley): peça particular/retorno sem código precisa de foto da peça (📷 em cada peça do pedido).
    * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley + propriedade VD_FOTO_PECA=SIM no robô); outro valor desliga. */
-  FOTO_PECA: 'teste',
+  FOTO_PECA: 'todos',   // 19/11/2026 01h22 — Weslley: "os 2" (ligar no principal; voltar: 'teste' + propriedade =NAO no robô)
   /* 26/10/2026 (Weslley): aba Cotação — comprador corrige o código da peça (botão "Código") e põe obs. em cada cotação.
    * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley); outro valor desliga (a obs. já gravada continua aparecendo). */
   COT_CODIGO_OBS: 'todos',   // 26/10/2026 11h09 — Weslley: "pode publicar no principal" (voltar: 'teste')
@@ -59,7 +59,7 @@ window.PU_CFG = {
    * (com OK do Weslley + propriedade VD_LIBERADO_POR=SIM no robô); outro valor desliga. */
   /* 13/11/2026 (Weslley, BBW5I86): aba Autorizar — a diretoria corrige código/descrição da peça ("✏️ Corrigir"), vale na hora
    * (vdf_corrigirPeca). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley + VD_AUT_CORRIGIR=SIM no robô). */
-  AUT_CORRIGIR: 'teste',
+  AUT_CORRIGIR: 'todos',   // 19/11/2026 01h22 — Weslley: "os 2" (ligar no principal; voltar: 'teste' + propriedade =NAO no robô)
   /* 16/11/2026 (Weslley): "Precisa de nota de refaturamento?" no pedido novo/edição; com Sim, a compra só é registrada com a
    * confirmação de nota no CNPJ (vdf_salvarCompra). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley +
    * propriedade VD_REFAT=SIM no robô); outro valor desliga. */

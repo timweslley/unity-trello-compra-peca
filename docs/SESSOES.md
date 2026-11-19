@@ -651,3 +651,7 @@ da outra, deixar um recado aqui e no commit.
 - **19/11 (01h10)** — Padronização de nomes sob demanda (`vdf_padronizarAnexos`): foto com nome escrito por alguém ("ORDEM DE SERVIÇO 2616")
   não vira mais "📸 PLACA · dd/MM" (só nome automático: trello123…, WhatsAppImage…, IMG-…-WA…); "↩️ NF DEVOLUÇÃO …" entra no padrão (BBN4J04).
 - **19/11 (01h30)** — Nota de refaturamento ligada no principal (Weslley 01h03: "aplique no principal a alteração pendurada no testes"): `PU_CFG.REFATURAMENTO: 'todos'` e `vdf_refatLigada_` ligada por padrão. RNG0J11: compra do líquido relançada (complemento liberado pelo atendente). BCT3G24: PDF do laudo HDI 5.0 trocado pelo legível.
+- **19/11 (01h50)** — Ligados no principal (Weslley 01h22: "os 2"): **corrigir código/descrição na aba Autorizar** (`AUT_CORRIGIR`) e
+  **foto obrigatória da peça particular/retorno sem código** (`FOTO_PECA`) — chaves em 'todos' e servidor ligado por padrão
+  (desligar: `VD_AUT_CORRIGIR=NAO` / `VD_FOTO_PECA=NAO`). Conferência das diretrizes visuais no TESTE (celular e computador): 3 acertos de
+  aparência na camada 2.0 (toque de 44 px na miniatura e nos links de anexo; nº da peça como selo na aba Autorizar; letras de 12 px no topo).
