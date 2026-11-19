@@ -8954,7 +8954,7 @@ document.addEventListener('input', function (e) {
     };
   }
   /* 19/11/2026 (Weslley, FMR7E11 · O.S. 2415): "Devolvida sem nota" — a peça FOI devolvida e não vai ter NF de devolução.
-   * Só a diretoria vê o botão; balão com motivo obrigatório; quem grava é o servidor (vdf_dispensarNfDevolucao).
+   * Quem registra recebimento vê o botão (19/11 11h38; antes só a diretoria); balão com motivo obrigatório; quem grava é o servidor (vdf_dispensarNfDevolucao).
    * Liga por PU_CFG.DEV_SEM_NF: 'teste' (só no TESTE, srv=1) | 'todos' | desligado. */
   var SEMNF_LIGADO = (function () { var cfg = window.PU_CFG && PU_CFG.DEV_SEM_NF, ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR; return cfg === 'todos' || (cfg === 'teste' && ehTeste); })();
   function semNfDev(btn) {
@@ -9000,8 +9000,8 @@ document.addEventListener('input', function (e) {
           + '<div class="v2d-campos"><div><label>Data da devolução</label><input type="date" class="v2d-data" value="' + esc2(d.dueIso || '') + '"></div>'
           + '<div><label>Nº da NF de devolução (ou do comprovante de coleta)</label><input type="text" class="v2d-nf" placeholder="ex.: 12345"></div>'
           + '<div class="v2d-arq"><label class="v2-btnarq" data-v2c="1" style="cursor:pointer"><span class="v2i v2i-clip" aria-hidden="true"></span>Anexar NF (PDF/XML)<input type="file" class="v2d-file" accept="application/pdf,.xml,image/*" style="display:none"></label><div class="v2d-lista"></div></div></div>'
-          + (CANC_LIGADO || (SEMNF_LIGADO && c.diretoria) ? '<div class="v2d-canc">' + (CANC_LIGADO ? '<button type="button" class="secundario v2d-btcanc" data-peca="' + esc2(d.peca) + '">Não vai devolver? Cancelar devolução</button>' : '')
-            + (SEMNF_LIGADO && c.diretoria ? ' <button type="button" class="secundario v2d-btcanc v2d-btsemnf" data-peca="' + esc2(d.peca) + '">Devolveu e não vai ter nota? Fechar sem nota</button>' : '') + '</div>' : '') + '</div>';
+          + (CANC_LIGADO || (SEMNF_LIGADO) ? '<div class="v2d-canc">' + (CANC_LIGADO ? '<button type="button" class="secundario v2d-btcanc" data-peca="' + esc2(d.peca) + '">Não vai devolver? Cancelar devolução</button>' : '')
+            + (SEMNF_LIGADO ? ' <button type="button" class="secundario v2d-btcanc v2d-btsemnf" data-peca="' + esc2(d.peca) + '">Devolveu e não vai ter nota? Fechar sem nota</button>' : '') + '</div>' : '') + '</div>';
       }).join('')
       + (feitas.length ? '<div class="dica" style="margin:6px 0 4px">Já resolvidas:</div>' + feitas.map(function (d) {
         if (d.semNf) return '<div class="v2d-item ok"><div class="v2d-topo"><b>✔ ' + esc2(d.peca) + '</b><span class="v2d-meta">' + esc2((String(d.nome).match(/sem NF de devolução[^·]*/i) || [d.estoque ? 'estoque próprio — não precisa de nota de devolução' : 'sem NF de devolução'])[0]) + '</span></div></div>';

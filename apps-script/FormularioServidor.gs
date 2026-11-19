@@ -617,6 +617,14 @@ function vdf_partesTitulo_(nome, dados) {
   // 12/11/2026 (varredura: ATZ8J34 "MONTANA GENTE PRATA GENTE", AYZ5A19 "S10 ZACARIAS PRETA ZACARIAS" e mais 4): seguradora de
   // uma palavra que ficou antes da cor também sai — depois de separar a cor, para "Q5 AZUL AZUL" (cor e seguradora) não mudar
   tiraSegFim(1);
+  // 19/11/2026 (Weslley, TBA8F60 "ONIX BRADESCO ZACARIAS BRANCA BRADESCO": "está duplicando nome do card"): em card de
+  // concessionária o nome da seguradora ficava no MEIO do nome do carro (antes do ZACARIAS) e voltava no fim a cada gravação.
+  // A seguradora sai de qualquer posição do nome do carro (menos da 1ª palavra, que é o modelo).
+  if (segPs.length) {
+    for (var k2 = ps.length - segPs.length; k2 >= 1; k2--) {
+      if (ps.length > segPs.length && ps.slice(k2, k2 + segPs.length).join(' ') === segPs.join(' ')) ps.splice(k2, segPs.length);
+    }
+  }
   r.carro = ps.join(' ') || vd_carroCurto_(dados.modelo || '');
   return r;
 }

@@ -668,3 +668,5 @@ da outra, deixar um recado aqui e no commit.
   `rc_devolucoes_` já devolve a devolução como resolvida; a tela mostra "estoque próprio — não precisa de nota de devolução".
 - **19/11 (11h40)** — Botão "Fechar sem nota" (devolução sem NF, só diretoria) ligado no principal (Weslley 11h19: "ok habilitar"); no celular os
   balões de devolução (cancelar / fechar sem nota) viraram painel que sobe de baixo, com botões de 48 px.
+- **19/11 (11h55)** — "Fechar sem nota" (devolução sem NF) liberado para quem registra recebimento no card (Weslley 11h38), não só a diretoria.
+  Título do card: seguradora no meio do nome do carro (TBA8F60 "ONIX BRADESCO ZACARIAS BRANCA BRADESCO") deixa de repetir.

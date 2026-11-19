@@ -1265,7 +1265,7 @@ function vdf_cancelarDevolucao(token, p) {
 
 /** 19/11/2026 (Weslley, FMR7E11 Volvo XC60 · O.S. 2415: "farol foi comprado e devolvido, fornecedor não mandou nota mas como
  *  devolvemos não precisamos, eu preciso de um botão") — a peça FOI devolvida e não haverá NF de devolução (o fornecedor nem
- *  emitiu a nota da compra; compra desfeita no marketplace; volta ao estoque próprio). Só a DIRETORIA dispensa. O item do
+ *  emitiu a nota da compra; compra desfeita no marketplace; volta ao estoque próprio). Desde 19/11 11h38 quem registra recebimento no card pode dispensar (antes só a diretoria). O item do
  *  checklist DEVOLUÇÕES fica ✔ com "· sem NF de devolução dd/MM (motivo)"; a compra continua cancelada; o card é reavaliado.
  *  p = {shortLink, id, motivo} */
 function vdf_dispensarNfDevolucao(token, p) {
@@ -1274,7 +1274,8 @@ function vdf_dispensarNfDevolucao(token, p) {
   var ctx = vd_contexto_();
   var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
   if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
-  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria fecha uma devolução sem nota. Peça a quem autoriza as compras.'] };
+  // 19/11/2026 11h38 (Weslley: "pode habilitar esse processo para quem recebe as peças"): vale para quem registra recebimento no card
+  if (!vdf_podeReceber_(me, card)) return { ok: false, faltas: ['Só quem registra recebimento neste card (comprador / diretoria) fecha uma devolução sem nota.'] };
   var d = rc_devolucoes_(card).filter(function (x) { return x.id === String(p.id || ''); })[0];
   if (!d) return { ok: false, faltas: ['Não achei esta devolução no card. Atualize a página e tente de novo.'] };
   if (d.ok) return { ok: false, faltas: ['Esta devolução já está resolvida.'] };
