@@ -1096,7 +1096,7 @@ function rc_devolverEntregues_(ctx, fim) {
  * O COMPRADOR confirma a data, informa o nº da NF de devolução e anexa o PDF (vdf_salvarDevolucao): o item fica ✔ e o nome
  * termina em "· NF nº dd/MM". Enquanto houver devolução sem NF, o card NÃO vai para ENTREGUES (segura em ENCERRADO).
  * Prazo: SLA_DIAS_NF_DEVOLUCAO (3 d.u.) depois da devolução → ⏰ para o setor de compras, uma vez por item. */
-var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF', RX_CANC: /·\s*devolução cancelada\s+\d{1,2}\/\d{1,2}/i };
+var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF', RX_CANC: /·\s*devolução cancelada\s+\d{1,2}\/\d{1,2}/i, RX_SEMNF: /·\s*sem NF de devolução\s+\d{1,2}\/\d{1,2}/i };
 
 function rc_checklistDev_(card, token) {
   var k = (card.checklists || []).filter(function (c) { return RC_DEV.RX.test(String(c.name || '').trim()); })[0];
@@ -1127,7 +1127,7 @@ function rc_devolucoes_(card) {
       var m = String(i.name || '').match(/\s*·\s*NF\s+(\S+)\s+(\d{1,2}\/\d{1,2})\s*$/i);
       out.push({ id: i.id, nome: i.name, peca: String(i.name || '').replace(/^↩️\s*/, '').split(/\s+-\s+/)[0], ok: i.state === 'complete', due: i.due || '',
         dueIso: i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', nf: m ? m[1] : '', nfData: m ? m[2] : '',
-        cancelada: RC_DEV.RX_CANC.test(String(i.name || '')) });
+        cancelada: RC_DEV.RX_CANC.test(String(i.name || '')), semNf: RC_DEV.RX_SEMNF.test(String(i.name || '')) });
     });
   });
   return out;
@@ -1244,6 +1244,49 @@ function vdf_cancelarDevolucao(token, p) {
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, peca: d.peca, aviso: aviso, pendentes: rc_devolucoesPendentes_(card).length - 1, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
+
+/** 19/11/2026 (Weslley, FMR7E11 Volvo XC60 · O.S. 2415: "farol foi comprado e devolvido, fornecedor não mandou nota mas como
+ *  devolvemos não precisamos, eu preciso de um botão") — a peça FOI devolvida e não haverá NF de devolução (o fornecedor nem
+ *  emitiu a nota da compra; compra desfeita no marketplace; volta ao estoque próprio). Só a DIRETORIA dispensa. O item do
+ *  checklist DEVOLUÇÕES fica ✔ com "· sem NF de devolução dd/MM (motivo)"; a compra continua cancelada; o card é reavaliado.
+ *  p = {shortLink, id, motivo} */
+function vdf_dispensarNfDevolucao(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  var ctx = vd_contexto_();
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria fecha uma devolução sem nota. Peça a quem autoriza as compras.'] };
+  var d = rc_devolucoes_(card).filter(function (x) { return x.id === String(p.id || ''); })[0];
+  if (!d) return { ok: false, faltas: ['Não achei esta devolução no card. Atualize a página e tente de novo.'] };
+  if (d.ok) return { ok: false, faltas: ['Esta devolução já está resolvida.'] };
+  var motivo = String(p.motivo || '').replace(/\s+/g, ' ').replace(/\s*·\s*/g, ' ').trim();
+  if (motivo.length < 5) return { ok: false, faltas: ['Escreva por que não vai ter nota de devolução.'] };
+  var ddmm = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM');
+  var nomeNovo = String(d.nome).replace(/\s*·\s*aguardando NF\s*$/i, '') + ' · sem NF de devolução ' + ddmm + ' (' + motivo.slice(0, 80) + ')';
+  try { vd_api_('/cards/' + card.id + '/checkItem/' + d.id, { method: 'put', payload: { name: nomeNovo.slice(0, 16000), state: 'complete' } }, token); }
+  catch (e) { return { ok: false, faltas: ['Não consegui gravar no card: ' + e] }; }
+  var forn = String(d.nome).replace(/^↩️\s*/, '').split(/\s+-\s+/)[1] || '';
+  forn = forn.split(/\s*·\s*/)[0];
+  try { ev_registrar_('DEVOLUÇÃO', card, me.username, [{ peca: d.peca, fornecedor: forn, detalhe: 'devolução SEM NF (diretoria) · ' + motivo.slice(0, 120) }], { detalhe: 'devolução sem NF' }); } catch (e) {}
+  var movido = '', segura = '';
+  try {
+    movido = rc_reavaliarColuna_(card.id, token, me.username, { reavaliar: true }) || '';
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } });
+    if (vdf_nomeLista_(ctx, c2.idList) === RC.LISTA_FIM) {
+      var lib = rc_liberarEncerrado_(c2, ctx, token, me.username);
+      if (lib.movido) movido = lib.movido; else segura = rc_textoSegura_(lib);
+    }
+    card.idList = c2.idList;
+  } catch (e) { console.log('devolução sem NF/coluna: ' + e); }
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '↩️ **DEVOLUÇÃO SEM NOTA** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') +
+      '\n- ' + d.peca + (forn ? ' (' + forn + ')' : '') + ' — peça devolvida; a diretoria dispensou a NF de devolução.' +
+      '\n- Motivo: ' + motivo.slice(0, 300) + (segura ? '\n⏳ O card fica em **' + RC.LISTA_FIM + '**: ' + segura : '') } }, token);
+  } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, peca: d.peca, pendentes: rc_devolucoesPendentes_(card).length - 1, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
 /** 21/10/2026 (Weslley: "os que ainda não foram entregues dá pra incluir") — diretoria inclui no checklist DEVOLUÇÕES uma devolução

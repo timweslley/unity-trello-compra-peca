@@ -238,7 +238,7 @@ var SLA = { INTERVALO_MS: 55 * 60 * 1000, REPETIR_DU: 2, REPETIR_FATURAR_DU: 5, 
 
 // FormularioServidor.gs:26
 var VDF_API = ['vdf_servidorProps', 'vdf_limparCardRotina', 'vdf_rotinaPecasBase', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_indicarNota', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_incluirColetaFo', 'vdf_corrigirPeca', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_cancelarDevolucao', 'vdf_incluirDevolucao', 'vdf_reavaliarColuna', 'vdf_varrerTrocasCodigo'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_indicarNota', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_incluirColetaFo', 'vdf_corrigirPeca', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_cancelarDevolucao', 'vdf_dispensarNfDevolucao', 'vdf_incluirDevolucao', 'vdf_reavaliarColuna', 'vdf_varrerTrocasCodigo'];
 
 // FormularioServidor.gs:68
 var VDF_PROPS_SERVIDOR = ['RC_LOCAIS', 'RC_QUEM', 'VD_COMPRADORES', 'VD_AUTORIZADORES', 'FAT_USUARIOS', 'DU_EXTRAS', 'DU_REMOVER',
@@ -462,7 +462,7 @@ var RC_NF_ESTOQUE = /^(WEV(\s+ESTOQUE)?|ESTOQUE\s+WEV|ESTOQUE)$/;
 var RC_NF_LEITURAS = { max: 4, feitas: 0 };
 
 // Recebimento.gs:1099
-var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF', RX_CANC: /·\s*devolução cancelada\s+\d{1,2}\/\d{1,2}/i };
+var RC_DEV = { LISTA: 'DEVOLUÇÕES', RX: /^DEVOLU[ÇC][ÕO]ES/i, AGUARDA: 'aguardando NF', RX_CANC: /·\s*devolução cancelada\s+\d{1,2}\/\d{1,2}/i, RX_SEMNF: /·\s*sem NF de devolução\s+\d{1,2}\/\d{1,2}/i };
 
 // Saude.gs:12
 var SD = { EMAIL: 'weslley.santos@unitycs.com.br', FALHAS: 5, REPETE_MS: 6 * 3600 * 1000, BACKUPS: 8, PASTA: 'Backups' };
@@ -10176,7 +10176,7 @@ function rc_devolucoes_(card) {
       var m = String(i.name || '').match(/\s*·\s*NF\s+(\S+)\s+(\d{1,2}\/\d{1,2})\s*$/i);
       out.push({ id: i.id, nome: i.name, peca: String(i.name || '').replace(/^↩️\s*/, '').split(/\s+-\s+/)[0], ok: i.state === 'complete', due: i.due || '',
         dueIso: i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', nf: m ? m[1] : '', nfData: m ? m[2] : '',
-        cancelada: RC_DEV.RX_CANC.test(String(i.name || '')) });
+        cancelada: RC_DEV.RX_CANC.test(String(i.name || '')), semNf: RC_DEV.RX_SEMNF.test(String(i.name || '')) });
     });
   });
   return out;
@@ -10291,7 +10291,46 @@ function vdf_cancelarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, peca: d.peca, aviso: aviso, pendentes: rc_devolucoesPendentes_(card).length - 1, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:1253
+// Recebimento.gs:1254
+function vdf_dispensarNfDevolucao(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  var ctx = vd_contexto_();
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,shortLink,shortUrl,idBoard,labels', checklists: 'all', checkItem_fields: 'name,state,due' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria fecha uma devolução sem nota. Peça a quem autoriza as compras.'] };
+  var d = rc_devolucoes_(card).filter(function (x) { return x.id === String(p.id || ''); })[0];
+  if (!d) return { ok: false, faltas: ['Não achei esta devolução no card. Atualize a página e tente de novo.'] };
+  if (d.ok) return { ok: false, faltas: ['Esta devolução já está resolvida.'] };
+  var motivo = String(p.motivo || '').replace(/\s+/g, ' ').replace(/\s*·\s*/g, ' ').trim();
+  if (motivo.length < 5) return { ok: false, faltas: ['Escreva por que não vai ter nota de devolução.'] };
+  var ddmm = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM');
+  var nomeNovo = String(d.nome).replace(/\s*·\s*aguardando NF\s*$/i, '') + ' · sem NF de devolução ' + ddmm + ' (' + motivo.slice(0, 80) + ')';
+  try { vd_api_('/cards/' + card.id + '/checkItem/' + d.id, { method: 'put', payload: { name: nomeNovo.slice(0, 16000), state: 'complete' } }, token); }
+  catch (e) { return { ok: false, faltas: ['Não consegui gravar no card: ' + e] }; }
+  var forn = String(d.nome).replace(/^↩️\s*/, '').split(/\s+-\s+/)[1] || '';
+  forn = forn.split(/\s*·\s*/)[0];
+  try { ev_registrar_('DEVOLUÇÃO', card, me.username, [{ peca: d.peca, fornecedor: forn, detalhe: 'devolução SEM NF (diretoria) · ' + motivo.slice(0, 120) }], { detalhe: 'devolução sem NF' }); } catch (e) {}
+  var movido = '', segura = '';
+  try {
+    movido = rc_reavaliarColuna_(card.id, token, me.username, { reavaliar: true }) || '';
+    var c2 = vd_api_('/cards/' + card.id, { query: { fields: 'name,idList,shortLink,shortUrl,labels', checklists: 'all', checkItem_fields: 'name,state,due', attachments: 'true', attachment_fields: 'name,isUpload,fileName,url,mimeType,bytes,date' } });
+    if (vdf_nomeLista_(ctx, c2.idList) === RC.LISTA_FIM) {
+      var lib = rc_liberarEncerrado_(c2, ctx, token, me.username);
+      if (lib.movido) movido = lib.movido; else segura = rc_textoSegura_(lib);
+    }
+    card.idList = c2.idList;
+  } catch (e) { console.log('devolução sem NF/coluna: ' + e); }
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '↩️ **DEVOLUÇÃO SEM NOTA** — ' + me.fullName + (movido ? ' → **' + movido + '**' : '') +
+      '\n- ' + d.peca + (forn ? ' (' + forn + ')' : '') + ' — peça devolvida; a diretoria dispensou a NF de devolução.' +
+      '\n- Motivo: ' + motivo.slice(0, 300) + (segura ? '\n⏳ O card fica em **' + RC.LISTA_FIM + '**: ' + segura : '') } }, token);
+  } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, peca: d.peca, pendentes: rc_devolucoesPendentes_(card).length - 1, lista: movido || vdf_nomeLista_(ctx, card.idList) };
+}
+
+// Recebimento.gs:1296
 function vdf_reavaliarColuna(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
@@ -10304,7 +10343,7 @@ function vdf_reavaliarColuna(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:1264
+// Recebimento.gs:1307
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
@@ -10322,7 +10361,7 @@ function vdf_incluirDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, item: novo.name };
 }
 
-// Recebimento.gs:1286
+// Recebimento.gs:1329
 function vdf_incluirColetaFo(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
