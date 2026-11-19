@@ -11026,6 +11026,8 @@ html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2to
   html.v2toque #v2topo #v2fotos { height:46px !important; min-height:46px !important; }
   html.v2toque .v2-ler .linha a.nome { min-height:44px; display:flex !important; align-items:center; }
   .v2pc #comprador.v2c .item > .item-topo:has(> .v2c-tit) > .v2num { justify-self:start; width:auto; }
+  /* com o botão "Corrigir" a linha tem 4 filhos: as ações (+ Comp. / Não comprar / + Obs.) caíam na 1ª coluna e a alargavam */
+  .v2pc #comprador.v2c .item > .item-topo:has(> .v2c-tit) > :nth-child(n+4) { grid-column:1 / -1; }
   .v2pc #v2fotos .vf-cont, .v2pc #v2topo #v2fotos button.vf-trocar, .v2pc .selo#seloTeste { font-size:12px !important; }
 </style>
 </body>
