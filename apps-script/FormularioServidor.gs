@@ -2481,7 +2481,8 @@ function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || v
  * TESTE sempre; principal ligado em 12/11/2026 12h19 (Weslley: "pode ligar já"). Desligar: propriedade VD_LIBERADO_POR=NAO. */
 /** 16/11/2026 (Weslley): "nota de refaturamento" no pedido — o consultor marca; com ela a compra só é registrada com a
  * confirmação de que saiu com nota no CNPJ. Primeiro só no TESTE; no principal liga com VD_REFAT=SIM (+ PU_CFG.REFATURAMENTO). */
-function vdf_refatLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_REFAT', 'NAO') === 'SIM'; } catch (e) { return false; } }
+// 19/11/2026 01h03 — Weslley: "aplique no principal a alteração pendurada no testes" — ligado no principal. Desligar: propriedade VD_REFAT=NAO (+ PU_CFG.REFATURAMENTO: 'teste').
+function vdf_refatLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_REFAT', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
 function vdf_liberadoPorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_LIBERADO_POR', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 

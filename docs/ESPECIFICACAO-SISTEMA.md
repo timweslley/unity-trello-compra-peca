@@ -249,7 +249,7 @@ peça do WEV ESTOQUE segue dispensada; (3) nota nova (PDF/XML) na aba Recebiment
 a regra nova só vale para card em que todas as compras foram lançadas depois de `VD_NF_PECA_DESDE`; card com compra anterior
 segue a regra de antes (por fornecedor) — nada volta de ENTREGUES em massa.
 
-**Nota de refaturamento (16/11/2026 — só no TESTE; principal: `VD_REFAT=SIM` + `PU_CFG.REFATURAMENTO: 'todos'`, com OK do Weslley).**
+**Nota de refaturamento (16/11/2026 no TESTE; **ligada no principal em 19/11/2026 01h03**, OK do Weslley — desligar: `VD_REFAT=NAO` + `PU_CFG.REFATURAMENTO: 'teste'`).**
 No pedido novo e no ✏️ Editar, o consultor responde "🧾 Precisa de nota de refaturamento?" (Não / Sim + de qual empresa é o
 CNPJ, opcional — só o nome curto, nunca o número). Com Sim, a descrição oficial ganha `**REFATURAMENTO:** SIM — CNPJ <EMPRESA>`
 (cabeçalho, depois do sinistro), a vitrine mostra `🧾 NOTA DE REFATURAMENTO — comprar com nota no CNPJ da <EMPRESA>` e o card

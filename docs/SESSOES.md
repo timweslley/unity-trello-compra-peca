@@ -650,3 +650,4 @@ da outra, deixar um recado aqui e no commit.
   (comparação por descrição) → corrigido (posição tem de ser a mesma) e item reposto.
 - **19/11 (01h10)** — Padronização de nomes sob demanda (`vdf_padronizarAnexos`): foto com nome escrito por alguém ("ORDEM DE SERVIÇO 2616")
   não vira mais "📸 PLACA · dd/MM" (só nome automático: trello123…, WhatsAppImage…, IMG-…-WA…); "↩️ NF DEVOLUÇÃO …" entra no padrão (BBN4J04).
+- **19/11 (01h30)** — Nota de refaturamento ligada no principal (Weslley 01h03: "aplique no principal a alteração pendurada no testes"): `PU_CFG.REFATURAMENTO: 'todos'` e `vdf_refatLigada_` ligada por padrão. RNG0J11: compra do líquido relançada (complemento liberado pelo atendente). BCT3G24: PDF do laudo HDI 5.0 trocado pelo legível.

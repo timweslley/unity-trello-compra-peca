@@ -63,7 +63,7 @@ window.PU_CFG = {
   /* 16/11/2026 (Weslley): "Precisa de nota de refaturamento?" no pedido novo/edição; com Sim, a compra só é registrada com a
    * confirmação de nota no CNPJ (vdf_salvarCompra). 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley +
    * propriedade VD_REFAT=SIM no robô); outro valor desliga. */
-  REFATURAMENTO: 'teste',
+  REFATURAMENTO: 'todos',   // 19/11/2026 01h03 — Weslley: "aplique no principal a alteração pendurada no testes" (conferido no TESTE no computador e no celular; voltar: 'teste' + VD_REFAT=NAO)
   /* 16/11/2026 (Weslley: "o atendente tem que lançar a nota e indicar a peça que está baixando"): aba Recebimento mostra as
    * notas do card para indicar a peça, e nota nova só segue com peça marcada; a régua (servidor) exige nota indicada por
    * compra. 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley + VD_NF_PECA=SIM e VD_NF_PECA_DESDE no robô). */
