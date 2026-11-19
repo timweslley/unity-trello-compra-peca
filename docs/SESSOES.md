@@ -655,3 +655,5 @@ da outra, deixar um recado aqui e no commit.
   **foto obrigatória da peça particular/retorno sem código** (`FOTO_PECA`) — chaves em 'todos' e servidor ligado por padrão
   (desligar: `VD_AUT_CORRIGIR=NAO` / `VD_FOTO_PECA=NAO`). Conferência das diretrizes visuais no TESTE (celular e computador): 3 acertos de
   aparência na camada 2.0 (toque de 44 px na miniatura e nos links de anexo; nº da peça como selo na aba Autorizar; letras de 12 px no topo).
+- **19/11 (08h20)** — Régua por peça não vale para marketplace (Mercado Livre/Shopee): ATP5105 (O.S. 2045) saiu de ENTREGUES à 01h40
+  porque a nota de um vendedor do ML trazia o código da peça e a de outro não. Marketplace volta à regra da nota pelo nome.

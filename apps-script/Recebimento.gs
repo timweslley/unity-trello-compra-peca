@@ -927,6 +927,10 @@ function rc_notasOficina_(card) {
     forns.forEach(function (f) {
       var pf = porForn[f];
       if (cobertos.indexOf(f) < 0 || (pf.cods || []).length < 2) return;
+      // 19/11/2026 (ATP5105 Gol, O.S. 2045 — saiu de ENTREGUES de madrugada): no Mercado Livre/Shopee cada compra é de um vendedor e
+      // cada um escreve a nota do seu jeito — o código de uma peça aparecer numa nota não prova que a outra nota traria o dela.
+      // Marketplace fica na regra de antes (nota pelo nome).
+      if (/MERCADO\s*LIVRE|MERCADOLIVRE|^ML$|SHOPEE/.test(vd_semAcento_(String(f || '')).toUpperCase())) return;
       var dele = notas.filter(function (n) { return n.pal.some(function (w) { return pf.chaves.indexOf(w) >= 0; }); });
       if (!dele.length || dele.some(function (n) { return !codsNota[n.id]; })) return;
       var achou = pf.cods.filter(temCod), falta = pf.cods.filter(function (k) { return !temCod(k); });
