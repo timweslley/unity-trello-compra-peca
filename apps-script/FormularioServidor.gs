@@ -762,6 +762,10 @@ function vdf_lerAnexoCard(token, shortLink, idAnexo, placa) {
   if (r.erro) return { anexoId: a.id, jaNoCard: true, erro: 'Não consegui ler "' + a.name + '" (' + r.erro + ').' };
   var orc = r.orcFull || (r.orc ? { origem: r.orcamento, oficina: vd_orcExpandir_(r.orc.o), fo: vd_orcExpandir_(r.orc.f) } : { origem: '' });
   if (!r.orcFull && orc.fo) (r.foi || []).forEach(function (fi) { orc.fo.forEach(function (x) { if (fi[0] && x.codigo === fi[0]) { x.fornecedor = fi[1]; x.previsao = fi[2]; } }); });
+  // 19/11/2026 (Weslley, TBA8F60 Onix Zacarias · O.S. 2955: "as peças do orçamento são fornecimento"): ao ler de novo o orçamento
+  // de um card de concessionária (CSS), a tela mostrava as 16 peças como "passou de fornecida para oficina" e pedia o tipo de cada
+  // uma — o servidor já convertia tudo para FO ao gravar, mas a prévia assustava. A leitura já volta como fornecimento.
+  try { orc = vd_orcCss_(orc, c.name); } catch (e) {}
   orc.cor = r.cor; orc.seguradora = r.seguradora; orc.sinistro = r.sinistro;
   var out = vdf_respostaLeitura_(r, orc, placa);
   out.anexoId = a.id; out.jaNoCard = true; out.doCache = !!r.doCache;

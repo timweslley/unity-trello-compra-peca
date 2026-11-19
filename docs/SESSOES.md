@@ -660,3 +660,5 @@ da outra, deixar um recado aqui e no commit.
 - **19/11 (09h30)** — Devolução **sem nota** (Weslley, FMR7E11 Volvo XC60 · O.S. 2415: farol comprado no Mercado Livre e devolvido, sem
   nota de compra nem de devolução): `vdf_dispensarNfDevolucao` (só diretoria, motivo obrigatório) fecha o item do checklist DEVOLUÇÕES com
   "· sem NF de devolução dd/MM (motivo)". Botão "Fechar sem nota" na aba Recebimento atrás de `PU_CFG.DEV_SEM_NF: 'teste'`.
+- **19/11 (10h10)** — Card de concessionária (CSS): reler o orçamento pelo formulário (`vdf_lerAnexoCard`) já devolve tudo como fornecimento —
+  a tela mostrava "passou de fornecida para oficina" nas 16 peças do TBA8F60 (Onix Zacarias, O.S. 2955). FMR7E11: devolução fechada sem nota → ENTREGUES.
