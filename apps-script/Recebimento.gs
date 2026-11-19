@@ -702,7 +702,8 @@ function rc_nfPalavras_(s) {
   return out;
 }
 /** Fornecedor que é o estoque próprio (WEV ESTOQUE / ESTOQUE WEV / ESTOQUE): compra sem nota fiscal. */
-var RC_NF_ESTOQUE = /^(WEV\s+ESTOQUE|ESTOQUE\s+WEV|ESTOQUE)$/;
+// 19/11/2026 (Weslley, RNG0J11 Doblo · O.S. 2528: "sim, dispensar"): compra lançada só como "WEV" também é do estoque próprio.
+var RC_NF_ESTOQUE = /^(WEV(\s+ESTOQUE)?|ESTOQUE\s+WEV|ESTOQUE)$/;
 /** Anexo que é nota fiscal de compra da oficina (não de fornecimento nem de devolução). */
 function rc_nfDeCompra_(a) {
   var n = String((a && a.name) || '');
