@@ -787,7 +787,7 @@ function rc_nfCodsCache_(idAnexo) {
 function rc_lerCodsNotas_(card, fim) {
   try {
     var comCod = vdf_itensRecebimento_(card).filter(function (i) { return /^PAGAS/.test(i.lista) && /\d/.test(String(i.base || '').split(/\s+/)[0]); }).length;
-    if (comCod < 2) return;
+    if (comCod < 1) return;   // 19/11/2026: com 1 compra com código o conteúdo da nota também decide (baixa pelo código)
     (card.attachments || []).filter(function (a) { return rc_nfDeCompra_(a) && a.url && vd_anexoLegivel_(a) && !rc_nfCodsCache_(a.id); }).forEach(function (a) {
       if (RC_NF_LEITURAS.feitas >= RC_NF_LEITURAS.max || (fim && Date.now() > fim - 12 * 1000)) return;
       RC_NF_LEITURAS.feitas++;
@@ -863,7 +863,8 @@ function rc_notasOficina_(card) {
     // não entra na régua (SWQ0F73, DPJ2D42, RHH0C51, BAI8D21 ficavam presos em ENCERRADO por causa dela)
     if (RC_NF_ESTOQUE.test(forn)) { doEstoque++; return; }
     comprasNf.push({ id: i.id, forn: forn, peca: String(pt[0] || '').trim() });
-    if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]).concat(palavrasCadastro(pt[iForn])) : [], cods: [] }; forns.push(forn); }
+    if (!porForn[forn]) { porForn[forn] = { chaves: iForn >= 0 ? rc_nfPalavras_(pt[iForn]).concat(palavrasCadastro(pt[iForn])) : [], cods: [], n: 0 }; forns.push(forn); }
+    porForn[forn].n++;
     var codN = codigo.replace(/[^A-Z0-9]/g, '');
     if (iForn > 0 && codN.length >= 6 && /\d/.test(codN) && porForn[forn].cods.indexOf(codN) < 0) porForn[forn].cods.push(codN);
     if (iForn < 0) rc_nfPalavras_(i.base).forEach(function (w) { if (porForn[forn].chaves.indexOf(w) < 0) porForn[forn].chaves.push(w); });
@@ -884,6 +885,28 @@ function rc_notasOficina_(card) {
     for (var k = 0; k < notas.length && !n; k++) if (notas[k].pal.some(function (w) { return ch.indexOf(w) >= 0; })) n = notas[k];
     if (n) { n.usada = true; cobertos.push(f); } else faltam.push(f);
   });
+  /* 19/11/2026 (Weslley: "ler o conteúdo das notas e dar a baixa fiscal no que for possível"): fornecedor sem nota PELO NOME
+   * (nome digitado errado no item — "IMPEIRAL", "MAHEMAR" —, razão social fora do cadastro) fica coberto quando TODAS as peças
+   * dele têm código e todos esses códigos estão dentro de alguma nota do card (conteúdo lido, nf.cods). */
+  try {
+    var lidas = notas.map(function (n) { return { n: n, cods: rc_nfCodsCache_(n.id) || [] }; }).filter(function (x) { return x.cods.length; });
+    if (lidas.length && faltam.length) {
+      // a nota que traz o código (código genérico tipo 0000001 não prova nada); ela passa a contar como usada
+      var notaDo = function (k) {
+        if (/^0*\d{0,3}$/.test(k)) return null;
+        var x = lidas.filter(function (l) { return l.cods.some(function (c) { return c === k || (c.length > k.length && c.indexOf(k) >= 0); }); })[0];
+        return x ? x.n : null;
+      };
+      faltam = faltam.filter(function (f) {
+        var pf = porForn[f];
+        if (!pf.cods.length || pf.cods.length !== pf.n) return true;
+        var ns = pf.cods.map(notaDo);
+        if (ns.some(function (n) { return !n; })) return true;
+        ns.forEach(function (n) { n.usada = true; });
+        cobertos.push(f); return false;
+      });
+    }
+  } catch (e) { console.log('régua pelo conteúdo: ' + e); }
   // nota sobrando: duas notas do mesmo emitente (SGA 100175 e SGA 101802) contam uma só — não cobrem dois fornecedores diferentes
   var emitentes = {};
   // 16/11/2026 (BBE0G95): nota do Mercado Livre sobrando ("NF ML - …") é de compra do ML — não cobre outro fornecedor sem nota (DIPAUTO)
