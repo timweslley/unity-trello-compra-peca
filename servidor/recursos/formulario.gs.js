@@ -10192,18 +10192,22 @@ function rc_devolucoes_(card) {
     if (!RC_DEV.RX.test(String(k.name || '').trim())) return;
     (k.checkItems || []).forEach(function (i) {
       var m = String(i.name || '').match(/\s*·\s*NF\s+(\S+)\s+(\d{1,2}\/\d{1,2})\s*$/i);
-      out.push({ id: i.id, nome: i.name, peca: String(i.name || '').replace(/^↩️\s*/, '').split(/\s+-\s+/)[0], ok: i.state === 'complete', due: i.due || '',
+      // 19/11/2026 (Weslley, ATP5105 Gol · O.S. 2045: "wev e wev estoque não exige nota de devolução"): peça que volta para o
+      // estoque próprio não tem NF de devolução — a devolução já conta como resolvida (não segura o card).
+      var fornDev = vd_semAcento_(String(String(i.name || '').replace(/^↩️\s*/, '').split(/\s+-\s+/)[1] || '').split(/\s*·\s*/)[0]).toUpperCase().replace(/\s+/g, ' ').trim();
+      var estoqueDev = RC_NF_ESTOQUE.test(fornDev);
+      out.push({ id: i.id, nome: i.name, peca: String(i.name || '').replace(/^↩️\s*/, '').split(/\s+-\s+/)[0], ok: i.state === 'complete' || estoqueDev, estoque: estoqueDev, due: i.due || '',
         dueIso: i.due ? Utilities.formatDate(new Date(i.due), 'America/Sao_Paulo', 'yyyy-MM-dd') : '', nf: m ? m[1] : '', nfData: m ? m[2] : '',
-        cancelada: RC_DEV.RX_CANC.test(String(i.name || '')), semNf: RC_DEV.RX_SEMNF.test(String(i.name || '')) });
+        cancelada: RC_DEV.RX_CANC.test(String(i.name || '')), semNf: RC_DEV.RX_SEMNF.test(String(i.name || '')) || (estoqueDev && i.state !== 'complete') });
     });
   });
   return out;
 }
 
-// Recebimento.gs:1148
+// Recebimento.gs:1152
 function rc_devolucoesPendentes_(card) { return rc_devolucoes_(card).filter(function (d) { return !d.ok; }); }
 
-// Recebimento.gs:1151
+// Recebimento.gs:1155
 function vdf_salvarDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -10257,7 +10261,7 @@ function vdf_salvarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: itens.length, anexos: nAnexos, pendentes: rc_devolucoesPendentes_(card).length - itens.length, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:1211
+// Recebimento.gs:1215
 function vdf_cancelarDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -10309,7 +10313,7 @@ function vdf_cancelarDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, peca: d.peca, aviso: aviso, pendentes: rc_devolucoesPendentes_(card).length - 1, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:1267
+// Recebimento.gs:1271
 function vdf_dispensarNfDevolucao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -10348,7 +10352,7 @@ function vdf_dispensarNfDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, peca: d.peca, pendentes: rc_devolucoesPendentes_(card).length - 1, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:1309
+// Recebimento.gs:1313
 function vdf_reavaliarColuna(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria reavalia a coluna.'] };
@@ -10361,7 +10365,7 @@ function vdf_reavaliarColuna(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, movido: movido, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// Recebimento.gs:1320
+// Recebimento.gs:1324
 function vdf_incluirDevolucao(token, p) {
   var me = vdf_usuario_(token);
   if (!vdf_ehAutorizador_(me)) return { ok: false, faltas: ['Só a diretoria inclui devolução antiga.'] };
@@ -10379,7 +10383,7 @@ function vdf_incluirDevolucao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, item: novo.name };
 }
 
-// Recebimento.gs:1342
+// Recebimento.gs:1346
 function vdf_incluirColetaFo(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);

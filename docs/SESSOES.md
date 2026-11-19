@@ -664,3 +664,5 @@ da outra, deixar um recado aqui e no commit.
   a tela mostrava "passou de fornecida para oficina" nas 16 peças do TBA8F60 (Onix Zacarias, O.S. 2955). FMR7E11: devolução fechada sem nota → ENTREGUES.
 - **19/11 (11h00)** — Régua da nota: fornecedor digitado com uma letra diferente em outra compra do mesmo card ("GAUCHO FOZ" × "CAUCHO FOZ",
   AZV7F58 Clio · O.S. 2363) conta como o mesmo fornecedor — o card ficava em ENCERRADO pedindo uma nota a mais.
+- **19/11 (11h15)** — Devolução para o estoque próprio (WEV / WEV ESTOQUE) não exige NF de devolução (Weslley, ATP5105 Gol · O.S. 2045):
+  `rc_devolucoes_` já devolve a devolução como resolvida; a tela mostra "estoque próprio — não precisa de nota de devolução".

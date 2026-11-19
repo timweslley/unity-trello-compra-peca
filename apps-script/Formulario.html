@@ -9004,7 +9004,7 @@ document.addEventListener('input', function (e) {
             + (SEMNF_LIGADO && c.diretoria ? ' <button type="button" class="secundario v2d-btcanc v2d-btsemnf" data-peca="' + esc2(d.peca) + '">Devolveu e não vai ter nota? Fechar sem nota</button>' : '') + '</div>' : '') + '</div>';
       }).join('')
       + (feitas.length ? '<div class="dica" style="margin:6px 0 4px">Já resolvidas:</div>' + feitas.map(function (d) {
-        if (d.semNf) return '<div class="v2d-item ok"><div class="v2d-topo"><b>✔ ' + esc2(d.peca) + '</b><span class="v2d-meta">' + esc2((String(d.nome).match(/sem NF de devolução[^·]*/i) || ['sem NF de devolução'])[0]) + '</span></div></div>';
+        if (d.semNf) return '<div class="v2d-item ok"><div class="v2d-topo"><b>✔ ' + esc2(d.peca) + '</b><span class="v2d-meta">' + esc2((String(d.nome).match(/sem NF de devolução[^·]*/i) || [d.estoque ? 'estoque próprio — não precisa de nota de devolução' : 'sem NF de devolução'])[0]) + '</span></div></div>';
         if (d.cancelada) return '<div class="v2d-item ok"><div class="v2d-topo"><b>✖ ' + esc2(d.peca) + '</b><span class="v2d-meta">' + esc2((String(d.nome).match(/devolução cancelada[^·]*/i) || ['devolução cancelada'])[0]) + ' — a peça ficou com a oficina</span></div></div>';
         return '<div class="v2d-item ok"><div class="v2d-topo"><b>✔ ' + esc2(d.peca) + '</b><span class="v2d-meta">NF ' + esc2(d.nf) + ' · ' + esc2(d.nfData) + '</span></div></div>';
       }).join('') : '')
