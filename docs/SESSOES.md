@@ -674,3 +674,6 @@ da outra, deixar um recado aqui e no commit.
 - **19/11 (16h15)** — Vai-e-volta de 9 cards ENTREGUES↔ENCERRADO às 15h20/15h30 (monitor 15h57): a limpeza da aba ANEXOS apagava tudo
   antes de regravar e a varredura da régua da nota decidiu sem os códigos lidos das notas. Limpeza grava antes de apagar a sobra;
   sem as leituras (`vd_anxIndisponivel_`) a régua não move card. Junto: leitura da planilha pelo servidor tenta de novo no 403.
+- **20/11 (09h45)** — Banco (Neon) sem cota desde 19/11 22h40: o agendador não conseguia ler a marca "já rodou hoje" e rodava a rotina
+  diária + relatório de exceções a cada minuto (180+ e-mails). Marca também na memória da instância; com o banco fora, a diária só
+  roda na 1ª hora depois do horário dela.

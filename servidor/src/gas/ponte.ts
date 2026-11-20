@@ -1069,6 +1069,8 @@ export async function batidaNoGoogle(): Promise<unknown> {
   return { ok: true, ultimoCiclo: t ? new Date(t).toISOString() : null, segundos: t ? Math.round((Date.now() - t) / 1000) : null, avisoPendente: v.SD_VIGIA_AV || null, chave: v.VD_ROBO_SERVIDOR || null };
 }
 const diarias: Array<{ fn: string; hhmm: string }> = [{ fn: 'rotinaDiaria', hhmm: '07:00' }, { fn: 'relatorioDiario', hhmm: '07:15' }];
+/** dia (AAAA-MM-DD) em que cada diária já rodou NESTA instância — vale mesmo com o banco fora do ar */
+const diariaFeita: Record<string, string> = {};
 /** Agendador (Cloud Scheduler, a cada minuto): ciclo do robô, log de descrição e as rotinas diárias na hora. */
 /** 11/11/2026 (ATV4G70): só UMA instância roda o robô por vez. Num deploy o Cloud Run mantém a instância antiga viva por alguns
  *  minutos enquanto a nova já atende — as duas rodavam o ciclo de 1 min e julgavam o movimento uma da outra (vai-e-volta, e o
@@ -1108,8 +1110,18 @@ export async function minutoRobo(): Promise<Record<string, unknown>> {
     const k = 'robo_diaria_' + String(out.modo) + '_' + d.fn;
     // 19/10/2026 (virada às 19h33): a diária que já rodou hoje em qualquer modo (OBSERVAR = junto com o Google) não roda de novo —
     // senão o relatório de exceções saía 2× no dia da virada
-    const gs = await consulta<{ valor: unknown }>(`SELECT valor FROM guardado WHERE nome = ANY($1)`, [['robo_diaria_ATIVO_' + d.fn, 'robo_diaria_OBSERVAR_' + d.fn]]).catch(() => []);
-    if (gs.some((g) => String((g.valor as { dia?: string })?.dia) === hoje)) continue;
+    // 20/11/2026 (monitor 06h58–08h57: banco sem cota desde 19/11 22h40): sem conseguir LER a marca "já rodou hoje" o agendador
+    // rodava a rotina diária e o relatório de exceções A CADA MINUTO — 180+ e-mails para o Weslley e o financeiro. Agora a marca
+    // também fica na memória da instância e, com o banco fora, a diária só roda na 1ª hora depois do horário dela (uma vez).
+    if (diariaFeita[d.fn] === hoje) continue;
+    let bancoFora = false;
+    const gs = await consulta<{ valor: unknown }>(`SELECT valor FROM guardado WHERE nome = ANY($1)`, [['robo_diaria_ATIVO_' + d.fn, 'robo_diaria_OBSERVAR_' + d.fn]]).catch(() => { bancoFora = true; return [] as Array<{ valor: unknown }>; });
+    if (gs.some((g) => String((g.valor as { dia?: string })?.dia) === hoje)) { diariaFeita[d.fn] = hoje; continue; }
+    if (bancoFora) {
+      const [h0, m0] = d.hhmm.split(':').map(Number), agoraMin = +p.hour * 60 + +p.minute;
+      if (agoraMin - (h0 * 60 + m0) > 60) continue;   // fora da 1ª hora: não dá para saber se já rodou — não roda
+    }
+    diariaFeita[d.fn] = hoje;
     await consulta(`INSERT INTO guardado (nome, valor, em) VALUES ($1, $2, now()) ON CONFLICT (nome) DO UPDATE SET valor = EXCLUDED.valor, em = now()`, [k, JSON.stringify({ dia: hoje })]).catch(() => null);
     out[d.fn] = await rodarRobo(d.fn);
   }
