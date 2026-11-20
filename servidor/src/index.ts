@@ -491,15 +491,21 @@ async function principal() {
     app.log.warn('sem DATABASE_URL: no ar só com /saude');
     return;
   }
-  try {
-    const feitas = await migrar();
-    ESTADO.migracao = feitas.length ? 'aplicadas: ' + feitas.join(', ') : 'em dia';
-    bancoPronto();
-    if (trelloPronto()) aquecerTrabalhadores();   // a primeira ação de quem abre o formulário não paga a partida
-  } catch (e) {
-    ESTADO.migracao = 'erro: ' + (e as Error).message;
-    app.log.error(e, 'migração falhou');
-    return;
+  // 20/11/2026: o banco (Neon) ficou sem cota e a instância que subiu nesse meio-tempo marcou "migração falhou" e nunca mais
+  // tentou — mesmo com o banco de volta, o formulário respondia "banco ainda iniciando" até alguém reiniciar o servidor.
+  // Agora tenta de novo a cada 30 s até conseguir.
+  for (let tentativa = 1; ; tentativa++) {
+    try {
+      const feitas = await migrar();
+      ESTADO.migracao = feitas.length ? 'aplicadas: ' + feitas.join(', ') : 'em dia';
+      bancoPronto();
+      if (trelloPronto()) aquecerTrabalhadores();   // a primeira ação de quem abre o formulário não paga a partida
+      break;
+    } catch (e) {
+      ESTADO.migracao = 'erro (tentativa ' + tentativa + '): ' + (e as Error).message;
+      if (tentativa === 1 || tentativa % 20 === 0) app.log.error(e, 'migração falhou — tento de novo em 30 s');
+      await new Promise((ok) => setTimeout(ok, 30_000));
+    }
   }
   if (!CFG.trello.segredo) app.log.warn('TRELLO_SEGREDO vazio: webhook aceita chamadas sem assinatura');
   if (CFG.urlPublica && CFG.trello.chave && CFG.trello.token) {
