@@ -678,3 +678,4 @@ da outra, deixar um recado aqui e no commit.
   diária + relatório de exceções a cada minuto (180+ e-mails). Marca também na memória da instância; com o banco fora, a diária só
   roda na 1ª hora depois do horário dela.
 - **20/11 (10h05)** — Neon com plano pago (Weslley, 09h53; fica no Neon). Servidor: a migração/partida do banco tenta de novo a cada 30 s — a instância que subiu com o banco fora ficava respondendo "banco ainda iniciando" para sempre.
+- **20/11 (10h20)** — Anexo repetido: quando a nota subida pelo formulário é o mesmo arquivo de um PDF sem nome de nota já no card, o que fica herda o nome da nota (QJB6D45 Fusion ficou preso em ENCERRADO com a nota da RUFATO como "241958.pdf").

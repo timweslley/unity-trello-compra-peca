@@ -315,13 +315,20 @@ function ax_removerRepetido_(cardId, a, quem) {
     var igual = null;
     for (var i = 0; i < cands.length && !igual; i++) if (ax_hashAnexo_(cands[i]) === h) igual = cands[i];
     if (!igual) return false;
+    // 20/11/2026 (QJB6D45 Fusion, monitor 06h58): a equipe subiu a nota pelo formulário ("📦 NF … RUFATO") e ela era o mesmo arquivo
+    // de um PDF já arrastado para o card com o nome que veio ("241958.pdf"), que a régua não conta como nota. O robô apagava a
+    // nota batizada e ficava o arquivo sem nome — card preso em ENCERRADO "sem nota". O arquivo que fica herda o nome de nota.
+    var nomeApagado = a.name;
+    if (ax_ehNota_(a.name) && !ax_ehNota_(igual.name) && !ax_padronizado_(igual.name)) {
+      try { var deN = igual.name; if (ax_renomear_(cardId, igual.id, a.name, null)) { try { ax_madRegistrar_(cardId, igual.id, deN, a.name); } catch (e2) {} igual.name = a.name; } } catch (e1) { console.log('repetido/herdar nome: ' + e1); }
+    }
     vd_api_('/cards/' + cardId + '/attachments/' + a.id, { method: 'delete' });
     // a série ficou com um só "… v1": volta ao nome sem versão
     var pref = String(igual.name || '').split(AX.SEP).slice(0, 2).join(AX.SEP) + AX.SEP;
     var serie = lista.filter(function (x) { return x.id !== a.id && String(x.name || '').indexOf(pref) === 0 && ax_padronizado_(x.name); });
     if (serie.length === 1 && / v1$/.test(serie[0].name)) { var nv = serie[0].name.replace(/ v1$/, ''); if (ax_renomear_(cardId, serie[0].id, nv)) { if (igual.id === serie[0].id) igual.name = nv; } }
     var card = { id: cardId };
-    vd_comentar_(card, (quem ? '@' + quem + ' ' : '') + '🗑️ Anexo repetido removido: «' + a.name + '» é o mesmo arquivo que já está no card («' + igual.name + '»).');
+    vd_comentar_(card, (quem ? '@' + quem + ' ' : '') + '🗑️ Anexo repetido removido: «' + nomeApagado + '» é o mesmo arquivo que já está no card' + (igual.name === nomeApagado ? ' — o que ficou recebeu este nome.' : ' («' + igual.name + '»).'));
     return true;
   } catch (e) { console.log('ax_removerRepetido_: ' + e); return false; }
 }
