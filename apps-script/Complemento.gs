@@ -129,6 +129,7 @@ var CP_NAO_PECA = /\b(REFATURAMENTO|REFATURAR|REEMBOLSO|RESSARCIMENTO|ESTORNO|DI
 
 /** Separa o que é novo no orçamento: {oficina:[], fo:[], jaTinha:n, pareadas:[{card, orc, fo}]}. */
 function cp_comparar_(card, orc, excluirAnexo) {
+  try { if (orc && orc.oficina) orc.oficina = vd_juntarMesmoCodigo_(orc.oficina); } catch (eJ) {}   // 24/11/2026 (SEB5A18): o card guarda uma linha por código
   var conh = cp_conhecidas_(card, excluirAnexo);
   // atualizar: peça que o card já tem e o orçamento novo traz diferente — código novo (Weslley, 05/10/2026: "pode haver
   // mudança de código da peça, atualizar também") e/ou valor líquido novo. {chave, codigo, valorOrc, descricao}

@@ -857,6 +857,7 @@ function vdf_lerDocumento(token, base64, mime, nome, placa) {
 
 /** Monta a resposta de leitura (documento enviado ou anexo do card) para o formulário. */
 function vdf_respostaLeitura_(r, orc, placa) {
+  try { if (orc && orc.oficina) orc.oficina = vd_juntarMesmoCodigo_(orc.oficina); } catch (eJ) {}   // 24/11/2026 (SEB5A18): mesmo código = uma linha com a quantidade somada
   var placasDoc = (r.placas || []).slice(0, 5);
   var confere = !placa || placasDoc.some(function (p) { return vd_mesmaPlaca_(p, placa); });
   r.chassis = r.chassis || [];
@@ -1040,6 +1041,40 @@ function vd_chavePeca_(p) {
   if (p.pneu) return vd_semAcento_('PNEU ' + String(p.medida || '').replace(/\s+/g, ''));
   var cod = vd_codigoUtil_(p.codigo);
   return vd_semAcento_(cod || p.descricao || '').replace(/\s+/g, ' ').trim();
+}
+/** 24/11/2026 (Weslley, SEB5A18 S10 HDI · O.S. 2728: "peças de lado diferente o sistema entendeu como peças iguais… o código é igual"):
+ *  o orçamento trouxe ADESIVO DA LATERAL DIREITA e ESQUERDA DA CAÇAMBA com o MESMO código. Cotação, autorização, compra e
+ *  recebimento andam pelo código — as duas linhas viravam uma só (uma cotação, uma compra, metade do valor). Mesmo código =
+ *  mesma peça em quantidade: as linhas são juntadas numa só, com a quantidade somada e a descrição dizendo os lados
+ *  ("… LATERAL DIR E ESQ DA CAÇAMBA", qtd 2). Só junta linhas na mesma situação (particular / não comprar / complemento iguais);
+ *  código de enchimento ("0000001") e pneu não entram. */
+function vd_juntarMesmoCodigo_(lista) {
+  var porCod = {}, out = [];
+  var num = function (v) { var n = parseFloat(String(v == null || v === '' ? 1 : v).replace(',', '.')); return isNaN(n) || n <= 0 ? 1 : n; };
+  (lista || []).forEach(function (x) {
+    if (!x || x.pneu) { out.push(x); return; }
+    var cod = vd_codigoUtil_(x.codigo);
+    if (!cod) { out.push(x); return; }
+    var k = vd_semAcento_(cod).toUpperCase() + '|' + (x.particular ? 'P' : '') + '|' + (x.naoComprar ? 'N' : '') + '|' + (x.complemento ? 'C' : '');
+    var a = porCod[k];
+    if (!a) { porCod[k] = x; out.push(x); return; }
+    var q = num(a.qtd) + num(x.qtd);
+    a.qtd = String(Math.round(q * 100) / 100);
+    a.descricao = vd_juntarDescricaoLados_(a.descricao, x.descricao);
+    if (x.tipos && x.tipos.length) a.tipos = (a.tipos || []).concat(x.tipos.filter(function (t) { return (a.tipos || []).indexOf(t) < 0; }));
+    if (!a.obs && x.obs) a.obs = x.obs;
+  });
+  return out;
+}
+function vd_juntarDescricaoLados_(a, b) {
+  a = String(a || '').replace(/\s+/g, ' ').trim(); b = String(b || '').replace(/\s+/g, ' ').trim();
+  var n = function (t) { return vd_semAcento_(t).toUpperCase().replace(/\s+/g, ' ').trim(); };
+  if (!b || n(a) === n(b)) return a;
+  var RX = /(^|\s)(DIREIT[OA]|ESQUERD[OA]|DIR|ESQ|LD|LE)(?=\s|$)\.?/i;
+  var sa = n(a).replace(RX, '$1@'), sb = n(b).replace(RX, '$1@');
+  if (sa === sb && sa.indexOf('@') >= 0) return vd_semAcento_(a).replace(RX, '$1DIR E ESQ').replace(/\s+/g, ' ').trim().toUpperCase();
+  if (n(a).indexOf(n(b)) >= 0) return a;
+  return (a + ' E ' + b).slice(0, 110);
 }
 /** Código sem espaços, ou '' quando é enchimento ("0000") — chave e casamento passam a usar a descrição (09/11/2026, ICT9375). */
 function vd_codigoUtil_(codigo) {
@@ -2527,7 +2562,7 @@ function vdf_pecasDaBase_(placa, sinistro) {
     return x.pneu ? { pneu: true, medida: x.medida || '', categoria: x.categoria || '', marca: x.marca || '', qtd: x.qtd || '1' }
       : { codigo: x.codigo || '', descricao: x.descricao || '', tipos: [], qtd: x.qtd || '1', valorOrc: x.valorOrc };
   };
-  return { oficina: orc.oficina.map(paraPeca), fo: orc.fo.map(function (x) { return { codigo: x.codigo || '', descricao: x.pneu ? 'PNEU ' + x.medida : x.descricao, qtd: x.qtd || '1' }; }),
+  return { oficina: vd_juntarMesmoCodigo_(orc.oficina.map(paraPeca)), fo: orc.fo.map(function (x) { return { codigo: x.codigo || '', descricao: x.pneu ? 'PNEU ' + x.medida : x.descricao, qtd: x.qtd || '1' }; }),
     origem: melhor.B.org, rot: melhor.B.rot + ' ' + cl_rotVersao_(melhor.B, melhor.o.versao_baixada || '') };
 }
 
@@ -2610,6 +2645,7 @@ function vdf_salvar(token, p) {
   // 19/10/2026: a Rotina só abre peça de TROCA. Com o campo operacao (do Cilia: "T", "R&I", "R", "P", "T P"…), linha sem T
   // (só remover/instalar, reparar ou pintar) não é compra e não entra.
   if (p.rotina && !p.shortLink) p.pecas = (p.pecas || []).filter(function (x) { return !x || x.operacao == null || /(^|\s)T(ROCA)?(\s|$)/.test(String(x.operacao).toUpperCase().replace(/R&I/g, ' ')); });
+  try { p.pecas = vd_juntarMesmoCodigo_(p.pecas || []); } catch (eJ) { console.log('mesmo código: ' + eJ); }   // 24/11/2026 (SEB5A18)
   var pecas = (p.pecas || []).map(function (x) {
     // 17/10/2026: pneu que chegou como peça comum sem código ("PNEU HIFLY 195/55R15 …") vira pneu (BDD2J09)
     var dP = String(x.descricao || '').trim().toUpperCase(), mP = !x.pneu && /^PNEUS?\b/.test(dP) && !/\d{4}/.test(String(x.codigo || '').replace(/[^A-Z0-9]/gi, '')) && dP.match(/\d{3}\s*\/\s*\d{2}\s*Z?R?\s*\d{2}/);

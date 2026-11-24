@@ -1855,6 +1855,7 @@ function vd_conferirCard_(card, ctx) {
  */
 function vd_importarOrcamento_(card, an, lido, ctx) {
   var o = lido.orcamento;
+  try { if (o && o.oficina) o.oficina = vd_juntarMesmoCodigo_(o.oficina); } catch (eJ) { console.log('mesmo código: ' + eJ); }   // 24/11/2026 (SEB5A18)
   var d = an.dados;
   var dados = { modelo: d.modelo, ano: d.ano, motor: d.motor, chassi: d.chassi, placa: d.placa };
   var extra = {
