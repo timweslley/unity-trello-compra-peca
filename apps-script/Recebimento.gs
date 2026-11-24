@@ -639,7 +639,8 @@ function rc_reavaliarColuna_(cardOuId, token, usuario, opt) {
   /* 26/10/2026 (Weslley, AYT6699: "mudei para seguradora e continua em COTAÇÃO FINALIZADA, deveria ir para PENDENTE AUTORIZAR"):
    * quem paga mudou depois da cotação e ninguém autorizou ainda — COTAÇÃO FINALIZADA (só peça particular: o consultor autoriza)
    * ↔ PENDENTE AUTORIZAR (tem peça da seguradora: a diretoria autoriza), a mesma regra do "Enviar cotação". */
-  if (!alvo && !semCompleta && (lista === VDF_LISTA_FINALIZADA || lista === VDF_LISTA_PENDENTE) && !vd_legado_(card.id)) {
+  // 24/11/2026: card com a etiqueta APROVAÇÃO DIRETORIA (consultor/comprador pediu a autorização da diretoria) fica em PENDENTE AUTORIZAR
+  if (!alvo && !semCompleta && (lista === VDF_LISTA_FINALIZADA || lista === VDF_LISTA_PENDENTE) && !vd_legado_(card.id) && !(lista === VDF_LISTA_PENDENTE && vdf_naDiretoria_(card))) {
     try {
       var anT = vd_analisar_(card.desc, card.name);
       // 27/10/2026 (FOB8723): quem decide = peças que ainda esperam decisão (fora do PAGAS); se não sobrou nenhuma, todas.
@@ -1071,6 +1072,7 @@ function rc_particularParaFinalizada_(ctx, fim) {
     if (Date.now() > fim || vdf_cardProtegido_(c.name || '') || vd_legado_(c.id)) return;
     var an = vd_analisar_(c.desc || '', c.name || '');
     if (an.dados.tipo !== 'PARTICULAR') return;   // misto/seguradora fica: a diretoria decide
+    if (vdf_naDiretoria_(c)) return;   // 24/11/2026: enviado à diretoria de propósito — fica
     var movido = vdf_moverPara_(c, ctx, VDF_LISTA_FINALIZADA, null, 'robô');
     if (!movido) return;
     n++;

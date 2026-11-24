@@ -679,3 +679,6 @@ da outra, deixar um recado aqui e no commit.
   roda na 1ª hora depois do horário dela.
 - **20/11 (10h05)** — Neon com plano pago (Weslley, 09h53; fica no Neon). Servidor: a migração/partida do banco tenta de novo a cada 30 s — a instância que subiu com o banco fora ficava respondendo "banco ainda iniciando" para sempre.
 - **20/11 (10h20)** — Anexo repetido: quando a nota subida pelo formulário é o mesmo arquivo de um PDF sem nome de nota já no card, o que fica herda o nome da nota (QJB6D45 Fusion ficou preso em ENCERRADO com a nota da RUFATO como "241958.pdf").
+- **24/11 (09h50)** — "Enviar para a diretoria autorizar" (Weslley, QNC6B37 Peugeot 208 particular · O.S. 2959): `vdf_enviarDiretoria` põe a etiqueta
+  APROVAÇÃO DIRETORIA e leva o card de COTAÇÃO FINALIZADA para PENDENTE AUTORIZAR; o robô não o devolve enquanto tiver a etiqueta e o
+  lembrete cobra a diretoria. Botão na aba Cotação/Autorizar atrás de `PU_CFG.ENVIAR_DIRETORIA: 'teste'`.

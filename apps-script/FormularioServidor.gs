@@ -24,7 +24,7 @@ function doGet(e) {
  * POST com corpo text/plain {fn, args}; responde {ok:true, r} ou {ok:false, erro}.
  * Só as funções vdf_ públicas passam. Sem OPTIONS/preflight: por isso text/plain. */
 var VDF_API = ['vdf_servidorProps', 'vdf_limparCardRotina', 'vdf_rotinaPecasBase', 'vdf_abrir', 'vdf_iniciar', 'vdf_buscarPlaca', 'vdf_carregarCard', 'vdf_lerDocumento',
-  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_indicarNota', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_incluirColetaFo', 'vdf_corrigirPeca', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_cancelarDevolucao', 'vdf_dispensarNfDevolucao', 'vdf_incluirDevolucao', 'vdf_reavaliarColuna', 'vdf_varrerTrocasCodigo'];
+  'vdf_salvarCotacao', 'vdf_salvarCompra', 'vdf_salvar', 'vdf_subirArquivo', 'vdf_lerAnexoCard', 'vdf_autorizar', 'vdf_devolverCotacao', 'vdf_salvarRecebimento', 'vdf_indicarNota', 'vdf_cotacaoIndisponivel', 'vdf_compararComplemento', 'vdf_alterarPrevisao', 'vdf_atualizarFornecimento', 'vdf_lerFornecimento', 'vdf_lerFornecimentoAnexo', 'vdf_avisarSolicitante', 'vdf_marcarOrdemAutorizada', 'vdf_padronizarAnexos', 'vdf_padronizarQuadro', 'vdf_padronizarQuadroStatus', 'vdf_textoAnexo', 'vdf_removerRepetidos', 'vdf_consumo', 'vdf_valoresOrcamento', 'vdf_treinoLeitor', 'vdf_treinoResumo', 'vdf_treinoAmostrar', 'vdf_treinoAvaliar', 'vdf_treinoAssinatura', 'vdf_cancelarCompra', 'vdf_salvarRetirada', 'vdf_testeMarcar', 'vdf_propsServidor', 'vdf_anexosAntigosCard', 'vdf_previaFornecimento', 'vdf_foRevertidas', 'vdf_foRevertidaDevolvida', 'vdf_incluirColetaFo', 'vdf_corrigirPeca', 'vdf_fotosCard', 'vdf_fotoCard', 'vdf_definirCapa', 'vdf_ocrServidor', 'vdf_renomearPagas', 'vdf_encerrarSemPecas', 'vdf_salvarDevolucao', 'vdf_cancelarDevolucao', 'vdf_dispensarNfDevolucao', 'vdf_enviarDiretoria', 'vdf_incluirDevolucao', 'vdf_reavaliarColuna', 'vdf_varrerTrocasCodigo'];
 
 function doPost(e) {
   var out, rid = '', cache = null;
@@ -555,6 +555,8 @@ function vdf_montarCard_(c, lista, me) {
     obsAutorizacao: (function () { try { return vd_obsAutorizacoes_(c.desc); } catch (e) { return []; } })(),   // 11/11/2026: aviso de quem autorizou, em destaque para o comprador
     podeAutorizar: vdf_podeAutorizar_(me, c, an),
     podeDevolver: vdf_podeDevolver_(me, c, an),
+    podeEnviarDiretoria: (function () { try { return vdf_podeEnviarDiretoria_(me, c, an, lista); } catch (e) { return false; } })(),   // 24/11/2026
+    naDiretoria: (function () { try { return vdf_naDiretoria_(c); } catch (e) { return false; } })(),
     fornecedores: fo_paraFormulario_(),
     // 16/11/2026 (nota indicada por peça): notas do card e a que peça cada uma está ligada
     nfPecaLigada: (function () { try { return vdf_nfPecaLigada_(); } catch (e) { return false; } })(),
@@ -1300,6 +1302,8 @@ function vdf_moverPara_(card, ctx, nomeLista, token, usuario) {
   vd_api_('/cards/' + card.id, { method: 'put', payload: { idList: id, pos: 'top' } }, token);
   card.idList = id;
   vd_fixarTopo_(id, token);   // card fixo "NOVO PEDIDO" continua em primeiro (07/10/2026)
+  // 24/11/2026: saiu de PENDENTE AUTORIZAR (autorizado, devolvido…) — a marca "APROVAÇÃO DIRETORIA" não vale mais
+  if (de === VDF_LISTA_PENDENTE) { try { if (vdf_naDiretoria_(card)) vdf_etiquetaDiretoria_(card, false, token); } catch (e) { console.log('etiqueta diretoria: ' + e); } }
   try { ev_registrar_('COLUNA', card, usuario || 'formulário', null, { detalhe: (de || '?') + ' → ' + nomeLista }); } catch (e) {}
   return nomeLista;
 }
@@ -1728,7 +1732,7 @@ function vdf_salvarCotacaoBase_(token, p) {
     // ele ia para EM COTAÇÃO com o pedido incompleto (o robô devolvia logo depois). Sai de FALTA DADOS só quando o pedido completar.
     var emFalta = vdf_nomeLista_(ctx, card.idList) === VD.LISTA_FALTA;
     if (!(emFalta && (parcial || cob.faltam.length))) {
-      try { movido = vdf_moverPara_(card, ctx, parcial || cob.faltam.length ? VD.LISTA_COTACAO : (particular ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token, me.username); } catch (e) {}
+      try { movido = vdf_moverPara_(card, ctx, parcial || cob.faltam.length ? VD.LISTA_COTACAO : (particular && !vdf_naDiretoria_(card) ? VDF_LISTA_FINALIZADA : VDF_LISTA_PENDENTE), token, me.username); } catch (e) {}
     }
     try { vdf_etiquetaParcial_(card, parcial || cob.faltam.length > 0, token); } catch (e) {}
   }
@@ -1804,6 +1808,52 @@ function vdf_coberturaCotacao_(desc, pecas) {
     if (j) sem.push({ nome: nome, texto: j.texto }); else faltam.push(nome);
   });
   return { faltam: faltam, semCot: sem };
+}
+
+/* ---------- 24/11/2026 (Weslley, QNC6B37 Peugeot 208 particular · O.S. 2959): "preciso de alguma opção que o consultor ou
+ * comprador envie o fluxo de aprovação para a diretoria quando convir" ----------
+ * Pedido PARTICULAR com a cotação pronta fica em COTAÇÃO FINALIZADA (o consultor autoriza). Com "Enviar para a diretoria" o card
+ * ganha a etiqueta APROVAÇÃO DIRETORIA e vai para PENDENTE AUTORIZAR; enquanto tiver a etiqueta o robô NÃO o devolve para
+ * COTAÇÃO FINALIZADA e o lembrete de prazo cobra a diretoria. A etiqueta sai sozinha quando o card deixa PENDENTE AUTORIZAR
+ * (autorizado, devolvido para cotação…). O consultor continua podendo autorizar as peças particulares dele. */
+var VDF_ETIQUETA_DIRETORIA = 'APROVAÇÃO DIRETORIA';
+function vdf_naDiretoria_(card) {
+  var ls = card && card.labels;
+  if (!ls && card && card.id) { try { ls = vd_api_('/cards/' + card.id + '/labels', { query: { fields: 'name' } }) || []; } catch (e) { ls = []; } }
+  return (ls || []).some(function (l) { return String(l.name || '').toUpperCase() === VDF_ETIQUETA_DIRETORIA; });
+}
+function vdf_etiquetaDiretoria_(card, por, token) {
+  var id = pz_labelId_(card.idBoard || vd_board_(), VDF_ETIQUETA_DIRETORIA, 'purple');
+  var tem = (card.labels || []).some(function (l) { return l.id === id || String(l.name || '').toUpperCase() === VDF_ETIQUETA_DIRETORIA; });
+  if (por && !tem) { vd_api_('/cards/' + card.id + '/idLabels', { method: 'post', payload: { value: id } }, token); card.labels = (card.labels || []).concat([{ id: id, name: VDF_ETIQUETA_DIRETORIA }]); }
+  if (!por && tem) { vd_api_('/cards/' + card.id + '/idLabels/' + id, { method: 'delete' }, token); card.labels = (card.labels || []).filter(function (l) { return l.id !== id && String(l.name || '').toUpperCase() !== VDF_ETIQUETA_DIRETORIA; }); }
+}
+/** Quem pode enviar: comprador, diretoria ou quem pode autorizar o card (consultor da equipe / quem abriu). */
+function vdf_podeEnviarDiretoria_(me, card, an, lista) {
+  return lista === VDF_LISTA_FINALIZADA && !!me && (vdf_podeComprar_(me) || vdf_podeAutorizar_(me, card, an));
+}
+/** p = {shortLink, motivo (opcional)} */
+function vdf_enviarDiretoria(token, p) {
+  var me = vdf_usuario_(token);
+  p = vdf_entrada_(p);
+  var ctx = vd_contexto_();
+  var card = vd_api_('/cards/' + p.shortLink, { query: { fields: 'name,desc,idList,idBoard,shortLink,shortUrl,labels' } });
+  if (vdf_cardProtegido_(card.name)) return { ok: false, faltas: ['Este é o card fixo do quadro.'] };
+  var an = vd_analisar_(card.desc, card.name), lista = vdf_nomeLista_(ctx, card.idList);
+  if (lista === VDF_LISTA_PENDENTE) return { ok: false, faltas: ['Este card já está com a diretoria (PENDENTE AUTORIZAR).'] };
+  if (lista !== VDF_LISTA_FINALIZADA) return { ok: false, faltas: ['Só dá para enviar à diretoria o card que está em COTAÇÃO FINALIZADA (cotação pronta, esperando autorização). Este está em ' + lista + '.'] };
+  if (!vdf_podeEnviarDiretoria_(me, card, an, lista)) return { ok: false, faltas: ['Só o comprador ou o consultor deste card envia para a diretoria.'] };
+  var motivo = String(p.motivo || '').replace(/\s+/g, ' ').trim().slice(0, 300);
+  try { vdf_etiquetaDiretoria_(card, true, token); } catch (e) { return { ok: false, faltas: ['Não consegui marcar o card: ' + e] }; }
+  var movido = '';
+  try { movido = vdf_moverPara_(card, ctx, VDF_LISTA_PENDENTE, token, me.username); } catch (e) { try { vdf_etiquetaDiretoria_(card, false, token); } catch (e2) {} return { ok: false, faltas: ['Não consegui mover o card: ' + e] }; }
+  try { ev_registrar_('ENVIADO À DIRETORIA', card, me.username, null, { detalhe: motivo || 'sem motivo informado' }); } catch (e) {}
+  try {
+    vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '📨 **ENVIADO PARA A DIRETORIA AUTORIZAR** — ' + me.fullName + ' → **' + VDF_LISTA_PENDENTE + '**' +
+      (motivo ? '\n- Motivo: ' + motivo : '') + '\n- A diretoria autoriza pela aba ✅ Autorizar.' } }, token);
+  } catch (e) {}
+  try { vd_marcar_(card); } catch (e) {}
+  return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || VDF_LISTA_PENDENTE };
 }
 
 var VDF_ETIQUETA_PARCIAL = 'COTAÇÃO PARCIAL';
