@@ -11230,7 +11230,7 @@ html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2to
 <style>
   .v2dir-bt { margin-top:8px; }
   .v2pc .v2dir-bt { width:100%; }
-  html.v2toque .v2dir-bt { min-height:48px; width:100%; font-size:16px; }
+  html.v2toque .v2dir-bt { min-height:48px; width:100%; flex:1 1 100%; font-size:16px; white-space:normal; }   /* linha própria: o texto não corta */
   .v2dir-aviso { margin:8px 0; padding:8px 10px; border-left:3px solid #6e5dc6; background:#f3f0ff; color:#172b4d; font-size:13px; border-radius:var(--r-sm); }
   html.v2toque #v2dirBal { position:fixed !important; left:0 !important; right:0 !important; bottom:0 !important; top:auto !important; transform:none !important; width:auto !important; max-width:none !important; margin:0 !important; border-radius:14px 14px 0 0 !important; padding:16px !important; z-index:70; box-sizing:border-box; }
   html.v2toque #v2dirBal .bts { display:flex !important; gap:10px; margin-top:12px; }
@@ -11247,7 +11247,7 @@ html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2to
   function abrir(btn) {
     if (!window.V2_BALAO) return;
     var bal = V2_BALAO.abrir('v2dirBal', btn, '<p class="v2-bt">Enviar este card para a <b>diretoria</b> autorizar?</p>'
-      + '<div class="dica">O card vai para <b>PENDENTE AUTORIZAR</b> e a diretoria escolhe as cotações. Você continua vendo o card.</div>'
+      + '<div class="dica">O card vai para <b>PENDENTE AUTORIZAR</b> e <b>só a diretoria</b> autoriza. Você continua vendo o card.</div>'
       + '<label for="v2dirMotivo" style="display:block;font-size:13px;color:#44546f;margin:8px 0 3px">Recado para a diretoria (opcional)</label>'
       + '<textarea id="v2dirMotivo" rows="2" placeholder="ex.: cliente pediu desconto; valor alto" style="width:100%;box-sizing:border-box;font:inherit;padding:8px;border:1px solid #c1c7d0;border-radius:6px"></textarea>'
       + '<div class="bts"><button type="button" class="secundario" id="v2dirNao">Voltar</button><button type="button" class="principal" id="v2dirSim">Enviar para a diretoria</button></div>', 'v2dirNao');
@@ -11266,7 +11266,7 @@ html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2to
     document.querySelectorAll('.v2dir-bt, .v2dir-aviso').forEach(function (e) { e.remove(); });
     ['btnDev', 'btnCotacao'].forEach(function (idRef) {
       var ref = document.getElementById(idRef); if (!ref || !ref.parentNode) return;
-      if (c.naDiretoria) { var av = document.createElement('div'); av.className = 'v2dir-aviso'; av.textContent = '📨 Este card foi enviado para a diretoria autorizar.'; ref.parentNode.parentNode.insertBefore(av, ref.parentNode); return; }
+      if (c.naDiretoria) { var av = document.createElement('div'); av.className = 'v2dir-aviso'; av.textContent = '📨 Este card foi enviado para a diretoria. Só a diretoria autoriza.'; ref.parentNode.parentNode.insertBefore(av, ref.parentNode); return; }
       if (!c.podeEnviarDiretoria) return;
       var b = document.createElement('button'); b.type = 'button'; b.className = 'secundario v2dir-bt'; b.textContent = '📨 Enviar para a diretoria autorizar';
       b.onclick = function () { abrir(b); };

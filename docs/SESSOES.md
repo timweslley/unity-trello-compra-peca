@@ -682,3 +682,4 @@ da outra, deixar um recado aqui e no commit.
 - **24/11 (09h50)** — "Enviar para a diretoria autorizar" (Weslley, QNC6B37 Peugeot 208 particular · O.S. 2959): `vdf_enviarDiretoria` põe a etiqueta
   APROVAÇÃO DIRETORIA e leva o card de COTAÇÃO FINALIZADA para PENDENTE AUTORIZAR; o robô não o devolve enquanto tiver a etiqueta e o
   lembrete cobra a diretoria. Botão na aba Cotação/Autorizar atrás de `PU_CFG.ENVIAR_DIRETORIA: 'teste'`.
+- **24/11 (10h00)** — "Enviar para a diretoria" ligado no principal (Weslley 09h29) e, com a etiqueta APROVAÇÃO DIRETORIA, só a diretoria autoriza. REL5J72: pneu e roda deixaram de ser particulares; roda lançada como WEV ESTOQUE (R$ 1,00) e recebida.

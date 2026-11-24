@@ -246,6 +246,8 @@ function vdf_donosPart_(card, peca, criador) {
 function vdf_podeAutorizarPeca_(me, card, an, peca, criador) {
   if (!me) return false;
   if (vdf_ehAutorizador_(me)) return true;
+  // 24/11/2026 09h29 (Weslley: "não, daí só a diretoria"): card enviado à diretoria (etiqueta APROVAÇÃO DIRETORIA) — o consultor não autoriza mais
+  try { if (vdf_naDiretoria_(card)) return false; } catch (e) {}
   if (!vdf_pecaParticular_(peca, card, an)) return false;
   var u = String(me.username || '').toLowerCase();
   if (peca && peca.partPor && peca.partPor === u) return true;
@@ -259,6 +261,7 @@ function vdf_podeAutorizar_(me, card, an) {
   if (!me) return false;
   if (vdf_ehAutorizador_(me)) return true;
   var criador; try { criador = vd_criador_(card.id); } catch (e) { criador = ''; }
+  try { if (vdf_naDiretoria_(card)) return false; } catch (e) {}   // 24/11/2026: enviado à diretoria — só ela autoriza
   if (!an.pecas.length) return vdf_ehParticular_(card, an) && (String(criador || '').toLowerCase() === String(me.username || '').toLowerCase() || vdf_equipeDoCard_(card).indexOf(String(me.username || '').toLowerCase()) >= 0);
   return an.pecas.some(function (x) { return vdf_podeAutorizarPeca_(me, card, an, x, criador); });
 }
@@ -1815,11 +1818,11 @@ function vdf_coberturaCotacao_(desc, pecas) {
  * Pedido PARTICULAR com a cotação pronta fica em COTAÇÃO FINALIZADA (o consultor autoriza). Com "Enviar para a diretoria" o card
  * ganha a etiqueta APROVAÇÃO DIRETORIA e vai para PENDENTE AUTORIZAR; enquanto tiver a etiqueta o robô NÃO o devolve para
  * COTAÇÃO FINALIZADA e o lembrete de prazo cobra a diretoria. A etiqueta sai sozinha quando o card deixa PENDENTE AUTORIZAR
- * (autorizado, devolvido para cotação…). O consultor continua podendo autorizar as peças particulares dele. */
+ * (autorizado, devolvido para cotação…). Com a etiqueta, SÓ a diretoria autoriza (Weslley, 24/11 09h29). */
 var VDF_ETIQUETA_DIRETORIA = 'APROVAÇÃO DIRETORIA';
 function vdf_naDiretoria_(card) {
   var ls = card && card.labels;
-  if (!ls && card && card.id) { try { ls = vd_api_('/cards/' + card.id + '/labels', { query: { fields: 'name' } }) || []; } catch (e) { ls = []; } }
+  if (!ls && card && card.id) { try { ls = vd_api_('/cards/' + card.id + '/labels', { query: { fields: 'name' } }) || []; } catch (e) { ls = []; } card.labels = ls; }   // guarda: não busca de novo a cada peça
   return (ls || []).some(function (l) { return String(l.name || '').toUpperCase() === VDF_ETIQUETA_DIRETORIA; });
 }
 function vdf_etiquetaDiretoria_(card, por, token) {
@@ -1850,7 +1853,7 @@ function vdf_enviarDiretoria(token, p) {
   try { ev_registrar_('ENVIADO À DIRETORIA', card, me.username, null, { detalhe: motivo || 'sem motivo informado' }); } catch (e) {}
   try {
     vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '📨 **ENVIADO PARA A DIRETORIA AUTORIZAR** — ' + me.fullName + ' → **' + VDF_LISTA_PENDENTE + '**' +
-      (motivo ? '\n- Motivo: ' + motivo : '') + '\n- A diretoria autoriza pela aba ✅ Autorizar.' } }, token);
+      (motivo ? '\n- Motivo: ' + motivo : '') + '\n- Só a diretoria autoriza este card agora (aba ✅ Autorizar).' } }, token);
   } catch (e) {}
   try { vd_marcar_(card); } catch (e) {}
   return { ok: true, url: card.shortUrl, nome: card.name, lista: movido || VDF_LISTA_PENDENTE };
