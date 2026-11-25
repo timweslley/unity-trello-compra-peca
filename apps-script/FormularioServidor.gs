@@ -2594,9 +2594,9 @@ function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || v
 /** 16/11/2026 (Weslley): "nota de refaturamento" no pedido — o consultor marca; com ela a compra só é registrada com a
  * confirmação de que saiu com nota no CNPJ. Primeiro só no TESTE; no principal liga com VD_REFAT=SIM (+ PU_CFG.REFATURAMENTO). */
 // 19/11/2026 01h03 — Weslley: "aplique no principal a alteração pendurada no testes" — ligado no principal. Desligar: propriedade VD_REFAT=NAO (+ PU_CFG.REFATURAMENTO: 'teste').
-/* 25/11/2026 (Weslley, SEB0J49): compra antes de a autorização ser enviada, com motivo por peça. TESTE: ligado.
- * Principal: só com a propriedade VD_COMPRA_ANTES_AUT=SIM (com o OK do Weslley). */
-function vdf_compraAntesAutLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_COMPRA_ANTES_AUT', 'NAO') === 'SIM'; } catch (e) { return false; } }
+/* 25/11/2026 (Weslley, SEB0J49): compra antes de a autorização ser enviada, com motivo por peça.
+ * 25/11 16h31: ligado no principal (Weslley: "pode"). Desligar: propriedade VD_COMPRA_ANTES_AUT=NAO + chave COMPRA_ANTES_AUT='teste'. */
+function vdf_compraAntesAutLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_COMPRA_ANTES_AUT', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 function vdf_refatLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_REFAT', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
 function vdf_liberadoPorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_LIBERADO_POR', 'SIM') !== 'NAO'; } catch (e) { return false; } }

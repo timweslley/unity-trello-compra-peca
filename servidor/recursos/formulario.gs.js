@@ -6566,7 +6566,7 @@ function vdf_fotoPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_p
 function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_SO_MO', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
 // FormularioServidor.gs:2599
-function vdf_compraAntesAutLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_COMPRA_ANTES_AUT', 'NAO') === 'SIM'; } catch (e) { return false; } }
+function vdf_compraAntesAutLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_COMPRA_ANTES_AUT', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
 // FormularioServidor.gs:2600
 function vdf_refatLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_REFAT', 'SIM') !== 'NAO'; } catch (e) { return false; } }
