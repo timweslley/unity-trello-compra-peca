@@ -2292,8 +2292,17 @@ function vdf_salvarCompra(token, p) {
   // (revisão 07/10/2026, Weslley) autorização parcial é rascunho: compra só depois de a diretoria ENVIAR a autorização
   // (card em AUTORIZADO COMPRA ou adiante). Antes disso o card ainda está em cotação/autorização.
   var colunaAtual = vd_nomeColuna_(vdf_nomeLista_(ctx, card.idList));
-  if ([VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_PENDENTE, VDF_LISTA_FINALIZADA, 'ESPERA/NÃO AUTORIZADO'].map(vd_nomeColuna_).indexOf(colunaAtual) >= 0)
-    return { ok: false, faltas: ['A autorização ainda não foi enviada pela diretoria (o card está em ' + colunaAtual + '). A compra só pode ser registrada depois que o card chegar em AUTORIZADO COMPRA.'] };
+  /* 25/11/2026 (Weslley, SEB0J49 O.S. 2840): compra liberada ANTES de a autorização ser enviada — com a cotação já no card
+   * (PENDENTE AUTORIZAR ou COTAÇÃO FINALIZADA) a compra entra se TODA peça desta gravação vier com o motivo; fica marcada
+   * no card como FORA DA AUTORIZAÇÃO e segue o fluxo. Nas outras colunas (sem cotação enviada) continua recusada. */
+  var antesAut = false;
+  if ([VD.LISTA_COTACAO, VD.LISTA_FALTA, VDF_LISTA_PENDENTE, VDF_LISTA_FINALIZADA, 'ESPERA/NÃO AUTORIZADO'].map(vd_nomeColuna_).indexOf(colunaAtual) >= 0) {
+    var colAntes = vdf_compraAntesAutLigada_() && [VDF_LISTA_PENDENTE, VDF_LISTA_FINALIZADA].map(vd_nomeColuna_).indexOf(colunaAtual) >= 0;
+    var comMotivo = (p.compras || []).length > 0 && (p.compras || []).every(function (c) { return String((c && c.just) || '').trim(); });
+    if (!colAntes || !comMotivo)
+      return { ok: false, faltas: ['A autorização ainda não foi enviada pela diretoria (o card está em ' + colunaAtual + '). ' + (colAntes ? 'Para registrar a compra antes da autorização, escolha de quem comprou e escreva o motivo em cada peça.' : 'A compra só pode ser registrada depois que o card chegar em AUTORIZADO COMPRA.')] };
+    antesAut = true;
+  }
   var an = vd_analisar_(card.desc, card.name);
   var porChave = {};
   an.pecas.forEach(function (x) { porChave[vd_chavePeca_(x)] = x; });
@@ -2409,6 +2418,7 @@ function vdf_salvarCompra(token, p) {
       var qd = lidas.filter(function (q) { return q.chave === ch && q.fornecedor === c.fornecedor && Math.abs(q.valor - c.valor) < 0.005; })[0];
       if (qd && String(qd.dias == null ? '' : qd.dias) !== '' && c.dias !== '' && +c.dias !== +qd.dias) txt = nome + ' (prazo ' + qd.dias + ' → ' + c.dias + ' d.u.)';
     }
+    if (!txt && antesAut) txt = nome + ' (antes de a autorização ser enviada)';
     if (!txt) return;
     if (!c.just) semJust.push(nome);
     foraAut.push(txt + (c.just ? ' — ' + c.just : ''));
@@ -2447,7 +2457,7 @@ function vdf_salvarCompra(token, p) {
   } catch (e) {}
   try {
     var dirs = foraAut.length ? sla_users_('SLA_AUTORIZAR', 'timweslley,comercialunity').filter(function (u) { return u !== me.username; }) : [];
-    if (!parcial) vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +   // 21/10/2026: salvar parcial não comenta
+    if (!parcial || (antesAut && foraAut.length)) vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: dirs.map(function (u) { return '@' + u + ' '; }).join('') +   // 21/10/2026: salvar parcial não comenta
       (parcial ? '💾 **COMPRA PARCIAL salva** — ' : '🛒 **COMPRA** — ') + me.fullName + ' · ' + n + ' item(ns)' + (movido ? ' → **' + movido + '**' : '') +
       (pendentes ? '\n⏳ Falta comprar: ' + pendentes + ' peça(s)' : '') + (parcial && !pendentes ? '\nTudo comprado — envie a compra para o card seguir.' : '') +
       (foraAut.length ? '\n⚠️ **FORA DA AUTORIZAÇÃO:**\n' + foraAut.map(function (f) { return '- ' + f; }).join('\n') : '') + txtCompl + txtRefat + vdf_txtAnexosCompra_(axC) } }, token);
@@ -2584,6 +2594,9 @@ function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || v
 /** 16/11/2026 (Weslley): "nota de refaturamento" no pedido — o consultor marca; com ela a compra só é registrada com a
  * confirmação de que saiu com nota no CNPJ. Primeiro só no TESTE; no principal liga com VD_REFAT=SIM (+ PU_CFG.REFATURAMENTO). */
 // 19/11/2026 01h03 — Weslley: "aplique no principal a alteração pendurada no testes" — ligado no principal. Desligar: propriedade VD_REFAT=NAO (+ PU_CFG.REFATURAMENTO: 'teste').
+/* 25/11/2026 (Weslley, SEB0J49): compra antes de a autorização ser enviada, com motivo por peça. TESTE: ligado.
+ * Principal: só com a propriedade VD_COMPRA_ANTES_AUT=SIM (com o OK do Weslley). */
+function vdf_compraAntesAutLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_COMPRA_ANTES_AUT', 'NAO') === 'SIM'; } catch (e) { return false; } }
 function vdf_refatLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_REFAT', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
 function vdf_liberadoPorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_LIBERADO_POR', 'SIM') !== 'NAO'; } catch (e) { return false; } }

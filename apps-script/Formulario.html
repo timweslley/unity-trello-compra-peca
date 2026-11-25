@@ -6270,6 +6270,11 @@ iniciar();
   var COR_TIPO = { 'GENUÍNO': 'gen', 'ORIGINAL': 'ori', 'PARALELO': 'par', 'USADO': 'usa' };
   /* colunas em que a compra ainda não pode ser registrada (mesma regra do servidor, vdf_salvarCompra) */
   var LISTAS_SEM_COMPRA = ['EM COTAÇÃO', 'FALTA DADOS PARA COTAR', 'PENDENTE AUTORIZAR', 'COTAÇÃO FINALIZADA', 'ESPERA/NÃO AUTORIZADO'];
+  /* 25/11/2026 (Weslley, SEB0J49): compra antes de a autorização ser enviada — com a cotação no card (PENDENTE AUTORIZAR /
+   * COTAÇÃO FINALIZADA) a compra segue com o motivo em cada peça (o servidor confere). PU_CFG.COMPRA_ANTES_AUT: 'teste' | 'todos'. */
+  var ANTES_AUT_LIGADO = (function () { var cfg = window.PU_CFG && PU_CFG.COMPRA_ANTES_AUT, ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR; return cfg === 'todos' || (cfg === 'teste' && ehTeste); })();
+  function compraAntesAut() { return ANTES_AUT_LIGADO && ['PENDENTE AUTORIZAR', 'COTACAO FINALIZADA'].indexOf(String((window.CARD && window.CARD.lista) || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().trim()) >= 0; }
+  if (ANTES_AUT_LIGADO && typeof window.foraDaAut === 'function') { var foraDaAutBase = window.foraDaAut; window.foraDaAut = function (item, q) { return foraDaAutBase(item, q) || (!!q && compraAntesAut()); }; }
   function abaAtual() { var a = ''; Object.keys(ABA_PAINEL).some(function (k) { var p = g(ABA_PAINEL[k]); if (p && !p.classList.contains('oculto')) { a = k; return true; } return false; }); return a; }
   function compPC() { return PC && !!COMP && visivel(COMP); }
   function vl(el) { return el ? String(el.value || '').trim() : ''; }
@@ -6920,7 +6925,7 @@ iniciar();
       if (fs.length) lista.push(faltaHtml(it, fs));
       var sc = semCompra[semCompra.length - 1]; if (sc && sc.it === it) lista.push(faltaHtml(it, [{ t: sc.sem ? 'sem cotação (lance na aba Cotação)' : 'escolher de quem comprar', c: sc.sem ? 'sem cotação' : 'sem compra', el: sc.sem ? it : sel }]));
     });
-    if (LISTAS_SEM_COMPRA.map(semAcC).indexOf(listaCard()) >= 0) cartao.push({ it: null, fs: [{ t: 'a autorização ser enviada (o card está em ' + (window.CARD.lista || '') + ')', c: 'card em ' + (window.CARD.lista || '') + ': a compra só depois da autorização', el: null }] });
+    if (LISTAS_SEM_COMPRA.map(semAcC).indexOf(listaCard()) >= 0 && !compraAntesAut()) cartao.push({ it: null, fs: [{ t: 'a autorização ser enviada (o card está em ' + (window.CARD.lista || '') + ')', c: 'card em ' + (window.CARD.lista || '') + ': a compra só depois da autorização', el: null }] });
     return { its: its, pend: pend, jaC: jaC, agora: agora, semCompra: semCompra, lista: lista, cartao: cartao, indOk: indOk };
   }
 
