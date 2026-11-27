@@ -84,7 +84,7 @@ window.PU_CFG = {
   /* 27/11/2026 (Weslley, ATP5105): quem escolheu "Card novo … (retorno interno)" não recebe de novo a pergunta "Já existe card
    * aberto… criar OUTRO card?" no envio (segue direto; só pergunta se já houver card de RETORNO aberto para o carro).
    * 'teste' = só no TESTE; 'todos' = principal (com OK do Weslley). */
-  RETORNO_DIRETO: 'teste',
+  RETORNO_DIRETO: 'todos',   // 27/11/2026 18h20 — Weslley: "Ligar no principal" (conferido no TESTE no computador, card ZZT9C01; voltar: 'teste')
   CARRO_TOPO: 'todos',   // 27/11/2026 12h35 — Weslley: "pode fazer" (conferido no TESTE no computador e no celular, card ZZT9C01; voltar: 'teste')
   NT_AVISO: 'todos',   // 27/11/2026 12h35 — Weslley: "pode fazer" (conferido no TESTE no computador e no celular, card ZZT9C01 e DEM2A02; voltar: 'teste')
   COMPRA_ANTES_AUT: 'todos',   // 25/11/2026 16h31 — Weslley: "pode" (conferido no TESTE no computador, card ZZT9C01; voltar: 'teste' + VD_COMPRA_ANTES_AUT=NAO)
