@@ -5954,7 +5954,25 @@ function vdf_mencao_(us) {
   return (us || []).filter(function (u, i, a) { return u && a.indexOf(u) === i; }).map(function (u) { return '@' + u + ' '; }).join('');
 }
 
-// FormularioServidor.gs:1950
+// FormularioServidor.gs:1947
+function vdf_ncConsultorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_NC_CONSULTOR', 'NAO') === 'SIM'; } catch (e) { return false; } }
+
+// FormularioServidor.gs:1953
+function vdf_arquivarRecusado_(card, an, naos, me, token) {
+  if (!vdf_ncConsultorLigada_()) return false;
+  if (!vdf_ehParticular_(card, an) || an.dados.tipo === 'RETORNO' || /\bRETORNO\b/i.test(card.name || '')) return false;
+  if ((an.pecas || []).length || !(an.naoComprar || []).length) return false;              // sobrou peça para decidir/comprar
+  if (vd_autorizacoesDaDescricao_(vd_api_('/cards/' + card.id, { query: { fields: 'desc' } }).desc, (an.pecas || []).concat(an.naoComprar || [])).length) return false;
+  var ls = vd_api_('/cards/' + card.id, { query: { fields: 'id', checklists: 'all', checkItem_fields: 'name' } }).checklists || [];
+  if (ls.some(function (k) { return (k.checkItems || []).length > 0; })) return false;      // algo comprado, fornecido ou em devolução
+  var motivos = (an.naoComprar || []).map(function (x) { return x.naoMotivo; }).filter(function (t, i, a) { return t && a.indexOf(t) === i; });
+  vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🗄️ **CARD ARQUIVADO** — ' + me.fullName + ' · pedido particular sem nenhuma peça autorizada (' + (an.naoComprar || []).length + ' peça(s) 🚫 não comprar' + (motivos.length ? ': ' + motivos.join('; ') : '') + '). Para reabrir, desarquive o card e edite o pedido.' } }, token);
+  vd_api_('/cards/' + card.id, { method: 'put', payload: { closed: true } }, token);
+  try { ev_registrar_('ARQUIVADO', card, me.username, (an.naoComprar || []).map(ev_peca_), { detalhe: 'particular sem peça autorizada: ' + motivos.join('; ') }); } catch (e) {}
+  return true;
+}
+
+// FormularioServidor.gs:1972
 function vdf_autorizar(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -5974,6 +5992,18 @@ function vdf_autorizar(token, p) {
    * complementar; compra entra em PAGAS COMPLEMENTO) ou 🚫 NÃO COMPRAR (sai do fluxo, fica de registro) — sem precisar
    * abrir o pedido do consultor. p.marcas = [{chave, complemento:true|false} | {chave, naoComprar:true, motivo}] */
   var marcas = vdf_ehAutorizador_(me) ? (p.marcas || []) : [];
+  /* 27/11/2026 (Weslley: "precisa servir também para os consultores poderem informar que o cliente não autorizou"): o consultor
+   * marca 🚫 NÃO COMPRAR com motivo nas peças que ELE pode autorizar (particulares dele) — só essa marca, nada de complemento. */
+  if (!vdf_ehAutorizador_(me) && vdf_ncConsultorLigada_()) {
+    var semMot = [];
+    marcas = (p.marcas || []).filter(function (m) {
+      var pc = m && m.naoComprar && porChave[m.chave];
+      if (!pc || !vdf_podeAutorizarPeca_(me, card, an, pc, criador)) return false;
+      if (String(m.motivo || '').replace(/[^A-Za-zÀ-ÿ]/g, '').length < 3) { semMot.push(vd_nomePeca_(pc)); return false; }
+      return true;
+    });
+    if (semMot.length) return { ok: false, faltas: semMot.map(function (n) { return n + ': não comprar — escreva o motivo (ex.: cliente não autorizou).'; }) };
+  }
   /* 07/10/2026 (Weslley): como na cotação — "Salvar parcial" guarda as autorizações sem mover o card nem avisar o
    * comprador; "Enviar autorização" fecha (move) e pode vir sem escolha nova, só para fechar o que foi salvo antes */
   var parcial = !!p.parcial;
@@ -6065,6 +6095,8 @@ function vdf_autorizar(token, p) {
     if (!linhas.length) {
       // só marcas, sem autorização nova: comentário próprio; a coluna é reavaliada (card pode ter ficado sem peça da oficina)
       try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✏️ **Peças marcadas na autorização** — ' + me.fullName + txtM + obsL.texto } }, token); } catch (e) {}
+      // 27/11/2026 (Weslley): particular puro em que nada foi autorizado/comprado -> arquivado (antes ia para ENTREGUES pela regra de 06/11)
+      try { if (naos.length && vdf_arquivarRecusado_(card, an, naos, me, token)) return { ok: true, arquivado: true, url: card.shortUrl, nome: card.name, n: 0, total: 0, semAut: 0, aguarda: [], marcas: marcadas.length, lista: 'ARQUIVADO — nenhuma peça autorizada' }; } catch (e) { console.log('arquivar recusado: ' + e); }
       var mv = ''; try { mv = rc_reavaliarColuna_(card.id, token, me.username); } catch (e) {}
       try { vd_marcar_(card); } catch (e) {}
       return { ok: true, url: card.shortUrl, nome: card.name, n: 0, total: 0, semAut: 0, aguarda: [], marcas: marcadas.length, lista: mv || vdf_nomeLista_(ctx, card.idList) };
@@ -6140,7 +6172,7 @@ function vdf_autorizar(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, total: total, semAut: semAut, aguarda: aguarda, marcas: marcadas.length, lista: movido || vdf_nomeLista_(ctx, card.idList), alterada: reenvio };
 }
 
-// FormularioServidor.gs:2136
+// FormularioServidor.gs:2172
 function vdf_linhasObs_(p, porChave, rotulo) {
   var linhas = [], txt = [];
   (p.obs || []).forEach(function (o) {
@@ -6155,7 +6187,7 @@ function vdf_linhasObs_(p, porChave, rotulo) {
   return { linhas: linhas, n: linhas.length, texto: txt.length ? '\n📝 ' + txt.map(function (t) { return t.replace(/^- /, ''); }).join(' · ') : '' };
 }
 
-// FormularioServidor.gs:2156
+// FormularioServidor.gs:2192
 function vdf_devolverCotacao(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -6196,7 +6228,7 @@ function vdf_devolverCotacao(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: obsL.n, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:2197
+// FormularioServidor.gs:2233
 function vd_ultimaDevolucao_(desc) {
   var resto = vd_dividir_(desc).resto || '', dev = null;
   resto.split('\n').forEach(function (raw) {
@@ -6208,7 +6240,7 @@ function vd_ultimaDevolucao_(desc) {
   return dev;
 }
 
-// FormularioServidor.gs:2212
+// FormularioServidor.gs:2248
 function vd_obsAutorizacoes_(desc) {
   var resto = vd_dividir_(desc).resto || '', out = [], atual = null;
   resto.split('\n').forEach(function (raw) {
@@ -6223,7 +6255,7 @@ function vd_obsAutorizacoes_(desc) {
   return out;
 }
 
-// FormularioServidor.gs:2230
+// FormularioServidor.gs:2266
 function vdf_marcarOrdemAutorizada(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -6244,7 +6276,7 @@ function vdf_marcarOrdemAutorizada(token, p) {
   return { ok: true, nome: card.name, url: card.shortUrl };
 }
 
-// FormularioServidor.gs:2254
+// FormularioServidor.gs:2290
 function vdf_avisarSolicitante(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -6271,7 +6303,7 @@ function vdf_avisarSolicitante(token, p) {
   return { ok: true, nome: card.name, url: card.shortUrl, quem: quem };
 }
 
-// FormularioServidor.gs:2284
+// FormularioServidor.gs:2320
 function vdf_salvarCompra(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -6457,7 +6489,7 @@ function vdf_salvarCompra(token, p) {
   return { ok: true, parcial: parcial, url: card.shortUrl, nome: card.name, pagas: n, pendentes: pendentes, foraAut: foraAut, anexos: axC.anexados, repetidos: axC.repetidos, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:2475
+// FormularioServidor.gs:2511
 function vdf_anexarCompra_(card, arqs, token, tipoAx) {   // tipoAx: AX.COMPRA (padrão) ou AX.COT (23/10/2026, anexos da cotação)
   var out = { anexados: [], repetidos: [] };
   if (!arqs || !arqs.length) return out;
@@ -6485,7 +6517,7 @@ function vdf_anexarCompra_(card, arqs, token, tipoAx) {   // tipoAx: AX.COMPRA (
   return out;
 }
 
-// FormularioServidor.gs:2501
+// FormularioServidor.gs:2537
 function vdf_txtAnexosCompra_(ax) {
   var t = '';
   if (ax.anexados.length) t += '\n📎 Negociação/pagamento: ' + ax.anexados.join(' · ');
@@ -6493,7 +6525,7 @@ function vdf_txtAnexosCompra_(ax) {
   return t;
 }
 
-// FormularioServidor.gs:2510
+// FormularioServidor.gs:2546
 function vd_pecasSemCotacao_(card) {
   var desc = card.desc || '', an = vd_analisar_(desc, card.name || '');
   var cot = { cotacoes: [], semCot: [] }, auts = [], compras = [];
@@ -6510,7 +6542,7 @@ function vd_pecasSemCotacao_(card) {
   }).map(vd_nomePeca_);
 }
 
-// FormularioServidor.gs:2526
+// FormularioServidor.gs:2562
 function vd_comprasDaDescricao_(desc) {
   var out = [];
   vd_limpar_(desc).split('\n').forEach(function (l) {
@@ -6525,7 +6557,7 @@ function vd_comprasDaDescricao_(desc) {
   return out;
 }
 
-// FormularioServidor.gs:2552
+// FormularioServidor.gs:2588
 function vdf_pecasDaBase_(placa, sinistro) {
   if (!placa) return null;
   var sin = String(sinistro || '').replace(/\D/g, ''), melhor = null;
@@ -6553,28 +6585,28 @@ function vdf_pecasDaBase_(placa, sinistro) {
     origem: melhor.B.org, rot: melhor.B.rot + ' ' + cl_rotVersao_(melhor.B, melhor.o.versao_baixada || '') };
 }
 
-// FormularioServidor.gs:2580
+// FormularioServidor.gs:2616
 function vdf_rotinaPecasBase(token, p) {
   if (!vdf_ehAutorizador_(vdf_usuario_(token))) throw new Error('Só a diretoria.');
   return { ok: true, base: vdf_pecasDaBase_(p.placa, p.sinistro) };
 }
 
-// FormularioServidor.gs:2587
+// FormularioServidor.gs:2623
 function vdf_fotoPecaLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_FOTO_PECA', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// FormularioServidor.gs:2589
+// FormularioServidor.gs:2625
 function vdf_soMaoDeObraLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_SO_MO', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// FormularioServidor.gs:2599
+// FormularioServidor.gs:2635
 function vdf_compraAntesAutLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_COMPRA_ANTES_AUT', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// FormularioServidor.gs:2600
+// FormularioServidor.gs:2636
 function vdf_refatLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_REFAT', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// FormularioServidor.gs:2602
+// FormularioServidor.gs:2638
 function vdf_liberadoPorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_LIBERADO_POR', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
-// FormularioServidor.gs:2604
+// FormularioServidor.gs:2640
 function vdf_salvar(token, p) {
   var trocasPart = { paraPart: [], paraSeg: [] };
   // 💾 Salvar parcial (13/10/2026, Weslley): grava o que já tem mesmo com dado faltando — o robô põe o card em FALTA DADOS e
@@ -7209,14 +7241,14 @@ function vdf_salvar(token, p) {
   return { ok: true, url: card.shortUrl, shortLink: card.shortLink, nome: card.name, acao: acao, novo: !p.shortLink, refat: refatAgora.sim, fo: nFo, foComp: nFoComp, comp: compOf.length, pagas: nPagas, anexos: anexados, capa: capaOk, repetidos: repetidos, forn: forn };
 }
 
-// FormularioServidor.gs:3239
+// FormularioServidor.gs:3275
 function vdf_subirArquivo(token, base64, mime, nome) {
   vdf_usuario_(token);
   var blob = Utilities.newBlob(Utilities.base64Decode(base64), mime, nome);
   return { fileId: vdf_pastaTemp_().createFile(blob).getId() };
 }
 
-// FormularioServidor.gs:3251
+// FormularioServidor.gs:3287
 function vdf_cotacaoIndisponivel(token, p) {
   var me = vdf_usuario_(token);
   p = vdf_entrada_(p);
@@ -7291,21 +7323,21 @@ function vdf_cotacaoIndisponivel(token, p) {
   return { ok: true, url: card.shortUrl, nome: card.name, n: linhas.length, nova: temNova, semNova: semNova, lista: movido || vdf_nomeLista_(ctx, card.idList) };
 }
 
-// FormularioServidor.gs:3328
+// FormularioServidor.gs:3364
 function vdf_complExige_(peca, card, an) {
   if (!peca || !peca.complemento || peca.particular) return false;
   if (vd_semSeguradora_(an.dados.tipo) || vdf_ehParticular_(card, an)) return false;
   return true;
 }
 
-// FormularioServidor.gs:3334
+// FormularioServidor.gs:3370
 function vdf_complNorm_(status, por) {
   var st = vd_semAcento_(String(status || '')).toUpperCase().replace(/[^A-Z]/g, '');
   if (!/^(AUTORIZADO|ANTECIPADO)$/.test(st)) return null;
   return { status: st, por: st === 'ANTECIPADO' ? String(por || '').replace(/\s*\n\s*/g, ' ').replace(/\|/g, '/').trim().slice(0, 60).toUpperCase() : '' };
 }
 
-// FormularioServidor.gs:3340
+// FormularioServidor.gs:3376
 function vdf_regravarLinhasPeca_(card, pecas, token) {
   var div = vd_dividir_(card.desc), bloco = div.bloco, mexeu = false;
   pecas.forEach(function (peca) {

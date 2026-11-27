@@ -1942,6 +1942,28 @@ function vdf_mencao_(us) {
   return (us || []).filter(function (u, i, a) { return u && a.indexOf(u) === i; }).map(function (u) { return '@' + u + ' '; }).join('');
 }
 
+/* 27/11/2026 (Weslley): 🚫 não comprar pelo consultor na aba Autorizar e arquivamento do particular puro sem nada autorizado.
+ * TESTE: ligado. Principal: só com VD_NC_CONSULTOR=SIM (com o OK do Weslley). */
+function vdf_ncConsultorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_NC_CONSULTOR', 'NAO') === 'SIM'; } catch (e) { return false; } }
+/**
+ * Particular PURO (não retorno, sem peça da seguradora) em que TODAS as peças ficaram 🚫 não comprar e nada foi autorizado,
+ * comprado, fornecido ou devolvido: comenta o motivo e arquiva o card. Devolve true se arquivou. `an` já é a análise da
+ * descrição nova (peça 🚫 sai de an.pecas e fica em an.naoComprar).
+ */
+function vdf_arquivarRecusado_(card, an, naos, me, token) {
+  if (!vdf_ncConsultorLigada_()) return false;
+  if (!vdf_ehParticular_(card, an) || an.dados.tipo === 'RETORNO' || /\bRETORNO\b/i.test(card.name || '')) return false;
+  if ((an.pecas || []).length || !(an.naoComprar || []).length) return false;              // sobrou peça para decidir/comprar
+  if (vd_autorizacoesDaDescricao_(vd_api_('/cards/' + card.id, { query: { fields: 'desc' } }).desc, (an.pecas || []).concat(an.naoComprar || [])).length) return false;
+  var ls = vd_api_('/cards/' + card.id, { query: { fields: 'id', checklists: 'all', checkItem_fields: 'name' } }).checklists || [];
+  if (ls.some(function (k) { return (k.checkItems || []).length > 0; })) return false;      // algo comprado, fornecido ou em devolução
+  var motivos = (an.naoComprar || []).map(function (x) { return x.naoMotivo; }).filter(function (t, i, a) { return t && a.indexOf(t) === i; });
+  vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '🗄️ **CARD ARQUIVADO** — ' + me.fullName + ' · pedido particular sem nenhuma peça autorizada (' + (an.naoComprar || []).length + ' peça(s) 🚫 não comprar' + (motivos.length ? ': ' + motivos.join('; ') : '') + '). Para reabrir, desarquive o card e edite o pedido.' } }, token);
+  vd_api_('/cards/' + card.id, { method: 'put', payload: { closed: true } }, token);
+  try { ev_registrar_('ARQUIVADO', card, me.username, (an.naoComprar || []).map(ev_peca_), { detalhe: 'particular sem peça autorizada: ' + motivos.join('; ') }); } catch (e) {}
+  return true;
+}
+
 /**
  * p = {shortLink, escolhas:[{chave, fornecedor, valor}]}
  * Autorizador (ou, no particular, o consultor que criou) escolhe UMA cotação por peça.
@@ -1966,6 +1988,18 @@ function vdf_autorizar(token, p) {
    * complementar; compra entra em PAGAS COMPLEMENTO) ou 🚫 NÃO COMPRAR (sai do fluxo, fica de registro) — sem precisar
    * abrir o pedido do consultor. p.marcas = [{chave, complemento:true|false} | {chave, naoComprar:true, motivo}] */
   var marcas = vdf_ehAutorizador_(me) ? (p.marcas || []) : [];
+  /* 27/11/2026 (Weslley: "precisa servir também para os consultores poderem informar que o cliente não autorizou"): o consultor
+   * marca 🚫 NÃO COMPRAR com motivo nas peças que ELE pode autorizar (particulares dele) — só essa marca, nada de complemento. */
+  if (!vdf_ehAutorizador_(me) && vdf_ncConsultorLigada_()) {
+    var semMot = [];
+    marcas = (p.marcas || []).filter(function (m) {
+      var pc = m && m.naoComprar && porChave[m.chave];
+      if (!pc || !vdf_podeAutorizarPeca_(me, card, an, pc, criador)) return false;
+      if (String(m.motivo || '').replace(/[^A-Za-zÀ-ÿ]/g, '').length < 3) { semMot.push(vd_nomePeca_(pc)); return false; }
+      return true;
+    });
+    if (semMot.length) return { ok: false, faltas: semMot.map(function (n) { return n + ': não comprar — escreva o motivo (ex.: cliente não autorizou).'; }) };
+  }
   /* 07/10/2026 (Weslley): como na cotação — "Salvar parcial" guarda as autorizações sem mover o card nem avisar o
    * comprador; "Enviar autorização" fecha (move) e pode vir sem escolha nova, só para fechar o que foi salvo antes */
   var parcial = !!p.parcial;
@@ -2057,6 +2091,8 @@ function vdf_autorizar(token, p) {
     if (!linhas.length) {
       // só marcas, sem autorização nova: comentário próprio; a coluna é reavaliada (card pode ter ficado sem peça da oficina)
       try { vd_api_('/cards/' + card.id + '/actions/comments', { method: 'post', payload: { text: '✏️ **Peças marcadas na autorização** — ' + me.fullName + txtM + obsL.texto } }, token); } catch (e) {}
+      // 27/11/2026 (Weslley): particular puro em que nada foi autorizado/comprado -> arquivado (antes ia para ENTREGUES pela regra de 06/11)
+      try { if (naos.length && vdf_arquivarRecusado_(card, an, naos, me, token)) return { ok: true, arquivado: true, url: card.shortUrl, nome: card.name, n: 0, total: 0, semAut: 0, aguarda: [], marcas: marcadas.length, lista: 'ARQUIVADO — nenhuma peça autorizada' }; } catch (e) { console.log('arquivar recusado: ' + e); }
       var mv = ''; try { mv = rc_reavaliarColuna_(card.id, token, me.username); } catch (e) {}
       try { vd_marcar_(card); } catch (e) {}
       return { ok: true, url: card.shortUrl, nome: card.name, n: 0, total: 0, semAut: 0, aguarda: [], marcas: marcadas.length, lista: mv || vdf_nomeLista_(ctx, card.idList) };

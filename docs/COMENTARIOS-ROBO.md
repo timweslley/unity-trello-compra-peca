@@ -89,6 +89,7 @@ Legenda da coluna "Proposta": **M** manter como está · **S** silenciar · **J*
 
 | Comentário | Quando sai | @ | Proposta |
 |---|---|---|---|
+| `🗄️ CARD ARQUIVADO — Nome · pedido particular sem nenhuma peça autorizada (N peça(s) 🚫 não comprar: motivos)` (27/11/2026) | Enviar autorização só com 🚫 em particular puro | ninguém | **M** |
 | `🛒 COMPRA — Nome · N item(ns) → FALTA CHEGAR` (+ ⏳ falta comprar / ⚠️ FORA DA AUTORIZAÇÃO / anexos) | Enviar compra | **@diretoria** só se fora da autorização | **M** |
 | `💾 COMPRA PARCIAL salva — …` | Salvar parcial | não | **S** (mesma regra) |
 | `🛒 COMPRA ENVIADA — todas as peças já estavam registradas` | reenvio sem item novo | não | **F**: `🔁 Compra reenviada sem alteração` ou **S** |

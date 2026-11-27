@@ -11396,5 +11396,30 @@ html.v2toque #v2carro .cp { min-height:44px; min-width:44px; padding:0 14px; fon
   };
 })();
 </script>
+<script>
+/* 27/11/2026 (Weslley: "preciso ter uma opção de mudar para não comprar e dar o motivo ao invés de abrir o outro link e mudar o
+ * pedido; precisa servir também para os consultores poderem informar que o cliente não autorizou") — camada 2.0, aba Autorizar,
+ * computador e celular: quem NÃO é diretoria (consultor, nas peças que ele autoriza) ganha em cada peça o chip 🚫 Não comprar
+ * com o campo do motivo — o mesmo da diretoria (mesmas classes: o envio clássico já manda em p.marcas; o servidor confere quem
+ * pode). Particular puro com tudo 🚫 e nada comprado é arquivado pelo servidor. Chave PU_CFG.NC_CONSULTOR: 'teste' | 'todos'. */
+(function () {
+  if (/[?&]v2=0(&|$)/.test(location.search)) return;
+  var cfg = window.PU_CFG && PU_CFG.NC_CONSULTOR, ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  function por() {
+    var c = window.CARD, box = document.getElementById('autItens'); if (!c || !box || c.diretoria) return;
+    Array.prototype.forEach.call(box.children, function (it) {
+      if (!it.classList || !it.classList.contains('item') || it.dataset.fora || it.dataset.ncCons || it.querySelector('.a-nao') || it.querySelector('.comprado')) return;
+      it.dataset.ncCons = '1';
+      var chips = document.createElement('div'); chips.className = 'chips v2-nc-chips'; chips.style.margin = '4px 0 6px';
+      chips.innerHTML = '<label class="chip chip-nao" title="A peça não vai ser comprada (cliente não autorizou, vai recuperar…): sai da autorização, da compra e dos totais"><input type="checkbox" class="a-nao" onchange="autMarca(this)"> 🚫 Não comprar</label>';
+      var mot = document.createElement('div'); mot.className = 'nao-motivo oculto';
+      mot.innerHTML = '<input type="text" class="a-nao-motivo maiusc" maxlength="80" placeholder="Ex.: cliente não autorizou">';
+      it.appendChild(chips); it.appendChild(mot);
+    });
+  }
+  setInterval(function () { try { por(); } catch (x) {} }, 700);
+})();
+</script>
 </body>
 </html>
