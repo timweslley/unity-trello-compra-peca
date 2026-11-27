@@ -6923,7 +6923,7 @@ iniciar();
         if (inn) inn.setAttribute('aria-label', 'Não comprar — ' + nm);
       }
       var nmo = it.querySelector('.a-nao-motivo');
-      if (nmo && !nmo.dataset.v2c) { nmo.dataset.v2c = '1'; nmo.placeholder = 'Ex.: recuperar a peça; cliente já tem'; rotuloVisivel(nmo, 'Motivo de não comprar', true); }
+      if (nmo && !nmo.dataset.v2c) { nmo.dataset.v2c = '1'; nmo.placeholder = 'Ex.: cliente não autorizou; recuperar a peça'; rotuloVisivel(nmo, 'Motivo de não comprar', true); }
       var cpl = it.querySelector(':scope > label.chip:has(.a-compl)');
       if (cpl && !cpl.dataset.v2c) { cpl.dataset.v2c = '1'; cpl.classList.add('v2c-marca', 'v2c-compl'); tirarVisto(cpl); }
       var ops = $$(':scope > label.opcao-aut', it);
@@ -11419,6 +11419,27 @@ html.v2toque #v2carro .cp { min-height:44px; min-width:44px; padding:0 14px; fon
     });
   }
   setInterval(function () { try { por(); } catch (x) {} }, 700);
+  /* resultado do envio quando o servidor arquivou o card (particular puro sem nada autorizado): o cartão diz isso — sem a
+   * coluna antiga nem "o comprador cota as peças" */
+  var sOrig = window.sucesso;
+  if (typeof sOrig === 'function') window.sucesso = function (h) {
+    var r = sOrig.apply(this, arguments);
+    if (/ARQUIVADO — nenhuma peça autorizada/.test(String(h || ''))) {
+      var acerta = function () {
+        var cx = document.querySelector('.v2r-cx'); if (!cx || cx.dataset.arq) return;
+        cx.dataset.arq = '1';
+        var t = cx.querySelector('.v2r-tit'); if (t) t.textContent = 'Card arquivado';
+        var col = cx.querySelector('.v2r-col'); if (col) col.innerHTML = 'O card foi <span class="v2r-chip">ARQUIVADO</span>';
+        var px = cx.querySelector('.v2r-prox > div'); if (px) px.innerHTML = '<b>Próximo passo</b>Nada a fazer: nenhuma peça foi autorizada. Se o cliente mudar de ideia, desarquive o card no Trello e edite o pedido.';
+        Array.prototype.forEach.call(cx.querySelectorAll('.v2r-det li'), function (li) {
+          if (/O card está em/i.test(li.textContent)) li.remove();
+          else if (/marca[çc]/i.test(li.textContent)) { var sp = li.querySelector('span'); if (sp) sp.textContent = 'Todas as peças ficaram como não comprar, com o motivo no card.'; }
+        });
+      };
+      setTimeout(acerta, 60); setTimeout(acerta, 400);
+    }
+    return r;
+  };
 })();
 </script>
 </body>
