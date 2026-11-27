@@ -11306,5 +11306,65 @@ html.v2toque #v2nfp .acoes button { min-height:48px; font-size:16px; } html.v2to
   html.v2toque :is(#v2dSemNfBal, #v2dCancBal) textarea { font-size:16px !important; min-height:88px; }
   html.v2toque :is(#v2dSemNfBal, #v2dCancBal) :is(.v2-bt, .dica, label) { font-size:15px !important; line-height:21px !important; }
 </style>
+<style>
+/* 27/11/2026 — bloco "Carro" (dados do veículo do pedido) nas telas de quem cota, autoriza e compra. */
+#v2carro { margin:0 0 10px; padding:8px 12px; background:#fff; border:1px solid #091e4224; border-radius:var(--r-sm, 6px); color:#172b4d; font-size:14px; line-height:20px; display:flex; flex-wrap:wrap; align-items:center; gap:4px 14px; }
+#v2carro .t { font-weight:700; color:#44546f; text-transform:uppercase; font-size:12px; letter-spacing:.3px; }
+#v2carro .c { display:inline-flex; align-items:center; gap:5px; min-width:0; }
+#v2carro .c > span { color:#44546f; }
+#v2carro .c > b { font-weight:600; overflow-wrap:anywhere; }
+#v2carro .c.falta > b { color:#7f5f01; font-weight:500; font-style:italic; }
+#v2carro .cp { border:1px solid #c1c7d0; background:#fff; color:#0c66e4; border-radius:var(--r-sm, 6px); font:inherit; font-size:13px; font-weight:600; padding:2px 8px; cursor:pointer; min-height:28px; }
+#v2carro .cp:hover { background:#e9f2ff; }
+#v2carro .cp:focus-visible { outline:2px solid #0c66e4; outline-offset:2px; }
+html.v2toque #v2carro { font-size:15px; line-height:21px; padding:10px 12px; gap:6px 14px; }
+html.v2toque #v2carro .cp { min-height:44px; min-width:44px; padding:0 14px; font-size:15px; }
+</style>
+<script>
+/* 27/11/2026 (Weslley: "os dados do carro que cadastramos no pedido de peças também não estão aparecendo, o comprador e
+ * autorizador precisam sair da tela pra acessar… é uma falha grave") — camada 2.0, computador e celular: bloco "Carro" fixo no
+ * topo das abas de quem cota, autoriza e compra, com modelo, ano, motor, chassi (botão Copiar), cor, seguradora e sinistro
+ * (CARD.dados, o mesmo que o pedido gravou). Só exibição: nada muda nos envios. Chave PU_CFG.CARRO_TOPO: 'teste' | 'todos'. */
+(function () {
+  if (/[?&]v2=0(&|$)/.test(location.search)) return;
+  var cfg = window.PU_CFG && PU_CFG.CARRO_TOPO, ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  var g = function (id) { return document.getElementById(id); };
+  var e2 = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  function campo(rot, v, obrig) {
+    v = String(v == null ? '' : v).trim();
+    if (!v && !obrig) return '';
+    return '<span class="c' + (v ? '' : ' falta') + '"><span>' + rot + ':</span> <b>' + (v ? e2(v) : 'não informado') + '</b></span>';
+  }
+  function html() {
+    var c = window.CARD, d = c && c.dados; if (!d) return '';
+    var seg = c.tipo !== 'PARTICULAR' && c.tipo !== 'RETORNO', ch = String(d.chassi || '').trim();
+    return '<div id="v2carro" role="group" aria-label="Dados do carro"><span class="t">Carro</span>'
+      + campo('Modelo', d.modelo, true) + campo('Ano', d.ano, true) + campo('Motor', d.motor, true)
+      + '<span class="c' + (ch ? '' : ' falta') + '"><span>Chassi:</span> <b>' + (ch ? e2(ch) : 'não informado') + '</b>'
+      + (ch ? '<button type="button" class="cp" data-ch="' + e2(ch) + '" aria-label="Copiar o chassi">Copiar</button>' : '') + '</span>'
+      + campo('Cor', d.cor, true)
+      + (seg ? campo('Seguradora', d.seguradora, false) + campo('Sinistro', d.sinistro, false) : '')
+      + '</div>';
+  }
+  function por() {
+    var ic = g('infoComprador'), comp = g('comprador'), atual = g('v2carro');
+    if (!ic || !comp || comp.classList.contains('oculto')) { if (atual) atual.remove(); return; }
+    var h = html();
+    if (!h) { if (atual) atual.remove(); return; }
+    if (atual && atual.dataset.h === h && atual.nextElementSibling === ic) return;
+    if (atual) atual.remove();
+    var w = document.createElement('div'); w.innerHTML = h; var el = w.firstChild; el.dataset.h = h;
+    ic.parentNode.insertBefore(el, ic);
+  }
+  setInterval(function () { try { por(); } catch (x) {} }, 900);
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest && e.target.closest('#v2carro .cp'); if (!b) return;
+    var t = b.getAttribute('data-ch') || '', ok = function () { b.textContent = 'Copiado ✓'; setTimeout(function () { b.textContent = 'Copiar'; }, 1800); };
+    var velho = function () { try { var ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); ok(); } catch (x) {} };
+    try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, velho); else velho(); } catch (x) { velho(); }
+  });
+})();
+</script>
 </body>
 </html>
