@@ -77,6 +77,9 @@ window.PU_CFG = {
   /* 25/11/2026 (Weslley, SEB0J49): compra antes de a autorização ser enviada (PENDENTE AUTORIZAR / COTAÇÃO FINALIZADA),
    * com motivo por peça; fica no card como FORA DA AUTORIZAÇÃO. 'teste' = só no TESTE; 'todos' = principal (com OK do
    * Weslley + propriedade VD_COMPRA_ANTES_AUT=SIM no robô). */
+  /* 27/11/2026 (Weslley): fornecedores cotados que NÃO TÊM a peça (NT) aparecem na faixa amarela do topo, junto das demais
+   * observações (Autorizar, Compra…). Só exibição. 'teste' = só no TESTE; 'todos' = principal. */
+  NT_AVISO: 'teste',
   COMPRA_ANTES_AUT: 'todos',   // 25/11/2026 16h31 — Weslley: "pode" (conferido no TESTE no computador, card ZZT9C01; voltar: 'teste' + VD_COMPRA_ANTES_AUT=NAO)
   ENVIAR_DIRETORIA: 'todos',   // 24/11/2026 09h29 — Weslley: "1 ligar" (conferido no TESTE no computador e no celular, card AAZ0E84)
   DEV_SEM_NF: 'todos',   // 19/11/2026 11h19 — Weslley: "ok habilitar" (conferido no TESTE no computador e no celular, card ZZT9H01; voltar: 'teste')

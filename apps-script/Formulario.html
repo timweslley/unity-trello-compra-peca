@@ -10306,7 +10306,8 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
   /* 11/11/2026 10h57 (Weslley: "deve valer também para outras obs gerais, seja pelo atendente ou autorização etc"): a observação
    * geral do PEDIDO (consultor/atendente, campo "Observações" — CARD.obs, que o comprador também não via) entra na mesma faixa,
    * antes das de quem autorizou. A da devolução já tem o aviso próprio "↩️ Cotação devolvida" e não repete aqui. */
-  function obs() {
+  var NT_LIGADO = (function () { var cfg = window.PU_CFG && PU_CFG.NT_AVISO, ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR; return cfg === 'todos' || (cfg === 'teste' && ehTeste); })();
+  function obs(noBalao) {
     var c = window.CARD; if (!c) return [];
     var out = [];
     // 16/11/2026: pedido com nota de refaturamento — primeiro aviso da faixa (e do balão da compra)
@@ -10314,6 +10315,11 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
     var op = String(c.obs || '').trim();
     if (op) out.push({ de: 'Observação do pedido', quem: c.solicitante || '', quando: '', texto: op });
     (Array.isArray(c.obsAutorizacao) ? c.obsAutorizacao : []).forEach(function (o) { if (o && String(o.texto || '').trim()) out.push({ de: 'Quem autorizou', quem: o.quem || '', quando: o.quando || '', texto: String(o.texto).trim() }); });
+    /* 27/11/2026 (Weslley: "fornecedores cotados que não tem não aparece na tela de autorização… por em cima em amarelo junto
+     * com demais obs"): os fornecedores marcados NT (não tem) na cotação — só apareciam na aba Cotação — entram na faixa do topo
+     * (não no balão da compra). Chave PU_CFG.NT_AVISO: 'teste' | 'todos'. */
+    var nt = NT_LIGADO && !noBalao && c.cotacoes && Array.isArray(c.cotacoes.nt) ? c.cotacoes.nt.filter(String) : [];
+    if (nt.length) out.push({ de: 'Cotados que não têm a peça', quem: '', quando: '', texto: nt.join(', ') });
     return out;
   }
   function html(lista, noBalao) {
@@ -10339,7 +10345,7 @@ html.v2toque:not(.v2-detalhes) #comprador #infoComprador > .aviso.v2-autobs { fo
   // no balão de confirmação da compra — ouve em window (captura), antes do bloco que abre o balão e corta a propagação
   window.addEventListener('click', function (e) {
     var b = e.target && e.target.closest && e.target.closest('#btnCompra, #btnCompraParcial'); if (!b) return;
-    var lista = obs(); if (!lista.length) return;
+    var lista = obs(true); if (!lista.length) return;
     var poe = function () {
       var bal = g('v2cpConf'); if (!bal || bal.style.display === 'none' || bal.querySelector('.v2-autobs')) return false;
       var alvo = bal.querySelector('.v2-bt') || bal.firstElementChild; if (!alvo) return false;
