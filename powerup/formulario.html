@@ -11366,5 +11366,35 @@ html.v2toque #v2carro .cp { min-height:44px; min-width:44px; padding:0 14px; fon
   });
 })();
 </script>
+<script>
+/* 27/11/2026 (Weslley, ATP5105: "eu já tinha informado que era um retorno e ainda o sistema pediu e deu de novo a opção, acho que
+ * torna possível um erro") — camada 2.0: quem escolheu "Card novo … (retorno interno)" já disse que quer OUTRO card; no envio
+ * o aviso "Já existe card aberto para este carro" repetia a pergunta com os botões azuis "Atualizar o card…" (um toque ali
+ * trocava o retorno pela edição do card antigo). Agora, vindo desse botão, com o tipo ainda em Retorno e a mesma placa, o
+ * envio segue direto (criarMesmoAssim). Continua perguntando se já existe um card de RETORNO aberto para o carro (duplicado
+ * de verdade) e em todos os outros casos. Chave PU_CFG.RETORNO_DIRETO: 'teste' | 'todos'. */
+(function () {
+  if (/[?&]v2=0(&|$)/.test(location.search)) return;
+  var cfg = window.PU_CFG && PU_CFG.RETORNO_DIRETO, ehTeste = typeof URL_CHAMADA !== 'undefined' && window.PU_CFG && URL_CHAMADA === PU_CFG.URL_SERVIDOR;
+  if (!(cfg === 'todos' || (cfg === 'teste' && ehTeste))) return;
+  if (typeof window.copiarCarro !== 'function' || typeof window.confirmarDuplicado !== 'function') return;
+  var lp = function (s) { return String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, ''); };
+  var escolheu = false, cOrig = window.copiarCarro, dOrig = window.confirmarDuplicado;
+  window.copiarCarro = function () { escolheu = true; return cOrig.apply(this, arguments); };
+  window.confirmarDuplicado = function (r, payload) {
+    try {
+      var ret = payload && !payload.shortLink && payload.novo && payload.novo.tipo === 'RETORNO';
+      var dup = (r && r.duplicado) || [];
+      var jaTemRetorno = dup.some(function (c) { return /RETORNO/i.test(String(c.nome || '')); });
+      var mesmaPlaca = dup.length && dup.every(function (c) { return c.porChassi || lp(c.nome).indexOf(lp(payload.dados && payload.dados.placa)) >= 0; });
+      if (escolheu && ret && !jaTemRetorno && mesmaPlaca && typeof window.enviarPayload === 'function') {
+        payload.criarMesmoAssim = true;
+        return window.enviarPayload(payload);
+      }
+    } catch (x) { console.log('retorno direto', x && x.message); }
+    return dOrig.apply(this, arguments);
+  };
+})();
+</script>
 </body>
 </html>
