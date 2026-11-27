@@ -11249,9 +11249,9 @@ html.v2toque #v2carro .cp { min-height:44px; min-width:44px; padding:0 14px; fon
     var r = sOrig.apply(this, arguments);
     if (/ARQUIVADO — nenhuma peça autorizada/.test(String(h || ''))) {
       var acerta = function () {
-        var cx = document.querySelector('.v2r-cx'); if (!cx || cx.dataset.arq) return;
+        var t = document.getElementById('v2resTit'), cx = t && t.closest('.v2r-cx'); if (!cx || cx.dataset.arq) return;
         cx.dataset.arq = '1';
-        var t = cx.querySelector('.v2r-tit'); if (t) t.textContent = 'Card arquivado';
+        t.textContent = 'Card arquivado';
         var col = cx.querySelector('.v2r-col'); if (col) col.innerHTML = 'O card foi <span class="v2r-chip">ARQUIVADO</span>';
         var px = cx.querySelector('.v2r-prox > div'); if (px) px.innerHTML = '<b>Próximo passo</b>Nada a fazer: nenhuma peça foi autorizada. Se o cliente mudar de ideia, desarquive o card no Trello e edite o pedido.';
         Array.prototype.forEach.call(cx.querySelectorAll('.v2r-det li'), function (li) {
