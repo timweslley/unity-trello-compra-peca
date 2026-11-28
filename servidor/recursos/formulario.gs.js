@@ -5955,7 +5955,7 @@ function vdf_mencao_(us) {
 }
 
 // FormularioServidor.gs:1947
-function vdf_ncConsultorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_NC_CONSULTOR', 'NAO') === 'SIM'; } catch (e) { return false; } }
+function vdf_ncConsultorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_NC_CONSULTOR', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 
 // FormularioServidor.gs:1953
 function vdf_arquivarRecusado_(card, an, naos, me, token) {

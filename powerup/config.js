@@ -88,7 +88,7 @@ window.PU_CFG = {
   /* 27/11/2026 (Weslley): aba Autorizar — o consultor também marca 🚫 Não comprar com motivo ("cliente não autorizou") nas peças
    * que ele autoriza; particular puro com tudo 🚫 e nada comprado é arquivado. 'teste' = só no TESTE; 'todos' = principal
    * (com OK do Weslley + propriedade VD_NC_CONSULTOR=SIM no robô). */
-  NC_CONSULTOR: 'teste',
+  NC_CONSULTOR: 'todos',   // 27/11/2026 23h37 — Weslley: "Pode" (conferido no TESTE no computador, card TST7N27; voltar: 'teste' + VD_NC_CONSULTOR=NAO)
   CARRO_TOPO: 'todos',   // 27/11/2026 12h35 — Weslley: "pode fazer" (conferido no TESTE no computador e no celular, card ZZT9C01; voltar: 'teste')
   NT_AVISO: 'todos',   // 27/11/2026 12h35 — Weslley: "pode fazer" (conferido no TESTE no computador e no celular, card ZZT9C01 e DEM2A02; voltar: 'teste')
   COMPRA_ANTES_AUT: 'todos',   // 25/11/2026 16h31 — Weslley: "pode" (conferido no TESTE no computador, card ZZT9C01; voltar: 'teste' + VD_COMPRA_ANTES_AUT=NAO)

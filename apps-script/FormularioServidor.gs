@@ -1943,8 +1943,8 @@ function vdf_mencao_(us) {
 }
 
 /* 27/11/2026 (Weslley): 🚫 não comprar pelo consultor na aba Autorizar e arquivamento do particular puro sem nada autorizado.
- * TESTE: ligado. Principal: só com VD_NC_CONSULTOR=SIM (com o OK do Weslley). */
-function vdf_ncConsultorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_NC_CONSULTOR', 'NAO') === 'SIM'; } catch (e) { return false; } }
+ * 27/11 23h37: ligado no principal (Weslley: "Pode"). Desligar: propriedade VD_NC_CONSULTOR=NAO + chave NC_CONSULTOR='teste'. */
+function vdf_ncConsultorLigada_() { try { return vd_board_() === 'ZX4gRmnX' || vd_prop_('VD_NC_CONSULTOR', 'SIM') !== 'NAO'; } catch (e) { return false; } }
 /**
  * Particular PURO (não retorno, sem peça da seguradora) em que TODAS as peças ficaram 🚫 não comprar e nada foi autorizado,
  * comprado, fornecido ou devolvido: comenta o motivo e arquiva o card. Devolve true se arquivou. `an` já é a análise da
